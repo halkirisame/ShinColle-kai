@@ -1,0 +1,37 @@
+{
+  "equip_id": 2213,
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "abyss_metal_1",
+    "amount": 1,
+    "rare_mean": 1
+  },
+  "roll_type": 13,
+  "stats": {
+    "hp": 99999,
+    "atk_l": 99999,
+    "atk_h": 99999,
+    "atk_al": 99999,
+    "atk_ah": 99999,
+    "def": 99999,
+    "spd": 99999,
+    "mov": 99999,
+    "hit": 99999,
+    "cri": 99999,
+    "dhit": 99999,
+    "thit": 99999,
+    "miss": 99999,
+    "aa": 99999,
+    "asm": 99999,
+    "dodge": 99999,
+    "xp": 99999,
+    "grudge": 99999,
+    "ammo": 99999,
+    "hpres": 99999,
+    "kb": 99999
+  }
+}

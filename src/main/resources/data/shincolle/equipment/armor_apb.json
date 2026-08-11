@@ -1,0 +1,20 @@
+{
+  "equip_id": 619,
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "armor",
+  "develop": {
+    "material": "abyss_metal",
+    "amount": 500,
+    "rare_mean": 4000
+  },
+  "roll_type": 19,
+  "stats": {
+    "hp": 120.0,
+    "def": 0.24,
+    "mov": -0.35,
+    "kb": 0.3
+  }
+}

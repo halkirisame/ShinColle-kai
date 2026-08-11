@@ -1,0 +1,194 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'org.spongepowered.mixin' version '0.7.+'
+}
+
+// This mod declares no mixins of its own - the plugin is here because it
+// also sets up the SRG->MCP refmap remapping the dev run needs to resolve
+// OTHER mods' mixins (Curios' accessors fail outright without it).
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            workingDirectory project.file('.')
+            property 'forge.enabledGameTestNamespaces', "${mod_id},minecraft"
+            property 'forge.logging.console.level', 'info'
+            jvmArgs '--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED'
+            args '--nogui'
+        }
+
+        data {
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+// Expand gradle.properties into mods.toml
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+        minecraft_version   : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        forge_version       : forge_version,
+        forge_version_range : forge_version_range,
+        loader_version_range: loader_version_range,
+        mod_id              : mod_id,
+        mod_version         : mod_version,
+        mod_authors         : mod_authors,
+        mod_description     : mod_description,
+        mod_license         : mod_license,
+    ]
+    inputs.properties(replaceProperties)
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+repositories {
+    maven { url 'https://maven.minecraftforge.net/' }
+    maven {
+        name = "Jared's maven"
+        url = 'https://maven.blamejared.com/'
+    }
+    // Sources for the dev-only verification mods below.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+    maven {
+        name = 'CurseForge'
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+    maven {
+        name = 'theillusivec4'
+        url = 'https://maven.theillusivec4.top/'
+        content { includeGroup 'top.theillusivec4.curios' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    // JEI - deobfuscated for dev environment
+    compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.20.0.129")
+    compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.20.0.129")
+    runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:15.20.0.129")
+
+    // Curios API - optional. Gives ship-girls a parallel set of equipment
+    // slots that other mods' items can occupy (see com.lulan.shincolle.equip).
+    // All curios-referencing code lives behind a ModList.isLoaded("curios")
+    // guard so the mod works standalone without it.
+    compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1:api")
+    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1")
+
+    // Tinkers' Construct (+ its required Mantle) - optional. Lets a Curios
+    // ship-equip slot read a Tinkers tool's own material/modifier stats
+    // (see com.lulan.shincolle.equip.tinkers). All tconstruct-referencing
+    // code lives behind a ModList.isLoaded("tconstruct") guard, same as Curios.
+    compileOnly fg.deobf("curse.maven:mantle-74924:7414488")
+    compileOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+    runtimeOnly fg.deobf("curse.maven:mantle-74924:7414488")
+    runtimeOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+
+    // ---- Verification mods (runClient only, never shipped) --------------------
+    // Dropping release jars into run/mods does not work in a dev run: those jars
+    // carry obfuscated names while the dev runtime uses readable ones. They have
+    // to come through fg.deobf so ForgeGradle remaps them.
+    //
+    //   Modrinth    runtimeOnly fg.deobf("maven.modrinth:<slug>:<version>")
+    //   CurseForge  runtimeOnly fg.deobf("curse.maven:<slug>-<projectId>:<fileId>")
+    //
+    // Jade (entity info under the crosshair) is off: its mixins into vanilla Font
+    // look up SRG names (m_253238_, m_6411_) that this dev run cannot resolve,
+    // because Jade's own refmap is never remapped to the Parchment names the dev
+    // environment uses. Both 11.8.0 and 11.13.3 die the same way, on different
+    // methods, so downgrading is not the answer. The thing to try next is passing
+    // mixin.env.remapRefMap / mixin.env.refMapRemappingFile to the run config.
+    // runtimeOnly fg.deobf("maven.modrinth:jade:11.8.0")
+    // Edits this mod's config (engageDistance and friends) in-game, no restart.
+    runtimeOnly fg.deobf("maven.modrinth:forge-config-screens:v8.0.2-1.20.1-Forge")
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+            'Specification-Title'     : mod_id,
+            'Specification-Vendor'    : mod_authors,
+            'Specification-Version'   : '1',
+            'Implementation-Title'    : project.name,
+            'Implementation-Version'  : project.jar.archiveVersion,
+            'Implementation-Vendor'   : mod_authors,
+            'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:all'
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}
+
+apply plugin: 'checkstyle'
+
+checkstyle {
+    toolVersion = '10.18.1'
+    configFile = file('config/checkstyle/checkstyle.xml')
+}

@@ -1,0 +1,21 @@
+{
+  "equip_id": 206,
+  "compatible": [
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "abyss_metal_1",
+    "amount": 2400,
+    "rare_mean": 4000
+  },
+  "roll_type": 6,
+  "stats": {
+    "atk_al": 7.0,
+    "atk_ah": 28.0,
+    "mov": -0.18,
+    "hit": 2.5,
+    "aa": 9.0,
+    "asm": 24.0
+  }
+}

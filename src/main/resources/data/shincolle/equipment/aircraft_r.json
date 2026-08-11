@@ -1,0 +1,29 @@
+{
+  "equip_id": 1312,
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "abyss_metal_1",
+    "amount": 256,
+    "rare_mean": 200
+  },
+  "roll_type": 12,
+  "stats": {
+    "atk_l": 1.0,
+    "atk_h": 1.0,
+    "atk_al": 1.0,
+    "atk_ah": 1.0,
+    "def": 0.03,
+    "spd": 0.02,
+    "mov": -0.1,
+    "hit": 3.5,
+    "cri": 0.03,
+    "miss": 0.1,
+    "aa": 8.0,
+    "asm": 4.0,
+    "dodge": 0.08
+  }
+}

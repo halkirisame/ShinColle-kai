@@ -1,0 +1,19 @@
+{
+  "equip_id": 24,
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "abyss_metal",
+    "amount": 120,
+    "rare_mean": 2000
+  },
+  "roll_type": 24,
+  "stats": {
+    "mov": -0.25,
+    "xp": 0.5,
+    "hpres": 0.15
+  }
+}

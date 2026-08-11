@@ -1,0 +1,22 @@
+{
+  "equip_id": 26,
+  "compatible": [
+    "cannon"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "ammo",
+    "amount": 80,
+    "rare_mean": 2000
+  },
+  "roll_type": 26,
+  "stats": {
+    "atk_l": 1.0,
+    "atk_al": 2.0,
+    "mov": -0.02,
+    "hit": 2.0,
+    "cri": 0.04,
+    "miss": 0.05,
+    "asm": 5.0
+  }
+}

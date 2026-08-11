@@ -1,0 +1,18 @@
+{
+  "equip_id": 220,
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "ammo",
+    "amount": 100,
+    "rare_mean": 3200
+  },
+  "roll_type": 20,
+  "stats": {
+    "mov": -0.03,
+    "aa": 18.0
+  }
+}

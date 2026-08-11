@@ -1,0 +1,17 @@
+{
+  "equip_id": 517,
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "grudge",
+    "amount": 1,
+    "rare_mean": 1
+  },
+  "roll_type": 17,
+  "stats": {
+    "hp": 99999
+  }
+}
