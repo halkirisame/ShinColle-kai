@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "${loader_version_range}"
 license = "${mod_license}"
-issueTrackerURL = "https://github.com/halkirisame/ShinColle-fork/issues"
+issueTrackerURL = "https://github.com/halkirisame/ShinColle-kai/issues"
 
 [[mods]]
 modId = "${mod_id}"

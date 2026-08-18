@@ -12,7 +12,7 @@ MOD IDは `shincolle` のままなので、深これ向けのアドオンはそ�
 
 本フォークについてのご要望・不具合報告は、こちらへお願いします。
 
-- issue: https://github.com/halkirisame/ShinColle-fork/issues
+- issue: https://github.com/halkirisame/ShinColle-kai/issues
 - X: https://x.com/hal_kirisame
 
 **本家および移植版の作者へのお問い合わせはご遠慮ください。** 本フォークは両氏とは独立して保守されています。
@@ -39,7 +39,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what has changed.
 
 For anything about this fork, please use:
 
-- Issues: https://github.com/halkirisame/ShinColle-fork/issues
+- Issues: https://github.com/halkirisame/ShinColle-kai/issues
 - X: https://x.com/hal_kirisame
 
 **Please do not contact the authors of the original mod or of the 1.20.1 port about
