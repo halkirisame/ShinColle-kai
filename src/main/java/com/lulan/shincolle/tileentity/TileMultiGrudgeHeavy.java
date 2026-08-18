@@ -2,13 +2,16 @@ package com.lulan.shincolle.tileentity;
 
 import com.lulan.shincolle.client.gui.inventory.ContainerLargeShipyard;
 import com.lulan.shincolle.crafting.LargeRecipes;
+import com.lulan.shincolle.crafting.ShipCalc;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlockEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.IShipResourceItem;
+import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.utility.LogHelper;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
@@ -19,8 +22,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Block entity for Grudge Heavy multiblock structure (Large Shipyard).
@@ -40,6 +50,9 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     public static final int SLOT_OUTPUT = 0;
     public static final int SLOT_FUEL = 1;
     private static final int POWER_INSTANT = 57600;
+    private static final int LAVA_BUCKET_MB = 1000;
+    private static final int LAVA_BUCKET_BURN_TIME = 20000;
+    private static final int FLUID_TANK_CAPACITY = 16000;
     private static final int MAX_STOCK = 1000000;
     // Config values
     private static int POWER_MAX;
@@ -98,6 +111,14 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
      * Material build requirements: [grudge, abyssium, ammo, polymetal]
      */
     private int[] matsBuild = new int[4];
+    private final FluidTank fuelTank = new FluidTank(FLUID_TANK_CAPACITY,
+            stack -> stack.getFluid() == Fluids.LAVA) {
+        @Override
+        protected void onContentsChanged() {
+            setChanged();
+        }
+    };
+    private final LazyOptional<IFluidHandler> fuelTankCapability = LazyOptional.of(() -> fuelTank);
 
     public TileMultiGrudgeHeavy(BlockPos pos, BlockState state) {
         this(ModBlockEntities.GRUDGE_HEAVY_MULTI.get(), pos, state);
@@ -352,6 +373,23 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
     }
 
+    /**
+     * Consume one lava bucket's worth of fluid with the same power value as a
+     * lava bucket placed in the existing fuel inventory slot.
+     */
+    private void decrFluidFuel() {
+        if (powerRemained >= POWER_MAX || fuelTank.getFluidAmount() < LAVA_BUCKET_MB) {
+            return;
+        }
+
+        int fuelValue = (int) (LAVA_BUCKET_BURN_TIME * FUEL_MAGN);
+        if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
+            fuelTank.drain(LAVA_BUCKET_MB, IFluidHandler.FluidAction.EXECUTE);
+            powerRemained += fuelValue;
+            setChanged();
+        }
+    }
+
     public boolean isItemValidForSlot(int slot, ItemStack stack) {
         if (stack.isEmpty()) {
             return false;
@@ -360,7 +398,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
             return stack.is(ModItems.GRUDGE.get()) || stack.is(ModItems.INSTANT_CON_MAT.get())
                     || ForgeHooks.getBurnTime(stack, null) > 0;
         }
-        return slot >= 2 && slot < SLOTS_NUM && stack.getItem() instanceof IShipResourceItem;
+        return slot >= 2 && slot < SLOTS_NUM
+                && (stack.getItem() instanceof IShipResourceItem || stack.getItem() instanceof ShipSpawnEgg);
     }
 
     private boolean hasInstantConstructionMaterial() {
@@ -376,8 +415,13 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
             if (stack.isEmpty())
                 continue;
 
-            // Use IShipResourceItem interface (matches original addMaterialStock)
-            if (stack.getItem() instanceof IShipResourceItem resource) {
+            if (stack.getItem() instanceof ShipSpawnEgg) {
+                if (recycleShipSpawnEgg(stack)) {
+                    stack.shrink(1);
+                    setChanged();
+                }
+            } else if (stack.getItem() instanceof IShipResourceItem resource) {
+                // Use IShipResourceItem interface (matches original addMaterialStock)
                 int[] addMats = resource.getResourceValue(0);
                 if (ConfigHandler.easyMode()) {
                     for (int k = 0; k < 4; k++) addMats[k] *= 10;
@@ -467,6 +511,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
 
         decrItemFuel();
+        decrFluidFuel();
 
         if (invMode == 0) {
             recycleInputSlots();
@@ -519,6 +564,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         tag.putBoolean("Active", isActive);
         tag.putIntArray("MatsStock", matsStock);
         tag.putIntArray("MatsBuild", matsBuild);
+        tag.put("FuelFluid", fuelTank.writeToNBT(new CompoundTag()));
         if (hasCorePos) {
             tag.putInt("CoreX", corePos.getX());
             tag.putInt("CoreY", corePos.getY());
@@ -546,9 +592,60 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
             if (arr.length == 4)
                 matsBuild = arr;
         }
+        if (tag.contains("FuelFluid")) {
+            fuelTank.readFromNBT(tag.getCompound("FuelFluid"));
+        }
         if (tag.contains("CoreX")) {
             corePos = new BlockPos(tag.getInt("CoreX"), tag.getInt("CoreY"), tag.getInt("CoreZ"));
             hasCorePos = true;
         }
+    }
+
+    /**
+     * Converts a ship spawn egg into the resource items yielded by the legacy
+     * ship disassembly recipe, then adds their values to this shipyard's stock.
+     */
+    private boolean recycleShipSpawnEgg(ItemStack stack) {
+        ItemStack[] recycledItems = ShipCalc.getKaitaiItems(ShipSpawnEgg.getShipClass(stack));
+        int[] totalMats = new int[4];
+
+        for (ItemStack recycled : recycledItems) {
+            if (recycled.isEmpty() || !(recycled.getItem() instanceof IShipResourceItem resource)) {
+                return false;
+            }
+            int[] resourceValue = resource.getResourceValue(recycled.getDamageValue());
+            for (int k = 0; k < 4; k++) {
+                totalMats[k] += resourceValue[k] * recycled.getCount();
+            }
+        }
+
+        if (ConfigHandler.easyMode()) {
+            for (int k = 0; k < 4; k++) {
+                totalMats[k] *= 10;
+            }
+        }
+        for (int k = 0; k < 4; k++) {
+            if (totalMats[k] < 0 || matsStock[k] > MAX_STOCK - totalMats[k]) {
+                return false;
+            }
+        }
+        for (int k = 0; k < 4; k++) {
+            matsStock[k] += totalMats[k];
+        }
+        return true;
+    }
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
+        if (capability == ForgeCapabilities.FLUID_HANDLER) {
+            return fuelTankCapability.cast();
+        }
+        return super.getCapability(capability, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        fuelTankCapability.invalidate();
     }
 }
