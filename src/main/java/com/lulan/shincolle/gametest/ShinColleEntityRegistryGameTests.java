@@ -72,10 +72,14 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.RegistryObject;
@@ -85,6 +89,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.IntSupplier;
 
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -1524,6 +1529,41 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void hostileShipEggDropRatesMatchScaleLevels(GameTestHelper helper) {
+        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
+        if (!(entity instanceof BasicEntityShipHostile hostile)) {
+            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in egg drop test.");
+        }
+
+        final int samples = 3000;
+        int[] minimumDrops = {450, 850, 2550, samples};
+        int[] maximumDrops = {750, 1150, 2850, samples};
+        int expectedShipClass = hostile.getShipClass();
+
+        for (int scaleLevel = 0; scaleLevel <= 3; scaleLevel++) {
+            hostile.initAttrs(scaleLevel);
+            int drops = 0;
+            for (int attempt = 0; attempt < samples; attempt++) {
+                ItemStack egg = hostile.getDropEgg();
+                if (!egg.isEmpty()) {
+                    if (ShipSpawnEgg.getShipClass(egg) != expectedShipClass) {
+                        throw new AssertionError("Hostile drop egg lost its ship class.");
+                    }
+                    drops++;
+                }
+            }
+
+            if (drops < minimumDrops[scaleLevel] || drops > maximumDrops[scaleLevel]) {
+                throw new AssertionError("Unexpected hostile egg drop rate for scale=" + scaleLevel
+                        + " drops=" + drops);
+            }
+        }
+
+        hostile.discard();
+        helper.succeed();
+    }
+
     // 2026/04/20：GitHub Copilotによって追加
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void hostileRangeTargetGoalAcquiresFriendlyShip(GameTestHelper helper) {
@@ -1827,6 +1867,64 @@ public final class ShinColleEntityRegistryGameTests {
         }
         if (small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_OUTPUT).isEmpty()) {
             throw new AssertionError("Instant construction did not complete the valid small build.");
+        }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipyardsAcceptLavaThroughFluidCapability(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+
+        BlockPos smallPos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(smallPos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(smallPos) instanceof TileEntitySmallShipyard small)) {
+            throw new AssertionError("Small shipyard tile was not created for fluid test.");
+        }
+        IFluidHandler smallFluid = small.getCapability(ForgeCapabilities.FLUID_HANDLER).orElseThrow(
+                () -> new AssertionError("Small shipyard did not expose a fluid handler."));
+        assertLavaFuelConversion(smallFluid, small.getPowerRemained(), small.getFuelMagni(),
+                () -> TileEntitySmallShipyard.serverTick(level, smallPos, level.getBlockState(smallPos), small),
+                small::getPowerRemained, "small shipyard");
+
+        BlockPos largePos = helper.absolutePos(new BlockPos(6, 2, 2));
+        level.setBlock(largePos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(largePos) instanceof TileMultiGrudgeHeavy large)) {
+            throw new AssertionError("Large shipyard tile was not created for fluid test.");
+        }
+        IFluidHandler largeFluid = large.getCapability(ForgeCapabilities.FLUID_HANDLER).orElseThrow(
+                () -> new AssertionError("Large shipyard did not expose a fluid handler."));
+        assertLavaFuelConversion(largeFluid, large.getPowerRemained(), large.getFuelMagni(),
+                () -> TileMultiGrudgeHeavy.serverTick(level, largePos, level.getBlockState(largePos), large),
+                large::getPowerRemained, "large shipyard");
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void largeShipyardRecyclesShipSpawnEggs(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(shipyardPos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(shipyardPos) instanceof TileMultiGrudgeHeavy shipyard)) {
+            throw new AssertionError("Large shipyard tile was not created for spawn egg recycling.");
+        }
+
+        ItemStack egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
+        ShipSpawnEgg.setShipClass(egg, ID.ShipClass.DDI);
+        if (!shipyard.isItemValidForSlot(2, egg)) {
+            throw new AssertionError("Large shipyard rejected a ship spawn egg input.");
+        }
+        shipyard.getInventory().setStackInSlot(2, egg);
+        TileMultiGrudgeHeavy.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+
+        if (!shipyard.getInventory().getStackInSlot(2).isEmpty()) {
+            throw new AssertionError("Large shipyard did not consume a recycled ship spawn egg.");
+        }
+        for (int material = 0; material < 4; material++) {
+            if (shipyard.getMatStock(material) <= 0) {
+                throw new AssertionError("Ship spawn egg recycling did not add material stock index " + material);
+            }
         }
 
         helper.succeed();
@@ -2232,6 +2330,27 @@ public final class ShinColleEntityRegistryGameTests {
             throw new AssertionError("The actual owner could not pair their waypoints.");
         }
         helper.succeed();
+    }
+
+    private static void assertLavaFuelConversion(IFluidHandler fluidHandler, int initialPower, float fuelMagnifier,
+                                                  Runnable serverTick, IntSupplier powerAfterTick, String shipyardName) {
+        if (fluidHandler.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE) != 0) {
+            throw new AssertionError(shipyardName + " accepted a non-lava fluid.");
+        }
+        if (fluidHandler.fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE) != 1000) {
+            throw new AssertionError(shipyardName + " did not accept one lava bucket through its fluid handler.");
+        }
+
+        serverTick.run();
+
+        int expectedPower = initialPower + (int) (20000 * fuelMagnifier);
+        if (powerAfterTick.getAsInt() != expectedPower) {
+            throw new AssertionError(shipyardName + " converted lava to the wrong power value. expected="
+                    + expectedPower + " actual=" + powerAfterTick.getAsInt());
+        }
+        if (!fluidHandler.getFluidInTank(0).isEmpty()) {
+            throw new AssertionError(shipyardName + " did not consume the converted lava.");
+        }
     }
 
     private static void assertPacketDecodeRejected(Runnable decoder, String message) {
