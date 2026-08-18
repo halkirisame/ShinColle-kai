@@ -5,6 +5,7 @@ import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.network.ModNetworking;
@@ -35,6 +36,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
@@ -51,7 +53,7 @@ import java.util.Objects;
  * Extends Mob (equivalent to EntityMob in 1.10.2).
  */
 public abstract class BasicEntityShipHostile extends Mob
-        implements IShipCannonAttack, IShipFloating, IShipNavigator, IShipCustomTexture {
+        implements Enemy, IShipCannonAttack, IShipFloating, IShipNavigator, IShipCustomTexture {
 
     // ========== Fields ==========
 
@@ -404,6 +406,10 @@ public abstract class BasicEntityShipHostile extends Mob
 
         // recalc attributes
         calcShipAttributes(31, false);
+        // ServerBossEvent is runtime-only and is not restored by vanilla NBT.
+        // Recreate it after scale/health have been loaded so chunk reloads and
+        // server restarts do not permanently lose a boss's health bar.
+        creatBossEvent();
     }
 
     // ========== Boss Bar ==========
@@ -418,9 +424,26 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void creatBossEvent() {
-        if (this.scaleLevel >= 2 && !this.level().isClientSide()) {
-            this.bossEvent = new ServerBossEvent(
-                    this.getDisplayName(), bossBarColor, BossEvent.BossBarOverlay.PROGRESS);
+        if (this.level().isClientSide()) {
+            return;
+        }
+
+        if (this.scaleLevel >= 2) {
+            if (this.bossEvent == null) {
+                this.bossEvent = new ServerBossEvent(
+                        this.getDisplayName(), bossBarColor, BossEvent.BossBarOverlay.PROGRESS);
+            } else {
+                this.bossEvent.setName(this.getDisplayName());
+                this.bossEvent.setColor(this.bossBarColor);
+                this.bossEvent.setOverlay(BossEvent.BossBarOverlay.PROGRESS);
+            }
+            float maxHealth = this.getMaxHealth();
+            this.bossEvent.setProgress(maxHealth > 0F
+                    ? Mth.clamp(this.getHealth() / maxHealth, 0F, 1F)
+                    : 0F);
+        } else if (this.bossEvent != null) {
+            this.bossEvent.removeAllPlayers();
+            this.bossEvent = null;
         }
     }
 
@@ -439,7 +462,24 @@ public abstract class BasicEntityShipHostile extends Mob
         // Mob.tick() runs the AI step for us. Calling super.aiStep() again from
         // here ran every goal, the look control and the walk animation twice per
         // tick, which showed up as shaking heads and double-speed run cycles.
+        if (!this.level().isClientSide()) {
+            this.setNoAi(BasicEntityShip.stopAI);
+        }
         super.tick();
+
+        // Boss bar display must remain live even when ship AI is globally paused.
+        if (!this.level().isClientSide() && this.bossEvent != null) {
+            float maxHealth = this.getMaxHealth();
+            this.bossEvent.setProgress(maxHealth > 0F
+                    ? Mth.clamp(this.getHealth() / maxHealth, 0F, 1F)
+                    : 0F);
+        }
+        if (BasicEntityShip.stopAI) {
+            return;
+        }
+        if (!this.level().isClientSide() && this.isAlive()) {
+            updateSearchlight();
+        }
         updateSwingTime();
         if (this.emoteDelay > 0) {
             this.emoteDelay--;
@@ -476,11 +516,6 @@ public abstract class BasicEntityShipHostile extends Mob
 
                 // check every 64 ticks
                 if ((tickCount & 63) == 0) {
-                    if (this.isAlive()) {
-                        // [PORT] 1.10.2 -> 1.20.1: hostile searchlight update on periodic server tick
-                        updateSearchlight();
-                    }
-
                     updateEmotionState();
 
                     // check every 128 ticks
@@ -500,10 +535,6 @@ public abstract class BasicEntityShipHostile extends Mob
                 }
             }
 
-            // update boss bar
-            if (this.bossEvent != null) {
-                this.bossEvent.setProgress(this.getHealth() / this.getMaxHealth());
-            }
         }
         // client side
         else {
@@ -687,13 +718,6 @@ public abstract class BasicEntityShipHostile extends Mob
         this.level().addFreshEntity(missile);
 
         applyEmotesReaction(3);
-
-        // Heavy attacks are fire-and-forget missiles, so "attack landed" isn't
-        // known here - this fires on launch, same as BasicEntityShip's own
-        // heavy-ammo hook.
-        if (ModList.get().isLoaded("curios")) {
-            ShipCuriosIntegration.runOnHitHooks(this, target, atk);
-        }
 
         return true;
     }
@@ -1178,6 +1202,7 @@ public abstract class BasicEntityShipHostile extends Mob
         setSizeWithScaleLevel();
 
         if (!this.level().isClientSide()) {
+            creatBossEvent();
             ModNetworking.sendToAllTrackingAndSelf(S2CEntitySyncPacket.syncScale(this, this.scaleLevel), this);
         }
     }
@@ -1222,7 +1247,7 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void setEntityTarget(Entity target) {
-        this.setTarget((LivingEntity) target);
+        this.setTarget(target instanceof LivingEntity living ? living : null);
     }
 
     public Entity getEntityRevengeTarget() {
@@ -1393,6 +1418,10 @@ public abstract class BasicEntityShipHostile extends Mob
     // ========== Searchlight stubs ==========
 
     public void updateSearchlight() {
+        if (!ConfigHandler.canSearchlight()
+                || this.tickCount % Math.max(1, ConfigHandler.cdSearchLight()) != 0) {
+            return;
+        }
         if (this.getStateMinor(ID.M.LevelSearchlight) <= 0)
             return;
         if (this.getStateFlag(ID.F.NoFuel))

@@ -10,6 +10,8 @@ import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.inventory.Slot;
@@ -191,6 +193,100 @@ public final class ShipCuriosIntegration {
             }
         }
         return result;
+    }
+
+    /**
+     * Serialises the ship-equip Curios slot into a tag list, so a dying ship
+     * can fold it into its death egg alongside its own inventory.
+     *
+     * <p>Curios stores these stacks on the entity's capability, which dies
+     * with the entity - nothing in ShinColle's own inventory NBT covers them,
+     * so without this they were simply gone.
+     *
+     * @return one compound per occupied slot, each carrying its slot index
+     */
+    public static ListTag saveEquipped(LivingEntity shipEntity) {
+        ListTag list = new ListTag();
+        var inventory = CuriosApi.getCuriosInventory(shipEntity).resolve().orElse(null);
+        if (inventory == null) {
+            return list;
+        }
+        var handler = inventory.getStacksHandler(ShipEquipSlots.SLOT_ID).orElse(null);
+        if (handler == null) {
+            return list;
+        }
+
+        var stacks = handler.getStacks();
+        int limit = Math.min(stacks.getSlots(), ShipEquipSlots.slotCount());
+        for (int i = 0; i < limit; i++) {
+            ItemStack stack = stacks.getStackInSlot(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            CompoundTag entry = new CompoundTag();
+            entry.putByte("Slot", (byte) i);
+            stack.save(entry);
+            list.add(entry);
+        }
+        return list;
+    }
+
+    /**
+     * Snapshots and removes the ship-equip stacks before Forge/Curios processes
+     * the entity's death drops. Curios empties its own slots during that event;
+     * waiting until the delayed death egg is created therefore loses the data.
+     * Clearing here also prevents a duplicate world drop when the same stacks
+     * are restored from the egg.
+     */
+    public static ListTag saveAndClearEquipped(LivingEntity shipEntity) {
+        ListTag saved = saveEquipped(shipEntity);
+        var inventory = CuriosApi.getCuriosInventory(shipEntity).resolve().orElse(null);
+        if (inventory == null) {
+            return saved;
+        }
+        var handler = inventory.getStacksHandler(ShipEquipSlots.SLOT_ID).orElse(null);
+        if (handler == null) {
+            return saved;
+        }
+
+        var stacks = handler.getStacks();
+        int limit = Math.min(stacks.getSlots(), ShipEquipSlots.slotCount());
+        for (int slot = 0; slot < limit; slot++) {
+            stacks.setStackInSlot(slot, ItemStack.EMPTY);
+        }
+        return saved;
+    }
+
+    /**
+     * Puts stacks saved by {@link #saveEquipped} back into the ship's
+     * ship-equip Curios slot.
+     *
+     * <p>Silently drops entries whose slot no longer exists - the configured
+     * slot count can shrink between the ship dying and being respawned.
+     */
+    public static void loadEquipped(LivingEntity shipEntity, ListTag list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        var inventory = CuriosApi.getCuriosInventory(shipEntity).resolve().orElse(null);
+        if (inventory == null) {
+            return;
+        }
+        var handler = inventory.getStacksHandler(ShipEquipSlots.SLOT_ID).orElse(null);
+        if (handler == null) {
+            return;
+        }
+
+        var stacks = handler.getStacks();
+        int limit = Math.min(stacks.getSlots(), ShipEquipSlots.slotCount());
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+            int slot = entry.getByte("Slot") & 0xFF;
+            if (slot >= limit) {
+                continue;
+            }
+            stacks.setStackInSlot(slot, ItemStack.of(entry));
+        }
     }
 
     /**

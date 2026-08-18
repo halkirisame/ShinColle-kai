@@ -18,8 +18,6 @@ import net.minecraft.world.level.Level;
  */
 public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile implements IShipAircraftAttack {
 
-    protected int numAircraftLight = 0;
-    protected int numAircraftHeavy = 0;
     protected double launchHeight = 2.0D;
 
     protected BasicEntityShipHostileCV(EntityType<? extends BasicEntityShipHostileCV> type, Level level) {
@@ -45,32 +43,36 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
 
     @Override
     public int getNumAircraftLight() {
-        return numAircraftLight;
+        // Hostile carriers did not consume a finite aircraft inventory in the
+        // legacy implementation.  Returning a positive count keeps the shared
+        // carrier goal available without introducing a hidden spawn-time setup
+        // requirement for every hostile carrier subtype.
+        return 10;
     }
 
     @Override
     public void setNumAircraftLight(int par1) {
-        this.numAircraftLight = par1;
+        // Hostile carrier aircraft are unlimited.
     }
 
     @Override
     public int getNumAircraftHeavy() {
-        return numAircraftHeavy;
+        return 10;
     }
 
     @Override
     public void setNumAircraftHeavy(int par1) {
-        this.numAircraftHeavy = par1;
+        // Hostile carrier aircraft are unlimited.
     }
 
     @Override
     public boolean hasAirLight() {
-        return numAircraftLight > 0;
+        return true;
     }
 
     @Override
     public boolean hasAirHeavy() {
-        return numAircraftHeavy > 0;
+        return true;
     }
 
     public double getLaunchHeight() {
@@ -95,25 +97,6 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
 
     @Override
     public boolean attackEntityWithAircraft(Entity target) {
-        // check aircraft and ammo
-        if (this.getNumAircraftLight() <= 0
-                || !decrAmmoNum(0, 6 * this.getAmmoConsumption())) {
-            return false;
-        }
-
-        // 50% chance to clear target
-        if (this.random.nextInt(2) == 0) {
-            this.setEntityTarget(null);
-        }
-
-        // consume aircraft slot
-        this.setNumAircraftLight(this.getNumAircraftLight() - 1);
-
-        // grudge and morale
-        decrGrudgeNum(4);
-        decrMorale(3);
-        setCombatTick(this.tickCount);
-
         // launch position
         float summonHeight = (float) (this.getY() + launchHeight);
 
@@ -131,10 +114,11 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
 
         // spawn airplane
         BasicEntityAirplane plane = getAttackAirplane(true);
-        plane.initAttrs(this, target, 0, summonHeight);
+        plane.initAttrs(this, target, this.getScaleLevel(), summonHeight);
         this.level().addFreshEntity(plane);
 
         applySoundAtAttacker(3, target);
+        applyParticleAtAttacker(3, target, target);
         applyEmotesReaction(3);
 
         return true;
@@ -144,21 +128,6 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
 
     @Override
     public boolean attackEntityWithHeavyAircraft(Entity target) {
-        if (this.getNumAircraftHeavy() <= 0
-                || !decrAmmoNum(1, 2 * this.getAmmoConsumption())) {
-            return false;
-        }
-
-        if (this.random.nextInt(2) == 0) {
-            this.setEntityTarget(null);
-        }
-
-        this.setNumAircraftHeavy(this.getNumAircraftHeavy() - 1);
-
-        decrGrudgeNum(6);
-        decrMorale(4);
-        setCombatTick(this.tickCount);
-
         float summonHeight = (float) (this.getY() + launchHeight);
 
         if (!level().getBlockState(
@@ -174,10 +143,11 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
         }
 
         BasicEntityAirplane plane = getAttackAirplane(false);
-        plane.initAttrs(this, target, 0, summonHeight);
+        plane.initAttrs(this, target, this.getScaleLevel(), summonHeight);
         this.level().addFreshEntity(plane);
 
         applySoundAtAttacker(4, target);
+        applyParticleAtAttacker(4, target, target);
         applyEmotesReaction(3);
 
         return true;

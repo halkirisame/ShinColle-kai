@@ -5,17 +5,21 @@ import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
-import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.item.MarriageRing;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CEntitySyncPacket;
+import com.lulan.shincolle.network.S2CGUISyncPacket;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.LogHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -109,6 +113,7 @@ public class ServerEventHandler {
             }
 
             if ((player.tickCount & 127) == 0) {
+                TeamHelper.updateTeamList(player, capa);
                 EntityHelper.spawnMobShip(player, capa);
             }
         }
@@ -117,7 +122,12 @@ public class ServerEventHandler {
 
         int teamCooldown = capa.getTeamCooldown();
         if (teamCooldown > 0) {
-            capa.setTeamCooldown(teamCooldown - 1);
+            int remaining = teamCooldown - 1;
+            capa.setTeamCooldown(remaining);
+            if (player instanceof ServerPlayer serverPlayer
+                    && (remaining == 0 || (player.tickCount % 20) == 0)) {
+                ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerMisc(capa), serverPlayer);
+            }
         }
     }
 
@@ -143,6 +153,19 @@ public class ServerEventHandler {
     @SubscribeEvent
     public static void onPlayerChangeDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         updatePlayerCacheOnServer(event.getEntity());
+    }
+
+    /** Send custom ship state when a client begins tracking an existing entity. */
+    @SubscribeEvent
+    public static void onStartTracking(PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer player
+                && event.getTarget() instanceof BasicEntityShip ship) {
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAllMisc(ship), player);
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAttrs(ship), player);
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncRiders(ship), player);
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncUnitName(ship), player);
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncBuffMap(ship), player);
+        }
     }
 
     /**
@@ -208,43 +231,55 @@ public class ServerEventHandler {
     private static void updatePlayerCacheOnServer(Player player) {
         if (player != null && !player.level().isClientSide()) {
             ServerDataManager.updatePlayerID(player);
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa != null && capa.getPlayerUID() > 0) {
+                TeamHelper.updateTeamList(player, capa);
+            }
+            if (player instanceof ServerPlayer serverPlayer && capa != null) {
+                syncPlayerCapability(serverPlayer, capa);
+            }
         }
     }
 
-    private static void updateRingState(Player player, CapaTeitoku capa) {
-        ItemStack ring = findRingStack(player);
-        boolean hasRing = !ring.isEmpty();
+    /**
+     * Custom player capabilities are local objects on each logical side. Forge
+     * does not mirror them automatically, so send the authoritative state at
+     * every player-entity lifecycle boundary.
+     */
+    private static void syncPlayerCapability(ServerPlayer player, CapaTeitoku capa) {
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerFull(capa), player);
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncShipsAll(capa), player);
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncUnitNames(capa), player);
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncTargetClasses(
+                ServerDataManager.getPlayerTargetClass(capa.getPlayerUID())), player);
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncTeamData(capa,
+                TeamHelper.getTeamDataByUID(capa.getPlayerUID()),
+                ServerDataManager.getAllTeamWorldData()), player);
+    }
 
-        if (capa.hasRing() && !hasRing) {
-            if (player.getAbilities().flying) {
+    private static void updateRingState(Player player, CapaTeitoku capa) {
+        boolean wasPresent = capa.hasRing();
+        boolean wasActive = capa.isRingActive();
+        boolean wasFlying = capa.isRingFlying();
+        boolean hasRing = MarriageRing.hasAnyRing(player);
+        boolean isActive = MarriageRing.hasActiveRing(player);
+
+        if ((!hasRing || !isActive) && capa.isRingFlying()) {
+            if (!player.getAbilities().instabuild && player.getAbilities().flying) {
                 player.getAbilities().flying = false;
                 player.onUpdateAbilities();
             }
             capa.setRingFlying(false);
-            capa.setRingActive(false);
         }
 
         capa.setHasRing(hasRing);
+        capa.setRingActive(isActive);
 
-        if (!ring.isEmpty() && ring.hasTag()) {
-            assert ring.getTag() != null;
-            capa.setRingActive(ring.getTag().getBoolean("isActive"));
+        if (player instanceof ServerPlayer serverPlayer
+                && (wasPresent != capa.hasRing() || wasActive != capa.isRingActive()
+                || wasFlying != capa.isRingFlying())) {
+            ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerMisc(capa), serverPlayer);
         }
     }
 
-    private static ItemStack findRingStack(Player player) {
-        for (ItemStack stack : player.getInventory().items) {
-            if (!stack.isEmpty() && stack.getItem() == ModItems.MARRIAGE_RING.get()) {
-                return stack;
-            }
-        }
-
-        for (ItemStack stack : player.getInventory().offhand) {
-            if (!stack.isEmpty() && stack.getItem() == ModItems.MARRIAGE_RING.get()) {
-                return stack;
-            }
-        }
-
-        return ItemStack.EMPTY;
-    }
 }

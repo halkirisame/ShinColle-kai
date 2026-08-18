@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.other;
 
 import com.lulan.shincolle.entity.*;
+import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.reference.ID;
@@ -10,6 +11,7 @@ import com.lulan.shincolle.utility.CombatHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
@@ -20,6 +22,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.entity.IEntityAdditionalSpawnData;
+import net.minecraftforge.fml.ModList;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,7 +44,8 @@ import java.util.List;
  * <p>
  * Ported from 1.10.2 EntityAbyssMissile.
  */
-public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs, IShipCustomTexture, IShipProjectile {
+public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs, IShipCustomTexture,
+        IShipProjectile, IEntityAdditionalSpawnData {
 
     public int moveType;
     public int life;
@@ -232,6 +237,38 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     }
 
     @Override
+    public void writeSpawnData(FriendlyByteBuf buffer) {
+        buffer.writeVarInt(this.type);
+        buffer.writeVarInt(this.moveType);
+        buffer.writeVarInt(this.life);
+        buffer.writeVarInt(this.playerUID);
+        buffer.writeDouble(this.velX);
+        buffer.writeDouble(this.velY);
+        buffer.writeDouble(this.velZ);
+        buffer.writeDouble(this.vel0);
+        buffer.writeDouble(this.accY1);
+        buffer.writeDouble(this.accY2);
+        buffer.writeDouble(this.t0);
+        buffer.writeDouble(this.t1);
+    }
+
+    @Override
+    public void readSpawnData(FriendlyByteBuf buffer) {
+        this.type = buffer.readVarInt();
+        this.moveType = buffer.readVarInt();
+        this.life = buffer.readVarInt();
+        this.playerUID = buffer.readVarInt();
+        this.velX = buffer.readDouble();
+        this.velY = buffer.readDouble();
+        this.velZ = buffer.readDouble();
+        this.vel0 = buffer.readDouble();
+        this.accY1 = buffer.readDouble();
+        this.accY2 = buffer.readDouble();
+        this.t0 = buffer.readDouble();
+        this.t1 = buffer.readDouble();
+    }
+
+    @Override
     public void addAdditionalSaveData(CompoundTag compound) {
         compound.putInt("MissileType", this.type);
         compound.putInt("MovementType", this.moveType);
@@ -401,6 +438,9 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
                                 + " -> " + ent + " dmg=" + dmg + " hurtAccepted=" + isTargetHurt);
                         if (isTargetHurt && !isSameOwner(ent)) {
                             BuffHelper.applyBuffOnTarget(ent, this.effectMap);
+                            if (ModList.get().isLoaded("curios")) {
+                                ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, dmg);
+                            }
                         }
                     }
                 }

@@ -33,8 +33,11 @@ import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -72,6 +75,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * SHIP DATA
@@ -83,8 +87,22 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     // ========== Fields ==========
 
+    /**
+     * Death-egg NBT key holding the ship's Curios-slot equipment, so it
+     * survives death alongside the ship's own inventory.
+     */
+    public static final String CURIOS_EGG_TAG = "ShinColleCuriosEquip";
+
     // misc flags
     public static boolean stopAI = false;
+    /**
+     * GoalSelector iterates its available-goal set while a goal is ticking.
+     * Fuel can be consumed from inside those ticks, so selector rebuilding is
+     * deferred until the current server AI step has finished.
+     */
+    private boolean fuelAiRefreshPending;
+    @Nullable
+    private net.minecraft.nbt.ListTag deathCuriosSnapshot;
     /**
      * owner name
      */
@@ -98,6 +116,10 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected CapaShipInventory itemHandler;
     protected LivingEntity aiTarget;
     protected Entity guardedEntity;
+    @Nullable
+    protected UUID guardedEntityUuid;
+    @Nullable
+    protected ResourceKey<Level> guardedDimension;
     protected Entity atkTarget;
     protected Entity rvgTarget;
     // AI calculation
@@ -472,6 +494,12 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // save ship inventory
         nbt.put(CapaShipInventory.InvName, itemHandler.serializeNBT());
+        if (this.guardedEntityUuid != null) {
+            nbt.putUUID("GuardEntityUUID", this.guardedEntityUuid);
+        }
+        if (this.guardedDimension != null) {
+            nbt.putString("GuardDimension", this.guardedDimension.location().toString());
+        }
     }
 
     @Override
@@ -485,15 +513,28 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (nbt.contains(CapaShipInventory.InvName)) {
             itemHandler.deserializeNBT(nbt.getCompound(CapaShipInventory.InvName));
         }
+
+        this.guardedEntityUuid = nbt.hasUUID("GuardEntityUUID")
+                ? nbt.getUUID("GuardEntityUUID") : null;
+        if (nbt.contains("GuardDimension")) {
+            ResourceLocation dimensionId = ResourceLocation.tryParse(nbt.getString("GuardDimension"));
+            this.guardedDimension = dimensionId == null
+                    ? null : ResourceKey.create(Registries.DIMENSION, dimensionId);
+        } else {
+            this.guardedDimension = null;
+        }
+        // Entity IDs are runtime-only and must never be restored from NBT.
+        setStateMinor(ID.M.GuardID, -1);
     }
 
     // ========== Tick / aiStep (Update Loop) ==========
 
     @Override
     public void tick() {
+        if (!this.level().isClientSide()) {
+            this.setNoAi(stopAI);
+        }
         super.tick();
-        if (stopAI)
-            return;
 
         // update arm swing
         updateSwingTime();
@@ -551,19 +592,26 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
 
         ItemStack pointer = getClientPointerInUse(clientPlayer);
+        if (pointer.isEmpty()) {
+            return;
+        }
         int mode = PointerItem.getMode(pointer);
-        if (pointer.isEmpty() || mode > PointerItem.MODE_FORMATION) {
+        if (mode > PointerItem.MODE_FORMATION) {
             return;
         }
 
         CapaTeitoku capa = clientPlayer.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-
+        if (capa == null) {
+            return;
+        }
 
         int teamId = capa.getSelectTeam();
+        boolean isInTeam = false;
         boolean isSelected = false;
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             if (capa.getTeamSID(teamId, i) == this.getId()) {
-                isSelected = true;
+                isInTeam = true;
+                isSelected = mode == PointerItem.MODE_FORMATION || capa.isShipSelected(teamId, i);
                 break;
             }
         }
@@ -576,7 +624,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 default -> 1;
             };
         } else {
-            circleType = mode == PointerItem.MODE_FORMATION ? 3 : 0;
+            circleType = mode == PointerItem.MODE_FORMATION && isInTeam ? 3 : 0;
         }
 
         ParticleHelper.spawnTeamCircle(this, circleType);
@@ -637,10 +685,14 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // server side
         if (!level().isClientSide()) {
+            resolveGuardedEntity();
             EntityHelper.updateShipNavigator(this);
             TargetHelper.updateTarget(this);
 
             super.aiStep();
+            if (stopAI) {
+                return;
+            }
 
             // timer ticking
             updateServerTimer();
@@ -654,6 +706,8 @@ public abstract class BasicEntityShip extends TamableAnimal
                 playTimeSound();
             }
 
+            updateSearchlight();
+
             // check every 8 ticks
             if ((tickCount & 7) == 0) {
                 // reset AI and sync once
@@ -662,12 +716,12 @@ public abstract class BasicEntityShip extends TamableAnimal
                     // check fuel state first (sets NoFuel flag but won't clear
                     // goals since none are registered yet)
                     decrGrudgeNum(0);
-                    // then register goals — they stay registered because
-                    // updateFuelStateByAITaskPresence already ran with empty selectors
                     clearAITasks();
                     clearAITargetTasks();
-                    setAIList();
-                    setAITargetList();
+                    if (!getStateFlag(ID.F.NoFuel)) {
+                        setAIList();
+                        setAITargetList();
+                    }
                     updateChunkLoader();
                     this.initAI = true;
                 }
@@ -685,7 +739,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 if ((tickCount & 15) == 0) {
                     if (this.isAlive()) {
                         // cancel mounts if can't summon
-                        if (this.hasShipMounts() && this.canSummonMounts()) {
+                        if (this.hasShipMounts() && !this.canSummonMounts()) {
                             if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount) {
                                 this.stopRiding();
                             }
@@ -712,9 +766,6 @@ public abstract class BasicEntityShip extends TamableAnimal
                                     }
                                 }
                             }
-
-                            // update searchlight block placement at night
-                            updateSearchlight();
 
                             // update mount entity summoning
                             updateMountSummon();
@@ -784,6 +835,10 @@ public abstract class BasicEntityShip extends TamableAnimal
                     }
                 }
             }
+
+            // Fuel may have been consumed from a ticking goal. Rebuild only
+            // after GoalSelector has finished iterating for this tick.
+            applyPendingFuelAiRefresh();
         }
         // client side
         else {
@@ -946,7 +1001,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             // apply enchant effect to raw stats
             float[] enchant = EnchantHelper.calcEnchantEffect(stack);
             float[] equipStats = EquipCalc.calcEquipStatWithEnchant(
-                    legacyEquipType, def.stats(), enchant);
+                    def.enchantType(), def.stats(), enchant);
 
             // add modifiers to ship's equip attrs
             float[] attrsEquip = this.shipAttrs.getAttrsEquip();
@@ -1088,6 +1143,9 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         if (isTargetHurt) {
             applyEmotesReaction(3);
+            if (ModList.get().isLoaded("curios")) {
+                ShipCuriosIntegration.runOnHitHooks(this, target, atk);
+            }
         }
 
         return isTargetHurt;
@@ -1210,13 +1268,6 @@ public abstract class BasicEntityShip extends TamableAnimal
         summonMissile(2, atk, tarX, tarY, tarZ, target.getBbHeight());
 
         applyEmotesReaction(3);
-
-        // Heavy attacks are fire-and-forget missiles, so "attack landed" isn't
-        // known here - this fires on launch, same as the light-attack hook does
-        // on a confirmed hit.
-        if (ModList.get().isLoaded("curios")) {
-            ShipCuriosIntegration.runOnHitHooks(this, target, atk);
-        }
 
         return true;
     }
@@ -1545,21 +1596,46 @@ public abstract class BasicEntityShip extends TamableAnimal
             }
         }
 
-        // [PORT] 1.10.2 -> 1.20.1: keep legacy safeguard that restores AI when
-        // target tasks unexpectedly become empty while still having fuel.
+        // Never mutate GoalSelector from a goal tick. The refresh is applied
+        // at the end of the server AI step.
         updateFuelStateByAITaskPresence();
     }
 
     private void updateFuelStateByAITaskPresence() {
+        if (this.level().isClientSide()) {
+            return;
+        }
+
         boolean noFuel = this.getStateFlag(ID.F.NoFuel);
-        int targetTaskCount = this.targetSelector.getAvailableGoals().size();
+        boolean hasGoals = !this.goalSelector.getAvailableGoals().isEmpty();
+        boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
+
+        // Fuel exhaustion must disable both selectors.  Looking only at target
+        // goals left movement-only goals (notably ShipFloatingGoal) running on
+        // ships whose target selector had already become empty.
+        if ((noFuel && (hasGoals || hasTargetGoals)) || (!noFuel && (!hasGoals || !hasTargetGoals))) {
+            this.fuelAiRefreshPending = true;
+        }
+    }
+
+    private void applyPendingFuelAiRefresh() {
+        if (!this.fuelAiRefreshPending) {
+            return;
+        }
+        this.fuelAiRefreshPending = false;
+
+        boolean noFuel = this.getStateFlag(ID.F.NoFuel);
+        boolean hasGoals = !this.goalSelector.getAvailableGoals().isEmpty();
+        boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
 
         if (noFuel) {
-            // Clear all AI when fuel runs out — ship becomes inert.
-            // Water buoyancy is handled by travel()/moveEntityInFluid()
-            // independently of AI goals, so the ship won't sink.
-            if (targetTaskCount > 0) {
+            // Clear all AI when fuel runs out — ship becomes inert.  Stop an
+            // in-progress path as well, otherwise its MoveControl can retain
+            // a vertical velocity after the goals have been removed.
+            if (hasGoals || hasTargetGoals) {
                 this.setMorale(0);
+                this.getNavigation().stop();
+                this.setDeltaMovement(Vec3.ZERO);
                 clearAITasks();
                 clearAITargetTasks();
                 this.setTarget(null);
@@ -1570,7 +1646,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 sendSyncPacketEmotion();
             }
         } else {
-            if (targetTaskCount < 1) {
+            if (!hasGoals || !hasTargetGoals) {
                 clearAITasks();
                 clearAITargetTasks();
                 setAIList();
@@ -1722,17 +1798,14 @@ public abstract class BasicEntityShip extends TamableAnimal
      * check if ship has mounts
      */
     public boolean hasShipMounts() {
-        // The first bit of State emotion indicates whether this ship type supports
-        // mounts
-        return (this.getStateEmotion(ID.S.State) & 1) != 0;
+        return false;
     }
 
     /**
      * check if ship can summon mounts
      */
     public boolean canSummonMounts() {
-        // Can summon mounts if: has fuel, is alive, and not sitting
-        return this.getStateFlag(ID.F.NoFuel) || !this.isAlive() || this.isOrderedToSit();
+        return (this.getStateEmotion(ID.S.State) & 1) != 0 && !this.getStateFlag(ID.F.NoFuel);
     }
 
     @Override
@@ -2448,7 +2521,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void setEntityTarget(Entity target) {
-        this.setTarget((LivingEntity) target);
+        this.setTarget(target instanceof LivingEntity living ? living : null);
     }
 
     @Override
@@ -2593,6 +2666,13 @@ public abstract class BasicEntityShip extends TamableAnimal
     @Override
     public void setGuardedEntity(Entity entity) {
         this.guardedEntity = entity;
+        if (!this.level().isClientSide()) {
+            this.guardedEntityUuid = entity == null ? null : entity.getUUID();
+            if (entity != null) {
+                this.guardedDimension = entity.level().dimension();
+            }
+            setStateMinor(ID.M.GuardID, entity == null ? -1 : entity.getId());
+        }
     }
 
     @Override
@@ -2614,6 +2694,36 @@ public abstract class BasicEntityShip extends TamableAnimal
         setStateMinor(ID.M.GuardZ, z);
         setStateMinor(ID.M.GuardDim, dim);
         setStateMinor(ID.M.GuardType, type);
+        if (type != 2) {
+            this.guardedEntityUuid = null;
+        }
+        if (type == 0) {
+            this.guardedDimension = null;
+        }
+    }
+
+    public void setGuardedPos(int x, int y, int z, ResourceKey<Level> dimension, int type) {
+        int legacyDimension = dimension.equals(Level.NETHER) ? -1 : dimension.equals(Level.END) ? 1 : 0;
+        setGuardedPos(x, y, z, legacyDimension, type);
+        this.guardedDimension = dimension;
+    }
+
+    @Override
+    public boolean isGuardedInCurrentDimension() {
+        return this.guardedDimension == null || this.guardedDimension.equals(this.level().dimension());
+    }
+
+    private void resolveGuardedEntity() {
+        if (this.guardedEntity != null || this.guardedEntityUuid == null
+                || this.guardedDimension == null || !this.level().dimension().equals(this.guardedDimension)
+                || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        Entity resolved = serverLevel.getEntity(this.guardedEntityUuid);
+        if (resolved != null) {
+            this.guardedEntity = resolved;
+            setStateMinor(ID.M.GuardID, resolved.getId());
+        }
     }
 
     @Override
@@ -3199,6 +3309,12 @@ public abstract class BasicEntityShip extends TamableAnimal
         // saved ship egg, so equipment and cargo come back with the ship instead
         // of scattering across the water where it is easily lost.
 
+        // Curios handles and clears death drops from super.die(). Capture the
+        // capability first so the delayed ship egg can restore these stacks.
+        if (!this.level().isClientSide() && ModList.get().isLoaded("curios")) {
+            this.deathCuriosSnapshot = ShipCuriosIntegration.saveAndClearEquipped(this);
+        }
+
         super.die(source);
         LogHelper.info("Ship died: class=" + this.getShipClass() + " source=" + source.getMsgId());
     }
@@ -3235,6 +3351,17 @@ public abstract class BasicEntityShip extends TamableAnimal
                 CapaShipSavedValues.saveNBTData(eggNbt, this);
                 eggNbt.putInt("ShipClass", this.getShipClass());
                 eggNbt.put(CapaShipInventory.InvName, this.itemHandler.serializeNBT());
+                // Curios keeps its slots on the entity capability, which dies
+                // with the entity - fold it into the egg too, or third-party
+                // equipment is lost outright on death.
+                if (ModList.get().isLoaded("curios")) {
+                    net.minecraft.nbt.ListTag curios = this.deathCuriosSnapshot != null
+                            ? this.deathCuriosSnapshot
+                            : ShipCuriosIntegration.saveEquipped(this);
+                    if (!curios.isEmpty()) {
+                        eggNbt.put(CURIOS_EGG_TAG, curios);
+                    }
+                }
                 // [PORT] 1.10.2 -> 1.20.1: keep legacy pickup-protection tags used by
                 // BasicEntityItem (owner only for saved ship eggs).
                 if (this.getOwnerUUID() != null) {
@@ -3649,6 +3776,10 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Update searchlight block placement.
      */
     public void updateSearchlight() {
+        if (!ConfigHandler.canSearchlight()
+                || this.tickCount % Math.max(1, ConfigHandler.cdSearchLight()) != 0) {
+            return;
+        }
         if (this.getStateMinor(ID.M.LevelSearchlight) <= 0)
             return;
         if (this.getStateFlag(ID.F.NoFuel) || !this.isAlive())
@@ -3669,29 +3800,41 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Update mount entity summoning.
      */
     public void updateMountSummon() {
-        if (!this.hasShipMounts() || this.canSummonMounts())
+        if (!this.hasShipMounts() || !this.canSummonMounts())
             return;
 
         // check if already riding
         if (this.isPassenger())
             return;
 
-        // summon mount
-        summonMountEntity();
+        BasicEntityMount mount = this.summonMountEntity();
+        if (mount == null) {
+            return;
+        }
+        mount.setPos(this.getX(), this.getY(), this.getZ());
+        mount.setHost(this);
+        this.level().addFreshEntity(mount);
+
+        for (Entity passenger : new ArrayList<>(this.getPassengers())) {
+            passenger.stopRiding();
+        }
+        this.startRiding(mount, true);
+        mount.sendSyncPacket(4);
     }
 
     /**
      * Summon mount entity for this ship. Override in subclass for specific mount.
      */
-    public void summonMountEntity() {
-        // default: no mount
+    @Nullable
+    public BasicEntityMount summonMountEntity() {
+        return null;
     }
 
     /**
      * Get inventory page size.
      */
     public int getInventoryPageSize() {
-        return this.itemHandler.getInventoryPage();
+        return Mth.clamp(this.getStateMinor(ID.M.DrumState), 0, ContainerShipInventory.INV_PAGES - 1);
     }
 
     /**

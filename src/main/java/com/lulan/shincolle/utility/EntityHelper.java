@@ -441,9 +441,11 @@ public class EntityHelper {
         }
 
         boolean inSeaBiome = isSeaOrBeachBiome(level, player.blockPosition());
-        if (inSeaBiome && capa.hasRing()) {
-            capa.setBossCooldown(capa.getBossCooldown() - 1);
+        if (!inSeaBiome || (ConfigHandler.checkRing() && !capa.hasRing())) {
+            return;
         }
+
+        capa.setBossCooldown(capa.getBossCooldown() - 1);
 
         if (capa.getBossCooldown() > 0) {
             return;

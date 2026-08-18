@@ -13,7 +13,11 @@ import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraftforge.fml.ModList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
@@ -59,7 +63,7 @@ public class ShipSpawnEgg extends BasicItem {
     private static final String TAG_CUSTOM_NAME_LEGACY = "customname";
     private static final String TAG_OWNER_NAME = "OwnerName";
     private static final String TAG_OWNER_NAME_LEGACY = "ownername";
-    private static final String CHAT_LEVEL_FAIL_KEY = "chat.shincolle:levelfail";
+    private static final String CHAT_LEVEL_FAIL_KEY = "chat.shincolle.levelfail";
     private static Map<Integer, RegistryObject<? extends EntityType<?>>> ENTITY_MAP;
 
     public ShipSpawnEgg() {
@@ -322,6 +326,12 @@ public class ShipSpawnEgg extends BasicItem {
             if (nbt.contains(CapaShipInventory.InvName)) {
                 ship.getCapaShipInventory()
                         .deserializeNBT(nbt.getCompound(CapaShipInventory.InvName));
+            }
+            // ...and its Curios-slot equipment, which lives on a separate
+            // capability rather than in the inventory above.
+            if (nbt.contains(BasicEntityShip.CURIOS_EGG_TAG) && ModList.get().isLoaded("curios")) {
+                ShipCuriosIntegration.loadEquipped(ship,
+                        nbt.getList(BasicEntityShip.CURIOS_EGG_TAG, Tag.TAG_COMPOUND));
             }
             if (ship.getPlayerUID() <= 0 && capa != null) {
                 int playerUID = capa.getPlayerUID();
@@ -706,6 +716,19 @@ public class ShipSpawnEgg extends BasicItem {
         List<ItemStack> equipment = new java.util.ArrayList<>(CapaShipInventory.EquipSlots);
         for (int i = 0; i < CapaShipInventory.EquipSlots; i++) {
             equipment.add(inv.getStackInSlot(i));
+        }
+
+        // Curios-slot gear is stored separately (see BasicEntityShip#tickDeath).
+        // Parsed straight from NBT rather than through ShipCuriosIntegration so
+        // the tooltip still lists it when Curios itself isn't installed.
+        if (nbt.contains(BasicEntityShip.CURIOS_EGG_TAG)) {
+            ListTag curios = nbt.getList(BasicEntityShip.CURIOS_EGG_TAG, Tag.TAG_COMPOUND);
+            for (int i = 0; i < curios.size(); i++) {
+                ItemStack worn = ItemStack.of(curios.getCompound(i));
+                if (!worn.isEmpty()) {
+                    equipment.add(worn);
+                }
+            }
         }
 
         List<ItemStack> cargo = new java.util.ArrayList<>();
