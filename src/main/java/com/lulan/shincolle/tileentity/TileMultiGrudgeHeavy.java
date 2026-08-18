@@ -181,7 +181,12 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     }
 
     public void setBuildType(int type) {
-        this.buildType = type;
+        int normalizedType = Math.max(0, Math.min(type, 4));
+        if (this.buildType != normalizedType) {
+            this.powerConsumed = 0;
+            this.powerGoal = 0;
+        }
+        this.buildType = normalizedType;
         setChanged();
     }
 
@@ -209,7 +214,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
     public void setMatStock(int index, int value) {
         if (index >= 0 && index < 4) {
-            matsStock[index] = value;
+            matsStock[index] = Math.max(0, Math.min(value, MAX_STOCK));
             setChanged();
         }
     }
@@ -222,7 +227,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
     public void setMatBuild(int index, int value) {
         if (index >= 0 && index < 4) {
-            matsBuild[index] = value;
+            matsBuild[index] = Math.max(0, Math.min(value, LargeRecipes.MAX_MATERIAL));
+            setChanged();
         }
     }
 
@@ -258,7 +264,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     }
 
     public boolean isBuilding() {
-        return hasRemainedPower() && canBuild();
+        return canBuild() && (hasRemainedPower() || hasInstantConstructionMaterial());
     }
 
     public boolean hasRemainedPower() {
@@ -269,7 +275,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         if (buildType == 0)
             return false;
         ItemStack output = inventory.getStackInSlot(SLOT_OUTPUT);
-        if (!output.isEmpty() || powerGoal <= 0)
+        if (!output.isEmpty() || powerGoal <= 0
+                || !LargeRecipes.isValidInput(matsBuild[0], matsBuild[1], matsBuild[2], matsBuild[3]))
             return false;
 
         // Verify stock is sufficient for build requirements
@@ -345,6 +352,21 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
     }
 
+    public boolean isItemValidForSlot(int slot, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        if (slot == SLOT_FUEL) {
+            return stack.is(ModItems.GRUDGE.get()) || stack.is(ModItems.INSTANT_CON_MAT.get())
+                    || ForgeHooks.getBurnTime(stack, null) > 0;
+        }
+        return slot >= 2 && slot < SLOTS_NUM && stack.getItem() instanceof IShipResourceItem;
+    }
+
+    private boolean hasInstantConstructionMaterial() {
+        return inventory.getStackInSlot(SLOT_FUEL).is(ModItems.INSTANT_CON_MAT.get());
+    }
+
     /**
      * Recycle input items into material stock
      */
@@ -356,20 +378,18 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
             // Use IShipResourceItem interface (matches original addMaterialStock)
             if (stack.getItem() instanceof IShipResourceItem resource) {
-                // check max stock
+                int[] addMats = resource.getResourceValue(0);
+                if (ConfigHandler.easyMode()) {
+                    for (int k = 0; k < 4; k++) addMats[k] *= 10;
+                }
                 boolean canAdd = true;
-                for (int j = 0; j < 4; j++) {
-                    if (matsStock[j] > MAX_STOCK) {
+                for (int k = 0; k < 4; k++) {
+                    if (addMats[k] < 0 || matsStock[k] > MAX_STOCK - addMats[k]) {
                         canAdd = false;
                         break;
                     }
                 }
                 if (!canAdd) continue;
-
-                int[] addMats = resource.getResourceValue(0);
-                if (ConfigHandler.easyMode()) {
-                    for (int k = 0; k < 4; k++) addMats[k] *= 10;
-                }
                 for (int k = 0; k < 4; k++) {
                     matsStock[k] += addMats[k];
                 }
@@ -388,10 +408,19 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                 matsBuild[0], matsBuild[1], matsBuild[2], matsBuild[3],
                 buildShip, level.random);
 
-        if (!result.isEmpty()) {
-            inventory.setStackInSlot(SLOT_OUTPUT, result);
-            LogHelper.debug("LARGE SHIPYARD: build complete, result=" + result);
+        if (result.isEmpty()) {
+            // Do not consume the selected stock if a recipe implementation
+            // declines to create an output after validation.
+            powerConsumed = 0;
+            powerGoal = 0;
+            if (buildType == 1 || buildType == 2) {
+                buildType = 0;
+            }
+            setChanged();
+            return;
         }
+        inventory.setStackInSlot(SLOT_OUTPUT, result);
+        LogHelper.debug("LARGE SHIPYARD: build complete, result=" + result);
 
         // Deduct consumed materials from stock
         for (int i = 0; i < 4; i++) {
@@ -433,7 +462,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         if (buildType != 0 && LargeRecipes.isValidInput(matsBuild[0], matsBuild[1], matsBuild[2], matsBuild[3])) {
             int totalMats = matsBuild[0] + matsBuild[1] + matsBuild[2] + matsBuild[3];
             powerGoal = LargeRecipes.calculateFuelCost(totalMats);
-        } else if (buildType == 0) {
+        } else {
             powerGoal = 0;
         }
 
@@ -443,7 +472,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
             recycleInputSlots();
         }
 
-        if (isBuilding()) {
+        if (canBuild()) {
             ItemStack fuelStack = inventory.getStackInSlot(SLOT_FUEL);
             if (!fuelStack.isEmpty() && fuelStack.is(ModItems.INSTANT_CON_MAT.get())) {
                 fuelStack.shrink(1);
@@ -451,9 +480,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                     inventory.setStackInSlot(SLOT_FUEL, ItemStack.EMPTY);
                 }
                 powerConsumed += POWER_INSTANT;
-            }
-
-            if (powerRemained >= BUILD_SPEED) {
+            } else if (powerRemained >= BUILD_SPEED) {
                 powerRemained -= BUILD_SPEED;
                 powerConsumed += BUILD_SPEED;
             }

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui.inventory;
 
+import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
@@ -12,15 +13,18 @@ import net.minecraftforge.items.SlotItemHandler;
 public class SlotLargeShipyard extends SlotItemHandler {
 
     private final boolean isOutputSlot;
+    private final TileMultiGrudgeHeavy tile;
 
-    public SlotLargeShipyard(IItemHandler itemHandler, int index, int x, int y, boolean isOutputSlot) {
+    public SlotLargeShipyard(IItemHandler itemHandler, int index, int x, int y, boolean isOutputSlot,
+                             TileMultiGrudgeHeavy tile) {
         super(itemHandler, index, x, y);
         this.isOutputSlot = isOutputSlot;
+        this.tile = tile;
     }
 
     @Override
     public boolean mayPlace(ItemStack stack) {
-        return !isOutputSlot;
+        return !isOutputSlot && (tile == null || tile.isItemValidForSlot(getSlotIndex(), stack));
     }
 
     public boolean isOutputSlot() {

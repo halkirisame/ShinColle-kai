@@ -54,10 +54,12 @@ public class BlockGrudgeHeavy extends BasicBlockMulti {
             BlockEntity be = level.getBlockEntity(pos);
 
             if (be instanceof TileMultiGrudgeHeavy tile) {
-                // Combine matsBuild + matsStock into mats[4]
+                // matsBuild is a recipe selection, not a reserved second
+                // inventory.  Adding it here duplicated in-progress builds
+                // whenever the core was broken.
                 int[] mats = new int[4];
                 for (int i = 0; i < 4; i++) {
-                    mats[i] = tile.getMatBuild(i) + tile.getMatStock(i);
+                    mats[i] = tile.getMatStock(i);
                 }
 
                 // Create ItemStack with NBT containing mats + fuel

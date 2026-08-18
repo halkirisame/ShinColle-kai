@@ -74,12 +74,12 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
         IItemHandler handler = tile != null ? tile.getInventory() : new ItemStackHandler(SHIPYARD_SLOT_COUNT);
 
         // Output slot (0): right side, below build type buttons
-        addSlot(new SlotLargeShipyard(handler, OUTPUT_SLOT, 168, 51, true));
+        addSlot(new SlotLargeShipyard(handler, OUTPUT_SLOT, 168, 51, true, tile));
 
         // Material/fuel slots (1-9): horizontal row (original: 7 + i*18 where i=1..9)
         for (int i = 0; i < MATERIAL_SLOT_COUNT; i++) {
             addSlot(new SlotLargeShipyard(handler, MATERIAL_SLOT_START + i,
-                    25 + i * 18, 116, false));
+                    25 + i * 18, 116, false, tile));
         }
 
         // Player inventory: original uses (25, 141) for rows and (24, 199) for hotbar
@@ -179,7 +179,16 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
                     return ItemStack.EMPTY;
                 }
             } else {
-                if (!this.moveItemStackTo(slotStack, MATERIAL_SLOT_START, SHIPYARD_SLOT_COUNT, false)) {
+                boolean moved = false;
+                // Resource items default to the material buffer; fuel can
+                // still be placed deliberately into its dedicated slot.
+                if (tile != null && tile.isItemValidForSlot(MATERIAL_SLOT_START + 1, slotStack)) {
+                    moved = this.moveItemStackTo(slotStack, MATERIAL_SLOT_START + 1, SHIPYARD_SLOT_COUNT, false);
+                } else if (tile != null && tile.isItemValidForSlot(TileMultiGrudgeHeavy.SLOT_FUEL, slotStack)) {
+                    moved = this.moveItemStackTo(slotStack, TileMultiGrudgeHeavy.SLOT_FUEL,
+                            TileMultiGrudgeHeavy.SLOT_FUEL + 1, false);
+                }
+                if (!moved) {
                     return ItemStack.EMPTY;
                 }
             }

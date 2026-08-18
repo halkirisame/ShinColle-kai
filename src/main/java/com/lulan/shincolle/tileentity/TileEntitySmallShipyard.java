@@ -162,7 +162,14 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     }
 
     public void setBuildType(int type) {
-        this.buildType = type;
+        int normalizedType = Math.max(0, Math.min(type, 4));
+        if (this.buildType != normalizedType) {
+            // A partially completed ship build must not be converted into an
+            // equipment build (or vice versa) by changing the GUI mode.
+            this.powerConsumed = 0;
+            this.powerGoal = 0;
+        }
+        this.buildType = normalizedType;
         setChanged();
     }
 
@@ -170,7 +177,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Whether the shipyard has fuel and can build
      */
     public boolean isBuilding() {
-        return hasRemainedPower() && canBuild();
+        return canBuild() && (hasRemainedPower() || hasInstantConstructionMaterial());
     }
 
     /**
@@ -192,14 +199,10 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         if (!output.isEmpty())
             return false;
 
-        // For non-loop builds, need materials and power goal
-        if (buildType == 1 || buildType == 2) {
-            return powerGoal > 0;
-        }
-
-        // For loop builds, continue even if powerGoal is temporarily 0 (will be
-        // recalculated)
-        return true;
+        // Loop mode changes whether another cycle starts after completion; it
+        // must not permit fuel or instant materials to be consumed without a
+        // valid material set.
+        return powerGoal > 0;
     }
 
     /**
@@ -270,6 +273,10 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
             }
             setChanged();
         }
+    }
+
+    private boolean hasInstantConstructionMaterial() {
+        return inventory.getStackInSlot(SLOT_FUEL).is(ModItems.INSTANT_CON_MAT.get());
     }
 
     /**
@@ -382,7 +389,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         decrItemFuel();
 
         // Process building
-        if (isBuilding()) {
+        if (canBuild()) {
             // Check for Instant Construction Material in fuel slot
             ItemStack fuelStack = inventory.getStackInSlot(SLOT_FUEL);
             if (!fuelStack.isEmpty() && fuelStack.is(ModItems.INSTANT_CON_MAT.get())) {
@@ -391,10 +398,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
                     inventory.setStackInSlot(SLOT_FUEL, ItemStack.EMPTY);
                 }
                 powerConsumed += POWER_INSTANT;
-            }
-
-            // Consume fuel and advance build
-            if (powerRemained >= BUILD_SPEED) {
+            } else if (powerRemained >= BUILD_SPEED) {
+                // An instant construction item replaces this tick's normal
+                // fuel use; consuming both lost stored fuel unnecessarily.
                 powerRemained -= BUILD_SPEED;
                 powerConsumed += BUILD_SPEED;
             }
