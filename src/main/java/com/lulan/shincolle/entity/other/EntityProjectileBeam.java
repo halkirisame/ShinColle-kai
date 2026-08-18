@@ -45,6 +45,11 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
     private static final EntityDataAccessor<Float> BEAM_DIR_Z = SynchedEntityData.defineId(EntityProjectileBeam.class,
             EntityDataSerializers.FLOAT);
     /**
+     * Firing ship width, synchronized for client-side beam particles.
+     */
+    private static final EntityDataAccessor<Float> BEAM_HOST_WIDTH = SynchedEntityData.defineId(
+            EntityProjectileBeam.class, EntityDataSerializers.FLOAT);
+    /**
      * Damage interval in ticks
      */
     private final int damageInterval = 5;
@@ -57,6 +62,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
      */
     private LivingEntity hostEntity;
     private IShipAttackBase hostShip;
+    private float beamHostWidth = 0.5F;
     /**
      * Beam direction (normalized)
      */
@@ -94,6 +100,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
                          float damage, float length, int lifetime) {
         if (host instanceof LivingEntity le) {
             this.hostEntity = le;
+            this.beamHostWidth = le.getBbWidth();
             this.setPos(le.getX(), le.getEyeY(), le.getZ());
         }
         this.hostShip = host;
@@ -118,11 +125,15 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         this.entityData.set(BEAM_DIR_X, (float) this.dirX);
         this.entityData.set(BEAM_DIR_Y, (float) this.dirY);
         this.entityData.set(BEAM_DIR_Z, (float) this.dirZ);
+        this.entityData.set(BEAM_HOST_WIDTH, this.beamHostWidth);
     }
 
     @Override
     public EntityDimensions getDimensions(Pose pose) {
-        return EntityDimensions.fixed(0.5F, 0.5F);
+        // Keep the server hitbox fixed while exposing the firing ship's width to
+        // ParticleStickyLightning on the client.
+        float visualWidth = this.level().isClientSide() ? this.beamHostWidth : 0.5F;
+        return EntityDimensions.fixed(visualWidth, 0.5F);
     }
 
     @Override
@@ -132,6 +143,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         this.entityData.define(BEAM_DIR_X, 0.0F);
         this.entityData.define(BEAM_DIR_Y, 0.0F);
         this.entityData.define(BEAM_DIR_Z, 1.0F);
+        this.entityData.define(BEAM_HOST_WIDTH, 0.5F);
     }
 
     @Override
@@ -143,6 +155,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         compound.putDouble("DirX", this.dirX);
         compound.putDouble("DirY", this.dirY);
         compound.putDouble("DirZ", this.dirZ);
+        compound.putFloat("BeamHostWidth", this.beamHostWidth);
     }
 
     @Override
@@ -154,10 +167,21 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         this.dirX = compound.getDouble("DirX");
         this.dirY = compound.getDouble("DirY");
         this.dirZ = compound.getDouble("DirZ");
+        this.beamHostWidth = compound.getFloat("BeamHostWidth");
         this.entityData.set(BEAM_LENGTH, this.maxLength);
         this.entityData.set(BEAM_DIR_X, (float) this.dirX);
         this.entityData.set(BEAM_DIR_Y, (float) this.dirY);
         this.entityData.set(BEAM_DIR_Z, (float) this.dirZ);
+        this.entityData.set(BEAM_HOST_WIDTH, this.beamHostWidth);
+    }
+
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> dataAccessor) {
+        super.onSyncedDataUpdated(dataAccessor);
+        if (dataAccessor.equals(BEAM_HOST_WIDTH) && this.level().isClientSide()) {
+            this.beamHostWidth = this.entityData.get(BEAM_HOST_WIDTH);
+            this.refreshDimensions();
+        }
     }
 
     @Override
@@ -195,7 +219,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         if (this.level().isClientSide()) {
             // 2026/04/07・哦itHub Copilot縺ｫ繧医▲縺ｦ遒ｺ隱肴ｸ医∩
             int particleLife = Math.max(1, this.beamLifetime - this.tickCount);
-            ParticleHelper.spawnStickyLightningParticle(this, 0F, particleLife, 4);
+            ParticleHelper.spawnStickyLightningParticle(this, 0.1F, particleLife, 1);
         }
     }
 
