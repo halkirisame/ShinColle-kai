@@ -3,15 +3,22 @@ package com.lulan.shincolle.client.render.block;
 import com.lulan.shincolle.block.BasicBlockMulti;
 import com.lulan.shincolle.client.model.ModelLargeShipyard;
 import com.lulan.shincolle.client.model.ModelVortex;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -32,6 +39,8 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
             Reference.MOD_ID, "textures/blocks/modelvortex.png");
     private static final ResourceLocation VORTEX_ON = new ResourceLocation(
             Reference.MOD_ID, "textures/blocks/modelvortexon.png");
+    private static final RenderType VORTEX_OFF_NO_DEPTH_WRITE = createVortexRenderType(VORTEX_OFF);
+    private static final RenderType VORTEX_ON_NO_DEPTH_WRITE = createVortexRenderType(VORTEX_ON);
 
     private final ModelLargeShipyard modelBase;
     private final ModelVortex modelVortex;
@@ -94,9 +103,43 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
         poseStack.mulPose(Axis.ZP.rotationDegrees(angle));
         poseStack.scale(0.5F, 0.5F, 0.5F); // scale down vortex
 
-        VertexConsumer vortexConsumer = bufferSource.getBuffer(RenderType.entityTranslucent(vortexTex));
+        RenderType vortexRenderType = ConfigHandler.depthHadalVortex()
+                ? RenderType.entityTranslucent(vortexTex)
+                : active ? VORTEX_ON_NO_DEPTH_WRITE : VORTEX_OFF_NO_DEPTH_WRITE;
+        VertexConsumer vortexConsumer = bufferSource.getBuffer(vortexRenderType);
         modelVortex.renderToBuffer(poseStack, vortexConsumer, packedLight, packedOverlay, 1F, 1F, 1F, 1F);
         poseStack.popPose();
+    }
+
+    /**
+     * Mirrors entityTranslucent while disabling depth writes for the vortex.
+     * The write-mask is part of the RenderType so it is applied when the shared
+     * buffer is flushed, rather than being reset before batched vertices draw.
+     */
+    private static RenderType createVortexRenderType(ResourceLocation texture) {
+        return RenderType.create(Reference.MOD_ID + ":shipyard_vortex_no_depth_write",
+                DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 256, false, true,
+                RenderType.CompositeState.builder()
+                        .setShaderState(new RenderStateShard.ShaderStateShard(
+                                GameRenderer::getRendertypeEntityTranslucentShader))
+                        .setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
+                        .setTransparencyState(new RenderStateShard.TransparencyStateShard(
+                                "shincolle_vortex_transparency",
+                                () -> {
+                                    RenderSystem.enableBlend();
+                                    RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+                                            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                                            GlStateManager.SourceFactor.ONE,
+                                            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+                                },
+                                () -> {
+                                    RenderSystem.disableBlend();
+                                    RenderSystem.defaultBlendFunc();
+                                }))
+                        .setLightmapState(new RenderStateShard.LightmapStateShard(true))
+                        .setOverlayState(new RenderStateShard.OverlayStateShard(true))
+                        .setWriteMaskState(new RenderStateShard.WriteMaskStateShard(true, false))
+                        .createCompositeState(true));
     }
 
     @Override
