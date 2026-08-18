@@ -1,4 +1,4 @@
-# 深これ re:fork
+# ShinColle-kai
 
 このmodは、PinkaLulan氏作のShinColleをkousakirai氏がForge1.20.1に移植したもの(ShinColle-Reforge)の派生版(fork)です。
 移植版で残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を進めています。
@@ -26,7 +26,7 @@ MITライセンスのもとで公開されています。詳細は [LICENSE](LIC
 
 ---
 
-re:fork is a derivative of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of
+ShinColle-kai is a derivative of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of
 PinkaLulan's ShinColle. It carries on from that port, fixing bugs left in it and
 restoring behaviour that was lost in the move from 1.10.2.
 
