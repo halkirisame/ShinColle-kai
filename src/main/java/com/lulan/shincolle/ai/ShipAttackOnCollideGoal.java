@@ -25,6 +25,7 @@ public class ShipAttackOnCollideGoal extends Goal {
     private LivingEntity target;
     private int delayAttack;
     private int delayMax;
+    private int nextRepathTick;
 
     public ShipAttackOnCollideGoal(IShipAttackBase host, double speed) {
         this.host = host;
@@ -49,7 +50,7 @@ public class ShipAttackOnCollideGoal extends Goal {
 
     @Override
     public void start() {
-        // original startExecuting is empty
+        this.nextRepathTick = this.entity.tickCount;
     }
 
     @Override
@@ -83,7 +84,9 @@ public class ShipAttackOnCollideGoal extends Goal {
                 this.target.getX(), this.target.getBoundingBox().minY, this.target.getZ());
 
         // every 32 ticks: update attack delay and pathfind conditionally
-        if (this.entity.tickCount % 32 == 0) {
+        int now = this.entity.tickCount;
+        if (now >= this.nextRepathTick) {
+            this.nextRepathTick = now + 32;
             // dynamically recalculate attack delay from ship stats
             this.delayMax = CombatHelper.getAttackDelay(
                     this.host.getAttrs().getAttackSpeed(), 0);

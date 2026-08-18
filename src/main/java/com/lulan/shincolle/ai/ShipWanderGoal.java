@@ -1,6 +1,7 @@
 package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.reference.ID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.Level;
@@ -32,6 +33,9 @@ public class ShipWanderGoal extends Goal {
         if (this.ship.isOrderedToSit())
             return false;
         if (this.ship.isPassenger())
+            return false;
+        if (this.ship.fishHook != null || this.ship.getStateMinor(ID.M.CraneState) > 0
+                || this.ship.getStateFlag(ID.F.NoFuel))
             return false;
         return this.ship.getRandom().nextInt(180) == 0;
     }

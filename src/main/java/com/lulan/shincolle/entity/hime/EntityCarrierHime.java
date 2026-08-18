@@ -2,7 +2,10 @@ package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.mounts.EntityMountCaH;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -59,6 +62,16 @@ public class EntityCarrierHime extends BasicEntityShipCV implements IShipRiderTy
     public void setAIList() {
         super.setAIList();
         this.goalSelector.addGoal(11, new ShipCarrierAttackGoal(this));
+    }
+
+    @Override
+    public boolean hasShipMounts() {
+        return true;
+    }
+
+    @Override
+    public BasicEntityMount summonMountEntity() {
+        return new EntityMountCaH(ModEntities.MOUNT_CAH.get(), this.level());
     }
 
     @Override

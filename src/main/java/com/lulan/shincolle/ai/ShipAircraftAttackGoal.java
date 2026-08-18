@@ -21,6 +21,7 @@ public class ShipAircraftAttackGoal extends Goal {
     private float attackRange;
     private float rangeSq;
     private double[] randPos = new double[3];
+    private int nextCirclePathTick;
 
     public ShipAircraftAttackGoal(BasicEntityAirplane host) {
         this.host = host;
@@ -56,6 +57,7 @@ public class ShipAircraftAttackGoal extends Goal {
             this.randPos[1] = this.target.getY();
             this.randPos[2] = this.target.getZ();
         }
+        this.nextCirclePathTick = this.host.tickCount;
     }
 
     @Override
@@ -86,7 +88,10 @@ public class ShipAircraftAttackGoal extends Goal {
         boolean onSight = this.host.getSensing().hasLineOfSight(this.target);
         double distSq = this.host.distanceToSqr(this.target);
 
-        // navigate toward target periodically using custom ship navigator
+        // Recalculate the circling path every 16 ticks, matching the original.
+        int now = this.host.tickCount;
+        if (now >= this.nextCirclePathTick) {
+            this.nextCirclePathTick = now + 16;
             if (this.host.useAmmoHeavy()) {
                 this.randPos = BlockHelper.findRandomPosition(this.host, this.target, 12D, 4D, 2);
             } else {
@@ -98,6 +103,7 @@ public class ShipAircraftAttackGoal extends Goal {
             } else {
                 this.host.getNavigation().moveTo(randPos[0], randPos[1], randPos[2], 0.4D);
             }
+        }
 
         this.atkDelay--;
 

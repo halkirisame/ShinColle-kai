@@ -12,6 +12,8 @@ public interface IShipGuardian extends IShipAttackBase {
 
     void setGuardedPos(int x, int y, int z, int dim, int type);
 
+    boolean isGuardedInCurrentDimension();
+
     BlockPos getLastWaypoint();
 
     void setLastWaypoint(BlockPos pos);

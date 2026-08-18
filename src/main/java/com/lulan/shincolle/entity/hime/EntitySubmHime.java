@@ -3,8 +3,11 @@ package com.lulan.shincolle.entity.hime;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipInvisible;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.mounts.EntityMountSuH;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -69,6 +72,16 @@ public class EntitySubmHime extends BasicEntityShipSmall implements IShipRiderTy
         super.setAIList();
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
         this.goalSelector.addGoal(20, new ShipPickItemGoal(this, 4.0F));
+    }
+
+    @Override
+    public boolean hasShipMounts() {
+        return true;
+    }
+
+    @Override
+    public BasicEntityMount summonMountEntity() {
+        return new EntityMountSuH(ModEntities.MOUNT_SUH.get(), this.level());
     }
 
     @Override

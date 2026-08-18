@@ -43,6 +43,8 @@ public class ShipFollowOwnerGoal extends Goal {
     private double[] pos; // target position
     /** next entity tick at which a follow-blocked reason may be logged */
     private int nextBlockLogTick;
+    private int nextOwnerResolveTick;
+    private int nextParticleTick;
 
     public ShipFollowOwnerGoal(IShipAttackBase entity) {
         this.host = entity;
@@ -127,6 +129,9 @@ public class ShipFollowOwnerGoal extends Goal {
         this.findCooldown = 10;
         this.checkTP_T = 0;
         this.checkTP_D = 0;
+        int now = this.hostEntity.tickCount;
+        this.nextOwnerResolveTick = now;
+        this.nextParticleTick = now;
     }
 
     @Override
@@ -148,7 +153,9 @@ public class ShipFollowOwnerGoal extends Goal {
             this.checkTP_T++;
 
             // update follow range every 32 ticks
-            if (hostEntity.tickCount % 32 == 0) {
+            int now = this.hostEntity.tickCount;
+            if (now >= this.nextOwnerResolveTick) {
+                this.nextOwnerResolveTick = now + 32;
                 LivingEntity ownerEntity = resolveOwner();
                 if (ownerEntity != null) {
                     this.owner = ownerEntity;
@@ -265,7 +272,9 @@ public class ShipFollowOwnerGoal extends Goal {
                 }
             }
 
-            if (this.hostEntity.tickCount % 16 == 0) {
+            int now = this.hostEntity.tickCount;
+            if (now >= this.nextParticleTick) {
+                this.nextParticleTick = now + 16;
                 if (owner instanceof ServerPlayer player) {
                     boolean showPart = com.lulan.shincolle.handler.ConfigHandler.alwaysShowTeamCircle() ||
                             player.getMainHandItem().getItem() instanceof com.lulan.shincolle.item.PointerItem ||

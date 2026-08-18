@@ -139,7 +139,9 @@ public class ShipFloatingGoal extends Goal {
     }
 
     private boolean canFloatShip(BasicEntityShip ship) {
-        if (!ship.getStateFlag(ID.F.CanFloatUp) || ship.getShipDepth() <= ship.getShipFloatingDepth()) {
+        if (ship.getStateFlag(ID.F.NoFuel)
+                || !ship.getStateFlag(ID.F.CanFloatUp)
+                || ship.getShipDepth() <= ship.getShipFloatingDepth()) {
             return false;
         }
 

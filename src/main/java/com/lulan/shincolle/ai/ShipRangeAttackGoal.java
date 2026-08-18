@@ -34,6 +34,8 @@ public class ShipRangeAttackGoal extends Goal {
     private float range;
     private float rangeSq;
     private int aimTime;
+    private int nextAttrTick;
+    private int nextRepathTick;
 
     public ShipRangeAttackGoal(IShipCannonAttack host) {
         this.host = host;
@@ -97,6 +99,9 @@ public class ShipRangeAttackGoal extends Goal {
     @Override
     public void start() {
         this.updateAttackParms();
+        int now = this.entity.tickCount;
+        this.nextAttrTick = now;
+        this.nextRepathTick = now;
 
         if (this.delayLight <= this.aimTime) {
             this.delayLight = this.aimTime;
@@ -113,14 +118,15 @@ public class ShipRangeAttackGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        // Upstream: keep going while still closing on the target, otherwise
-        // fall back to the full canUse() check. That re-validates ammo and
-        // attack type, so a ship that has run dry releases the goal (and its
-        // MOVE mutex) instead of holding it with a target it can't shoot.
-        if (this.target != null && this.target.isAlive() && !this.entity.getNavigation().isDone()) {
-            return true;
+        if (this.target == null || !this.target.isAlive() || this.entity.getTarget() != this.target
+                || this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0
+                || (this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount)) {
+            return false;
         }
-        return canUse();
+        return (this.host.getAttackType(ID.F.AtkType_Light)
+                    && this.host.getStateFlag(ID.F.UseAmmoLight) && this.host.hasAmmoLight())
+                || (this.host.getAttackType(ID.F.AtkType_Heavy)
+                    && this.host.getStateFlag(ID.F.UseAmmoHeavy) && this.host.hasAmmoHeavy());
     }
 
     @Override
@@ -142,7 +148,9 @@ public class ShipRangeAttackGoal extends Goal {
             }
 
             // update attributes periodically (upstream refreshes every 64 ticks)
-            if (this.entity.tickCount % 64 == 0) {
+            int now = this.entity.tickCount;
+            if (now >= this.nextAttrTick) {
+                this.nextAttrTick = now + 64;
                 this.updateAttackParms();
             }
 
@@ -175,7 +183,8 @@ public class ShipRangeAttackGoal extends Goal {
 
             if (distSq < holdSq && onSight && !this.host.getStateFlag(ID.F.UseMelee)) {
                 this.entity.getNavigation().stop();
-            } else if (this.entity.tickCount % 32 == 0) {
+            } else if (now >= this.nextRepathTick) {
+                this.nextRepathTick = now + 32;
                 boolean issued = this.entity.getNavigation().moveTo(this.target, 1.0D);
                 LogHelper.debug("DEBUG: range attack AI: " + this.entity
                         + " re-path toward target=" + this.target

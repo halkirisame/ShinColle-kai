@@ -7,6 +7,7 @@ import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.utility.CombatHelper;
+import com.lulan.shincolle.utility.TargetHelper;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -24,6 +25,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Base class for airplane (carrier aircraft) entities.
@@ -96,8 +98,9 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
      */
     @Override
     public void travel(Vec3 travelVector) {
-        // apply movement with reduced speed for air
-        this.moveRelative(0.02F, travelVector);
+        // Keep flight speed tied to the copied ship attributes.  A fixed value
+        // ignored equipment and attribute modifiers after launch.
+        this.moveRelative(this.shipAttrs.getMoveSpeed() * 0.4F, travelVector);
         this.move(net.minecraft.world.entity.MoverType.SELF, this.getDeltaMovement());
 
         // apply friction
@@ -202,7 +205,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
                         Entity newTarget = findNearbyTarget();
 
                         if (newTarget == null && this.host != null) {
-                            newTarget = this.getTarget();
+                            newTarget = this.host.getEntityTarget();
                         }
 
                         if (newTarget != null) {
@@ -250,13 +253,16 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
      */
     private Entity findNearbyTarget() {
         double range = 24D;
+        Predicate<Entity> selector = this.host instanceof BasicEntityShipHostile
+                ? new TargetHelper.SelectorForHostile(this)
+                : new TargetHelper.Selector(this);
 
         // if host has anti-air flag, search wider for airplanes first
         if (this.host != null && this.host.getStateFlag(ID.F.AntiAir)) {
             AABB searchBox = this.getBoundingBox().inflate(32D, 32D, 32D);
             List<BasicEntityAirplane> airTargets = this.level().getEntitiesOfClass(
                     BasicEntityAirplane.class, searchBox,
-                    this::isValidTarget);
+                    selector::test);
 
             if (!airTargets.isEmpty()) {
                 airTargets.sort(Comparator.comparingDouble(this::distanceToSqr));
@@ -268,7 +274,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         AABB searchBox = this.getBoundingBox().inflate(range, range, range);
         List<LivingEntity> targets = this.level().getEntitiesOfClass(
                 LivingEntity.class, searchBox,
-                this::isValidTarget);
+                selector::test);
 
         if (!targets.isEmpty()) {
             targets.sort(Comparator.comparingDouble(this::distanceToSqr));
@@ -281,23 +287,6 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
     /**
      * Check if entity is a valid attack target
      */
-    protected boolean isValidTarget(LivingEntity target) {
-        if (target == null || !target.isAlive())
-            return false;
-        if (target == this || target == this.host)
-            return false;
-
-        // don't attack same owner's entities
-        if (target instanceof IShipOwner owner) {
-            if (this.getPlayerUID() > 0 && owner.getPlayerUID() == this.getPlayerUID()) {
-                return false;
-            }
-        }
-
-        // basic visibility/range check
-        return this.hasLineOfSight(target);
-    }
-
     // ========== Death Animation ==========
 
     @Override

@@ -390,8 +390,15 @@ public class FormationHelper {
      * Otherwise apply guard mode with block guard.
      */
     public static void applyShipGuard(BasicEntityShip ship, int x, int y, int z, boolean forceSet) {
+        applyShipGuard(ship, x, y, z, forceSet, 1);
+    }
+
+    public static void applyShipGuard(BasicEntityShip ship, int x, int y, int z,
+                                      boolean forceSet, int guardType) {
         if (ship == null)
             return;
+
+        guardType = Mth.clamp(guardType, 0, 1);
 
         int gx = ship.getStateMinor(ID.M.GuardX);
         int gy = ship.getStateMinor(ID.M.GuardY);
@@ -411,7 +418,7 @@ public class FormationHelper {
         else {
             ship.setEntitySit(false);
             ship.setGuardedEntity(null);
-            ship.setGuardedPos(x, y, z, 0, 1);
+            ship.setGuardedPos(x, y, z, ship.level().dimension(), guardType);
             ship.setStateFlag(ID.F.CanFollow, false);
 
             if (!ship.getStateFlag(ID.F.NoFuel)) {
@@ -451,8 +458,8 @@ public class FormationHelper {
         // apply guard
         else {
             ship.setEntitySit(false);
-            ship.setGuardedPos(-1, -1, -1, 0, 2);
             ship.setGuardedEntity(guarded);
+            ship.setGuardedPos(-1, -1, -1, guarded.level().dimension(), 2);
             ship.setStateFlag(ID.F.CanFollow, false);
 
             if (!ship.getStateFlag(ID.F.NoFuel)) {

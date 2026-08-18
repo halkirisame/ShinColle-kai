@@ -10,6 +10,7 @@ import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.reference.unitclass.MissileData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.*;
@@ -23,6 +24,7 @@ import javax.annotation.Nullable;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Base class for mount entities.
@@ -41,6 +43,8 @@ public abstract class BasicEntityMount extends TamableAnimal
      * host ship entity
      */
     protected BasicEntityShip host;
+    @Nullable
+    private UUID hostUuid;
     protected ShipMoveControl shipMoveControl;
     /**
      * mount-specific fields
@@ -84,9 +88,16 @@ public abstract class BasicEntityMount extends TamableAnimal
     }
 
     public void setHost(BasicEntityShip ship) {
+        if (this.host == ship) {
+            return;
+        }
         this.host = ship;
         if (host != null) {
             setupAttrs();
+            if (!this.level().isClientSide()) {
+                this.hostUuid = host.getUUID();
+                this.setAIList();
+            }
         }
     }
 
@@ -218,54 +229,6 @@ public abstract class BasicEntityMount extends TamableAnimal
             }
         });
 
-        // mount attack AI: attack host's target via delegated cannon attack
-        this.goalSelector.addGoal(2, new Goal() {
-            private Entity target;
-            private int attackDelay = 0;
-
-            {
-                this.setFlags(EnumSet.of(Flag.LOOK));
-            }
-
-            @Override
-            public boolean canUse() {
-                if (self.host == null)
-                    return false;
-                Entity hostTarget = self.getEntityTarget();
-                if (hostTarget != null && hostTarget.isAlive()) {
-                    this.target = hostTarget;
-                    return true;
-                }
-                return false;
-            }
-
-            @Override
-            public boolean canContinueToUse() {
-                return this.target != null && this.target.isAlive() && self.host != null;
-            }
-
-            @Override
-            public void tick() {
-                if (this.target == null)
-                    return;
-
-                self.getLookControl().setLookAt(this.target, 30.0F, 30.0F);
-                this.attackDelay--;
-
-                double distSq = self.distanceToSqr(this.target);
-                float range = self.host.getAttrs() != null ? self.host.getAttrs().getAttackRange() : 16F;
-
-                if (distSq <= range * range && this.attackDelay <= 0) {
-                    self.attackEntityWithAmmo(this.target);
-                    this.attackDelay = 40;
-                }
-            }
-
-            @Override
-            public void stop() {
-                this.target = null;
-            }
-        });
     }
 
     // ========== IShipCannonAttack ==========
@@ -345,7 +308,7 @@ public abstract class BasicEntityMount extends TamableAnimal
 
     public void setEntityTarget(Entity target) {
         if (this.host != null)
-            this.host.setTarget((LivingEntity) target);
+            this.host.setTarget(target instanceof LivingEntity living ? living : null);
     }
 
     public Entity getEntityRevengeTarget() {
@@ -646,6 +609,44 @@ public abstract class BasicEntityMount extends TamableAnimal
     public void setGuardedPos(int x, int y, int z, int dim, int type) {
         if (this.host != null)
             this.host.setGuardedPos(x, y, z, dim, type);
+    }
+
+    @Override
+    public void tick() {
+        if (!this.level().isClientSide()) {
+            this.resolveHost();
+            this.setNoAi(BasicEntityShip.stopAI);
+        }
+        super.tick();
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        if (this.hostUuid != null) {
+            tag.putUUID("HostUUID", this.hostUuid);
+        }
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        this.hostUuid = tag.hasUUID("HostUUID") ? tag.getUUID("HostUUID") : null;
+    }
+
+    private void resolveHost() {
+        if (this.host != null || this.hostUuid == null || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        Entity entity = serverLevel.getEntity(this.hostUuid);
+        if (entity instanceof BasicEntityShip ship) {
+            this.setHost(ship);
+        }
+    }
+
+    @Override
+    public boolean isGuardedInCurrentDimension() {
+        return this.host == null || this.host.isGuardedInCurrentDimension();
     }
 
     @Override

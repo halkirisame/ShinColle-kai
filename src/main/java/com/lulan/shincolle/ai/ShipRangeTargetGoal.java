@@ -198,13 +198,19 @@ public class ShipRangeTargetGoal extends Goal {
 
     @Override
     public void stop() {
+        // Only clear the target acquired by this goal. A command or another
+        // target goal may have replaced it before stop() runs.
+        if (this.entity.getTarget() == this.targetEntity) {
+            this.entity.setTarget(null);
+        }
+        this.targetEntity = null;
     }
 
     @Override
     public boolean canContinueToUse() {
         Entity target = this.entity.getTarget();
 
-        if (target == null || !target.isAlive()) {
+        if (!(target instanceof LivingEntity livingTarget) || !target.isAlive()) {
             LogHelper.debug("DEBUG: range target AI: " + this.entity
                     + " lost target: target null or dead");
             return false;
@@ -220,6 +226,15 @@ public class ShipRangeTargetGoal extends Goal {
             LogHelper.debug("DEBUG: range target AI: " + this.entity
                     + " lost target=" + target + ": out of range ("
                     + Math.sqrt(this.entity.distanceToSqr(target)) + " > " + this.range + ")");
+            return false;
+        }
+
+        if (!isValidTarget(livingTarget)) {
+            return false;
+        }
+
+        if (this.entity instanceof com.lulan.shincolle.entity.BasicEntityShip
+                && TargetHelper.checkIsAlly(this.entity, target)) {
             return false;
         }
 

@@ -145,12 +145,13 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             if (!shouldDie && !canFindTarget()
                     && (target == null || !target.isAlive())) {
                 // try host's target
-                if (this.host != null && target != null
-                        && target.isAlive()) {
+                if (this.host != null) {
                     Entity host_target = this.host.getEntityTarget();
 
                     if (host_target instanceof LivingEntity living) {
                         this.setTarget(living);
+                    } else {
+                        shouldDie = true;
                     }
                 } else {
                     shouldDie = true;
@@ -217,7 +218,7 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
     }
 
     public void setEntityTarget(Entity target) {
-        this.setTarget((LivingEntity) target);
+        this.setTarget(target instanceof LivingEntity living ? living : null);
     }
 
     public Attrs getAttrs() {

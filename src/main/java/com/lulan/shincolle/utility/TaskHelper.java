@@ -121,8 +121,7 @@ public class TaskHelper {
             return;
 
         // check dimension
-        if (!host.level().dimension().location().toString()
-                .equals(getDimensionKey(host.getGuardedPos(3))))
+        if (!host.isGuardedInCurrentDimension())
             return;
 
         // check guard position is waypoint
@@ -422,8 +421,7 @@ public class TaskHelper {
             return;
 
         // check dimension
-        if (!host.level().dimension().location().toString()
-                .equals(getDimensionKey(host.getGuardedPos(3))))
+        if (!host.isGuardedInCurrentDimension())
             return;
 
         // move to guard point
@@ -532,8 +530,7 @@ public class TaskHelper {
             return;
 
         // check dimension
-        if (!host.level().dimension().location().toString()
-                .equals(getDimensionKey(host.getGuardedPos(3))))
+        if (!host.isGuardedInCurrentDimension())
             return;
 
         // check guard position is waypoint

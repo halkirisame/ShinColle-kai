@@ -3,7 +3,10 @@ package com.lulan.shincolle.entity.hime;
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.mounts.EntityMountCaWD;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -62,6 +65,16 @@ public class EntityCarrierWD extends BasicEntityShipCV implements IShipRiderType
         // WD is the one carrier hull that also runs cannons in 1.10.2; the
         // other carriers (Akagi/Kaga/Wo/CarrierHime/MountCaH) are aircraft-only.
         this.goalSelector.addGoal(12, new ShipRangeAttackGoal(this));
+    }
+
+    @Override
+    public boolean hasShipMounts() {
+        return true;
+    }
+
+    @Override
+    public BasicEntityMount summonMountEntity() {
+        return new EntityMountCaWD(ModEntities.MOUNT_CAWD.get(), this.level());
     }
 
     @Override

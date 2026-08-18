@@ -2,7 +2,10 @@ package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.mounts.EntityMountBaH;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -53,6 +56,16 @@ public class EntityBattleshipHime extends BasicEntityShipSmall implements IShipR
     public void setAIList() {
         super.setAIList();
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
+    }
+
+    @Override
+    public boolean hasShipMounts() {
+        return true;
+    }
+
+    @Override
+    public BasicEntityMount summonMountEntity() {
+        return new EntityMountBaH(ModEntities.MOUNT_BAH.get(), this.level());
     }
 
     @Override

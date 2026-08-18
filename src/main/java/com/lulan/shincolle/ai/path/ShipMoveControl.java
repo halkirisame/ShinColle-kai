@@ -24,14 +24,14 @@ public class ShipMoveControl extends MoveControl {
     private final Mob entity;
     private final IShipNavigator entityN;
     private final float rotateLimit;
-    private final float speedModifier;
+    private final float baseSpeedMultiplier;
 
-    public ShipMoveControl(Mob entity, float rotLimit, float speedModifier) {
+    public ShipMoveControl(Mob entity, float rotLimit, float baseSpeedMultiplier) {
         super(entity);
         this.entity = entity;
         this.entityN = (IShipNavigator) entity;
         this.rotateLimit = rotLimit;
-        this.speedModifier = speedModifier;
+        this.baseSpeedMultiplier = baseSpeedMultiplier;
     }
 
     /**
@@ -80,7 +80,10 @@ public class ShipMoveControl extends MoveControl {
                     }
                 }
 
-                moveSpeed *= this.speedModifier;
+                // MoveControl.moveTo supplies a per-path speed modifier.  The
+                // old field name shadowed that value, so every navigation
+                // request moved at the same speed.
+                moveSpeed *= (float) this.speedModifier * this.baseSpeedMultiplier;
 
                 // limit turn rate per tick
                 this.entity.setYRot(this.limitAngle(this.entity.getYRot(), f, this.rotateLimit));

@@ -40,7 +40,7 @@ public class TargetHelper {
         if (atkTarget != null) {
             if (!atkTarget.isAlive()) {
                 host.setEntityTarget(null);
-            } else if (checkSameOwner(hostEntity, atkTarget)) {
+            } else if (host instanceof BasicEntityShip && checkIsAlly(hostEntity, atkTarget)) {
                 host.setEntityTarget(null);
             }
         }
@@ -179,12 +179,9 @@ public class TargetHelper {
             return false;
         }
 
-        // don't attack owner's own tameables even if class is listed
-        if (target instanceof OwnableEntity) {
-            return !checkSameOwner(host, target);
-        }
-
-        return true;
+        // A custom class may broaden the target type, but it must never bypass
+        // current ownership/alliance rules.
+        return !checkIsAlly(host, target);
     }
 
     // ========== Revenge propagation ==========
@@ -331,19 +328,15 @@ public class TargetHelper {
 
                 switch (ConfigHandler.shipAttackPlayer()) {
                     case 0: // don't attack players
-                        break;
+                        return false;
                     case 1: // attack hostile players
-                        if (checkIsBanned(host, target))
-                            return true;
-                        break;
+                        return checkIsBanned(host, target);
                     case 2: // attack hostile and neutral players
-                        if (!checkIsAlly(host, target))
-                            return true;
-                        break;
+                        return !checkIsAlly(host, target);
                     case 3: // attack all players except owner
-                        if (!checkSameOwner(host, target))
-                            return true;
-                        break;
+                        return !checkSameOwner(host, target);
+                    default:
+                        return false;
                 }
             }
 
@@ -395,6 +388,11 @@ public class TargetHelper {
                 return true;
             }
 
+            // Explicit per-player extension point retained from 1.10.2.
+            if (checkAttackTargetList(host, target)) {
+                return true;
+            }
+
             // IShipOwner entities (summons, etc.): attack if not ally
             if (target instanceof IShipOwner) {
                 boolean isAlly = checkIsAlly(host, target);
@@ -407,14 +405,7 @@ public class TargetHelper {
                 return !isAlly;
             }
 
-            // catch-all: attack any non-owner entity (original 1.10.2 behavior)
-            boolean sameOwner = TeamHelper.checkSameOwner(host, target);
-            if (!sameOwner) {
-                LogHelper.debug("DEBUG: target selector: " + host
-                        + " -> catch-all target=" + target + " (class=" + target.getClass().getSimpleName()
-                        + ") accepted: not same owner, no other rule matched");
-            }
-            return !sameOwner;
+            return false;
         }
     }
 

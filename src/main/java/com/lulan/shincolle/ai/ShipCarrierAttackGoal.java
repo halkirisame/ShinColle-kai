@@ -32,6 +32,8 @@ public class ShipCarrierAttackGoal extends Goal {
     private float rangeSq;
     private double distSq;
     private double distX, distY, distZ;
+    private int nextAttrTick;
+    private int nextRepathTick;
 
     public ShipCarrierAttackGoal(IShipAircraftAttack host) {
         this.host = host;
@@ -76,13 +78,25 @@ public class ShipCarrierAttackGoal extends Goal {
         this.distX = 0D;
         this.distY = 0D;
         this.distZ = 0D;
+        this.updateAttackParams();
+        int now = this.entity.tickCount;
+        this.nextAttrTick = now;
+        this.nextRepathTick = now;
     }
 
     @Override
     public boolean canContinueToUse() {
         return this.target != null
                 && this.target.isAlive()
-                && !this.host.getIsSitting();
+                && !this.host.getIsSitting()
+                && this.host.getStateMinor(ID.M.CraneState) <= 0
+                && !(this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount)
+                && ((this.host.getAttackType(ID.F.AtkType_AirLight)
+                        && this.host.getStateFlag(ID.F.UseAirLight)
+                        && this.host.hasAmmoLight() && this.host.hasAirLight())
+                    || (this.host.getAttackType(ID.F.AtkType_AirHeavy)
+                        && this.host.getStateFlag(ID.F.UseAirHeavy)
+                        && this.host.hasAmmoHeavy() && this.host.hasAirHeavy()));
     }
 
     @Override
@@ -106,20 +120,10 @@ public class ShipCarrierAttackGoal extends Goal {
         }
 
         // update attributes every 64 ticks
-        if (this.entity.tickCount % 31 == 0) {
-            float atkSpd = this.host.getAttrs().getAttackSpeed();
-
-            // calculate attack delay based on current launch type
-            if (this.launchType) {
-                // light aircraft: type 3
-                this.launchDelayMax = CombatHelper.getAttackDelay(atkSpd, 3);
-            } else {
-                // heavy aircraft: type 4
-                this.launchDelayMax = CombatHelper.getAttackDelay(atkSpd, 4);
-            }
-
-            this.range = this.host.getAttrs().getAttackRange();
-            this.rangeSq = this.range * this.range;
+        int now = this.entity.tickCount;
+        if (now >= this.nextAttrTick) {
+            this.nextAttrTick = now + 64;
+            this.updateAttackParams();
         }
 
         // chase / stop logic with cached distance (matching original's two-stage pattern)
@@ -132,7 +136,8 @@ public class ShipCarrierAttackGoal extends Goal {
         if (this.distSq < this.rangeSq && onSight && !this.host.getStateFlag(ID.F.UseMelee)) {
             // in range now, stop moving
             this.entity.getNavigation().stop();
-        } else {
+        } else if (now >= this.nextRepathTick) {
+            this.nextRepathTick = now + 32;
             // still out of range, chase every 32 ticks
             this.entity.getNavigation().moveTo(this.target, 1.0D);
         }
@@ -172,5 +177,12 @@ public class ShipCarrierAttackGoal extends Goal {
             this.launchDelay = 20;
             this.stop();
         }
+    }
+
+    private void updateAttackParams() {
+        float atkSpd = this.host.getAttrs().getAttackSpeed();
+        this.launchDelayMax = CombatHelper.getAttackDelay(atkSpd, this.launchType ? 3 : 4);
+        this.range = this.host.getAttrs().getAttackRange();
+        this.rangeSq = this.range * this.range;
     }
 }

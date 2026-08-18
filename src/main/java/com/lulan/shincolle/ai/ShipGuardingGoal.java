@@ -58,6 +58,9 @@ public class ShipGuardingGoal extends Goal {
     private float range, rangeSq;              // attack range
     private boolean launchType;                // airplane type toggle, true = light
     private boolean isMoving;                  // currently moving toward guard pos
+    private int nextAttrTick;
+    private int nextFindTargetTick;
+    private int nextGuardPosTick;
 
     public ShipGuardingGoal(IShipGuardian host) {
         this.host = host;
@@ -134,6 +137,10 @@ public class ShipGuardingGoal extends Goal {
         this.findCooldown = 10;
         this.checkTP_T = 0;
         this.checkTP_D = 0;
+        int now = this.hostEntity.tickCount;
+        this.nextAttrTick = now;
+        this.nextFindTargetTick = now;
+        this.nextGuardPosTick = now;
     }
 
     @Override
@@ -155,7 +162,9 @@ public class ShipGuardingGoal extends Goal {
                 ship.getStateMinor(ID.M.GuardType) > 0) {
 
             // update attack parameters every 64 ticks
-            if (hostEntity.tickCount % 64 == 0) {
+            int now = this.hostEntity.tickCount;
+            if (now >= this.nextAttrTick) {
+                this.nextAttrTick = now + 64;
                 this.updateAttackParms();
             }
 
@@ -165,7 +174,8 @@ public class ShipGuardingGoal extends Goal {
             this.delayTime[2]--;
 
             // find target every 32 ticks
-            if (hostEntity.tickCount % 32 == 0) {
+            if (now >= this.nextFindTargetTick) {
+                this.nextFindTargetTick = now + 32;
                 this.findTarget();
 
                 // clear dead target
@@ -208,7 +218,9 @@ public class ShipGuardingGoal extends Goal {
         }
 
         // update guard position every 8 ticks
-        if (hostEntity.tickCount % 8 == 0) {
+        int now = this.hostEntity.tickCount;
+        if (now >= this.nextGuardPosTick) {
+            this.nextGuardPosTick = now + 8;
             if (!checkGuardTarget())
                 return;
         }
@@ -310,6 +322,7 @@ public class ShipGuardingGoal extends Goal {
      * Called every 32 ticks when attack-while-moving is active.
      */
     private void findTarget() {
+        this.attackTarget = null;
         AABB searchBox = this.hostEntity.getBoundingBox().inflate(
                 this.range * 0.9D, this.range * 0.6D, this.range * 0.9D);
 
@@ -386,7 +399,7 @@ public class ShipGuardingGoal extends Goal {
 
         if (this.guarded != null) {
             // guarded entity is dead or invalid
-            if (!this.guarded.isAlive()) {
+            if (!this.guarded.isAlive() || this.guarded.level() != this.hostEntity.level()) {
                 host.setGuardedPos(-1, -1, -1, 0, 0);
                 host.setGuardedEntity(null);
                 host.setStateFlag(ID.F.CanFollow, true);
@@ -422,6 +435,18 @@ public class ShipGuardingGoal extends Goal {
         }
         // guard a block position
         else {
+            // An entity guard can be temporarily unresolved while its chunk is
+            // unloaded. Do not reinterpret (-1,-1,-1) as a block command or
+            // discard the saved UUID.
+            if (host.getStateMinor(ID.M.GuardType) == 2) {
+                return false;
+            }
+            if (!host.isGuardedInCurrentDimension()) {
+                host.setGuardedPos(-1, -1, -1, 0, 0);
+                host.setStateFlag(ID.F.CanFollow, true);
+                this.stop();
+                return false;
+            }
             pos[0] = host.getStateMinor(ID.M.GuardX) + 0.5D;
             pos[1] = host.getStateMinor(ID.M.GuardY) + 0.5D;
             pos[2] = host.getStateMinor(ID.M.GuardZ) + 0.5D;

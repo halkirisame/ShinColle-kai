@@ -25,6 +25,7 @@ public class ShipPickItemGoal extends Goal {
     private int pickDelay;
     private int pickDelayMax;
     private float pickRange;
+    private int nextItemScanTick;
 
     public ShipPickItemGoal(BasicEntityShip ship, float pickRangeBase) {
         this.ship = ship;
@@ -49,6 +50,7 @@ public class ShipPickItemGoal extends Goal {
         if (this.ship.isPassenger() || this.ship.isOrderedToSit() ||
                 !this.ship.getStateFlag(ID.F.PickItem) ||
                 this.ship.getStateMinor(ID.M.CraneState) > 0 ||
+                this.ship.fishHook != null ||
                 this.ship.getStateFlag(ID.F.NoFuel)) {
             return false;
         }
@@ -63,11 +65,18 @@ public class ShipPickItemGoal extends Goal {
     }
 
     @Override
+    public void start() {
+        this.nextItemScanTick = this.ship.tickCount;
+    }
+
+    @Override
     public void tick() {
         this.pickDelay--;
 
         // check every 16 ticks
-        if (this.ship.tickCount % 15 == 0) {
+        int now = this.ship.tickCount;
+        if (now >= this.nextItemScanTick) {
+            this.nextItemScanTick = now + 16;
             updateShipParms();
 
             // find nearby items
