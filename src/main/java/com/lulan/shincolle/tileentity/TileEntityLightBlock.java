@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.state.BlockState;
 public class TileEntityLightBlock extends BasicTileEntity {
 
     private int ticksRemaining = 200;
+    private long expiresAt = -1L;
 
     public TileEntityLightBlock(BlockPos pos, BlockState state) {
         this(ModBlockEntities.LIGHT_BLOCK.get(), pos, state);
@@ -26,20 +27,27 @@ public class TileEntityLightBlock extends BasicTileEntity {
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, TileEntityLightBlock tile) {
-        tile.ticksRemaining--;
-        if (tile.ticksRemaining <= 0) {
+        if (tile.expiresAt < 0L) {
+            tile.expiresAt = level.getGameTime() + Math.max(0, tile.ticksRemaining);
+            tile.setChanged();
+        }
+        if (level.getGameTime() >= tile.expiresAt) {
             level.removeBlock(pos, false);
         }
     }
 
     public int getTicksRemaining() {
+        if (expiresAt >= 0L && level != null) {
+            return (int) Math.max(0L, expiresAt - level.getGameTime());
+        }
         return ticksRemaining;
     }
 
     // ==================== Tick Logic ====================
 
     public void setTicksRemaining(int ticks) {
-        this.ticksRemaining = ticks;
+        this.ticksRemaining = Math.max(0, ticks);
+        this.expiresAt = level != null ? level.getGameTime() + this.ticksRemaining : -1L;
         setChanged();
     }
 
@@ -49,6 +57,9 @@ public class TileEntityLightBlock extends BasicTileEntity {
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.putInt("TicksRemaining", ticksRemaining);
+        if (expiresAt >= 0L) {
+            tag.putLong("ExpiresAt", expiresAt);
+        }
     }
 
     @Override
@@ -57,5 +68,6 @@ public class TileEntityLightBlock extends BasicTileEntity {
         if (tag.contains("TicksRemaining")) {
             ticksRemaining = tag.getInt("TicksRemaining");
         }
+        expiresAt = tag.contains("ExpiresAt") ? tag.getLong("ExpiresAt") : -1L;
     }
 }
