@@ -7,7 +7,9 @@ import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.init.ModSounds;
+import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.network.S2CSpawnParticlePacket;
@@ -38,6 +40,7 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.Vec3;
@@ -114,6 +117,7 @@ public abstract class BasicEntityShipHostile extends Mob
     // initialization
     private boolean initAI;
     private int revengeTime;
+    protected ItemStack dropItem = ItemStack.EMPTY;
 
     protected BasicEntityShipHostile(EntityType<? extends BasicEntityShipHostile> type, Level level) {
         super(type, level);
@@ -190,7 +194,46 @@ public abstract class BasicEntityShipHostile extends Mob
         // [PORT] 1.10.2 -> 1.20.1: restore legacy hostile ship turn-rate cap.
         this.moveControl = new ShipMoveControl(this, 60F, 1.5F);
         this.shipAttrs = new AttrsAdv(this.getShipClass());
+        if (!this.level().isClientSide()) {
+            this.dropItem = ((ShipSpawnEgg) ModItems.SHIP_SPAWN_EGG.get()).createStack(this.getShipClass());
+        }
 
+    }
+
+    /**
+     * Return this hostile ship's legacy scale-level-dependent spawn egg drop.
+     */
+    public ItemStack getDropEgg() {
+        if (this.dropItem.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
+        return switch (this.getScaleLevel()) {
+            case 0 -> this.random.nextInt(5) == 0 ? this.dropItem.copy() : ItemStack.EMPTY;
+            case 1 -> this.random.nextInt(3) == 0 ? this.dropItem.copy() : ItemStack.EMPTY;
+            case 2 -> this.random.nextInt(10) > 0 ? this.dropItem.copy() : ItemStack.EMPTY;
+            default -> this.dropItem.copy();
+        };
+    }
+
+    @Override
+    protected void dropCustomDeathLoot(DamageSource source, int looting, boolean recentlyHit) {
+        super.dropCustomDeathLoot(source, looting, recentlyHit);
+
+        if (!this.getStateFlag(ID.F.CanDrop)) {
+            return;
+        }
+
+        ItemStack egg = this.getDropEgg();
+        if (!egg.isEmpty()) {
+            this.setStateFlag(ID.F.CanDrop, false);
+            this.spawnAtLocation(egg);
+        }
+    }
+
+    @Override
+    public int getExperienceReward() {
+        return 10 + this.scaleLevel * 30 + this.random.nextInt(1 + this.scaleLevel * 30);
     }
 
     @Nullable
