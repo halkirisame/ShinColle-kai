@@ -9,6 +9,7 @@ import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.utility.LogHelper;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
@@ -21,7 +22,14 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Block entity for the Small Shipyard block.
@@ -45,6 +53,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Power added per Instant Construction Material
      */
     private static final int POWER_INSTANT = 57600;
+    private static final int LAVA_BUCKET_MB = 1000;
+    private static final int LAVA_BUCKET_BURN_TIME = 20000;
+    private static final int FLUID_TANK_CAPACITY = 16000;
     // Config values loaded from ConfigHandler
     private static int POWER_MAX;
     private static int BUILD_SPEED;
@@ -78,6 +89,14 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Sync timer for periodic updates
      */
     private int syncTime = 0;
+    private final FluidTank fuelTank = new FluidTank(FLUID_TANK_CAPACITY,
+            stack -> stack.getFluid() == Fluids.LAVA) {
+        @Override
+        protected void onContentsChanged() {
+            setChanged();
+        }
+    };
+    private final LazyOptional<IFluidHandler> fuelTankCapability = LazyOptional.of(() -> fuelTank);
 
     public TileEntitySmallShipyard(BlockPos pos, BlockState state) {
         this(ModBlockEntities.SMALL_SHIPYARD.get(), pos, state);
@@ -275,6 +294,23 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         }
     }
 
+    /**
+     * Consume one lava bucket's worth of fluid with the same power value as a
+     * lava bucket placed in the existing fuel inventory slot.
+     */
+    private void decrFluidFuel() {
+        if (powerRemained >= POWER_MAX || fuelTank.getFluidAmount() < LAVA_BUCKET_MB) {
+            return;
+        }
+
+        int fuelValue = (int) (LAVA_BUCKET_BURN_TIME * FUEL_MAGN);
+        if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
+            fuelTank.drain(LAVA_BUCKET_MB, IFluidHandler.FluidAction.EXECUTE);
+            powerRemained += fuelValue;
+            setChanged();
+        }
+    }
+
     private boolean hasInstantConstructionMaterial() {
         return inventory.getStackInSlot(SLOT_FUEL).is(ModItems.INSTANT_CON_MAT.get());
     }
@@ -387,6 +423,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
 
         // Consume fuel items
         decrItemFuel();
+        decrFluidFuel();
 
         // Process building
         if (canBuild()) {
@@ -441,6 +478,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         tag.putInt("PowerRemained", powerRemained);
         tag.putInt("PowerGoal", powerGoal);
         tag.putBoolean("Active", isActive);
+        tag.put("FuelFluid", fuelTank.writeToNBT(new CompoundTag()));
     }
 
     @Override
@@ -451,6 +489,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         powerRemained = tag.getInt("PowerRemained");
         powerGoal = tag.getInt("PowerGoal");
         isActive = tag.getBoolean("Active");
+        if (tag.contains("FuelFluid")) {
+            fuelTank.readFromNBT(tag.getCompound("FuelFluid"));
+        }
     }
 
     // ==================== Client-Server Sync ====================
@@ -470,5 +511,19 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         if (pkt.getTag() != null) {
             load(pkt.getTag());
         }
+    }
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
+        if (capability == ForgeCapabilities.FLUID_HANDLER) {
+            return fuelTankCapability.cast();
+        }
+        return super.getCapability(capability, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        fuelTankCapability.invalidate();
     }
 }
