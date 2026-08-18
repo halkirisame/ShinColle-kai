@@ -14,6 +14,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.UUID;
@@ -113,12 +114,15 @@ public class EntityBattleshipYamato extends BasicEntityShipSmall {
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     ModSounds.SHIP_YAMATO_SHOT.get(), this.getSoundSource(), 1F, 1F);
 
-            double dx = target.getX() - this.getX();
-            double dy = (target.getY() + target.getBbHeight() * 0.5D) - this.getY();
-            double dz = target.getZ() - this.getZ();
+            // initBeam starts at the firing ship's eye.  Calculate both the
+            // direction and visible length from that same point, otherwise the
+            // beam is vertically offset and always renders at its 32-block cap.
+            Vec3 beamStart = new Vec3(this.getX(), this.getEyeY(), this.getZ());
+            Vec3 beamVector = target.getBoundingBox().getCenter().subtract(beamStart);
+            float beamLength = (float) Math.min(32.0D, beamVector.length());
 
             EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), this.level());
-            beam.initBeam(this, dx, dy, dz, atk, 32F, 20);
+            beam.initBeam(this, beamVector.x, beamVector.y, beamVector.z, atk, beamLength, 20);
             this.level().addFreshEntity(beam);
 
             this.setStateEmotion(ID.S.Phase, 0, true);

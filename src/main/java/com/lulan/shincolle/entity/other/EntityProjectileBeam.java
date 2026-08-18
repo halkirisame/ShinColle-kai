@@ -4,6 +4,7 @@ import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipCustomTexture;
 import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.entity.IShipProjectile;
+import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -14,6 +15,7 @@ import net.minecraft.world.entity.*;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.fml.ModList;
 
 import java.util.List;
 
@@ -36,6 +38,12 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
      */
     private static final EntityDataAccessor<Integer> BEAM_END_TICK = SynchedEntityData
             .defineId(EntityProjectileBeam.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> BEAM_DIR_X = SynchedEntityData.defineId(EntityProjectileBeam.class,
+            EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> BEAM_DIR_Y = SynchedEntityData.defineId(EntityProjectileBeam.class,
+            EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> BEAM_DIR_Z = SynchedEntityData.defineId(EntityProjectileBeam.class,
+            EntityDataSerializers.FLOAT);
     /**
      * Damage interval in ticks
      */
@@ -107,6 +115,9 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         this.beamLifetime = lifetime;
         this.entityData.set(BEAM_LENGTH, length);
         this.entityData.set(BEAM_END_TICK, this.tickCount + lifetime);
+        this.entityData.set(BEAM_DIR_X, (float) this.dirX);
+        this.entityData.set(BEAM_DIR_Y, (float) this.dirY);
+        this.entityData.set(BEAM_DIR_Z, (float) this.dirZ);
     }
 
     @Override
@@ -118,6 +129,9 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
     protected void defineSynchedData() {
         this.entityData.define(BEAM_LENGTH, 32.0F);
         this.entityData.define(BEAM_END_TICK, 0);
+        this.entityData.define(BEAM_DIR_X, 0.0F);
+        this.entityData.define(BEAM_DIR_Y, 0.0F);
+        this.entityData.define(BEAM_DIR_Z, 1.0F);
     }
 
     @Override
@@ -140,6 +154,10 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         this.dirX = compound.getDouble("DirX");
         this.dirY = compound.getDouble("DirY");
         this.dirZ = compound.getDouble("DirZ");
+        this.entityData.set(BEAM_LENGTH, this.maxLength);
+        this.entityData.set(BEAM_DIR_X, (float) this.dirX);
+        this.entityData.set(BEAM_DIR_Y, (float) this.dirY);
+        this.entityData.set(BEAM_DIR_Z, (float) this.dirZ);
     }
 
     @Override
@@ -220,7 +238,10 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
 
                 // deal damage
                 if (ent instanceof LivingEntity livingTarget && this.hostEntity != null) {
-                    livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), dmg);
+                    boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), dmg);
+                    if (hurt && ModList.get().isLoaded("curios")) {
+                        ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, dmg);
+                    }
                 }
             }
         }
@@ -269,7 +290,8 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
      * Get the beam direction vector
      */
     public Vec3 getBeamDirection() {
-        return new Vec3(this.dirX, this.dirY, this.dirZ);
+        return new Vec3(this.entityData.get(BEAM_DIR_X), this.entityData.get(BEAM_DIR_Y),
+                this.entityData.get(BEAM_DIR_Z));
     }
 
     // ========== IShipOwner ==========

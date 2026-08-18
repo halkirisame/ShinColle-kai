@@ -12,6 +12,7 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Battleship Yamato mob entity.
@@ -96,12 +97,14 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     ModSounds.SHIP_YAMATO_SHOT.get(), this.getSoundSource(), 1F, 1F);
 
-            double dx = target.getX() - this.getX();
-            double dy = (target.getY() + target.getBbHeight() * 0.5D) - this.getY();
-            double dz = target.getZ() - this.getZ();
+            // Keep the hostile variant geometrically identical to Yamato: the
+            // beam's origin is the eye position, so its vector must be too.
+            Vec3 beamStart = new Vec3(this.getX(), this.getEyeY(), this.getZ());
+            Vec3 beamVector = target.getBoundingBox().getCenter().subtract(beamStart);
+            float beamLength = (float) Math.min(32.0D, beamVector.length());
 
             EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), this.level());
-            beam.initBeam(this, dx, dy, dz, atk, 32F, 20);
+            beam.initBeam(this, beamVector.x, beamVector.y, beamVector.z, atk, beamLength, 20);
             this.level().addFreshEntity(beam);
 
             this.setStateEmotion(ID.S.Phase, 0, true);

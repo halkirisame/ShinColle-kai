@@ -458,9 +458,7 @@ public class ClientSetup {
 
         // ========== Raw Entity Types ==========
         event.registerEntityRenderer(ModEntities.ABYSS_MISSILE.get(), RenderAbyssMissile::new);
-        // 2026/04/07：GitHub Copilotによって確認済み -
-        // 1.10.2ではInvisible指定のため、beam/staticはNoop維持。
-        event.registerEntityRenderer(ModEntities.PROJECTILE_BEAM.get(), NoopEntityRenderer::new);
+        event.registerEntityRenderer(ModEntities.PROJECTILE_BEAM.get(), RenderProjectileBeam::new);
         event.registerEntityRenderer(ModEntities.PROJECTILE_STATIC.get(), NoopEntityRenderer::new);
         event.registerEntityRenderer(ModEntities.BASIC_ENTITY_ITEM.get(), RenderBasicEntityItem::new);
         event.registerEntityRenderer(ModEntities.FISHING_HOOK.get(), RenderShipFishing::new);
