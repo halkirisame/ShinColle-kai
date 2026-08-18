@@ -123,6 +123,7 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
                         .setShaderState(new RenderStateShard.ShaderStateShard(
                                 GameRenderer::getRendertypeEntityTranslucentShader))
                         .setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
+                        .setCullState(new RenderStateShard.CullStateShard(false))
                         .setTransparencyState(new RenderStateShard.TransparencyStateShard(
                                 "shincolle_vortex_transparency",
                                 () -> {
