@@ -303,6 +303,13 @@ public class EquipCalc {
             BasicEquip.setEquipMeta(item, itemMeta);
         }
 
+        // JSON is authoritative for enchant category. Keep the switch values
+        // above only as a fallback for definitions supplied by an older addon.
+        EquipDefinition definition = EquipDataRegistry.get(itemID);
+        if (definition != null) {
+            enchType = definition.enchantType() - 1;
+        }
+
         // Apply random enchantments based on enchant level
         if (enchLv > 0) {
             applyRandomEnchantToEquip(item, enchType, enchLv);
@@ -374,12 +381,12 @@ public class EquipCalc {
     /**
      * Calculate equip stats with enchantment effect.
      *
-     * @param equipType equipment type (1=weapon, 2=armor, 3=misc)
+     * @param enchantType enchant category (1=weapon, 2=armor, 3=misc)
      * @param raw       raw equipment stats
      * @param enchant   enchantment effect values
      * @return enchanted equipment stats
      */
-    public static float[] calcEquipStatWithEnchant(int equipType, float[] raw, float[] enchant) {
+    public static float[] calcEquipStatWithEnchant(int enchantType, float[] raw, float[] enchant) {
         float[] newstat = new float[Attrs.AttrsLength];
         float modTemp;
 
@@ -387,14 +394,14 @@ public class EquipCalc {
         newstat[ID.Attrs.HP] = raw[ID.Attrs.HP] * (1F + enchant[ID.Attrs.HP]);
 
         // ATK (weapon only)
-        modTemp = equipType == 1 ? 1F + enchant[ID.Attrs.ATK_L] : 1F;
+        modTemp = enchantType == 1 ? 1F + enchant[ID.Attrs.ATK_L] : 1F;
         newstat[ID.Attrs.ATK_L] = raw[ID.Attrs.ATK_L] * modTemp;
         newstat[ID.Attrs.ATK_H] = raw[ID.Attrs.ATK_H] * modTemp;
         newstat[ID.Attrs.ATK_AL] = raw[ID.Attrs.ATK_AL] * modTemp;
         newstat[ID.Attrs.ATK_AH] = raw[ID.Attrs.ATK_AH] * modTemp;
 
         // DEF (armor only)
-        modTemp = equipType == 2 ? 1F + enchant[ID.Attrs.DEF] : 1F;
+        modTemp = enchantType == 2 ? 1F + enchant[ID.Attrs.DEF] : 1F;
         newstat[ID.Attrs.DEF] = raw[ID.Attrs.DEF] * modTemp;
 
         // SPD
@@ -442,20 +449,22 @@ public class EquipCalc {
         newstat[ID.Attrs.DODGE] = raw[ID.Attrs.DODGE] * modTemp;
 
         // XP gain (weapon only)
-        newstat[ID.Attrs.XP] = equipType == 1 ? raw[ID.Attrs.XP] + enchant[ID.Attrs.XP] : raw[ID.Attrs.XP];
+        newstat[ID.Attrs.XP] = enchantType == 1 ? raw[ID.Attrs.XP] + enchant[ID.Attrs.XP] : raw[ID.Attrs.XP];
 
         // Grudge gain (non-weapon only)
-        newstat[ID.Attrs.GRUDGE] = equipType != 1 ? raw[ID.Attrs.GRUDGE] + enchant[ID.Attrs.GRUDGE]
+        newstat[ID.Attrs.GRUDGE] = enchantType != 1 ? raw[ID.Attrs.GRUDGE] + enchant[ID.Attrs.GRUDGE]
                 : raw[ID.Attrs.GRUDGE];
 
         // Ammo gain (weapon only)
-        newstat[ID.Attrs.AMMO] = equipType == 1 ? raw[ID.Attrs.AMMO] + enchant[ID.Attrs.AMMO] : raw[ID.Attrs.AMMO];
+        newstat[ID.Attrs.AMMO] = enchantType == 1 ? raw[ID.Attrs.AMMO] + enchant[ID.Attrs.AMMO]
+                : raw[ID.Attrs.AMMO];
 
         // HP restore (non-weapon only)
-        newstat[ID.Attrs.HPRES] = equipType != 1 ? raw[ID.Attrs.HPRES] + enchant[ID.Attrs.HPRES] : raw[ID.Attrs.HPRES];
+        newstat[ID.Attrs.HPRES] = enchantType != 1 ? raw[ID.Attrs.HPRES] + enchant[ID.Attrs.HPRES]
+                : raw[ID.Attrs.HPRES];
 
         // Knockback resist (non-weapon only)
-        newstat[ID.Attrs.KB] = equipType != 1 ? raw[ID.Attrs.KB] + enchant[ID.Attrs.KB] : raw[ID.Attrs.KB];
+        newstat[ID.Attrs.KB] = enchantType != 1 ? raw[ID.Attrs.KB] + enchant[ID.Attrs.KB] : raw[ID.Attrs.KB];
 
         return newstat;
     }

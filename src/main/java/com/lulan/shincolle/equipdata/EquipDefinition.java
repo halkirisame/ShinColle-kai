@@ -49,10 +49,8 @@ public record EquipDefinition(
     /**
      * The old numeric {@code EQUIP_TYPE} (0=none, 1=cannon, 2=both, 3=aircraft)
      * that {@code compatible} replaced. Kept around because a couple of call
-     * sites (ship-side compatibility checks, and - preserving existing
-     * behavior exactly - the {@code equipType} argument to {@link
-     * com.lulan.shincolle.crafting.EquipCalc#calcEquipStatWithEnchant}) still
-     * branch on this numeric form rather than tag membership.
+     * sites (currently ship-side compatibility checks) still branch on this
+     * numeric form rather than tag membership.
      */
     public int legacyEquipTypeValue() {
         boolean cannon = compatible.contains("cannon");

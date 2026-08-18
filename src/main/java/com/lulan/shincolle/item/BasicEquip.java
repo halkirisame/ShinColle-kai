@@ -198,7 +198,7 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
 
         if (def != null) {
             // Apply enchant effect
-            float[] main = EquipCalc.calcEquipStatWithEnchant(def.legacyEquipTypeValue(), def.stats(),
+            float[] main = EquipCalc.calcEquipStatWithEnchant(def.enchantType(), def.stats(),
                     EnchantHelper.calcEnchantEffect(stack));
 
             // Draw stat values
