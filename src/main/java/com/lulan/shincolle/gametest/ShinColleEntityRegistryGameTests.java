@@ -1,36 +1,47 @@
 package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.*;
+import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerFormation;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
+import com.lulan.shincolle.crafting.EquipCalc;
 import com.lulan.shincolle.crafting.ShipCalc;
 import com.lulan.shincolle.entity.BasicEntityMount;
+import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
+import com.lulan.shincolle.block.BlockWaypoint;
 import com.lulan.shincolle.entity.other.EntityFloatingFort;
 import com.lulan.shincolle.entity.other.EntityProjectileStatic;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.BasicEquip;
+import com.lulan.shincolle.item.MarriageRing;
 import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.item.ShipSpawnEgg;
+import com.lulan.shincolle.network.C2SInputPacket;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.S2CGUISyncPacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.team.TeamData;
 import com.lulan.shincolle.tileentity.BasicTileMulti;
 import com.lulan.shincolle.tileentity.TileEntityCrane;
+import com.lulan.shincolle.tileentity.TileEntitySmallShipyard;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
+import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.MulitBlockHelper;
 import com.lulan.shincolle.utility.PacketHelper;
+import com.lulan.shincolle.utility.TargetHelper;
+import com.lulan.shincolle.utility.TileEntityHelper;
 import com.mojang.authlib.GameProfile;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
@@ -41,16 +52,19 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -198,6 +212,7 @@ public final class ShinColleEntityRegistryGameTests {
         ServerPlayer player = createFollowTestOwner(helper, level,
                 UUID.fromString("00000000-0000-0000-0000-000000000004"),
                 "shincolle_pointer_open_item_gui");
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
 
         C2SGUIInputPacket packet = new C2SGUIInputPacket(
                 C2SGUIInputPacket.OpenItemGUI,
@@ -464,9 +479,9 @@ public final class ShinColleEntityRegistryGameTests {
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void shipInvPagePacketUpdatesOpenedContainerPage(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        ServerPlayer player = createFollowTestOwner(helper, level,
+        ServerPlayer player = FakePlayerFactory.get(level, new GameProfile(
                 UUID.fromString("00000000-0000-0000-0000-000000000009"),
-                "shincolle_ship_inv_page");
+                "shincolle_ship_inv_page"));
 
         Entity entity = ModEntities.BB_KONGOU.get().create(level);
         if (!(entity instanceof BasicEntityShip ship)) {
@@ -477,9 +492,27 @@ public final class ShinColleEntityRegistryGameTests {
             throw new AssertionError("Failed to add ship for inventory-page packet test.");
         }
 
+        ship.tame(player);
+        ship.setOwnerUUID(player.getUUID());
+        player.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(9009));
+        ship.setStateMinor(ID.M.PlayerUID, 9009);
+        ship.setStateMinor(ID.M.DrumState, 2);
+        player.moveTo(ship.getX(), ship.getY(), ship.getZ());
         ship.openGUI(player);
         if (!(player.containerMenu instanceof ContainerShipInventory menu)) {
             throw new AssertionError("Ship GUI should open ContainerShipInventory in inventory-page packet test.");
+        }
+        if (!com.lulan.shincolle.utility.TeamHelper.checkSameOwner(player, ship)
+                || !ship.isAlive() || ship.level() != player.level()
+                || menu.getShip() != ship || !menu.stillValid(player)
+                || level.getEntity(ship.getId()) != ship) {
+            throw new AssertionError("Authorized ship menu failed its server validation guards: owned="
+                    + com.lulan.shincolle.utility.TeamHelper.checkSameOwner(player, ship)
+                    + " alive=" + ship.isAlive()
+                    + " sameLevel=" + (ship.level() == player.level())
+                    + " sameMenuShip=" + (menu.getShip() == ship)
+                    + " stillValid=" + menu.stillValid(player)
+                    + " entityResolved=" + (level.getEntity(ship.getId()) == ship));
         }
 
         C2SGUIInputPacket packet = new C2SGUIInputPacket(
@@ -496,7 +529,189 @@ public final class ShinColleEntityRegistryGameTests {
             throw new AssertionError("ShipInv_InvPage should update opened ContainerShipInventory page to 2.");
         }
 
+        ServerPlayer otherPlayer = FakePlayerFactory.get(level, new GameProfile(
+                UUID.fromString("00000000-0000-0000-0000-000000000010"),
+                "shincolle_ship_inv_unauthorized"));
+        otherPlayer.moveTo(ship.getX(), ship.getY(), ship.getZ());
+        otherPlayer.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(9010));
+        C2SGUIInputPacket unauthorized = new C2SGUIInputPacket(
+                C2SGUIInputPacket.ShipBtn,
+                new int[]{ship.getId(), 0, ID.B.ShipInv_InvPage, 1});
+        invokePacketHandler(unauthorized, "handleShipBtn", otherPlayer);
+        if (ship.getCapaShipInventory().getInventoryPage() != 2) {
+            throw new AssertionError("A non-owner must not change another ship's GUI state.");
+        }
+
         player.closeContainer();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void teamRuntimeEntityIdsAreNotPersisted(GameTestHelper helper) {
+        CapaTeitoku source = new CapaTeitoku();
+        source.setTeamMember(2, 3, 12345);
+        source.setTeamSID(2, 3, 67890);
+        source.setShipSelected(2, 3, true);
+
+        CapaTeitoku loaded = new CapaTeitoku();
+        loaded.deserializeNBT(source.serializeNBT());
+        if (loaded.getTeamMember(2, 3) != 12345 || loaded.getTeamSID(2, 3) != -1
+                || !loaded.isShipSelected(2, 3)) {
+            throw new AssertionError("Ship UID and selection must survive; runtime entity ID must be invalidated.");
+        }
+
+        loaded.clearTeamEntityIDs();
+        if (loaded.getTeamMember(2, 3) != 12345 || loaded.getTeamSID(2, 3) != -1) {
+            throw new AssertionError("Clearing runtime entity IDs must not erase persistent team membership.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void pointerSelectionAndModeAreAppliedServerSide(GameTestHelper helper) {
+        ServerPlayer player = createFollowTestOwner(helper, helper.getLevel(),
+                UUID.fromString("00000000-0000-0000-0000-000000000011"),
+                "shincolle_pointer_selection");
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            throw new AssertionError("Test player has no CapaTeitoku capability.");
+        }
+        capa.setTeamMember(0, 0, 1001);
+        capa.setTeamMember(0, 1, 1002);
+        capa.setShipSelected(0, 0, true);
+
+        ItemStack pointer = new ItemStack(ModItems.POINTER.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, pointer);
+        invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SyncPlayerItem,
+                new int[]{player.getId(), 0, PointerItem.MODE_GROUP}), "handleSyncPlayerItem", player);
+        if (PointerItem.getMode(player.getMainHandItem()) != PointerItem.MODE_GROUP) {
+            throw new AssertionError("Pointer mode was not applied to the authoritative server stack.");
+        }
+
+        invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SetSelect,
+                new int[]{player.getId(), 0, PointerItem.MODE_GROUP, 1002}), "handleSetSelect", player);
+        if (!capa.isShipSelected(0, 0) || !capa.isShipSelected(0, 1)) {
+            throw new AssertionError("Group mode should toggle the addressed ship without clearing the existing selection.");
+        }
+
+        invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SetSelect,
+                new int[]{player.getId(), 0, PointerItem.MODE_SINGLE, 1002}), "handleSetSelect", player);
+        if (capa.isShipSelected(0, 0) || !capa.isShipSelected(0, 1)) {
+            throw new AssertionError("Single mode should retain only the addressed ship.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void hostileShipsParticipateInVanillaEnemyClassification(GameTestHelper helper) {
+        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
+        if (!(entity instanceof BasicEntityShipHostile) || !(entity instanceof Enemy)) {
+            throw new AssertionError("Hostile ship must implement vanilla Enemy classification.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void hostileBossBarSurvivesNbtReload(GameTestHelper helper) {
+        Entity sourceEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
+        Entity loadedEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
+        if (!(sourceEntity instanceof BasicEntityShipHostile source)
+                || !(loadedEntity instanceof BasicEntityShipHostile loaded)) {
+            throw new AssertionError("Failed to create hostile ships for boss bar reload test.");
+        }
+
+        source.initAttrs(2);
+        float savedHealth = source.getMaxHealth() * 0.35F;
+        source.setHealth(savedHealth);
+        CompoundTag saved = new CompoundTag();
+        source.saveWithoutId(saved);
+
+        loaded.load(saved);
+        if (loaded.getScaleLevel() != 2) {
+            throw new AssertionError("Boss scale level was not restored from NBT.");
+        }
+        if (Math.abs(loaded.getHealth() - savedHealth) > 0.01F) {
+            throw new AssertionError("Loading boss bar state must not heal the boss. expected="
+                    + savedHealth + " actual=" + loaded.getHealth());
+        }
+
+        ServerBossEvent firstEvent = extractBossEvent(loaded);
+        if (firstEvent == null) {
+            throw new AssertionError("NBT-loaded boss did not recreate its ServerBossEvent.");
+        }
+        loaded.creatBossEvent();
+        if (extractBossEvent(loaded) != firstEvent) {
+            throw new AssertionError("Boss event recreation must be idempotent.");
+        }
+
+        ServerPlayer player = createFollowTestOwner(helper, helper.getLevel(),
+                UUID.fromString("00000000-0000-0000-0000-000000000012"),
+                "shincolle_boss_bar_reload");
+        loaded.startSeenByPlayer(player);
+        if (!firstEvent.getPlayers().contains(player)) {
+            throw new AssertionError("Tracking player was not registered with the restored boss event.");
+        }
+
+        loaded.stopSeenByPlayer(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipAiSettingsClampUntrustedPacketValues(GameTestHelper helper) {
+        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
+        if (!(entity instanceof BasicEntityShip ship)) {
+            throw new AssertionError("BB_KONGOU is not BasicEntityShip in AI clamp test.");
+        }
+
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FollowMin, Integer.MAX_VALUE);
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FollowMax, Integer.MIN_VALUE);
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FleeHP, 500);
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_WpStay, -10);
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_Task, 99);
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_TaskSide, -1);
+        ship.setStateFlag(ID.F.NoFuel, false);
+        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_NoFuel, 1);
+
+        if (ship.getStateMinor(ID.M.FollowMin) != 1 || ship.getStateMinor(ID.M.FollowMax) != 2
+                || ship.getStateMinor(ID.M.FleeHP) != 100 || ship.getStateMinor(ID.M.WpStay) != 0
+                || ship.getStateMinor(ID.M.Task) != 4
+                || ship.getStateMinor(ID.M.TaskSide) != 0x17FFFF
+                || ship.getStateFlag(ID.F.NoFuel)) {
+            throw new AssertionError("Ship AI packet values were not clamped to server-owned ranges.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void friendlyTargetSelectorRejectsPassiveMobsAndUsesCustomList(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity entity = ModEntities.BB_KONGOU.get().create(level);
+        Entity cow = EntityType.COW.create(level);
+        Entity zombie = EntityType.ZOMBIE.create(level);
+        if (!(entity instanceof BasicEntityShip ship) || cow == null || zombie == null) {
+            throw new AssertionError("Failed to create entities for target selector test.");
+        }
+        cow.moveTo(2.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
+        zombie.moveTo(3.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
+        level.addFreshEntity(cow);
+        level.addFreshEntity(zombie);
+
+        int playerUid = 54321;
+        ship.setStateMinor(ID.M.PlayerUID, playerUid);
+        ship.setStateFlag(ID.F.OnSightChase, false);
+        TargetHelper.Selector selector = new TargetHelper.Selector(ship);
+        if (selector.test(cow)) {
+            throw new AssertionError("Friendly ships must not automatically target passive mobs.");
+        }
+        if (!selector.test(zombie)) {
+            throw new AssertionError("Friendly ships should target vanilla monsters.");
+        }
+
+        ServerDataManager.setPlayerTargetClass(playerUid, cow.getClass().getSimpleName());
+        if (!selector.test(cow)) {
+            throw new AssertionError("The per-player custom target class list is not used by the selector.");
+        }
+        ServerDataManager.setPlayerTargetClass(playerUid, cow.getClass().getSimpleName());
         helper.succeed();
     }
 
@@ -867,6 +1082,86 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void goalThrottlesFireOnBothTickParities(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+
+        Entity entity = ModEntities.BB_KONGOU.get().create(level);
+        if (!(entity instanceof BasicEntityShip ship)) {
+            throw new AssertionError("BB_KONGOU is not BasicEntityShip in goal throttle parity test.");
+        }
+
+        assertStartInitializesThrottleFields(new ShipPickItemGoal(ship, 6.0F), ship, 101,
+                "nextItemScanTick");
+        assertStartInitializesThrottleFields(new ShipGuardingGoal(ship), ship, 101,
+                "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
+        assertStartInitializesThrottleFields(new ShipFollowOwnerGoal(ship), ship, 101,
+                "nextOwnerResolveTick", "nextParticleTick");
+        assertStartInitializesThrottleFields(new ShipRangeAttackGoal(ship), ship, 101,
+                "nextAttrTick", "nextRepathTick");
+        assertStartInitializesThrottleFields(new ShipAttackOnCollideGoal(ship, 1.0D), ship, 101,
+                "nextRepathTick");
+
+        Entity carrierEntity = ModEntities.CV_AKAGI.get().create(level);
+        if (!(carrierEntity instanceof com.lulan.shincolle.entity.IShipAircraftAttack carrier)) {
+            throw new AssertionError("CV_AKAGI is not IShipAircraftAttack in goal throttle parity test.");
+        }
+        assertStartInitializesThrottleFields(new ShipCarrierAttackGoal(carrier), carrierEntity, 101,
+                "nextAttrTick", "nextRepathTick");
+
+        Entity airplaneEntity = ModEntities.AIRPLANE.get().create(level);
+        if (!(airplaneEntity instanceof BasicEntityAirplane airplane)) {
+            throw new AssertionError("AIRPLANE is not BasicEntityAirplane in goal throttle parity test.");
+        }
+        assertStartInitializesThrottleFields(new ShipAircraftAttackGoal(airplane), airplane, 101,
+                "nextCirclePathTick");
+
+        int evenFires = countPickItemThrottleFires(ship, 2);
+        int oddFires = countPickItemThrottleFires(ship, 3);
+        if (evenFires != 8 || oddFires != 8) {
+            throw new AssertionError("Goal throttle should fire eight times on both tick parities over 128 ticks."
+                    + " even=" + evenFires + " odd=" + oddFires);
+        }
+
+        Entity targetEntity = ModEntities.SS_KA.get().create(level);
+        if (!(targetEntity instanceof LivingEntity target)) {
+            throw new AssertionError("SS_KA is not LivingEntity in goal throttle parity test.");
+        }
+
+        Vec3 shipPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+        ship.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+        target.moveTo(shipPos.x + 16D, shipPos.y, shipPos.z, 0F, 0F);
+        if (!level.addFreshEntity(ship) || !level.addFreshEntity(target)) {
+            throw new AssertionError("Failed to add entities for melee throttle parity test.");
+        }
+        ship.setTarget(target);
+
+        ShipAttackOnCollideGoal meleeGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
+        if (!meleeGoal.canUse()) {
+            throw new AssertionError("Melee goal should acquire the live target in throttle parity test.");
+        }
+        assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 2);
+        assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 3);
+
+        assertDeclaredIntFields(ShipPickItemGoal.class, "nextItemScanTick");
+        assertDeclaredIntFields(ShipGuardingGoal.class,
+                "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
+        assertDeclaredIntFields(ShipFollowOwnerGoal.class,
+                "nextOwnerResolveTick", "nextParticleTick");
+        assertDeclaredIntFields(ShipRangeAttackGoal.class,
+                "nextAttrTick", "nextRepathTick");
+        assertDeclaredIntFields(ShipCarrierAttackGoal.class,
+                "nextAttrTick", "nextRepathTick");
+        assertDeclaredIntFields(ShipAttackOnCollideGoal.class, "nextRepathTick");
+        assertDeclaredIntFields(ShipAircraftAttackGoal.class, "nextCirclePathTick");
+
+        target.discard();
+        ship.discard();
+        carrierEntity.discard();
+        airplaneEntity.discard();
+        helper.succeed();
+    }
+
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void shipFollowOwnerGoalRespectsCoreGuards(GameTestHelper helper) {
@@ -1140,7 +1435,7 @@ public final class ShinColleEntityRegistryGameTests {
     public static void shipSpawnEggModelLayerAssignmentsMatchLegacy(GameTestHelper helper) {
         // [PORT] 1.10.2 -> 1.20.1: lock legacy icon->texture assignment to avoid silent
         // model drift in spawn eggs.
-        assertModelLayer0("ship_spawn_egg.json", "shincolle:item/ship_spawn_egg_s");
+        assertModelLayer0("ship_spawn_egg.json", "shincolle:item/ship_spawn_egg_primary");
         assertModelLayer0("ship_spawn_egg_l.json", "shincolle:item/ship_spawn_egg_l");
         assertModelLayer0("ship_spawn_egg_dd.json", "shincolle:item/ship_spawn_egg_0");
         assertModelLayer0("ship_spawn_egg_cl.json", "shincolle:item/ship_spawn_egg_1");
@@ -1485,6 +1780,485 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipyardsRejectInvalidBuildsAndAllowInstantConstruction(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+
+        BlockPos largePos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(largePos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(largePos) instanceof TileMultiGrudgeHeavy large)) {
+            throw new AssertionError("Large shipyard tile was not created.");
+        }
+        large.setBuildType(1);
+        large.setPowerGoal(1); // Simulates stale saved state from an earlier valid recipe.
+        for (int i = 0; i < 4; i++) {
+            large.setMatStock(i, 1000);
+            large.setMatBuild(i, 1); // Below LargeRecipes.MIN_MATERIAL.
+        }
+        if (large.canBuild()) {
+            throw new AssertionError("Large shipyard accepted an invalid material recipe.");
+        }
+
+        BlockPos smallPos = helper.absolutePos(new BlockPos(6, 2, 2));
+        level.setBlock(smallPos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(smallPos) instanceof TileEntitySmallShipyard small)) {
+            throw new AssertionError("Small shipyard tile was not created.");
+        }
+        small.setBuildType(3);
+        small.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_FUEL,
+                new ItemStack(ModItems.INSTANT_CON_MAT.get()));
+        TileEntitySmallShipyard.serverTick(level, smallPos, level.getBlockState(smallPos), small);
+        if (small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_FUEL).isEmpty()) {
+            throw new AssertionError("Small shipyard consumed instant material without valid inputs.");
+        }
+
+        for (int slot = TileEntitySmallShipyard.SLOT_GRUDGE; slot <= TileEntitySmallShipyard.SLOT_POLYMETAL; slot++) {
+            ItemStack material = switch (slot) {
+                case TileEntitySmallShipyard.SLOT_GRUDGE -> new ItemStack(ModItems.GRUDGE.get(), 16);
+                case TileEntitySmallShipyard.SLOT_ABYSSIUM -> new ItemStack(ModItems.ABYSS_METAL.get(), 16);
+                case TileEntitySmallShipyard.SLOT_AMMO -> new ItemStack(ModItems.AMMO.get(), 16);
+                default -> new ItemStack(ModItems.POLYMETAL_NODULE.get(), 16);
+            };
+            small.getInventory().setStackInSlot(slot, material);
+        }
+        TileEntitySmallShipyard.serverTick(level, smallPos, level.getBlockState(smallPos), small);
+        if (!small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_FUEL).isEmpty()) {
+            throw new AssertionError("Small shipyard did not consume instant material for a valid build.");
+        }
+        if (small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_OUTPUT).isEmpty()) {
+            throw new AssertionError("Instant construction did not complete the valid small build.");
+        }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void serverboundPacketsRejectOversizedAndTruncatedArrays(GameTestHelper helper) {
+        FriendlyByteBuf exact = new FriendlyByteBuf(Unpooled.buffer());
+        exact.writeByte(C2SInputPacket.MountMove);
+        PacketHelper.writeIntArray(exact, new int[9]);
+        new C2SInputPacket(exact);
+
+        FriendlyByteBuf oversizedInput = new FriendlyByteBuf(Unpooled.buffer());
+        oversizedInput.writeByte(C2SInputPacket.MountMove);
+        oversizedInput.writeVarInt(10);
+        assertPacketDecodeRejected(() -> new C2SInputPacket(oversizedInput),
+                "C2SInputPacket accepted an oversized array length.");
+
+        FriendlyByteBuf truncatedInput = new FriendlyByteBuf(Unpooled.buffer());
+        truncatedInput.writeByte(C2SInputPacket.MountMove);
+        truncatedInput.writeVarInt(9);
+        for (int i = 0; i < 8; i++) {
+            truncatedInput.writeInt(i);
+        }
+        assertPacketDecodeRejected(() -> new C2SInputPacket(truncatedInput),
+                "C2SInputPacket accepted a truncated array payload.");
+
+        FriendlyByteBuf oversizedGui = new FriendlyByteBuf(Unpooled.buffer());
+        oversizedGui.writeByte(C2SGUIInputPacket.ShipBtn);
+        oversizedGui.writeVarInt(8);
+        assertPacketDecodeRejected(() -> new C2SGUIInputPacket(oversizedGui),
+                "C2SGUIInputPacket accepted an oversized array length.");
+
+        FriendlyByteBuf oversizedString = new FriendlyByteBuf(Unpooled.buffer());
+        oversizedString.writeByte(C2SGUIInputPacket.ShipBtn);
+        oversizedString.writeVarInt(0);
+        oversizedString.writeBoolean(true);
+        oversizedString.writeUtf("x".repeat(129));
+        assertPacketDecodeRejected(() -> new C2SGUIInputPacket(oversizedString),
+                "C2SGUIInputPacket accepted an overlength string.");
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipInventoryInsertionIsAtomicAndCargoOnly(GameTestHelper helper) {
+        CapaShipInventory inventory = new CapaShipInventory(CapaShipInventory.EquipSlots + 2, null);
+        inventory.setStackInSlot(CapaShipInventory.EquipSlots, new ItemStack(Items.IRON_INGOT, 63));
+        inventory.setStackInSlot(CapaShipInventory.EquipSlots + 1, new ItemStack(Items.STONE, 64));
+
+        ItemStack rejected = new ItemStack(Items.IRON_INGOT, 2);
+        if (inventory.addItemStackToInventory(rejected)) {
+            throw new AssertionError("A full cargo inventory accepted a stack that did not completely fit.");
+        }
+        if (inventory.getStackInSlot(CapaShipInventory.EquipSlots).getCount() != 63
+                || rejected.getCount() != 2) {
+            throw new AssertionError("Failed cargo insertion partially mutated source or destination.");
+        }
+        if (inventory.getFirstSlotForItem() != -1) {
+            throw new AssertionError("Empty equipment slots were exposed as general cargo slots.");
+        }
+
+        inventory.setStackInSlot(CapaShipInventory.EquipSlots + 1, ItemStack.EMPTY);
+        ItemStack accepted = new ItemStack(Items.IRON_INGOT, 2);
+        if (!inventory.addItemStackToInventory(accepted) || !accepted.isEmpty()) {
+            throw new AssertionError("Cargo insertion failed despite sufficient total capacity.");
+        }
+        if (inventory.getStackInSlot(CapaShipInventory.EquipSlots).getCount() != 64
+                || inventory.getStackInSlot(CapaShipInventory.EquipSlots + 1).getCount() != 1) {
+            throw new AssertionError("Cargo insertion did not split the stack across available capacity.");
+        }
+        for (int slot = 0; slot < CapaShipInventory.EquipSlots; slot++) {
+            if (!inventory.getStackInSlot(slot).isEmpty()) {
+                throw new AssertionError("Cargo insertion polluted equipment slot " + slot + ".");
+            }
+        }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentEnchantTypeControlsWeaponAndArmorStats(GameTestHelper helper) {
+        float[] raw = new float[Attrs.AttrsLength];
+        float[] enchant = new float[Attrs.AttrsLength];
+        raw[ID.Attrs.ATK_L] = 10F;
+        raw[ID.Attrs.DEF] = 0.5F;
+        raw[ID.Attrs.XP] = 1F;
+        raw[ID.Attrs.GRUDGE] = 1F;
+        enchant[ID.Attrs.ATK_L] = 0.5F;
+        enchant[ID.Attrs.DEF] = 0.5F;
+        enchant[ID.Attrs.XP] = 0.25F;
+        enchant[ID.Attrs.GRUDGE] = 0.25F;
+
+        float[] weapon = EquipCalc.calcEquipStatWithEnchant(1, raw, enchant);
+        float[] armor = EquipCalc.calcEquipStatWithEnchant(2, raw, enchant);
+        assertFloatEquals(15F, weapon[ID.Attrs.ATK_L], "Weapon enchant did not modify attack.");
+        assertFloatEquals(0.5F, weapon[ID.Attrs.DEF], "Weapon enchant incorrectly modified defense.");
+        assertFloatEquals(1.25F, weapon[ID.Attrs.XP], "Weapon enchant did not modify XP gain.");
+        assertFloatEquals(1F, weapon[ID.Attrs.GRUDGE], "Weapon enchant incorrectly modified grudge gain.");
+        assertFloatEquals(10F, armor[ID.Attrs.ATK_L], "Armor enchant incorrectly modified attack.");
+        assertFloatEquals(0.75F, armor[ID.Attrs.DEF], "Armor enchant did not modify defense.");
+        assertFloatEquals(1F, armor[ID.Attrs.XP], "Armor enchant incorrectly modified XP gain.");
+        assertFloatEquals(1.25F, armor[ID.Attrs.GRUDGE], "Armor enchant did not modify grudge gain.");
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void rangeTargetStopClearsOnlyItsOwnTarget(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity friendlyEntity = ModEntities.BB_KONGOU.get().create(level);
+        Entity hostileEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
+        Entity replacement = EntityType.ZOMBIE.create(level);
+        if (!(friendlyEntity instanceof BasicEntityShip friendly)
+                || !(hostileEntity instanceof BasicEntityShipHostile hostile)
+                || !(replacement instanceof Mob replacementMob)) {
+            throw new AssertionError("Failed to create entities for target-goal stop test.");
+        }
+
+        ShipRangeTargetGoal goal = new ShipRangeTargetGoal(friendly);
+        setRangeGoalTarget(goal, hostile);
+        friendly.setTarget(hostile);
+        goal.stop();
+        if (friendly.getTarget() != null) {
+            throw new AssertionError("Range target goal left its own stopped target on the mob.");
+        }
+
+        setRangeGoalTarget(goal, hostile);
+        friendly.setTarget(replacementMob);
+        goal.stop();
+        if (friendly.getTarget() != replacementMob) {
+            throw new AssertionError("Range target goal cleared a replacement target selected elsewhere.");
+        }
+
+        friendly.discard();
+        hostile.discard();
+        replacement.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void marriageRingScanChecksEveryInventoryAndOffhandStack(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000015"), "shincolle_ring_scan"));
+        player.getInventory().clearContent();
+
+        ItemStack inactive = new ItemStack(ModItems.MARRIAGE_RING.get());
+        ItemStack active = new ItemStack(ModItems.MARRIAGE_RING.get());
+        active.getOrCreateTag().putBoolean("isActive", true);
+        player.getInventory().setItem(0, inactive);
+        player.getInventory().setItem(1, active);
+        if (!MarriageRing.hasAnyRing(player) || !MarriageRing.hasActiveRing(player)) {
+            throw new AssertionError("Ring state depended on the first matching inventory stack.");
+        }
+
+        active.getOrCreateTag().putBoolean("isActive", false);
+        ItemStack activeOffhand = new ItemStack(ModItems.MARRIAGE_RING.get());
+        activeOffhand.getOrCreateTag().putBoolean("isActive", true);
+        player.getInventory().offhand.set(0, activeOffhand);
+        if (!MarriageRing.hasActiveRing(player)) {
+            throw new AssertionError("Active marriage ring in offhand was not detected.");
+        }
+
+        player.getInventory().clearContent();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void craneOwnerUuidPersistsAndRejectsAnotherPlayer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer owner = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000016"), "shincolle_crane_owner"));
+        FakePlayer other = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000017"), "shincolle_crane_other"));
+        CapaTeitoku ownerCapa = owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        CapaTeitoku otherCapa = other.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (ownerCapa == null || otherCapa == null) {
+            throw new AssertionError("Crane ownership test players have no Teitoku capability.");
+        }
+        ownerCapa.setPlayerUID(9401);
+        otherCapa.setPlayerUID(9402);
+        owner.getAbilities().instabuild = false;
+        other.getAbilities().instabuild = false;
+
+        BlockPos cranePos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(cranePos, ModBlocks.CRANE.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(cranePos) instanceof TileEntityCrane crane)) {
+            throw new AssertionError("Crane block did not create its block entity.");
+        }
+        if (!crane.claimOrVerifyOwner(owner) || crane.claimOrVerifyOwner(other)) {
+            throw new AssertionError("Crane claim did not bind the authenticated owner UUID.");
+        }
+        if (!crane.canUse(owner) || (!other.hasPermissions(2) && crane.canUse(other))) {
+            throw new AssertionError("Crane access control did not enforce its owner UUID.");
+        }
+
+        CompoundTag saved = crane.getUpdateTag();
+        TileEntityCrane loaded = new TileEntityCrane(cranePos, ModBlocks.CRANE.get().defaultBlockState());
+        loaded.load(saved);
+        if (!owner.getUUID().equals(loaded.getOwnerUUID()) || loaded.getPlayerUID() != 9401) {
+            throw new AssertionError("Crane owner identity did not survive NBT save/load.");
+        }
+        if (loaded.claimOrVerifyOwner(other)) {
+            throw new AssertionError("Reloaded crane could be claimed by another player.");
+        }
+
+        Entity otherShipEntity = ModEntities.BB_KONGOU.get().create(level);
+        Entity ownerShipEntity = ModEntities.BB_HIEI.get().create(level);
+        if (!(otherShipEntity instanceof BasicEntityShip otherShip)
+                || !(ownerShipEntity instanceof BasicEntityShip ownerShip)) {
+            throw new AssertionError("Failed to create ships for crane ownership filter test.");
+        }
+        otherShip.setOwnerUUID(other.getUUID());
+        otherShip.setPlayerUID(9402);
+        ownerShip.setOwnerUUID(owner.getUUID());
+        ownerShip.setPlayerUID(9401);
+        otherShip.moveTo(cranePos.getX() + 0.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
+        ownerShip.moveTo(cranePos.getX() + 1.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
+        if (!level.addFreshEntity(otherShip) || !level.addFreshEntity(ownerShip)) {
+            throw new AssertionError("Failed to add ships for crane ownership filter test.");
+        }
+        invokeNoArgProtected(crane, "checkCraningShip");
+        if (crane.getDockedShip() != ownerShip) {
+            throw new AssertionError("Crane selected another player's ship as its transfer destination.");
+        }
+
+        otherShip.discard();
+        ownerShip.discard();
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void teamCooldownRejectsCreateAndDisbandReplay(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000018"), "shincolle_team_cooldown"));
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null || !ServerDataManager.isInitialized()) {
+            throw new AssertionError("Team cooldown test requires initialized server data and capability.");
+        }
+        int uid = 9501;
+        capa.setPlayerUID(uid);
+        ServerDataManager.removeTeamData(uid);
+
+        capa.setTeamCooldown(10);
+        if (ServerDataManager.teamCreate(player, "CooldownTest")) {
+            throw new AssertionError("Team creation ignored an active cooldown.");
+        }
+        capa.setTeamCooldown(0);
+        if (!ServerDataManager.teamCreate(player, "CooldownTest")) {
+            throw new AssertionError("Team creation failed after cooldown expired.");
+        }
+        capa.setTeamCooldown(10);
+        if (ServerDataManager.teamDisband(player) || ServerDataManager.getTeamData(uid) == null) {
+            throw new AssertionError("Team disband replay ignored an active cooldown.");
+        }
+        capa.setTeamCooldown(0);
+        if (!ServerDataManager.teamDisband(player) || ServerDataManager.getTeamData(uid) != null) {
+            throw new AssertionError("Team disband failed after cooldown expired.");
+        }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipOwnerTransferUpdatesUuidAndNumericOwnerTogether(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity entity = ModEntities.BB_KONGOU.get().create(level);
+        if (!(entity instanceof BasicEntityShip ship)) {
+            throw new AssertionError("BB_KONGOU is not BasicEntityShip in owner-transfer test.");
+        }
+        FakePlayer newOwner = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000019"), "shincolle_new_owner"));
+        CapaTeitoku capa = newOwner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            throw new AssertionError("Owner-transfer test player has no Teitoku capability.");
+        }
+        capa.setPlayerUID(9601);
+        ship.setOwnerUUID(UUID.fromString("00000000-0000-0000-0000-000000000099"));
+        ship.setPlayerUID(1234);
+        if (!level.addFreshEntity(ship) || !ServerDataManager.changeShipOwner(ship, newOwner)) {
+            throw new AssertionError("Server owner transfer failed.");
+        }
+        // FakePlayer is not registered in ServerLevel's normal player lookup,
+        // so TamableAnimal#isOwnedBy cannot resolve it even when the persisted
+        // UUID is correct. Assert the two authoritative owner fields directly.
+        if (!newOwner.getUUID().equals(ship.getOwnerUUID()) || ship.getPlayerUID() != 9601) {
+            throw new AssertionError("Owner transfer left identity inconsistent. expectedUuid=" + newOwner.getUUID()
+                    + " actualUuid=" + ship.getOwnerUUID() + " expectedUid=9601 actualUid=" + ship.getPlayerUID()
+                    + " vanillaOwned=" + ship.isOwnedBy(newOwner));
+        }
+
+        int shipUid = ship.getShipUID();
+        ship.discard();
+        ServerDataManager.removeShipData(shipUid);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void targetClassPacketRequiresObservedNearbyEntity(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000020"), "shincolle_target_class"));
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        Entity cow = EntityType.COW.create(level);
+        if (capa == null || cow == null) {
+            throw new AssertionError("Failed to create target-class packet test state.");
+        }
+        int uid = 9701;
+        capa.setPlayerUID(uid);
+        HashMap<Integer, String> oversizedLegacyList = new HashMap<>();
+        for (int i = 0; i < 100; i++) {
+            String name = "LegacyClass" + i;
+            oversizedLegacyList.put(name.hashCode(), name);
+        }
+        ServerDataManager.setPlayerTargetClass(uid, oversizedLegacyList);
+        HashMap<Integer, String> sanitized = ServerDataManager.getPlayerTargetClass(uid);
+        if (sanitized == null || sanitized.size() != ServerDataManager.MAX_CUSTOM_TARGET_CLASSES) {
+            throw new AssertionError("Oversized target-class state was not capped during migration.");
+        }
+        ServerDataManager.setPlayerTargetClass(uid, new HashMap<>());
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+
+        Vec3 playerPos = helper.absoluteVec(new Vec3(1.5D, 2D, 1.5D));
+        Vec3 cowPos = helper.absoluteVec(new Vec3(3.5D, 2D, 1.5D));
+        for (BlockPos pos : BlockPos.betweenClosed(
+                BlockPos.containing(playerPos.x - 1D, playerPos.y - 1D, playerPos.z - 1D),
+                BlockPos.containing(cowPos.x + 1D, cowPos.y + 3D, cowPos.z + 1D))) {
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+        }
+        player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0F, 0F);
+        cow.moveTo(cowPos.x, cowPos.y, cowPos.z, 0F, 0F);
+        if (!level.addFreshEntity(cow)) {
+            throw new AssertionError("Failed to add observed entity for target-class packet test.");
+        }
+
+        C2SGUIInputPacket forged = new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                new int[]{player.getId(), 0, cow.getId()}, "Zombie");
+        invokePacketHandler(forged, "handleSetTarClass", player);
+        if (ServerDataManager.hasPlayerTargetClass(uid, "Zombie")) {
+            throw new AssertionError("Packet persisted a class name that did not match its target entity.");
+        }
+
+        String observedClass = cow.getClass().getSimpleName();
+        C2SGUIInputPacket observed = new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                new int[]{player.getId(), 0, cow.getId()}, observedClass);
+        invokePacketHandler(observed, "handleSetTarClass", player);
+        if (!ServerDataManager.hasPlayerTargetClass(uid, observedClass)) {
+            throw new AssertionError("Packet rejected an observed nearby target class.");
+        }
+
+        ServerDataManager.setPlayerTargetClass(uid, observedClass);
+        cow.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void waypointPairingRequiresActualWaypointOwner(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer owner = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000013"), "shincolle_waypoint_owner"));
+        ServerPlayer otherPlayer = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000014"), "shincolle_waypoint_other"));
+
+        int ownerUid = 9100;
+        owner.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(ownerUid));
+        BlockPos from = helper.absolutePos(new BlockPos(2, 2, 2));
+        BlockPos to = helper.absolutePos(new BlockPos(5, 2, 2));
+        level.setBlock(from, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);
+        level.setBlock(to, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);
+        TileEntityWaypoint fromWaypoint = (TileEntityWaypoint) level.getBlockEntity(from);
+        TileEntityWaypoint toWaypoint = (TileEntityWaypoint) level.getBlockEntity(to);
+        if (fromWaypoint == null || toWaypoint == null) {
+            throw new AssertionError("Waypoint block did not create its block entity.");
+        }
+        BlockWaypoint waypointBlock = (BlockWaypoint) ModBlocks.WAYPOINT.get();
+        waypointBlock.setPlacedBy(level, from, level.getBlockState(from), owner,
+                new ItemStack(ModItems.WAYPOINT_BLOCK_ITEM.get()));
+        waypointBlock.setPlacedBy(level, to, level.getBlockState(to), owner,
+                new ItemStack(ModItems.WAYPOINT_BLOCK_ITEM.get()));
+        if (fromWaypoint.getPlayerUID() != ownerUid || !owner.getUUID().equals(fromWaypoint.getOwnerUUID())
+                || toWaypoint.getPlayerUID() != ownerUid || !owner.getUUID().equals(toWaypoint.getOwnerUUID())) {
+            throw new AssertionError("Waypoint placement did not persist its owner identity.");
+        }
+
+        owner.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.TARGET_WRENCH.get()));
+        otherPlayer.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.TARGET_WRENCH.get()));
+        Vec3 pairingPos = Vec3.atCenterOf(from);
+        owner.moveTo(pairingPos.x, pairingPos.y, pairingPos.z, 0F, 0F);
+        otherPlayer.moveTo(pairingPos.x, pairingPos.y, pairingPos.z, 0F, 0F);
+
+        // A forged legacy UID is insufficient: the authenticated player's UUID
+        // must be the owner before a route may be changed.
+        TileEntityHelper.pairingWaypoints(otherPlayer, ownerUid, level, from, to);
+        if (fromWaypoint.hasNextWaypoint()) {
+            throw new AssertionError("A non-owner changed a waypoint route using a forged UID.");
+        }
+
+        TileEntityHelper.pairingWaypoints(owner, ownerUid, level, from, to);
+        if (!to.equals(fromWaypoint.getNextWaypoint()) || !from.equals(toWaypoint.getLastWaypoint())) {
+            throw new AssertionError("The actual owner could not pair their waypoints.");
+        }
+        helper.succeed();
+    }
+
+    private static void assertPacketDecodeRejected(Runnable decoder, String message) {
+        try {
+            decoder.run();
+        } catch (RuntimeException expected) {
+            return;
+        }
+        throw new AssertionError(message);
+    }
+
+    private static void assertFloatEquals(float expected, float actual, String message) {
+        if (Math.abs(expected - actual) > 0.0001F) {
+            throw new AssertionError(message + " expected=" + expected + " actual=" + actual);
+        }
+    }
+
+    private static void setRangeGoalTarget(ShipRangeTargetGoal goal, Entity target) {
+        try {
+            Field targetField = ShipRangeTargetGoal.class.getDeclaredField("targetEntity");
+            targetField.setAccessible(true);
+            targetField.set(goal, target);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to set range target goal state for regression test.", e);
+        }
+    }
+
     private static ServerPlayer createFollowTestOwner(GameTestHelper helper, ServerLevel level, UUID uuid,
                                                       String name) {
         try {
@@ -1528,6 +2302,16 @@ public final class ShinColleEntityRegistryGameTests {
         }
 
         throw new AssertionError("Failed to resolve target selector via reflection.");
+    }
+
+    private static ServerBossEvent extractBossEvent(BasicEntityShipHostile hostile) {
+        try {
+            Field field = BasicEntityShipHostile.class.getDeclaredField("bossEvent");
+            field.setAccessible(true);
+            return (ServerBossEvent) field.get(hostile);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect hostile boss event via reflection.", e);
+        }
     }
 
     private static void assertLightCruiserGoalPriority(ServerLevel level, EntityType<?> type, String id) {
@@ -1598,6 +2382,115 @@ public final class ShinColleEntityRegistryGameTests {
         }
 
         throw new AssertionError("Failed to find protected method: " + methodName);
+    }
+
+    private static int countPickItemThrottleFires(BasicEntityShip ship, int firstTick) {
+        ShipPickItemGoal goal = new ShipPickItemGoal(ship, 6.0F);
+        Field nextTickField;
+        try {
+            nextTickField = ShipPickItemGoal.class.getDeclaredField("nextItemScanTick");
+            nextTickField.setAccessible(true);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect ShipPickItemGoal throttle state.", e);
+        }
+
+        ship.tickCount = firstTick;
+        goal.start();
+        int fires = 0;
+
+        for (int tick = firstTick; tick < firstTick + 128; tick += 2) {
+            ship.tickCount = tick;
+            try {
+                int before = nextTickField.getInt(goal);
+                goal.tick();
+                int after = nextTickField.getInt(goal);
+                if (after != before) {
+                    if (after != tick + 16) {
+                        throw new AssertionError("Item scan throttle scheduled from the wrong tick. tick=" + tick
+                                + " next=" + after);
+                    }
+                    fires++;
+                }
+            } catch (IllegalAccessException e) {
+                throw new AssertionError("Failed to read ShipPickItemGoal throttle state.", e);
+            }
+        }
+
+        return fires;
+    }
+
+    private static void assertDeclaredIntFields(Class<?> type, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            try {
+                Field field = type.getDeclaredField(fieldName);
+                if (field.getType() != int.class) {
+                    throw new AssertionError(type.getSimpleName() + "." + fieldName
+                            + " must hold an entity tick as an int.");
+                }
+            } catch (NoSuchFieldException e) {
+                throw new AssertionError("Missing independent throttle field "
+                        + type.getSimpleName() + "." + fieldName, e);
+            }
+        }
+    }
+
+    private static void assertStartInitializesThrottleFields(Goal goal, Entity entity, int now,
+                                                              String... fieldNames) {
+        entity.tickCount = now;
+        goal.start();
+        for (String fieldName : fieldNames) {
+            int actual = readIntField(goal, fieldName);
+            if (actual != now) {
+                throw new AssertionError(goal.getClass().getSimpleName() + "." + fieldName
+                        + " should initialize to the current entity tick. expected=" + now + " actual=" + actual);
+            }
+        }
+    }
+
+    private static void assertGoalThrottleTiming(Goal goal, Entity entity, String fieldName,
+                                                  int interval, int firstTick) {
+        entity.tickCount = firstTick;
+        goal.start();
+        if (readIntField(goal, fieldName) != firstTick) {
+            throw new AssertionError("Throttle did not initialize for immediate first execution: " + fieldName);
+        }
+
+        goal.tick();
+        int firstNext = readIntField(goal, fieldName);
+        if (firstNext != firstTick + interval) {
+            throw new AssertionError("Throttle did not fire immediately. field=" + fieldName
+                    + " expected=" + (firstTick + interval) + " actual=" + firstNext);
+        }
+
+        int skippedTick = firstTick + interval + 2;
+        entity.tickCount = skippedTick;
+        goal.tick();
+        int skippedNext = readIntField(goal, fieldName);
+        if (skippedNext != skippedTick + interval) {
+            throw new AssertionError("Throttle should schedule from now after skipped ticks. field=" + fieldName
+                    + " expected=" + (skippedTick + interval) + " actual=" + skippedNext);
+        }
+
+        int restartTick = skippedTick + 2;
+        entity.tickCount = restartTick;
+        goal.start();
+        goal.tick();
+        int restartNext = readIntField(goal, fieldName);
+        if (restartNext != restartTick + interval) {
+            throw new AssertionError("Throttle should fire immediately after restart. field=" + fieldName
+                    + " expected=" + (restartTick + interval) + " actual=" + restartNext);
+        }
+    }
+
+    private static int readIntField(Object instance, String fieldName) {
+        try {
+            Field field = instance.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.getInt(instance);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect throttle field "
+                    + instance.getClass().getSimpleName() + "." + fieldName, e);
+        }
     }
 
     private static void assertCanCreate(ServerLevel level, EntityType<?> type, String id) {
