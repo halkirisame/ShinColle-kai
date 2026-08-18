@@ -1,5 +1,6 @@
 package com.lulan.shincolle.capability;
 
+import com.lulan.shincolle.handler.ConfigHandler;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -15,8 +16,8 @@ import java.util.List;
  * - hasRing / isRingActive / isRingFlying (marriage ring state)
  * - marriageNum (total married ships)
  * - bossCooldown / teamCooldown (cooldown timers)
- * - teamList[9][6] - 9 teams of 6 ships each (ship entity IDs / -1)
- * - sidList[9][6] - ship UIDs per team slot
+ * - teamList[9][6] - persistent ship UIDs per team slot
+ * - sidList[9][6] - transient runtime entity IDs
  * - formatID[9] - formation type per team
  * - unitNames[9] - team names
  * - playerUID - unique player ID
@@ -28,13 +29,18 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
     public static final int TEAM_NUM = 9;
     public static final int SLOT_NUM = 6;
     /**
-     * teamList[team][slot] = ship entity ID (-1 = empty)
+     * teamList[team][slot] = persistent ship UID (-1 = empty)
      */
     private final int[][] teamList;
     /**
-     * sidList[team][slot] = ship UID (-1 = empty)
+     * sidList[team][slot] = transient runtime entity ID (-1 = unresolved)
      */
     private final int[][] sidList;
+    /**
+     * selectState[team][slot] = whether pointer group commands include this ship.
+     * This is persistent because the selected subset is player state, not an entity ID.
+     */
+    private final boolean[][] selectState;
     /**
      * formatID[team] = formation type
      */
@@ -68,6 +74,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
     // ========== Lists / Sync data ==========
     private List<Integer> targetClassList;
+    private List<String> targetClassNames;
     private String teamName;
     private List<Integer> allyList;
     private List<Integer> banList;
@@ -82,7 +89,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         this.isRingActive = false;
         this.isRingFlying = false;
         this.marriageNum = 0;
-        this.bossCooldown = 0;
+        this.bossCooldown = ConfigHandler.bossCooldown();
         this.teamCooldown = 0;
         this.playerUID = -1;
         this.selectTeam = 0;
@@ -93,6 +100,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         this.showPlayerSkill = false;
 
         this.targetClassList = new ArrayList<>();
+        this.targetClassNames = new ArrayList<>();
         this.teamName = "";
         this.allyList = new ArrayList<>();
         this.banList = new ArrayList<>();
@@ -104,6 +112,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
         this.teamList = new int[TEAM_NUM][SLOT_NUM];
         this.sidList = new int[TEAM_NUM][SLOT_NUM];
+        this.selectState = new boolean[TEAM_NUM][SLOT_NUM];
         this.formatID = new int[TEAM_NUM];
         this.unitNames = new String[TEAM_NUM];
 
@@ -139,7 +148,13 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         for (int i = 0; i < TEAM_NUM; i++) {
             CompoundTag team = new CompoundTag();
             team.putIntArray("EIDs", teamList[i]);
-            team.putIntArray("SIDs", sidList[i]);
+            byte[] selected = new byte[SLOT_NUM];
+            for (int slot = 0; slot < SLOT_NUM; slot++) {
+                selected[slot] = (byte) (selectState[i][slot] ? 1 : 0);
+            }
+            team.putByteArray("Selected", selected);
+            // Runtime entity IDs are deliberately not persisted. Minecraft
+            // may reuse them after reload or a dimension transition.
             team.putInt("Format", formatID[i]);
             team.putString("Name", unitNames[i] != null ? unitNames[i] : "");
             teamTag.add(team);
@@ -165,7 +180,9 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         this.isRingActive = nbt.getBoolean("RingActive");
         this.isRingFlying = nbt.getBoolean("RingFlying");
         this.marriageNum = nbt.getInt("MarriageNum");
-        this.bossCooldown = nbt.getInt("BossCD");
+        this.bossCooldown = nbt.contains("BossCD", Tag.TAG_INT)
+                ? nbt.getInt("BossCD")
+                : ConfigHandler.bossCooldown();
         this.teamCooldown = nbt.getInt("TeamCD");
         this.playerUID = nbt.getInt("PlayerUID");
         this.selectTeam = nbt.getInt("SelectTeam");
@@ -178,10 +195,24 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
             for (int i = 0; i < Math.min(teamTag.size(), TEAM_NUM); i++) {
                 CompoundTag team = teamTag.getCompound(i);
                 int[] eids = team.getIntArray("EIDs");
-                int[] sids = team.getIntArray("SIDs");
 
                 System.arraycopy(eids, 0, teamList[i], 0, Math.min(eids.length, SLOT_NUM));
-                System.arraycopy(sids, 0, sidList[i], 0, Math.min(sids.length, SLOT_NUM));
+
+                if (team.contains("Selected", Tag.TAG_BYTE_ARRAY)) {
+                    byte[] selected = team.getByteArray("Selected");
+                    for (int slot = 0; slot < Math.min(selected.length, SLOT_NUM); slot++) {
+                        selectState[i][slot] = selected[slot] != 0;
+                    }
+                } else {
+                    // Migration from saves made before pointer selection was ported.
+                    // Keep single mode usable by choosing the first occupied slot.
+                    for (int slot = 0; slot < Math.min(eids.length, SLOT_NUM); slot++) {
+                        if (eids[slot] > 0) {
+                            selectState[i][slot] = true;
+                            break;
+                        }
+                    }
+                }
 
                 formatID[i] = team.getInt("Format");
                 unitNames[i] = team.getString("Name");
@@ -192,6 +223,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         this.teamName = nbt.contains("TeamName") ? nbt.getString("TeamName") : "";
 
         this.targetClassList = new ArrayList<>();
+        this.targetClassNames = new ArrayList<>();
         if (nbt.contains("TargetClassList")) {
             for (int v : nbt.getIntArray("TargetClassList")) {
                 this.targetClassList.add(v);
@@ -347,6 +379,15 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         this.targetClassList = list != null ? list : new ArrayList<>();
     }
 
+    public List<String> getTargetClassNames() {
+        return targetClassNames;
+    }
+
+    public void setTargetClassNames(List<String> names) {
+        this.targetClassNames = names != null ? names : new ArrayList<>();
+        this.targetClassList = this.targetClassNames.stream().map(String::hashCode).toList();
+    }
+
     public String getTeamName() {
         return teamName;
     }
@@ -436,9 +477,9 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         return -1;
     }
 
-    public void setTeamMember(int team, int slot, int entityId) {
+    public void setTeamMember(int team, int slot, int shipUID) {
         if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            teamList[team][slot] = entityId;
+            teamList[team][slot] = shipUID;
         }
     }
 
@@ -449,9 +490,29 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         return -1;
     }
 
-    public void setTeamSID(int team, int slot, int shipUID) {
+    public void setTeamSID(int team, int slot, int entityId) {
         if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            sidList[team][slot] = shipUID;
+            sidList[team][slot] = entityId;
+        }
+    }
+
+    public boolean isShipSelected(int team, int slot) {
+        return team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM
+                && selectState[team][slot];
+    }
+
+    public void setShipSelected(int team, int slot, boolean selected) {
+        if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
+            selectState[team][slot] = selected;
+        }
+    }
+
+    public void clearShipSelection(int team) {
+        if (team < 0 || team >= TEAM_NUM) {
+            return;
+        }
+        for (int slot = 0; slot < SLOT_NUM; slot++) {
+            selectState[team][slot] = false;
         }
     }
 
@@ -487,7 +548,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
     public void clearTeamEntityIDs() {
         for (int i = 0; i < TEAM_NUM; i++) {
             for (int j = 0; j < SLOT_NUM; j++) {
-                teamList[i][j] = -1;
+                sidList[i][j] = -1;
             }
         }
     }
@@ -518,6 +579,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         this.showPlayerSkill = other.showPlayerSkill;
 
         this.targetClassList = new ArrayList<>(other.targetClassList);
+        this.targetClassNames = new ArrayList<>(other.targetClassNames);
         this.teamName = other.teamName;
         this.allyList = new ArrayList<>(other.allyList);
         this.banList = new ArrayList<>(other.banList);
@@ -530,6 +592,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         for (int i = 0; i < TEAM_NUM; i++) {
             System.arraycopy(other.teamList[i], 0, this.teamList[i], 0, SLOT_NUM);
             System.arraycopy(other.sidList[i], 0, this.sidList[i], 0, SLOT_NUM);
+            System.arraycopy(other.selectState[i], 0, this.selectState[i], 0, SLOT_NUM);
             this.formatID[i] = other.formatID[i];
             this.unitNames[i] = other.unitNames[i];
         }

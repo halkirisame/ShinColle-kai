@@ -871,11 +871,9 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     private void updateTargetClassList() {
         this.tarList.clear();
         if (this.capa != null) {
-            List<Integer> targetIds = capa.getTargetClassList();
-            if (targetIds != null) {
-                for (int id : targetIds) {
-                    tarList.add("TargetClass_" + id);
-                }
+            List<String> targetNames = capa.getTargetClassNames();
+            if (targetNames != null) {
+                tarList.addAll(targetNames);
             }
         }
     }

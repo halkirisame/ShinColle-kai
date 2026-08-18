@@ -15,6 +15,7 @@ import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -174,6 +175,29 @@ public class PointerItem extends BasicItem {
         return true;
     }
 
+    /**
+     * Minecraft routes a right click on a living entity through this hook, not
+     * through {@link #use(Level, Player, InteractionHand)}.  The original
+     * pointer implementation only handled the latter, which made entity
+     * commands (most visibly ordering a team to attack a mob) silently do
+     * nothing in 1.20.1.
+     */
+    @Override
+    public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target,
+                                                   InteractionHand hand) {
+        if (!player.level().isClientSide()) {
+            return InteractionResult.PASS;
+        }
+
+        int mode = getMode(stack);
+        if (mode > MODE_FORMATION) {
+            return InteractionResult.SUCCESS;
+        }
+
+        handleRightClickClient(stack, player, mode);
+        return InteractionResult.SUCCESS;
+    }
+
     // ===== Client-side Right Click Logic =====
 
     @Override
@@ -208,6 +232,9 @@ public class PointerItem extends BasicItem {
     private boolean handleLeftClickClient(ItemStack stack, Player player) {
         int mode = getMode(stack);
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return false;
+        }
 
         boolean isSneaking = player.isShiftKeyDown();
         boolean isSprinting = player.isSprinting();
@@ -229,18 +256,6 @@ public class PointerItem extends BasicItem {
                     if (isSneaking) {
                         // Sneak + left click: remove from team
                         if (teamSlot >= 0) {
-                            if (mode == MODE_SINGLE) {
-                                // In single mode, focus another ship before removing
-                                int teamId = capa.getSelectTeam();
-                                for (int j = 0; j < CapaTeitoku.SLOT_NUM; j++) {
-                                    if (j != teamSlot && capa.getTeamSID(teamId, j) > 0) {
-                                        ModNetworking.sendToServer(new C2SGUIInputPacket(
-                                                C2SGUIInputPacket.SetSelect,
-                                                new int[]{player.getId(), 0, teamId}));
-                                        break;
-                                    }
-                                }
-                            }
                             // Send remove packet (toggle in AddTeam)
                             ModNetworking.sendToServer(new C2SGUIInputPacket(
                                     C2SGUIInputPacket.AddTeam,
@@ -252,7 +267,8 @@ public class PointerItem extends BasicItem {
                             // Already in team: set focus
                             ModNetworking.sendToServer(new C2SGUIInputPacket(
                                     C2SGUIInputPacket.SetSelect,
-                                    new int[]{player.getId(), 0, capa.getSelectTeam()}));
+                                    new int[]{player.getId(), 0, mode,
+                                            ship.getStateMinor(ID.M.ShipUID)}));
                         } else {
                             // Not in team: add to team
                             ModNetworking.sendToServer(new C2SGUIInputPacket(
@@ -263,7 +279,8 @@ public class PointerItem extends BasicItem {
                             if (mode == MODE_SINGLE) {
                                 ModNetworking.sendToServer(new C2SGUIInputPacket(
                                         C2SGUIInputPacket.SetSelect,
-                                        new int[]{player.getId(), 0, capa.getSelectTeam()}));
+                                        new int[]{player.getId(), 0, mode,
+                                                ship.getStateMinor(ID.M.ShipUID)}));
                             }
                         }
                         return true;
@@ -276,7 +293,7 @@ public class PointerItem extends BasicItem {
                         Component.translatable("chat.shincolle.pointer.settargetclass", "  " + tarName));
                 ModNetworking.sendToServer(new C2SGUIInputPacket(
                         C2SGUIInputPacket.SetTarClass,
-                        new int[]{player.getId(), 0},
+                        new int[]{player.getId(), 0, hitEntity.getId()},
                         tarName));
                 return true;
             }
@@ -329,6 +346,9 @@ public class PointerItem extends BasicItem {
         boolean isSneaking = player.isShiftKeyDown();
         boolean isSprinting = player.isSprinting();
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return;
+        }
         int markerTeamId = capa.getSelectTeam();
 
         // Ray trace for entities at 64 blocks
@@ -341,7 +361,7 @@ public class PointerItem extends BasicItem {
             if (isSprinting) {
                 ModNetworking.sendToServer(new C2SGUIInputPacket(
                         C2SGUIInputPacket.GuardEntity,
-                        new int[]{player.getId(), 0, hitEntity.getId()}));
+                        new int[]{player.getId(), 0, mode, hitEntity.getId()}));
                 ParticleHelper.spawnAttackParticleAt(player.level(), hitEntity.getX(), hitEntity.getY(),
                         hitEntity.getZ(), 2);
                 return;
@@ -380,7 +400,7 @@ public class PointerItem extends BasicItem {
                     // Non-player mob: attack
                     ModNetworking.sendToServer(new C2SGUIInputPacket(
                             C2SGUIInputPacket.AttackTarget,
-                            new int[]{player.getId(), 0, hitEntity.getId()}));
+                            new int[]{player.getId(), 0, mode, hitEntity.getId()}));
                     ParticleHelper.spawnAttackParticleAt(player.level(), hitEntity.getX(), hitEntity.getY(),
                             hitEntity.getZ(), 2);
                 }
@@ -438,7 +458,7 @@ public class PointerItem extends BasicItem {
             // Attack target
             ModNetworking.sendToServer(new C2SGUIInputPacket(
                     C2SGUIInputPacket.AttackTarget,
-                    new int[]{player.getId(), 0, target.getId()}));
+                    new int[]{player.getId(), 0, mode, target.getId()}));
             ParticleHelper.spawnAttackParticleAt(player.level(), target.getX(), target.getY(), target.getZ(), 2);
         } else {
             // Move to target position (include target coordinates)
@@ -485,7 +505,9 @@ public class PointerItem extends BasicItem {
             return;
 
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-
+        if (capa == null) {
+            return;
+        }
 
         int mode = getMode(stack);
         int teamId = capa.getSelectTeam();

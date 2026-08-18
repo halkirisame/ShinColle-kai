@@ -36,6 +36,9 @@ import java.util.Map;
  */
 public class ServerDataManager {
 
+    public static final int MAX_CUSTOM_TARGET_CLASSES = 64;
+    public static final int MAX_TARGET_CLASS_NAME_LENGTH = 128;
+
     // ========== Data maps ==========
 
     /**
@@ -221,10 +224,14 @@ public class ServerDataManager {
     /**
      * Create a new team for a player
      */
-    public static void teamCreate(Player player, String tname) {
+    public static boolean teamCreate(Player player, String tname) {
         CapaTeitoku capa = getTeitokuCapability(player);
         if (capa == null)
-            return;
+            return false;
+
+        if (capa.getTeamCooldown() > 0) {
+            return false;
+        }
 
         int pUID = capa.getPlayerUID();
         if (pUID > 0 && tname != null && tname.length() > 1 && mapTeamID != null) {
@@ -240,16 +247,21 @@ public class ServerDataManager {
             setTeamData(tdata);
             capa.setTeamCooldown(ConfigHandler.teamCooldown());
             updatePlayerID(player);
+            return true;
         }
+        return false;
     }
 
     /**
      * Disband a player's team
      */
-    public static void teamDisband(Player player) {
+    public static boolean teamDisband(Player player) {
         if (player == null)
-            return;
+            return false;
         CapaTeitoku capa = getTeitokuCapability(player);
+        if (capa == null || capa.getTeamCooldown() > 0) {
+            return false;
+        }
 
         int pUID = capa.getPlayerUID();
         if (mapTeamID != null && mapTeamID.containsKey(pUID)) {
@@ -257,7 +269,9 @@ public class ServerDataManager {
             removeTeamData(pUID);
             capa.setTeamCooldown(ConfigHandler.teamCooldown());
             updatePlayerID(player);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -435,6 +449,18 @@ public class ServerDataManager {
         return mapShipID;
     }
 
+    public static boolean removeShipData(int shipUid) {
+        if (shipUid <= 0 || mapShipID == null) {
+            return false;
+        }
+        CacheDataShip removed = mapShipID.remove(shipUid);
+        if (removed != null) {
+            markDirty();
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Update or assign ship UID
      */
@@ -535,12 +561,45 @@ public class ServerDataManager {
 
         if (owner instanceof Player player) {
             CapaTeitoku capa = getTeitokuCapability(player);
+            if (capa == null) {
+                return;
+            }
             int pid = capa.getPlayerUID();
             LogHelper.debug("update ship: set owner id: " + pid + " on " + ship);
             ship.setPlayerUID(pid);
         } else {
             LogHelper.debug("update ship: get owner id fail, owner offline or no data: " + ship);
         }
+    }
+
+    /**
+     * Atomically update both vanilla tame ownership and ShinColle's numeric
+     * owner identity, then persist and synchronize the ship cache.
+     */
+    public static boolean changeShipOwner(BasicEntityShip ship, ServerPlayer newOwner) {
+        if (ship == null || newOwner == null || !ship.isAlive()) {
+            return false;
+        }
+
+        CapaTeitoku capa = getTeitokuCapability(newOwner);
+        if (capa == null) {
+            return false;
+        }
+        if (capa.getPlayerUID() <= 0) {
+            updatePlayerID(newOwner);
+        }
+        int newUid = capa.getPlayerUID();
+        if (newUid <= 0) {
+            return false;
+        }
+
+        ship.tame(newOwner);
+        ship.setOwnerUUID(newOwner.getUUID());
+        ship.setPlayerUID(newUid);
+        ship.ownerName = newOwner.getName().getString();
+        updateShipID(ship);
+        ship.sendSyncPacketAll();
+        return true;
     }
 
     // ========== Custom target class ==========
@@ -555,17 +614,20 @@ public class ServerDataManager {
      * Toggle (add/remove) a target class for a player. Returns true if added.
      */
     public static boolean setPlayerTargetClass(int pid, String str) {
-        if (str == null || str.length() <= 1 || pid <= 0)
-            return true;
+        if (!isValidTargetClassName(str) || pid <= 0)
+            return false;
 
         HashMap<Integer, String> tarList = getPlayerTargetClass(pid);
 
         if (tarList != null) {
             String s = tarList.get(str.hashCode());
-            if (s != null) {
+            if (str.equals(s)) {
                 tarList.remove(str.hashCode());
                 markDirty();
                 return false; // removed
+            }
+            if (s != null || tarList.size() >= MAX_CUSTOM_TARGET_CLASSES) {
+                return false;
             }
             tarList.put(str.hashCode(), str);
             markDirty();
@@ -579,9 +641,39 @@ public class ServerDataManager {
         return true; // added
     }
 
+    public static boolean hasPlayerTargetClass(int pid, String str) {
+        HashMap<Integer, String> tarList = getPlayerTargetClass(pid);
+        return tarList != null && str != null && str.equals(tarList.get(str.hashCode()));
+    }
+
+    public static boolean isValidTargetClassName(String str) {
+        if (str == null || str.length() <= 1 || str.length() > MAX_TARGET_CLASS_NAME_LENGTH) {
+            return false;
+        }
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (!Character.isJavaIdentifierPart(c) && c != '$') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static void setPlayerTargetClass(int pid, HashMap<Integer, String> map) {
         if (pid > 0 && customTargetClass != null) {
-            customTargetClass.put(pid, map);
+            HashMap<Integer, String> sanitized = new HashMap<>();
+            if (map != null) {
+                for (String value : map.values()) {
+                    if (sanitized.size() >= MAX_CUSTOM_TARGET_CLASSES) {
+                        break;
+                    }
+                    if (isValidTargetClassName(value)
+                            && !sanitized.containsKey(value.hashCode())) {
+                        sanitized.put(value.hashCode(), value);
+                    }
+                }
+            }
+            customTargetClass.put(pid, sanitized);
             markDirty();
         }
     }

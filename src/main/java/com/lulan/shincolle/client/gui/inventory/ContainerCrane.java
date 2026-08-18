@@ -150,6 +150,9 @@ public class ContainerCrane extends AbstractContainerMenu {
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (!stillValid(player)) {
+            return;
+        }
         if (slotId >= 0 && slotId < GHOST_SLOT_COUNT) {
             Slot slot = this.slots.get(slotId);
             ItemStack carried = getCarried();
@@ -171,7 +174,8 @@ public class ContainerCrane extends AbstractContainerMenu {
         if (tile == null)
             return false;
         BlockPos pos = tile.getBlockPos();
-        return player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
+        return tile.canUse(player)
+                && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
     }
 
     @Override

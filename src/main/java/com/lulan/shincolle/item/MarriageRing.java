@@ -5,6 +5,8 @@ import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CGUISyncPacket;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.ChatFormatting;
@@ -17,6 +19,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.AABB;
 
 import java.util.List;
@@ -49,20 +52,56 @@ public class MarriageRing extends BasicItem {
 
             // update player capability
             CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-
-
-            capa.setRingActive(newState);
+            if (capa == null) {
+                return InteractionResultHolder.fail(stack);
+            }
+            boolean anyActive = hasActiveRing(player);
+            capa.setHasRing(true);
+            capa.setRingActive(anyActive);
 
             // disable fly when deactivating
-            if (!newState && !player.getAbilities().instabuild && capa.isRingFlying()) {
+            if (!anyActive && !player.getAbilities().instabuild && capa.isRingFlying()) {
                 player.getAbilities().flying = false;
                 capa.setRingFlying(false);
                 player.onUpdateAbilities();
+            }
+
+            if (player instanceof ServerPlayer serverPlayer) {
+                ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerMisc(capa), serverPlayer);
             }
         }
 
 
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
+    public static boolean hasAnyRing(Player player) {
+        return findRingState(player, false);
+    }
+
+    public static boolean hasActiveRing(Player player) {
+        return findRingState(player, true);
+    }
+
+    private static boolean findRingState(Player player, boolean requireActive) {
+        for (ItemStack candidate : player.getInventory().items) {
+            if (isMatchingRing(candidate, requireActive)) {
+                return true;
+            }
+        }
+        for (ItemStack candidate : player.getInventory().offhand) {
+            if (isMatchingRing(candidate, requireActive)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isMatchingRing(ItemStack stack, boolean requireActive) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof MarriageRing)) {
+            return false;
+        }
+        return !requireActive || stack.hasTag() && stack.getTag().getBoolean("isActive");
     }
 
     /**
@@ -89,6 +128,9 @@ public class MarriageRing extends BasicItem {
             return;
 
         CapaTeitoku capa = owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return;
+        }
 
 
         // water breathing (passive) - both sides

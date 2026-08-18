@@ -1,7 +1,5 @@
 package com.lulan.shincolle.block;
 
-import com.lulan.shincolle.capability.CapaTeitoku;
-import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.init.ModBlockEntities;
 import com.lulan.shincolle.tileentity.TileEntityCrane;
 import net.minecraft.core.BlockPos;
@@ -36,9 +34,9 @@ public class BlockCrane extends BasicBlockContainer {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof TileEntityCrane tile) {
-                // sync owner UID on interaction
-                syncOwnerUID(player, tile);
-                NetworkHooks.openScreen(serverPlayer, tile, pos);
+                if (tile.claimOrVerifyOwner(player) || tile.canUse(player)) {
+                    NetworkHooks.openScreen(serverPlayer, tile, pos);
+                }
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
@@ -51,7 +49,7 @@ public class BlockCrane extends BasicBlockContainer {
         if (!level.isClientSide() && placer instanceof Player player) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof TileEntityCrane tile) {
-                syncOwnerUID(player, tile);
+                tile.claimOrVerifyOwner(player);
             }
         }
     }
@@ -59,33 +57,12 @@ public class BlockCrane extends BasicBlockContainer {
     @Override
     public boolean onDestroyedByPlayer(BlockState state, Level level, BlockPos pos, Player player,
                                        boolean willHarvest, FluidState fluid) {
-        // allow OP or creative players
-        if (player.hasPermissions(2) || player.getAbilities().instabuild) {
-            return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
-        }
-
-        // check tile owner
         BlockEntity be = level.getBlockEntity(pos);
-        if (be instanceof TileEntityCrane tile && tile.getPlayerUID() > 0) {
-            int playerUID = player.getCapability(CapaTeitokuProvider.CAPABILITY)
-                    .map(CapaTeitoku::getPlayerUID).orElse(-1);
-            if (playerUID != tile.getPlayerUID()) {
-                return false; // not owner, prevent destruction
-            }
+        if (be instanceof TileEntityCrane tile && !tile.canUse(player)) {
+            return false;
         }
 
         return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
-    }
-
-    private void syncOwnerUID(Player player, TileEntityCrane tile) {
-        if (tile.getPlayerUID() <= 0) {
-            player.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> {
-                int uid = capa.getPlayerUID();
-                if (uid > 0) {
-                    tile.setPlayerUID(uid);
-                }
-            });
-        }
     }
 
     @Override

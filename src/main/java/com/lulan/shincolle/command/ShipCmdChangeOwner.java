@@ -1,8 +1,6 @@
 package com.lulan.shincolle.command;
 
-import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -69,27 +67,12 @@ public class ShipCmdChangeOwner {
             return 0;
         }
 
-        // Get the target player's UID
-        CapaTeitoku capa = ServerDataManager.getTeitokuCapability(targetPlayer);
-        if (capa == null) {
+        if (!ServerDataManager.changeShipOwner(ship, targetPlayer)) {
             source.sendFailure(Component.literal(
-                    "[ShinColle] Could not get capability data for player: "
+                    "[ShinColle] Could not update all owner data for: "
                             + targetPlayer.getName().getString()));
             return 0;
         }
-        int newUID = capa.getPlayerUID();
-        if (newUID <= 0) {
-            source.sendFailure(Component.literal(
-                    "[ShinColle] Target player has no valid UID. They may need to log in first."));
-            return 0;
-        }
-
-        // Change the ship's owner
-        ship.setStateMinor(ID.M.PlayerUID, newUID);
-        ship.ownerName = targetPlayer.getName().getString();
-
-        // Update ServerDataManager
-        ServerDataManager.updateShipID(ship);
 
         final String newOwnerName = targetPlayer.getName().getString();
         final int shipUID = ship.getShipUID();

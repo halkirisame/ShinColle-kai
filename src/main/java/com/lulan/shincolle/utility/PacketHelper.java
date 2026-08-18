@@ -34,7 +34,27 @@ public class PacketHelper {
      * Read an int array prefixed by its length.
      */
     public static int[] readIntArray(FriendlyByteBuf buf) {
+        return readIntArray(buf, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Read a length-prefixed int array with an allocation limit.
+     *
+     * @param buf       source buffer
+     * @param maxLength largest accepted element count
+     * @throws IllegalArgumentException if the declared length is invalid
+     */
+    public static int[] readIntArray(FriendlyByteBuf buf, int maxLength) {
+        if (maxLength < 0) {
+            throw new IllegalArgumentException("maxLength must be non-negative");
+        }
         int len = buf.readVarInt();
+        if (len < 0 || len > maxLength) {
+            throw new IllegalArgumentException("Invalid int array length: " + len);
+        }
+        if (len > buf.readableBytes() / Integer.BYTES) {
+            throw new IllegalArgumentException("Truncated int array payload");
+        }
         int[] arr = new int[len];
         for (int i = 0; i < len; i++) {
             arr[i] = buf.readInt();
@@ -221,8 +241,15 @@ public class PacketHelper {
      * present.
      */
     public static String readNullableString(FriendlyByteBuf buf) {
+        return readNullableString(buf, 32767);
+    }
+
+    /**
+     * Read a nullable string with an explicit character limit.
+     */
+    public static String readNullableString(FriendlyByteBuf buf, int maxLength) {
         if (buf.readBoolean()) {
-            return buf.readUtf();
+            return buf.readUtf(maxLength);
         }
         return null;
     }

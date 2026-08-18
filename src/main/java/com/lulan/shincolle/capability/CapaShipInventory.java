@@ -86,7 +86,7 @@ public class CapaShipInventory {
      * Find first empty slot for item storage. Returns slot index or -1 if full.
      */
     public int getFirstSlotForItem() {
-        for (int i = 0; i < stacks.length; i++) {
+        for (int i = Math.min(EquipSlots, stacks.length); i < stacks.length; i++) {
             if (stacks[i].isEmpty()) {
                 return i;
             }
@@ -101,30 +101,48 @@ public class CapaShipInventory {
         if (stack.isEmpty())
             return false;
 
-        // try to merge with existing stacks first
-        for (ItemStack itemStack : stacks) {
+        int cargoStart = Math.min(EquipSlots, stacks.length);
+        int capacity = 0;
+        for (int i = cargoStart; i < stacks.length; i++) {
+            ItemStack itemStack = stacks[i];
             if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
-                int maxSize = itemStack.getMaxStackSize();
-                int canAdd = maxSize - itemStack.getCount();
-                if (canAdd > 0) {
-                    int toAdd = Math.min(canAdd, stack.getCount());
+                capacity += Math.max(0, itemStack.getMaxStackSize() - itemStack.getCount());
+            } else if (itemStack.isEmpty()) {
+                capacity += stack.getMaxStackSize();
+            }
+            if (capacity >= stack.getCount()) {
+                break;
+            }
+        }
+
+        // The boolean contract is all-or-nothing. Do not partially mutate the
+        // destination when the full stack cannot fit.
+        if (capacity < stack.getCount()) {
+            return false;
+        }
+
+        for (int i = cargoStart; i < stacks.length && !stack.isEmpty(); i++) {
+            ItemStack itemStack = stacks[i];
+            if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
+                int toAdd = Math.min(itemStack.getMaxStackSize() - itemStack.getCount(), stack.getCount());
+                if (toAdd > 0) {
                     itemStack.grow(toAdd);
                     stack.shrink(toAdd);
-                    if (stack.isEmpty())
-                        return true;
                 }
             }
         }
 
-        // try empty slots
-        int emptySlot = getFirstSlotForItem();
-        if (emptySlot >= 0) {
-            stacks[emptySlot] = stack.copy();
-            stack.setCount(0);
-            return true;
+        for (int i = cargoStart; i < stacks.length && !stack.isEmpty(); i++) {
+            if (stacks[i].isEmpty()) {
+                int toAdd = Math.min(stack.getMaxStackSize(), stack.getCount());
+                ItemStack inserted = stack.copy();
+                inserted.setCount(toAdd);
+                setStackInSlot(i, inserted);
+                stack.shrink(toAdd);
+            }
         }
 
-        return false;
+        return stack.isEmpty();
     }
 
     public int getInventoryPage() {

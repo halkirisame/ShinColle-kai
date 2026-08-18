@@ -101,8 +101,12 @@ public class ShinWorldData extends SavedData {
             ListTag strListTag = tag.getList(TAG_CUSTOM_TARGET, Tag.TAG_STRING);
             HashMap<Integer, String> strList = new HashMap<>();
             for (int j = 0; j < strListTag.size(); j++) {
+                if (strList.size() >= ServerDataManager.MAX_CUSTOM_TARGET_CLASSES) {
+                    break;
+                }
                 String str = strListTag.getString(j);
-                if (str.length() > 1) {
+                if (ServerDataManager.isValidTargetClassName(str)
+                        && !strList.containsKey(str.hashCode())) {
                     strList.put(str.hashCode(), str);
                 }
             }

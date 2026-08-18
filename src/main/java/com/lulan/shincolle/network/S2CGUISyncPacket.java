@@ -109,15 +109,19 @@ public class S2CGUISyncPacket {
      * Sync player capability misc data
      */
     public static S2CGUISyncPacket syncPlayerMisc(CapaTeitoku capa) {
-        byte[] data = toBytes(buf -> {
-            buf.writeInt(capa.isRingActive() ? 1 : 0);
-            buf.writeInt(capa.getPlayerUID() > 0 ? 1 : 0); // hasTeam
-            buf.writeInt(capa.getSelectTeam());
-            buf.writeInt(capa.getMarriageNum());
-            buf.writeInt(capa.getPlayerUID());
-            buf.writeInt(capa.getTeamCooldown());
-        });
+        byte[] data = toBytes(buf -> writePlayerMisc(buf, capa));
         return new S2CGUISyncPacket(SyncPlayerProp_Misc, data);
+    }
+
+    private static void writePlayerMisc(FriendlyByteBuf buf, CapaTeitoku capa) {
+        buf.writeBoolean(capa.hasRing());
+        buf.writeBoolean(capa.isRingActive());
+        buf.writeBoolean(capa.isRingFlying());
+        buf.writeBoolean(capa.getPlayerUID() > 0); // hasTeam
+        buf.writeInt(capa.getSelectTeam());
+        buf.writeInt(capa.getMarriageNum());
+        buf.writeInt(capa.getPlayerUID());
+        buf.writeInt(capa.getTeamCooldown());
     }
 
     // ========== Factory Methods ==========
@@ -127,13 +131,8 @@ public class S2CGUISyncPacket {
      */
     public static S2CGUISyncPacket syncPlayerFull(CapaTeitoku capa) {
         byte[] data = toBytes(buf -> {
-            // misc data (6 ints)
-            buf.writeInt(capa.isRingActive() ? 1 : 0);
-            buf.writeInt(capa.getPlayerUID() > 0 ? 1 : 0); // hasTeam
-            buf.writeInt(capa.getSelectTeam());
-            buf.writeInt(capa.getMarriageNum());
-            buf.writeInt(capa.getPlayerUID());
-            buf.writeInt(capa.getTeamCooldown());
+            // misc data
+            writePlayerMisc(buf, capa);
 
             // formation IDs (9)
             for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
@@ -145,6 +144,7 @@ public class S2CGUISyncPacket {
             for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
                 buf.writeInt(capa.getTeamMember(teamId, i));
                 buf.writeInt(capa.getTeamSID(teamId, i));
+                buf.writeBoolean(capa.isShipSelected(teamId, i));
             }
         });
         return new S2CGUISyncPacket(SyncPlayerProp, data);
@@ -160,6 +160,12 @@ public class S2CGUISyncPacket {
             }
         });
         return new S2CGUISyncPacket(SyncPlayerProp_Formation, data);
+    }
+
+    public static S2CGUISyncPacket syncTargetClasses(Map<Integer, String> classes) {
+        byte[] data = toBytes(buf -> PacketHelper.writeStringList(buf,
+                classes == null ? List.of() : new ArrayList<>(classes.values())));
+        return new S2CGUISyncPacket(SyncPlayerProp_TargetClass, data);
     }
 
     /**
@@ -189,6 +195,7 @@ public class S2CGUISyncPacket {
             for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
                 buf.writeInt(capa.getTeamMember(teamId, i));
                 buf.writeInt(capa.getTeamSID(teamId, i));
+                buf.writeBoolean(capa.isShipSelected(teamId, i));
             }
         });
         return new S2CGUISyncPacket(SyncPlayerProp_ShipsInTeam, data);
@@ -212,6 +219,7 @@ public class S2CGUISyncPacket {
                 for (int s = 0; s < CapaTeitoku.SLOT_NUM; s++) {
                     buf.writeInt(capa.getTeamMember(t, s));
                     buf.writeInt(capa.getTeamSID(t, s));
+                    buf.writeBoolean(capa.isShipSelected(t, s));
                 }
             }
         });
@@ -444,13 +452,7 @@ public class S2CGUISyncPacket {
         if (capa == null)
             return;
 
-        // misc data (6 ints)
-        capa.setRingActive(buf.readInt() != 0);
-        buf.readInt(); // hasTeam (unused, derived from playerUID)
-        capa.setSelectTeam(buf.readInt());
-        capa.setMarriageNum(buf.readInt());
-        capa.setPlayerUID(buf.readInt());
-        capa.setTeamCooldown(buf.readInt());
+        readPlayerMisc(buf, capa);
 
         // formation IDs (9)
         for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
@@ -462,6 +464,7 @@ public class S2CGUISyncPacket {
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             capa.setTeamMember(teamId, i, buf.readInt());
             capa.setTeamSID(teamId, i, buf.readInt());
+            capa.setShipSelected(teamId, i, buf.readBoolean());
         }
     }
 
@@ -471,8 +474,15 @@ public class S2CGUISyncPacket {
         if (capa == null)
             return;
 
-        capa.setRingActive(buf.readInt() != 0);
-        buf.readInt(); // hasTeam
+        readPlayerMisc(buf, capa);
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private static void readPlayerMisc(FriendlyByteBuf buf, CapaTeitoku capa) {
+        capa.setHasRing(buf.readBoolean());
+        capa.setRingActive(buf.readBoolean());
+        capa.setRingFlying(buf.readBoolean());
+        buf.readBoolean(); // hasTeam (derived from playerUID)
         capa.setSelectTeam(buf.readInt());
         capa.setMarriageNum(buf.readInt());
         capa.setPlayerUID(buf.readInt());
@@ -524,6 +534,7 @@ public class S2CGUISyncPacket {
             for (int s = 0; s < CapaTeitoku.SLOT_NUM; s++) {
                 capa.setTeamMember(t, s, buf.readInt());
                 capa.setTeamSID(t, s, buf.readInt());
+                capa.setShipSelected(t, s, buf.readBoolean());
             }
         }
     }
@@ -544,6 +555,7 @@ public class S2CGUISyncPacket {
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             capa.setTeamMember(teamId, i, buf.readInt());
             capa.setTeamSID(teamId, i, buf.readInt());
+            capa.setShipSelected(teamId, i, buf.readBoolean());
         }
     }
 
@@ -552,8 +564,7 @@ public class S2CGUISyncPacket {
         CapaTeitoku capa = getClientCapa();
         if (capa == null)
             return;
-        List<Integer> classes = PacketHelper.readIntList(buf);
-        capa.setTargetClassList(classes);
+        capa.setTargetClassNames(PacketHelper.readStringList(buf));
     }
 
     @OnlyIn(Dist.CLIENT)

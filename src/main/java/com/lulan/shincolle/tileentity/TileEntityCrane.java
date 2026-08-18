@@ -1,6 +1,9 @@
 package com.lulan.shincolle.tileentity;
 
 import com.lulan.shincolle.client.gui.inventory.ContainerCrane;
+import com.lulan.shincolle.capability.CapaShipInventory;
+import com.lulan.shincolle.capability.CapaTeitoku;
+import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
@@ -22,6 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Block entity for the Crane block.
@@ -113,6 +117,8 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Owner player UID
      */
     private int playerUID = 0;
+    /** Stable owner identity; absent only on legacy saves. */
+    private UUID ownerUUID;
 
     public TileEntityCrane(BlockPos pos, BlockState state) {
         this(ModBlockEntities.CRANE.get(), pos, state);
@@ -302,6 +308,50 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         setChanged();
     }
 
+    public UUID getOwnerUUID() {
+        return ownerUUID;
+    }
+
+    /**
+     * Claims an unowned/legacy crane or verifies the existing owner.
+     */
+    public boolean claimOrVerifyOwner(Player player) {
+        int uid = player.getCapability(CapaTeitokuProvider.CAPABILITY)
+                .map(CapaTeitoku::getPlayerUID).orElse(-1);
+        if (uid <= 0) {
+            return false;
+        }
+        if (ownerUUID != null) {
+            return ownerUUID.equals(player.getUUID());
+        }
+        if (playerUID > 0 && playerUID != uid) {
+            return false;
+        }
+        playerUID = uid;
+        ownerUUID = player.getUUID();
+        setChanged();
+        return true;
+    }
+
+    public boolean canUse(Player player) {
+        if (player.hasPermissions(2) || player.getAbilities().instabuild) {
+            return true;
+        }
+        if (ownerUUID != null) {
+            return ownerUUID.equals(player.getUUID());
+        }
+        int uid = player.getCapability(CapaTeitokuProvider.CAPABILITY)
+                .map(CapaTeitoku::getPlayerUID).orElse(-1);
+        return playerUID > 0 && uid == playerUID;
+    }
+
+    private boolean isOwnerShip(BasicEntityShip ship) {
+        if (ownerUUID != null) {
+            return ownerUUID.equals(ship.getOwnerUUID());
+        }
+        return playerUID > 0 && ship.getPlayerUID() == playerUID;
+    }
+
     public String getModeName() {
         if (craneMode >= 0 && craneMode < MODE_NAMES.length) {
             return MODE_NAMES[craneMode];
@@ -319,7 +369,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Check if paired chest still exists
      */
     private boolean checkPairedChest() {
-        if (!isPaired || level == null)
+        if (!isPaired || level == null || !level.hasChunkAt(chestPos))
             return false;
         BlockEntity be = level.getBlockEntity(chestPos);
         return be instanceof Container;
@@ -337,7 +387,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
 
         dockedShip = null;
         for (BasicEntityShip ship : ships) {
-            if (ship.isAlive()) {
+            if (ship.isAlive() && isOwnerShip(ship)) {
                 dockedShip = ship;
                 break;
             }
@@ -348,7 +398,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Transfer items between chest and ship
      */
     private boolean applyItemTransfer(boolean loading) {
-        if (dockedShip == null || level == null || !isPaired)
+        if (dockedShip == null || level == null || !isPaired || !level.hasChunkAt(chestPos))
             return false;
 
         BlockEntity be = level.getBlockEntity(chestPos);
@@ -398,7 +448,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     private boolean transferItemsFromShip(BasicEntityShip source, Container target) {
         var shipInv = source.getCapaShipInventory();
 
-        for (int i = 0; i < shipInv.getSlots(); i++) {
+        for (int i = CapaShipInventory.EquipSlots; i < shipInv.getSlots(); i++) {
             ItemStack stack = shipInv.getStackInSlot(i);
             if (stack.isEmpty())
                 continue;
@@ -559,6 +609,9 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         tag.putInt("LiquidMode", liquidMode);
         tag.putInt("EnergyMode", energyMode);
         tag.putInt("PlayerUID", playerUID);
+        if (ownerUUID != null) {
+            tag.putUUID("OwnerUUID", ownerUUID);
+        }
         tag.putLong("ChestPos", chestPos.asLong());
         tag.putLong("NextPos", nextPos.asLong());
         tag.putLong("LastPos", lastPos.asLong());
@@ -591,6 +644,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
             energyMode = tag.getBoolean("EnergyMode") ? 1 : 0;
         }
         playerUID = tag.getInt("PlayerUID");
+        ownerUUID = tag.hasUUID("OwnerUUID") ? tag.getUUID("OwnerUUID") : null;
         if (tag.contains("ChestPos"))
             chestPos = BlockPos.of(tag.getLong("ChestPos"));
         if (tag.contains("NextPos"))

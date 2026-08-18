@@ -9,6 +9,7 @@ import com.lulan.shincolle.entity.BasicEntitySummon;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
+import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.PacketHelper;
 import com.lulan.shincolle.utility.TargetHelper;
@@ -34,6 +35,8 @@ import java.util.function.Supplier;
  */
 public class C2SInputPacket {
 
+    private static final int MAX_VALUES = 9;
+
     // ========== Packet IDs ==========
 
     public static final byte MountMove = 0;
@@ -44,7 +47,6 @@ public class C2SInputPacket {
     public static final byte Request_SyncModel = 5;
     public static final byte Request_WpSet = 6;
     public static final byte Request_Riding = 7;
-    public static final byte Request_PlaceFluid = 8;
     public static final byte Request_ChestSet = 9;
     public static final byte Request_UnitName = 10;
     public static final byte Request_Buffmap = 11;
@@ -68,7 +70,7 @@ public class C2SInputPacket {
      */
     public C2SInputPacket(FriendlyByteBuf buf) {
         this.type = buf.readByte();
-        this.values = PacketHelper.readIntArray(buf);
+        this.values = PacketHelper.readIntArray(buf, MAX_VALUES);
     }
 
     /**
@@ -122,12 +124,6 @@ public class C2SInputPacket {
                         break;
                     case Request_ChestSet:
                         handleRequestChestSet(sender);
-                        break;
-                    case Request_PlaceFluid:
-                        handleRequestPlaceFluid(sender);
-                        break;
-                    case Request_EntityItemList:
-                        handleRequestEntityItemList(sender);
                         break;
                     case Request_ShipItemList:
                         handleRequestShipItemList(sender);
@@ -215,11 +211,9 @@ public class C2SInputPacket {
         Entity shipEntity = level.getEntity(values[1]);
 
         if (ownerEntity instanceof ServerPlayer newOwner && shipEntity instanceof BasicEntityShip ship) {
-            // change ship ownership
-            ship.tame(newOwner);
-            ship.setStateMinor(ID.M.PlayerUID, -1); // will be reassigned
-            ship.sendSyncPacketAll();
-            LogHelper.debug("C2SInputPacket: CmdChOwner - changed owner of " + ship + " to " + newOwner);
+            if (ServerDataManager.changeShipOwner(ship, newOwner)) {
+                LogHelper.debug("C2SInputPacket: CmdChOwner - changed owner of " + ship + " to " + newOwner);
+            }
         }
     }
 
@@ -336,62 +330,30 @@ public class C2SInputPacket {
      * Waypoint pairing
      */
     private void handleRequestWpSet(ServerPlayer player) {
-        // values: 0:playerUID, 1-3:from xyz, 4-6:to xyz
+        // values: 0:legacy player UID (ignored), 1-3:from xyz, 4-6:to xyz
         if (values.length < 7)
             return;
         BlockPos posFrom = new BlockPos(values[1], values[2], values[3]);
         BlockPos posTo = new BlockPos(values[4], values[5], values[6]);
-        TileEntityHelper.pairingWaypoints(player, values[0], player.serverLevel(), posFrom, posTo);
+        int playerUid = player.getCapability(com.lulan.shincolle.capability.CapaTeitokuProvider.CAPABILITY)
+                .map(com.lulan.shincolle.capability.CapaTeitoku::getPlayerUID)
+                .orElse(-1);
+        TileEntityHelper.pairingWaypoints(player, playerUid, player.serverLevel(), posFrom, posTo);
     }
 
     /**
      * Chest and waypoint pairing
      */
     private void handleRequestChestSet(ServerPlayer player) {
-        // values: 0:playerUID, 1-3:waypoint xyz, 4-6:chest xyz
+        // values: 0:legacy player UID (ignored), 1-3:waypoint xyz, 4-6:chest xyz
         if (values.length < 7)
             return;
         BlockPos posWp = new BlockPos(values[1], values[2], values[3]);
         BlockPos posChest = new BlockPos(values[4], values[5], values[6]);
-        TileEntityHelper.pairingWaypointAndChest(player, values[0], player.serverLevel(), posWp, posChest);
-    }
-
-    /**
-     * Ship tank place fluid
-     */
-    private void handleRequestPlaceFluid(ServerPlayer player) {
-        // values: 0:x, 1:y, 2:z
-        if (values.length < 3)
-            return;
-        BlockPos pos = new BlockPos(values[0], values[1], values[2]);
-
-        // Distance check: prevent placing fluid at remote positions
-        if (player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) > 64)
-            return;
-
-        // Place water source at position if ship has fluid tank capability
-        ServerLevel level = player.serverLevel();
-        if (level.getBlockState(pos).isAir()) {
-            level.setBlock(pos, net.minecraft.world.level.block.Blocks.WATER.defaultBlockState(), 3);
-        }
-    }
-
-    /**
-     * Entity item list for radar
-     */
-    private void handleRequestEntityItemList(ServerPlayer player) {
-        // Gather nearby BasicEntityShip positions for radar display
-        ServerLevel level = player.serverLevel();
-        java.util.List<BasicEntityShip> ships = level.getEntitiesOfClass(
-                BasicEntityShip.class, player.getBoundingBox().inflate(256));
-        float[] items = new float[ships.size() * 3]; // x, y, z per ship
-        for (int i = 0; i < ships.size(); i++) {
-            BasicEntityShip s = ships.get(i);
-            items[i * 3] = (float) s.getX();
-            items[i * 3 + 1] = (float) s.getY();
-            items[i * 3 + 2] = (float) s.getZ();
-        }
-        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncEntityItemList(items), player);
+        int playerUid = player.getCapability(com.lulan.shincolle.capability.CapaTeitokuProvider.CAPABILITY)
+                .map(com.lulan.shincolle.capability.CapaTeitoku::getPlayerUID)
+                .orElse(-1);
+        TileEntityHelper.pairingWaypointAndChest(player, playerUid, player.serverLevel(), posWp, posChest);
     }
 
     /**

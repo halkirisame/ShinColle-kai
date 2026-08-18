@@ -3,7 +3,6 @@ package com.lulan.shincolle.command;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.server.CacheDataShip;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -15,7 +14,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.AABB;
 
-import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -151,10 +149,7 @@ public class ShipCmdGetShip {
     }
 
     private static int executeDel(CommandSourceStack source, int uid) {
-        HashMap<Integer, CacheDataShip> shipMap = ServerDataManager.getAllShipWorldData();
-
-        if (shipMap != null && shipMap.containsKey(uid)) {
-            shipMap.remove(uid);
+        if (ServerDataManager.removeShipData(uid)) {
             source.sendSuccess(() -> Component.literal(
                             "[ShinColle] Removed ship cache entry for UID " + uid
                                     + ". (Entity not killed)"),

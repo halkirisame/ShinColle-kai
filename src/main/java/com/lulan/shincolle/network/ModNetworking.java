@@ -26,7 +26,9 @@ import net.minecraftforge.network.simple.SimpleChannel;
  */
 public class ModNetworking {
 
-    private static final String PROTOCOL_VERSION = "1";
+    // S2CGUISyncPacket's player-state payload gained ring flags in this build.
+    // Reject mixed client/server jars rather than letting them misread the payload.
+    private static final String PROTOCOL_VERSION = "2";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),

@@ -5,6 +5,7 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.init.ModMenuTypes;
 import com.lulan.shincolle.item.BasicEquip;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
@@ -109,7 +110,11 @@ public class ContainerShipInventory extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return ship != null && ship.isAlive() && player.distanceToSqr(ship) < 64.0;
+        return ship != null
+                && ship.isAlive()
+                && player.level() == ship.level()
+                && player.distanceToSqr(ship) < 64.0
+                && (TeamHelper.checkSameOwner(player, ship) || ship.isOwnedBy(player));
     }
 
     @Override
