@@ -1,6 +1,7 @@
 package com.lulan.shincolle.capability;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -118,6 +119,8 @@ public class CapaShipInventory {
         // The boolean contract is all-or-nothing. Do not partially mutate the
         // destination when the full stack cannot fit.
         if (capacity < stack.getCount()) {
+            LogHelper.info("DIAG: cargo insert failed capacity=" + capacity
+                    + " requested=" + stack.getCount() + " item=" + stack.getItem());
             return false;
         }
 

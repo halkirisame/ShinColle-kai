@@ -125,12 +125,18 @@ public class TileEntityHelper {
 
     private static boolean validatePairingRequest(ServerPlayer player, Level level,
                                                   BlockPos first, BlockPos second, int maxDistance) {
-        if (player.level() != level || first.equals(second)) {
+        if (player.level() != level) {
+            logPairingRejected(player, "dimension");
+            return false;
+        }
+        if (first.equals(second)) {
+            logPairingRejected(player, "sameSpot");
             return false;
         }
 
         InteractionHand wrenchHand = getTargetWrenchHand(player);
         if (wrenchHand == null) {
+            logPairingRejected(player, "noWrench");
             return false;
         }
 
@@ -138,18 +144,35 @@ public class TileEntityHelper {
         if (first.distSqr(second) > maxDistanceSq
                 || player.distanceToSqr(Vec3.atCenterOf(first)) > maxDistanceSq
                 || player.distanceToSqr(Vec3.atCenterOf(second)) > maxDistanceSq) {
+            logPairingRejected(player, "distance");
             return false;
         }
 
         if (level.isOutsideBuildHeight(first) || level.isOutsideBuildHeight(second)
                 || !level.getWorldBorder().isWithinBounds(first)
-                || !level.getWorldBorder().isWithinBounds(second)
-                || !level.hasChunkAt(first) || !level.hasChunkAt(second)
-                || !level.mayInteract(player, first) || !level.mayInteract(player, second)) {
+                || !level.getWorldBorder().isWithinBounds(second)) {
+            logPairingRejected(player, "worldBorder");
+            return false;
+        }
+        if (!level.hasChunkAt(first) || !level.hasChunkAt(second)) {
+            logPairingRejected(player, "notLoaded");
+            return false;
+        }
+        if (!level.mayInteract(player, first) || !level.mayInteract(player, second)) {
+            logPairingRejected(player, "mayInteract");
             return false;
         }
 
-        return canRightClick(player, wrenchHand, first) && canRightClick(player, wrenchHand, second);
+        if (!canRightClick(player, wrenchHand, first) || !canRightClick(player, wrenchHand, second)) {
+            logPairingRejected(player, "forgeHook");
+            return false;
+        }
+        return true;
+    }
+
+    private static void logPairingRejected(ServerPlayer player, String reason) {
+        LogHelper.info("DIAG: pairing rejected player=" + player.getName().getString()
+                + " reason=" + reason);
     }
 
     private static InteractionHand getTargetWrenchHand(ServerPlayer player) {

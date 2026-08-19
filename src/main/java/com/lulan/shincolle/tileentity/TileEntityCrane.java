@@ -6,6 +6,7 @@ import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModBlockEntities;
+import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -319,30 +320,48 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         int uid = player.getCapability(CapaTeitokuProvider.CAPABILITY)
                 .map(CapaTeitoku::getPlayerUID).orElse(-1);
         if (uid <= 0) {
+            LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                    + " result=rejected:uid_uninitialized");
             return false;
         }
         if (ownerUUID != null) {
-            return ownerUUID.equals(player.getUUID());
+            boolean verified = ownerUUID.equals(player.getUUID());
+            LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                    + " result=" + (verified ? "verified" : "rejected:owner_mismatch"));
+            return verified;
         }
         if (playerUID > 0 && playerUID != uid) {
+            LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                    + " result=rejected:uid_mismatch");
             return false;
         }
         playerUID = uid;
         ownerUUID = player.getUUID();
         setChanged();
+        LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                + " result=claimed");
         return true;
     }
 
     public boolean canUse(Player player) {
         if (player.hasPermissions(2) || player.getAbilities().instabuild) {
+            LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                    + " result=verified:admin");
             return true;
         }
         if (ownerUUID != null) {
-            return ownerUUID.equals(player.getUUID());
+            boolean verified = ownerUUID.equals(player.getUUID());
+            LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                    + " result=" + (verified ? "verified" : "rejected:owner_mismatch"));
+            return verified;
         }
         int uid = player.getCapability(CapaTeitokuProvider.CAPABILITY)
                 .map(CapaTeitoku::getPlayerUID).orElse(-1);
-        return playerUID > 0 && uid == playerUID;
+        boolean verified = playerUID > 0 && uid == playerUID;
+        String reason = playerUID <= 0 ? "uid_uninitialized" : "uid_mismatch";
+        LogHelper.info("DIAG: crane owner check player=" + player.getName().getString()
+                + " result=" + (verified ? "verified" : "rejected:" + reason));
+        return verified;
     }
 
     private boolean isOwnerShip(BasicEntityShip ship) {
