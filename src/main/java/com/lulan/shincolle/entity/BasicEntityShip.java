@@ -743,6 +743,12 @@ public abstract class BasicEntityShip extends TamableAnimal
                         // cancel mounts if can't summon
                         if (this.hasShipMounts() && !this.canSummonMounts()) {
                             if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount) {
+                                if (this.getStateFlag(ID.F.NoFuel)) {
+                                    LogHelper.info("DIAG: mount dismount host=" + this + " reason=noFuel");
+                                }
+                                if ((this.getStateEmotion(ID.S.State) & 1) == 0) {
+                                    LogHelper.info("DIAG: mount dismount host=" + this + " reason=stateDisabled");
+                                }
                                 this.stopRiding();
                             }
                         }
@@ -3824,6 +3830,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             passenger.stopRiding();
         }
         this.startRiding(mount, true);
+        LogHelper.info("DIAG: mount summon host=" + this + " mount=" + mount);
         mount.sendSyncPacket(4);
     }
 

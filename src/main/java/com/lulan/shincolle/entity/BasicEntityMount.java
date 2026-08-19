@@ -9,6 +9,7 @@ import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.reference.unitclass.MissileData;
+import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -219,6 +220,8 @@ public abstract class BasicEntityMount extends TamableAnimal
 
                 // teleport to host if too far away (> 32 blocks)
                 if (self.distanceToSqr(self.host) > 1024.0D) {
+                    LogHelper.info("DIAG: mount recall host=" + self.host + " mount=" + self
+                            + " distSq=" + self.distanceToSqr(self.host));
                     self.setPos(self.host.getX(), self.host.getY(), self.host.getZ());
                 }
             }
