@@ -5,6 +5,7 @@ import com.lulan.shincolle.entity.other.EntityProjectileBeam;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.ParticleHelper;
 
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
@@ -79,6 +80,16 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
         return EntityDimensions.fixed(this.entityWidth, this.entityHeight);
     }
 
+    @Override
+    public void aiStep() {
+        super.aiStep();
+
+        if (this.level().isClientSide() && this.tickCount % 16 == 0
+                && this.getStateEmotion(ID.S.Phase) > 0) {
+            ParticleHelper.spawnStickyLightningParticle(this, 0.1F + this.getScaleLevel(), 16, 1);
+        }
+    }
+
     /**
      * Yamato's heavy attack is a two-tick special: the first hit charges (no
      * damage, sound only), the second fires a beam. Ported from 1.10.2
@@ -97,14 +108,11 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     ModSounds.SHIP_YAMATO_SHOT.get(), this.getSoundSource(), 1F, 1F);
 
-            // Keep the hostile variant geometrically identical to Yamato: the
-            // beam's origin is the eye position, so its vector must be too.
-            Vec3 beamStart = new Vec3(this.getX(), this.getEyeY(), this.getZ());
+            Vec3 beamStart = new Vec3(this.getX(), this.getY() + this.getBbHeight() * 0.5D, this.getZ());
             Vec3 beamVector = target.getBoundingBox().getCenter().subtract(beamStart);
-            float beamLength = (float) Math.min(32.0D, beamVector.length());
 
             EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), this.level());
-            beam.initBeam(this, beamVector.x, beamVector.y, beamVector.z, atk, beamLength, 20);
+            beam.initBeam(this, beamVector.x, beamVector.y, beamVector.z, atk);
             this.level().addFreshEntity(beam);
 
             this.setStateEmotion(ID.S.Phase, 0, true);
@@ -117,6 +125,7 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
 
             this.setStateEmotion(ID.S.Phase, 1, true);
             applyEmotesReaction(3);
+
             return false;
         }
     }

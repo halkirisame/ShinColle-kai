@@ -17,6 +17,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.fml.ModList;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,31 +29,14 @@ import java.util.List;
  */
 public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCustomTexture, IShipProjectile {
 
-    /**
-     * Synched beam length for client-side rendering
-     */
-    private static final EntityDataAccessor<Float> BEAM_LENGTH = SynchedEntityData.defineId(EntityProjectileBeam.class,
-            EntityDataSerializers.FLOAT);
-    /**
-     * Synched beam end tick for rendering fade-out
-     */
-    private static final EntityDataAccessor<Integer> BEAM_END_TICK = SynchedEntityData
-            .defineId(EntityProjectileBeam.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> BEAM_DIR_X = SynchedEntityData.defineId(EntityProjectileBeam.class,
             EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> BEAM_DIR_Y = SynchedEntityData.defineId(EntityProjectileBeam.class,
             EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> BEAM_DIR_Z = SynchedEntityData.defineId(EntityProjectileBeam.class,
             EntityDataSerializers.FLOAT);
-    /**
-     * Firing ship width, synchronized for client-side beam particles.
-     */
-    private static final EntityDataAccessor<Float> BEAM_HOST_WIDTH = SynchedEntityData.defineId(
-            EntityProjectileBeam.class, EntityDataSerializers.FLOAT);
-    /**
-     * Damage interval in ticks
-     */
-    private final int damageInterval = 5;
+    private static final int LIFE_LENGTH = 31;
+    private static final double SPEED = 4.0D;
     private int playerUID;
     private int textureID;
     private int projectileType;
@@ -62,7 +46,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
      */
     private LivingEntity hostEntity;
     private IShipAttackBase hostShip;
-    private float beamHostWidth = 0.5F;
+    private final List<Entity> damagedTargets = new ArrayList<>();
     /**
      * Beam direction (normalized)
      */
@@ -71,14 +55,6 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
      * Beam damage per tick
      */
     private float beamDamage;
-    /**
-     * Max beam length in blocks
-     */
-    private float maxLength = 32.0F;
-    /**
-     * Beam lifetime in ticks
-     */
-    private int beamLifetime = 20;
 
     public EntityProjectileBeam(EntityType<? extends EntityProjectileBeam> type, Level level) {
         super(type, level);
@@ -86,22 +62,17 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
     }
 
     /**
-     * Initialize the beam with host, direction, damage, and lifetime.
+     * Initialize the beam with its host, normalized travel direction, and damage.
      *
      * @param host     the entity firing the beam
      * @param dirX     beam direction X (normalized)
      * @param dirY     beam direction Y (normalized)
      * @param dirZ     beam direction Z (normalized)
      * @param damage   damage per hit
-     * @param length   max beam length in blocks
-     * @param lifetime beam duration in ticks
      */
-    public void initBeam(IShipAttackBase host, double dirX, double dirY, double dirZ,
-                         float damage, float length, int lifetime) {
+    public void initBeam(IShipAttackBase host, double dirX, double dirY, double dirZ, float damage) {
         if (host instanceof LivingEntity le) {
             this.hostEntity = le;
-            this.beamHostWidth = le.getBbWidth();
-            this.setPos(le.getX(), le.getEyeY(), le.getZ());
         }
         this.hostShip = host;
         this.setPlayerUID(host.getPlayerUID());
@@ -117,197 +88,107 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
             this.dirZ = 1;
         }
 
+        if (this.hostEntity != null) {
+            this.setPos(this.hostEntity.getX() + this.dirX,
+                    this.hostEntity.getY() + this.hostEntity.getBbHeight() * 0.5D,
+                    this.hostEntity.getZ() + this.dirZ);
+        }
+
         this.beamDamage = damage;
-        this.maxLength = length;
-        this.beamLifetime = lifetime;
-        this.entityData.set(BEAM_LENGTH, length);
-        this.entityData.set(BEAM_END_TICK, this.tickCount + lifetime);
         this.entityData.set(BEAM_DIR_X, (float) this.dirX);
         this.entityData.set(BEAM_DIR_Y, (float) this.dirY);
         this.entityData.set(BEAM_DIR_Z, (float) this.dirZ);
-        this.entityData.set(BEAM_HOST_WIDTH, this.beamHostWidth);
     }
 
     @Override
     public EntityDimensions getDimensions(Pose pose) {
-        // Keep the server hitbox fixed while exposing the firing ship's width to
-        // ParticleStickyLightning on the client.
-        float visualWidth = this.level().isClientSide() ? this.beamHostWidth : 0.5F;
-        return EntityDimensions.fixed(visualWidth, 0.5F);
+        return EntityDimensions.fixed(1.0F, 1.0F);
     }
 
     @Override
     protected void defineSynchedData() {
-        this.entityData.define(BEAM_LENGTH, 32.0F);
-        this.entityData.define(BEAM_END_TICK, 0);
         this.entityData.define(BEAM_DIR_X, 0.0F);
         this.entityData.define(BEAM_DIR_Y, 0.0F);
         this.entityData.define(BEAM_DIR_Z, 1.0F);
-        this.entityData.define(BEAM_HOST_WIDTH, 0.5F);
     }
 
     @Override
     public void addAdditionalSaveData(CompoundTag compound) {
         compound.putInt("BeamType", this.beamType);
-        compound.putFloat("BeamLength", this.maxLength);
-        compound.putInt("BeamLifetime", this.beamLifetime);
         compound.putFloat("BeamDamage", this.beamDamage);
         compound.putDouble("DirX", this.dirX);
         compound.putDouble("DirY", this.dirY);
         compound.putDouble("DirZ", this.dirZ);
-        compound.putFloat("BeamHostWidth", this.beamHostWidth);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag compound) {
         this.beamType = compound.getInt("BeamType");
-        this.maxLength = compound.getFloat("BeamLength");
-        this.beamLifetime = compound.getInt("BeamLifetime");
         this.beamDamage = compound.getFloat("BeamDamage");
         this.dirX = compound.getDouble("DirX");
         this.dirY = compound.getDouble("DirY");
         this.dirZ = compound.getDouble("DirZ");
-        this.beamHostWidth = compound.getFloat("BeamHostWidth");
-        this.entityData.set(BEAM_LENGTH, this.maxLength);
         this.entityData.set(BEAM_DIR_X, (float) this.dirX);
         this.entityData.set(BEAM_DIR_Y, (float) this.dirY);
         this.entityData.set(BEAM_DIR_Z, (float) this.dirZ);
-        this.entityData.set(BEAM_HOST_WIDTH, this.beamHostWidth);
-    }
-
-    @Override
-    public void onSyncedDataUpdated(EntityDataAccessor<?> dataAccessor) {
-        super.onSyncedDataUpdated(dataAccessor);
-        if (dataAccessor.equals(BEAM_HOST_WIDTH) && this.level().isClientSide()) {
-            this.beamHostWidth = this.entityData.get(BEAM_HOST_WIDTH);
-            this.refreshDimensions();
-        }
     }
 
     @Override
     public void tick() {
         super.tick();
 
-        // server-side beam logic
+        Vec3 direction = this.level().isClientSide()
+                ? getBeamDirection()
+                : new Vec3(this.dirX, this.dirY, this.dirZ);
+        Vec3 velocity = direction.scale(SPEED);
+        this.setDeltaMovement(velocity);
+        this.setPos(this.position().add(velocity));
+
         if (!this.level().isClientSide()) {
-            // discard if host is gone
-            if (this.hostEntity == null || !this.hostEntity.isAlive()) {
+            if (this.hostEntity == null || this.tickCount > LIFE_LENGTH) {
                 this.discard();
                 return;
             }
-
-            // update beam origin to follow host's eye position
-            this.setPos(this.hostEntity.getX(), this.hostEntity.getEyeY(), this.hostEntity.getZ());
-
-            // lifetime check
-            if (this.tickCount > this.beamLifetime) {
-                this.discard();
-                return;
-            }
-
-            // apply damage along the beam path at regular intervals
-            if (this.tickCount % this.damageInterval == 0) {
-                applyBeamDamage();
-            }
-        }
-
-        // client-side: update position to follow host
-        if (this.level().isClientSide() && this.hostEntity != null) {
-            this.setPos(this.hostEntity.getX(), this.hostEntity.getEyeY(), this.hostEntity.getZ());
-        }
-
-        if (this.level().isClientSide()) {
-            // 2026/04/07・哦itHub Copilot縺ｫ繧医▲縺ｦ遒ｺ隱肴ｸ医∩
-            int particleLife = Math.max(1, this.beamLifetime - this.tickCount);
-            ParticleHelper.spawnStickyLightningParticle(this, 0.1F, particleLife, 1);
+            applyBeamDamage();
+        } else {
+            int particleLife = Math.max(1, 32 - this.tickCount);
+            ParticleHelper.spawnStickyLightningParticle(this, 0.0F, particleLife, 0);
         }
     }
 
     /**
-     * Apply damage to all entities along the beam path.
+     * Apply damage once to every eligible entity near the moving beam head.
      */
     private void applyBeamDamage() {
-        Vec3 start = this.position();
-        Vec3 end = start.add(this.dirX * this.maxLength, this.dirY * this.maxLength, this.dirZ * this.maxLength);
-
-        // create an AABB that encompasses the entire beam for broad-phase check
-        AABB beamBox = new AABB(
-                Math.min(start.x, end.x) - 1, Math.min(start.y, end.y) - 1, Math.min(start.z, end.z) - 1,
-                Math.max(start.x, end.x) + 1, Math.max(start.y, end.y) + 1, Math.max(start.z, end.z) + 1);
-
-        List<Entity> entities = this.level().getEntities(this, beamBox);
+        List<Entity> entities = this.level().getEntities(this, this.getBoundingBox().inflate(1.5D));
 
         for (Entity ent : entities) {
-            if (!ent.isPickable())
+            if (!ent.isPickable() || ent == this.hostEntity || this.damagedTargets.contains(ent))
                 continue;
-            if (ent == this.hostEntity)
-                continue;
+            this.damagedTargets.add(ent);
 
-            // skip same-owner entities
             if (ent instanceof IShipOwner owner) {
                 if (this.playerUID > 0 && owner.getPlayerUID() == this.playerUID)
                     continue;
             }
-
-            // check if entity is close to the beam line
-            if (isEntityOnBeamPath(ent, start, end)) {
-                float dmg = this.beamDamage;
-
-                // apply defense reduction
-                dmg = CombatHelper.applyDamageReduceByDEF(dmg, ent);
-
-                // check friendly fire
-                if (this.hostEntity != null && CombatHelper.isFriendlyFire(this.hostEntity, ent))
-                    continue;
-
-                // deal damage
-                if (ent instanceof LivingEntity livingTarget && this.hostEntity != null) {
-                    boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), dmg);
-                    if (hurt && ModList.get().isLoaded("curios")) {
-                        ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, dmg);
-                    }
-                }
+            if (!(ent instanceof LivingEntity livingTarget)
+                    || CombatHelper.isFriendlyFire(this.hostEntity, ent)) {
+                continue;
+            }
+            float damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
+            boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), damage);
+            if (hurt && ModList.get().isLoaded("curios")) {
+                ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, damage);
             }
         }
     }
 
     /**
-     * Check if an entity's bounding box intersects with the beam line.
-     * Uses point-to-line distance with a tolerance based on entity width.
-     */
-    private boolean isEntityOnBeamPath(Entity ent, Vec3 start, Vec3 end) {
-        Vec3 entPos = ent.position().add(0, ent.getBbHeight() * 0.5, 0);
-        Vec3 beamDir = end.subtract(start);
-        Vec3 toEntity = entPos.subtract(start);
-
-        double beamLenSq = beamDir.lengthSqr();
-        if (beamLenSq < 0.001)
-            return false;
-
-        // project entity position onto beam line
-        double t = toEntity.dot(beamDir) / beamLenSq;
-        t = Math.max(0, Math.min(1, t));
-
-        Vec3 closestPoint = start.add(beamDir.scale(t));
-        double distSq = entPos.distanceToSqr(closestPoint);
-
-        // tolerance: entity half-width + beam half-width (0.5 blocks)
-        double tolerance = (ent.getBbWidth() * 0.5) + 0.5;
-        return distSq <= tolerance * tolerance;
-    }
-
-    /**
-     * Get the beam length for rendering
+     * Disables the legacy debug line renderer. The moving particle trail is
+     * the beam's visual representation.
      */
     public float getBeamLength() {
-        return this.entityData.get(BEAM_LENGTH);
-    }
-
-    /**
-     * Get the beam end tick for rendering fade-out
-     */
-    public int getBeamEndTick() {
-        return this.entityData.get(BEAM_END_TICK);
+        return 0.0F;
     }
 
     /**

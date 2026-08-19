@@ -15,6 +15,7 @@ import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.block.BlockWaypoint;
 import com.lulan.shincolle.entity.other.EntityFloatingFort;
+import com.lulan.shincolle.entity.other.EntityProjectileBeam;
 import com.lulan.shincolle.entity.other.EntityProjectileStatic;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
@@ -1084,6 +1085,29 @@ public final class ShinColleEntityRegistryGameTests {
         ship.setStateMinor(ID.M.CraneState, 0);
 
         ship.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void yamatoBeamTravelsAfterInitialization(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
+        if (!(hostEntity instanceof IShipAttackBase host)) {
+            throw new AssertionError("BB_KONGOU does not implement IShipAttackBase for beam travel test.");
+        }
+
+        hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+        EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), level);
+        beam.initBeam(host, 1.0D, 0.0D, 0.0D, 1.0F);
+        Vec3 initialPosition = beam.position();
+        beam.tick();
+
+        if (beam.position().distanceToSqr(initialPosition) < 15.99D) {
+            throw new AssertionError("Yamato beam did not travel four blocks after one tick. initial="
+                    + initialPosition + " actual=" + beam.position());
+        }
+
+        hostEntity.discard();
         helper.succeed();
     }
 
