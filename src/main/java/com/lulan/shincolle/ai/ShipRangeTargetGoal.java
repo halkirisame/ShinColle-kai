@@ -98,6 +98,7 @@ public class ShipRangeTargetGoal extends Goal {
             AABB searchBox = this.entity.getBoundingBox()
                     .inflate(this.range, this.range * 0.75D, this.range);
             List<LivingEntity> targets = null;
+            String targetTier = "Normal";
 
             // Priority-based target selection for friendly ships
             if (this.hostShip != null) {
@@ -107,12 +108,18 @@ public class ShipRangeTargetGoal extends Goal {
                     // also search for vanilla flying mobs
                     List<LivingEntity> flyingTargets = findTargetsByType(searchBox, FlyingMob.class);
                     targets = unionLists(targets, flyingTargets);
+                    if (!hasNoTargets(targets)) {
+                        targetTier = "AntiAir";
+                    }
                 }
 
                 // 2. Anti-Sub: target invisible/submarine entities
                 if (targets == null || targets.isEmpty()) {
                     if (this.hostShip.getStateFlag(ID.F.AntiSS)) {
                         targets = findTargetsByType(searchBox, IShipInvisible.class);
+                        if (!hasNoTargets(targets)) {
+                            targetTier = "AntiSub";
+                        }
                     }
                 }
 
@@ -120,6 +127,9 @@ public class ShipRangeTargetGoal extends Goal {
                 if (targets == null || targets.isEmpty()) {
                     if (this.hostShip.getStateFlag(ID.F.PVPFirst)) {
                         targets = findTargetsByType(searchBox, BasicEntityShip.class);
+                        if (!hasNoTargets(targets)) {
+                            targetTier = "PVPFirst";
+                        }
                     }
                 }
             }
@@ -141,6 +151,8 @@ public class ShipRangeTargetGoal extends Goal {
                     this.targetEntity = targets.get(0);
                 }
                 DebugProfiler.count(profiler, "shincolle.ai.range_target.can_use.success");
+                LogHelper.info("DIAG: target select ship=" + this.entity
+                        + " tier=" + targetTier + " target=" + this.targetEntity);
                 LogHelper.debug("DEBUG: range target AI: " + this.entity
                         + " acquired target=" + this.targetEntity
                         + " dist=" + Math.sqrt(this.entity.distanceToSqr(this.targetEntity))

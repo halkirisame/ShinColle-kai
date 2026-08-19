@@ -36,6 +36,7 @@ public class ShipRangeAttackGoal extends Goal {
     private int aimTime;
     private int nextAttrTick;
     private int nextRepathTick;
+    private String lastDiagnosticState;
 
     public ShipRangeAttackGoal(IShipCannonAttack host) {
         this.host = host;
@@ -55,12 +56,14 @@ public class ShipRangeAttackGoal extends Goal {
         try {
             if (this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0) {
                 DebugProfiler.count(profiler, "shincolle.ai.range_attack.blocked.sit_or_crane");
+                this.logDiagnosticState("blocked:sit_or_crane");
                 return false;
             }
 
             if (this.host.getIsRiding()) {
                 if (this.entity.getVehicle() instanceof BasicEntityMount) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.blocked.mount_controls_attack");
+                    this.logDiagnosticState("blocked:mount_controls_attack");
                     return false;
                 }
             }
@@ -73,10 +76,18 @@ public class ShipRangeAttackGoal extends Goal {
                                     && this.host.hasAmmoHeavy()))) {
                 this.target = target;
                 DebugProfiler.count(profiler, "shincolle.ai.range_attack.can_use.success");
+                this.logDiagnosticState("ready");
                 return true;
             }
 
             DebugProfiler.count(profiler, "shincolle.ai.range_attack.can_use.no_valid_target_or_ammo");
+            if (target == null || !target.isAlive()) {
+                this.logDiagnosticState("blocked:no_valid_target");
+            } else if (this.host.getStateFlag(ID.F.NoFuel)) {
+                this.logDiagnosticState("blocked:no_fuel");
+            } else {
+                this.logDiagnosticState("blocked:no_valid_ammo");
+            }
             if (target == null || !target.isAlive()) {
                 LogHelper.debug("DEBUG: range attack AI: " + this.entity
                         + " cannot attack: no target from targetSelector");
@@ -121,12 +132,27 @@ public class ShipRangeAttackGoal extends Goal {
         if (this.target == null || !this.target.isAlive() || this.entity.getTarget() != this.target
                 || this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0
                 || (this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount)) {
+            if (this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0) {
+                this.logDiagnosticState("stopped:sit_or_crane");
+            } else if (this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount) {
+                this.logDiagnosticState("stopped:mount_controls_attack");
+            } else {
+                this.logDiagnosticState("stopped:target_invalid_or_replaced");
+            }
             return false;
         }
-        return (this.host.getAttackType(ID.F.AtkType_Light)
+        boolean canContinue = (this.host.getAttackType(ID.F.AtkType_Light)
                     && this.host.getStateFlag(ID.F.UseAmmoLight) && this.host.hasAmmoLight())
                 || (this.host.getAttackType(ID.F.AtkType_Heavy)
                     && this.host.getStateFlag(ID.F.UseAmmoHeavy) && this.host.hasAmmoHeavy());
+        if (canContinue) {
+            this.logDiagnosticState("ready");
+        } else if (this.host.getStateFlag(ID.F.NoFuel)) {
+            this.logDiagnosticState("stopped:no_fuel");
+        } else {
+            this.logDiagnosticState("stopped:no_valid_ammo");
+        }
+        return canContinue;
     }
 
     @Override
@@ -144,6 +170,7 @@ public class ShipRangeAttackGoal extends Goal {
         try {
             if (this.target == null) {
                 DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.no_target");
+                this.logDiagnosticState("stopped:tick_no_target");
                 return;
             }
 
@@ -167,6 +194,7 @@ public class ShipRangeAttackGoal extends Goal {
 
                 if (this.host.getStateFlag(ID.F.OnSightChase)) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.lost_sight_stop");
+                    this.logDiagnosticState("stopped:lost_sight");
                     LogHelper.debug("DEBUG: range attack AI: " + this.entity
                             + " stopping: lost line of sight to target=" + this.target
                             + " (OnSightChase flag set)");
@@ -199,6 +227,8 @@ public class ShipRangeAttackGoal extends Goal {
                 // light attack
                 if (this.delayLight <= 0 && this.host.useAmmoLight() && this.host.hasAmmoLight()) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.fire_light");
+                    LogHelper.info("DIAG: attack fire ship=" + this.entity
+                            + " type=light target=" + this.target);
                     this.host.attackEntityWithAmmo(this.target);
                     this.delayLight = this.maxDelayLight;
                     LogHelper.debug("DEBUG: range attack AI: " + this.entity
@@ -208,6 +238,8 @@ public class ShipRangeAttackGoal extends Goal {
                 // heavy attack
                 if (this.delayHeavy <= 0 && this.host.useAmmoHeavy() && this.host.hasAmmoHeavy()) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.fire_heavy");
+                    LogHelper.info("DIAG: attack fire ship=" + this.entity
+                            + " type=heavy target=" + this.target);
                     this.host.attackEntityWithHeavyAmmo(this.target);
                     this.delayHeavy = this.maxDelayHeavy;
                     LogHelper.debug("DEBUG: range attack AI: " + this.entity
@@ -219,6 +251,7 @@ public class ShipRangeAttackGoal extends Goal {
             // reset if stuck too long without hitting
             if (this.delayHeavy < -40 && this.delayLight < -40) {
                 DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.stuck_reset");
+                this.logDiagnosticState("stopped:stuck_reset");
                 LogHelper.debug("DEBUG: range attack AI: " + this.entity
                         + " stuck reset: no hit for 40+ ticks past delay on target=" + this.target);
                 this.delayLight = 20;
@@ -242,6 +275,13 @@ public class ShipRangeAttackGoal extends Goal {
                 && this.host.getStateFlag(ID.F.UseAmmoHeavy)
                 && this.host.hasAmmoHeavy();
         return canUseLight || canUseHeavy;
+    }
+
+    private void logDiagnosticState(String state) {
+        if (!state.equals(this.lastDiagnosticState)) {
+            this.lastDiagnosticState = state;
+            LogHelper.info("DIAG: attack state ship=" + this.entity + " reason=" + state);
+        }
     }
 
     private void updateAttackParms() {

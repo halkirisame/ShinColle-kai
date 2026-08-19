@@ -6,6 +6,7 @@ import com.lulan.shincolle.entity.IShipNavigator;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.utility.EntityHelper;
+import com.lulan.shincolle.utility.LogHelper;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Mob;
@@ -125,6 +126,11 @@ public class ShipMoveControl extends MoveControl {
                     this.entity.getJumpControl().jump();
                 }
 
+                if ((moveSpeed <= 0.001F || moveSpeed > 4.0F)
+                        && (this.entity.tickCount & 63) == 0) {
+                    LogHelper.info("DIAG: move speed=" + moveSpeed + " modifier=" + this.speedModifier
+                            + " base=" + this.baseSpeedMultiplier + " ship=" + this.entity);
+                }
                 this.entity.setSpeed(moveSpeed);
             } else {
                 mob.setZza(0.0F);

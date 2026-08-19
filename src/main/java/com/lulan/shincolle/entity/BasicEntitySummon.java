@@ -7,6 +7,7 @@ import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.utility.EntityHelper;
+import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -123,20 +124,24 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             }
 
             boolean shouldDie = false;
+            String despawnReason = null;
 
             // host validity check
             if (this.host == null) {
                 shouldDie = true;
+                despawnReason = "hostMissing";
             } else {
                 Entity hostEnt = this.host.getHostEntity();
                 if (hostEnt == null || (hostEnt instanceof LivingEntity le && !le.isAlive())) {
                     shouldDie = true;
+                    despawnReason = "hostDead";
                 }
             }
 
             // lifetime check
             if (!shouldDie && this.tickCount > this.getLifeLength()) {
                 shouldDie = true;
+                despawnReason = "lifetimeExpired";
             }
 
             // target validity check - if can't find more targets, die
@@ -150,15 +155,21 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
 
                     if (host_target instanceof LivingEntity living) {
                         this.setTarget(living);
+                        LogHelper.info("DIAG: summon inherit target=" + this + " host=" + this.host
+                                + " hostTarget=" + host_target + " result=inherited");
                     } else {
                         shouldDie = true;
+                        despawnReason = "noHostTarget";
                     }
                 } else {
                     shouldDie = true;
+                    despawnReason = "hostMissing";
                 }
             }
 
             if (shouldDie) {
+                LogHelper.info("DIAG: summon despawn=" + this + " host=" + this.host
+                        + " reason=" + despawnReason);
                 if (this.host != null) {
                     this.returnSummonResource();
                 }
