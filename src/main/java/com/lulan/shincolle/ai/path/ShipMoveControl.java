@@ -128,8 +128,14 @@ public class ShipMoveControl extends MoveControl {
 
                 if ((moveSpeed <= 0.001F || moveSpeed > 4.0F)
                         && (this.entity.tickCount & 63) == 0) {
+                    String shipAttrs = "";
+                    if (this.entity instanceof BasicEntityShip ship && ship.getAttrs() != null) {
+                        shipAttrs = " formatType=" + ship.getStateMinor(ID.M.FormatType)
+                                + " formatSlot=" + ship.getStateMinor(ID.M.FormatPos)
+                                + " shipAttrsMOV=" + ship.getAttrs().getAttrsBuffed(ID.Attrs.MOV);
+                    }
                     LogHelper.info("DIAG: move speed=" + moveSpeed + " modifier=" + this.speedModifier
-                            + " base=" + this.baseSpeedMultiplier + " ship=" + this.entity);
+                            + " base=" + this.baseSpeedMultiplier + shipAttrs + " ship=" + this.entity);
                 }
                 this.entity.setSpeed(moveSpeed);
             } else {
