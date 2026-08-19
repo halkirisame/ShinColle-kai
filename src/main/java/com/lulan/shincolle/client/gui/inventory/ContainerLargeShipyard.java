@@ -179,16 +179,8 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
                     return ItemStack.EMPTY;
                 }
             } else {
-                boolean moved = false;
-                // Resource items default to the material buffer; fuel can
-                // still be placed deliberately into its dedicated slot.
-                if (tile != null && tile.isItemValidForSlot(MATERIAL_SLOT_START + 1, slotStack)) {
-                    moved = this.moveItemStackTo(slotStack, MATERIAL_SLOT_START + 1, SHIPYARD_SLOT_COUNT, false);
-                } else if (tile != null && tile.isItemValidForSlot(TileMultiGrudgeHeavy.SLOT_FUEL, slotStack)) {
-                    moved = this.moveItemStackTo(slotStack, TileMultiGrudgeHeavy.SLOT_FUEL,
-                            TileMultiGrudgeHeavy.SLOT_FUEL + 1, false);
-                }
-                if (!moved) {
+                if (tile == null || !tile.isItemValidForSlot(MATERIAL_SLOT_START, slotStack)
+                        || !this.moveItemStackTo(slotStack, MATERIAL_SLOT_START, SHIPYARD_SLOT_COUNT, false)) {
                     return ItemStack.EMPTY;
                 }
             }

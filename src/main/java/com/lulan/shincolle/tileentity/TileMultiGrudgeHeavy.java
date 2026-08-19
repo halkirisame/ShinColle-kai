@@ -38,8 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>
  * Slot layout (10 slots):
  * 0: Output
- * 1: Fuel
- * 2-9: Material input
+ * 1-9: Unified material/fuel input
  * <p>
  * Material storage: Tracks 4 material stock counts internally (grudge,
  * abyssium, ammo, polymetal)
@@ -48,7 +47,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
     public static final int SLOTS_NUM = 10;
     public static final int SLOT_OUTPUT = 0;
-    public static final int SLOT_FUEL = 1;
+    public static final int SLOT_INPUT_START = 1;
+    public static final int SLOT_INPUT_END = 9;
     private static final int POWER_INSTANT = 57600;
     private static final int LAVA_BUCKET_MB = 1000;
     private static final int LAVA_BUCKET_BURN_TIME = 20000;
@@ -329,51 +329,6 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     }
 
     /**
-     * Consume solid fuel from fuel slot, converting to power.
-     * Accepts Grudge items (with fixed 2400 base burn value) and any vanilla
-     * furnace fuel (coal, logs, lava buckets, blaze rods, etc.) via ForgeHooks.
-     */
-    private void decrItemFuel() {
-        if (powerRemained >= POWER_MAX)
-            return;
-
-        ItemStack fuelStack = inventory.getStackInSlot(SLOT_FUEL);
-        if (fuelStack.isEmpty())
-            return;
-
-        int fuelValue = 0;
-
-        // Priority 1: Grudge items use a fixed base burn value
-        if (fuelStack.is(ModItems.GRUDGE.get())) {
-            fuelValue = (int) (2400 * FUEL_MAGN);
-        } else {
-            // Priority 2: Any vanilla/modded furnace fuel
-            int burnTime = ForgeHooks.getBurnTime(fuelStack, null);
-            if (burnTime > 0) {
-                fuelValue = (int) (burnTime * FUEL_MAGN);
-            }
-        }
-
-        if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
-            // Handle container items (e.g., lava bucket -> empty bucket)
-            ItemStack containerStack = fuelStack.getCraftingRemainingItem();
-            if (!containerStack.isEmpty() && fuelStack.getCount() > 1) {
-                // Cannot consume stacked items that leave a container
-                return;
-            }
-
-            fuelStack.shrink(1);
-            powerRemained += fuelValue;
-
-            if (fuelStack.isEmpty()) {
-                // Replace with container item if applicable (e.g., empty bucket)
-                inventory.setStackInSlot(SLOT_FUEL, containerStack.isEmpty() ? ItemStack.EMPTY : containerStack.copy());
-            }
-            setChanged();
-        }
-    }
-
-    /**
      * Consume one lava bucket's worth of fluid with the same power value as a
      * lava bucket placed in the existing fuel inventory slot.
      */
@@ -391,56 +346,89 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     }
 
     public boolean isItemValidForSlot(int slot, ItemStack stack) {
-        if (stack.isEmpty()) {
+        if (stack.isEmpty() || slot < SLOT_INPUT_START || slot > SLOT_INPUT_END) {
             return false;
         }
-        if (slot == SLOT_FUEL) {
-            return stack.is(ModItems.GRUDGE.get()) || stack.is(ModItems.INSTANT_CON_MAT.get())
-                    || ForgeHooks.getBurnTime(stack, null) > 0;
-        }
-        return slot >= 2 && slot < SLOTS_NUM
-                && (stack.getItem() instanceof IShipResourceItem || stack.getItem() instanceof ShipSpawnEgg);
+        return stack.getItem() instanceof ShipSpawnEgg
+                || stack.getItem() instanceof IShipResourceItem
+                || stack.is(ModItems.INSTANT_CON_MAT.get())
+                || ForgeHooks.getBurnTime(stack, null) > 0;
     }
 
     private boolean hasInstantConstructionMaterial() {
-        return inventory.getStackInSlot(SLOT_FUEL).is(ModItems.INSTANT_CON_MAT.get());
+        return findInstantConstructionSlot() >= 0;
+    }
+
+    private int findInstantConstructionSlot() {
+        for (int slot = SLOT_INPUT_START; slot <= SLOT_INPUT_END; slot++) {
+            if (inventory.getStackInSlot(slot).is(ModItems.INSTANT_CON_MAT.get())) {
+                return slot;
+            }
+        }
+        return -1;
     }
 
     /**
      * Recycle input items into material stock
      */
-    private void recycleInputSlots() {
-        for (int i = 2; i < SLOTS_NUM; i++) {
-            ItemStack stack = inventory.getStackInSlot(i);
+    private void processInputSlots() {
+        for (int slot = SLOT_INPUT_START; slot <= SLOT_INPUT_END; slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
             if (stack.isEmpty())
                 continue;
 
             if (stack.getItem() instanceof ShipSpawnEgg) {
-                if (recycleShipSpawnEgg(stack)) {
+                if (invMode == 0 && recycleShipSpawnEgg(stack)) {
                     stack.shrink(1);
                     setChanged();
                 }
             } else if (stack.getItem() instanceof IShipResourceItem resource) {
-                // Use IShipResourceItem interface (matches original addMaterialStock)
-                int[] addMats = resource.getResourceValue(0);
-                if (ConfigHandler.easyMode()) {
-                    for (int k = 0; k < 4; k++) addMats[k] *= 10;
-                }
-                boolean canAdd = true;
-                for (int k = 0; k < 4; k++) {
-                    if (addMats[k] < 0 || matsStock[k] > MAX_STOCK - addMats[k]) {
-                        canAdd = false;
-                        break;
+                if (invMode == 0) {
+                    int[] addMats = resource.getResourceValue(stack.getDamageValue());
+                    if (ConfigHandler.easyMode()) {
+                        for (int k = 0; k < 4; k++) addMats[k] *= 10;
                     }
+                    boolean canAdd = true;
+                    for (int k = 0; k < 4; k++) {
+                        if (addMats[k] < 0 || matsStock[k] > MAX_STOCK - addMats[k]) {
+                            canAdd = false;
+                            break;
+                        }
+                    }
+                    if (!canAdd) continue;
+                    for (int k = 0; k < 4; k++) {
+                        matsStock[k] += addMats[k];
+                    }
+                    stack.shrink(1);
+                    setChanged();
                 }
-                if (!canAdd) continue;
-                for (int k = 0; k < 4; k++) {
-                    matsStock[k] += addMats[k];
-                }
-                stack.shrink(1);
-                setChanged();
+            } else if (!stack.is(ModItems.INSTANT_CON_MAT.get())) {
+                consumeFuelItem(slot, stack);
             }
         }
+    }
+
+    private void consumeFuelItem(int slot, ItemStack fuelStack) {
+        if (powerRemained >= POWER_MAX) {
+            return;
+        }
+        int burnTime = ForgeHooks.getBurnTime(fuelStack, null);
+        int fuelValue = burnTime > 0 ? (int) (burnTime * FUEL_MAGN) : 0;
+        if (fuelValue <= 0 || powerRemained + fuelValue > POWER_MAX) {
+            return;
+        }
+
+        ItemStack containerStack = fuelStack.getCraftingRemainingItem();
+        if (!containerStack.isEmpty() && fuelStack.getCount() > 1) {
+            return;
+        }
+
+        fuelStack.shrink(1);
+        powerRemained += fuelValue;
+        if (fuelStack.isEmpty()) {
+            inventory.setStackInSlot(slot, containerStack.isEmpty() ? ItemStack.EMPTY : containerStack.copy());
+        }
+        setChanged();
     }
 
     // ==================== Tick Logic ====================
@@ -510,19 +498,16 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
             powerGoal = 0;
         }
 
-        decrItemFuel();
+        processInputSlots();
         decrFluidFuel();
 
-        if (invMode == 0) {
-            recycleInputSlots();
-        }
-
         if (canBuild()) {
-            ItemStack fuelStack = inventory.getStackInSlot(SLOT_FUEL);
-            if (!fuelStack.isEmpty() && fuelStack.is(ModItems.INSTANT_CON_MAT.get())) {
-                fuelStack.shrink(1);
-                if (fuelStack.isEmpty()) {
-                    inventory.setStackInSlot(SLOT_FUEL, ItemStack.EMPTY);
+            int instantSlot = findInstantConstructionSlot();
+            if (instantSlot >= 0) {
+                ItemStack instantStack = inventory.getStackInSlot(instantSlot);
+                instantStack.shrink(1);
+                if (instantStack.isEmpty()) {
+                    inventory.setStackInSlot(instantSlot, ItemStack.EMPTY);
                 }
                 powerConsumed += POWER_INSTANT;
             } else if (powerRemained >= BUILD_SPEED) {

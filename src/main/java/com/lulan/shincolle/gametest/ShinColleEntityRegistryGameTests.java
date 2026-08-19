@@ -1978,6 +1978,28 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void largeShipyardOldFuelSlotAcceptsMaterial(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(shipyardPos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(shipyardPos) instanceof TileMultiGrudgeHeavy shipyard)) {
+            throw new AssertionError("Large shipyard tile was not created for unified slot test.");
+        }
+
+        int inputSlot = TileMultiGrudgeHeavy.SLOT_INPUT_START;
+        shipyard.getInventory().setStackInSlot(inputSlot, new ItemStack(ModItems.ABYSS_METAL.get()));
+        TileMultiGrudgeHeavy.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+
+        if (shipyard.getMatStock(1) <= 0) {
+            throw new AssertionError("Large shipyard old fuel slot did not add material stock.");
+        }
+        if (!shipyard.getInventory().getStackInSlot(inputSlot).isEmpty()) {
+            throw new AssertionError("Large shipyard old fuel slot did not consume material input.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void serverboundPacketsRejectOversizedAndTruncatedArrays(GameTestHelper helper) {
         FriendlyByteBuf exact = new FriendlyByteBuf(Unpooled.buffer());
         exact.writeByte(C2SInputPacket.MountMove);
