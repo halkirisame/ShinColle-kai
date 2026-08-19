@@ -83,6 +83,7 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.RegistryObject;
 
@@ -2016,6 +2017,64 @@ public final class ShinColleEntityRegistryGameTests {
         }
         buffer.release();
         helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipyardItemHandlersRestrictAutomationDirections(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+
+        BlockPos smallPos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(smallPos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(smallPos) instanceof TileEntitySmallShipyard small)) {
+            throw new AssertionError("Small shipyard tile was not created for item handler test.");
+        }
+        IItemHandler smallHandler = small.getCapability(ForgeCapabilities.ITEM_HANDLER).orElseThrow(
+                () -> new AssertionError("Small shipyard did not expose an item handler."));
+        assertShipyardAutomationHandler(smallHandler, TileEntitySmallShipyard.SLOT_INPUT_START,
+                TileEntitySmallShipyard.SLOT_OUTPUT, small.getInventory(), "small shipyard");
+
+        BlockPos largePos = helper.absolutePos(new BlockPos(6, 2, 2));
+        level.setBlock(largePos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(largePos) instanceof TileMultiGrudgeHeavy large)) {
+            throw new AssertionError("Large shipyard tile was not created for item handler test.");
+        }
+        IItemHandler largeHandler = large.getCapability(ForgeCapabilities.ITEM_HANDLER).orElseThrow(
+                () -> new AssertionError("Large shipyard did not expose an item handler."));
+        assertShipyardAutomationHandler(largeHandler, TileMultiGrudgeHeavy.SLOT_INPUT_START,
+                TileMultiGrudgeHeavy.SLOT_OUTPUT, large.getInventory(), "large shipyard");
+
+        helper.succeed();
+    }
+
+    private static void assertShipyardAutomationHandler(IItemHandler handler, int inputSlot, int outputSlot,
+                                                         net.minecraftforge.items.ItemStackHandler inventory,
+                                                         String description) {
+        ItemStack validInput = new ItemStack(Items.COAL);
+        ItemStack simulatedRemainder = handler.insertItem(inputSlot, validInput.copy(), true);
+        if (!simulatedRemainder.isEmpty() || !handler.getStackInSlot(inputSlot).isEmpty()) {
+            throw new AssertionError(description + " simulated input insertion changed inventory or was rejected.");
+        }
+        if (!handler.insertItem(inputSlot, validInput.copy(), false).isEmpty()) {
+            throw new AssertionError(description + " rejected valid automated input.");
+        }
+
+        ItemStack invalidInput = new ItemStack(Items.DIRT);
+        if (handler.insertItem(inputSlot + 1, invalidInput.copy(), false).getCount() != invalidInput.getCount()) {
+            throw new AssertionError(description + " accepted an unrelated automated input.");
+        }
+        if (!handler.extractItem(inputSlot, 1, false).isEmpty()
+                || handler.getStackInSlot(inputSlot).isEmpty()) {
+            throw new AssertionError(description + " allowed automated extraction from an input slot.");
+        }
+        if (handler.insertItem(outputSlot, validInput.copy(), false).getCount() != validInput.getCount()) {
+            throw new AssertionError(description + " allowed automated insertion into its output slot.");
+        }
+
+        inventory.setStackInSlot(outputSlot, new ItemStack(Items.DIAMOND));
+        ItemStack extracted = handler.extractItem(outputSlot, 1, false);
+        if (!extracted.is(Items.DIAMOND) || !handler.getStackInSlot(outputSlot).isEmpty()) {
+            throw new AssertionError(description + " did not allow automated output extraction.");
+        }
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")

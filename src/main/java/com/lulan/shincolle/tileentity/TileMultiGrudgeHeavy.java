@@ -30,6 +30,7 @@ import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -119,6 +120,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
     };
     private final LazyOptional<IFluidHandler> fuelTankCapability = LazyOptional.of(() -> fuelTank);
+    private final LazyOptional<IItemHandler> itemHandlerCapability =
+            LazyOptional.of(ShipyardAutomationItemHandler::new);
 
     public TileMultiGrudgeHeavy(BlockPos pos, BlockState state) {
         this(ModBlockEntities.GRUDGE_HEAVY_MULTI.get(), pos, state);
@@ -622,6 +625,9 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
+        if (capability == ForgeCapabilities.ITEM_HANDLER) {
+            return itemHandlerCapability.cast();
+        }
         if (capability == ForgeCapabilities.FLUID_HANDLER) {
             return fuelTankCapability.cast();
         }
@@ -631,6 +637,46 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     @Override
     public void invalidateCaps() {
         super.invalidateCaps();
+        itemHandlerCapability.invalidate();
         fuelTankCapability.invalidate();
+    }
+
+    private class ShipyardAutomationItemHandler implements IItemHandler {
+
+        @Override
+        public int getSlots() {
+            return inventory.getSlots();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return inventory.getStackInSlot(slot);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (!isItemValidForSlot(slot, stack)) {
+                return stack;
+            }
+            return inventory.insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot != SLOT_OUTPUT) {
+                return ItemStack.EMPTY;
+            }
+            return inventory.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return inventory.getSlotLimit(slot);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return isItemValidForSlot(slot, stack);
+        }
     }
 }
