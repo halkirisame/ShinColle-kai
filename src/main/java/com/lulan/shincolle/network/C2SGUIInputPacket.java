@@ -764,8 +764,7 @@ public class C2SGUIInputPacket {
         int targetId = values.length >= 4 ? values[3] : values[2];
         Entity target = level.getEntity(targetId);
         if (!(target instanceof LivingEntity livingTarget)
-                || !isWithinPointerRange(player, target)
-                || !player.hasLineOfSight(target))
+                || !isWithinPointerRange(player, target))
             return;
         if (TargetHelper.isEntityInvulnerable(target)
                 || TeamHelper.checkSameOwner(player, target)
@@ -805,7 +804,7 @@ public class C2SGUIInputPacket {
         int mode = values.length >= 4 ? Mth.clamp(values[2], 0, 2) : PointerItem.MODE_FORMATION;
         int targetId = values.length >= 4 ? values[3] : values[2];
         Entity target = level.getEntity(targetId);
-        if (!isWithinPointerRange(player, target) || !player.hasLineOfSight(target))
+        if (!isWithinPointerRange(player, target))
             return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
         if (capa == null) {
@@ -893,8 +892,7 @@ public class C2SGUIInputPacket {
         int gz = values[6];
         BlockPos destinationPos = new BlockPos(gx, gy, gz);
         if (!level.isInWorldBounds(destinationPos)
-                || !isWithinPointerRange(player, destinationPos)
-                || !level.mayInteract(player, destinationPos)) {
+                || !isWithinPointerRange(player, destinationPos)) {
             return;
         }
 
