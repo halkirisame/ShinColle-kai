@@ -20,19 +20,35 @@ import net.minecraft.world.entity.player.Inventory;
  */
 public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShipyard> {
 
+    private static final int BASE_GUI_WIDTH = 176;
+    private static final int MATERIAL_PANEL_X = 180;
+    private static final int MATERIAL_ROW_Y = 20;
+    private static final int MATERIAL_ROW_HEIGHT = 18;
+    private static final int MATERIAL_CONTROL_Y = 99;
+    private static final int[] MATERIAL_DELTAS = {-10, -1, 1, 10};
+    private static final String[] MATERIAL_LABELS = {"G", "A", "M", "P"};
     private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
             "textures/gui/guismallshipyard.png");
 
     public GuiSmallShipyard(ContainerSmallShipyard menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
-        this.imageWidth = 176;
+        this.imageWidth = 296;
         this.imageHeight = 164;
     }
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         // Render background texture
-        graphics.blit(TEXTURE, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
+        graphics.blit(TEXTURE, this.leftPos, this.topPos, 0, 0, BASE_GUI_WIDTH, this.imageHeight);
+
+        graphics.fill(this.leftPos + 176, this.topPos, this.leftPos + this.imageWidth,
+                this.topPos + 123, 0xD0202020);
+        int selected = Math.max(0, Math.min(this.menu.getSelectMat(), 3));
+        graphics.fill(this.leftPos + MATERIAL_PANEL_X - 2,
+                this.topPos + MATERIAL_ROW_Y + selected * MATERIAL_ROW_HEIGHT - 2,
+                this.leftPos + this.imageWidth - 4,
+                this.topPos + MATERIAL_ROW_Y + selected * MATERIAL_ROW_HEIGHT + 10,
+                0x804F6A8A);
 
         // Fuel bar: vertical bar from bottom up, using texture at U=176
         int fuelPercent = this.menu.getFuelPercent(); // 0-1000
@@ -97,6 +113,20 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
                     80 - this.font.width(noMat) / 2, 67, 0xFF4433, false);
         }
 
+        graphics.drawString(this.font, "Use / Stock", MATERIAL_PANEL_X, 6, 0xFFFFFF, false);
+        for (int i = 0; i < 4; i++) {
+            String material = MATERIAL_LABELS[i] + "  " + this.menu.getMatBuild(i)
+                    + " / " + this.menu.getMatStock(i);
+            graphics.drawString(this.font, material, MATERIAL_PANEL_X,
+                    MATERIAL_ROW_Y + i * MATERIAL_ROW_HEIGHT, 0xFFFFFF, false);
+        }
+        String[] controls = {"-10", "-1", "+1", "+10"};
+        for (int i = 0; i < controls.length; i++) {
+            int x = MATERIAL_PANEL_X + i * 28;
+            graphics.fill(x, MATERIAL_CONTROL_Y, x + 24, MATERIAL_CONTROL_Y + 12, 0xFF444444);
+            graphics.drawString(this.font, controls[i], x + 3, MATERIAL_CONTROL_Y + 2, 0xFFFFFF, false);
+        }
+
         // Player inventory label
         graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0x404040,
                 false);
@@ -142,9 +172,41 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
                 }
                 return true;
             }
+
+            if (xClick >= MATERIAL_PANEL_X && xClick <= this.imageWidth - 4) {
+                for (int material = 0; material < 4; material++) {
+                    int rowTop = MATERIAL_ROW_Y + material * MATERIAL_ROW_HEIGHT - 2;
+                    if (yClick >= rowTop && yClick <= rowTop + 13) {
+                        TileEntitySmallShipyard tile = this.menu.getTile();
+                        if (tile != null) {
+                            sendTileButton(tile.getBlockPos(), ID.B.Shipyard_SelectMat, material);
+                        }
+                        return true;
+                    }
+                }
+                if (yClick >= MATERIAL_CONTROL_Y && yClick <= MATERIAL_CONTROL_Y + 12) {
+                    for (int control = 0; control < MATERIAL_DELTAS.length; control++) {
+                        int controlX = MATERIAL_PANEL_X + control * 28;
+                        if (xClick >= controlX && xClick <= controlX + 24) {
+                            TileEntitySmallShipyard tile = this.menu.getTile();
+                            if (tile != null) {
+                                sendTileButton(tile.getBlockPos(), ID.B.Shipyard_INCDEC,
+                                        MATERIAL_DELTAS[control]);
+                            }
+                            return true;
+                        }
+                    }
+                }
+            }
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private void sendTileButton(BlockPos pos, int buttonId, int value) {
+        ModNetworking.sendToServer(new C2SGUIInputPacket(
+                C2SGUIInputPacket.TileBtn,
+                new int[]{0, pos.getX(), pos.getY(), pos.getZ(), buttonId, value}));
     }
 
     @Override

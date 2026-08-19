@@ -19,7 +19,7 @@ import net.minecraftforge.items.ItemStackHandler;
 
 /**
  * Container/Menu for Small Shipyard block.
- * 4 material slots + 1 fuel slot + 1 output slot = 6 shipyard slots + player
+ * 5 unified material/fuel slots + 1 output slot = 6 shipyard slots + player
  * inventory.
  * <p>
  * ContainerData layout (synced server->client as scaled values):
@@ -27,11 +27,13 @@ import net.minecraftforge.items.ItemStackHandler;
  * 1: buildPercent (0-1000, representing 0%-100.0% progress)
  * 2: buildType (0=none, 1=ship, 2=equip, 3=ship_loop, 4=equip_loop)
  * 3: buildTimeSeconds (remaining seconds)
+ * 4-7: matsStock[0-3]
+ * 8-11: matsBuild[0-3]
+ * 12: selectMat
  */
 public class ContainerSmallShipyard extends AbstractContainerMenu {
 
-    public static final int MATERIAL_SLOTS = 4;
-    public static final int FUEL_SLOT = 4;
+    public static final int INPUT_SLOT_COUNT = 5;
     public static final int OUTPUT_SLOT = 5;
     public static final int SHIPYARD_SLOT_COUNT = 6;
 
@@ -39,7 +41,10 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
     public static final int DATA_BUILD_PERCENT = 1;
     public static final int DATA_BUILD_TYPE = 2;
     public static final int DATA_BUILD_TIME = 3;
-    public static final int DATA_COUNT = 4;
+    public static final int DATA_STOCK_BASE = 4;
+    public static final int DATA_BUILD_BASE = 8;
+    public static final int DATA_SELECT_MAT = 12;
+    public static final int DATA_COUNT = 13;
 
     private final TileEntitySmallShipyard tile;
     private final ContainerData data;
@@ -67,14 +72,12 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
 
         IItemHandler handler = tile != null ? tile.getInventory() : new ItemStackHandler(SHIPYARD_SLOT_COUNT);
 
-        // Material slots (0-3): horizontal row matching GUI texture
-        addSlot(new SlotSmallShipyard(handler, 0, 33, 29, false, tile));  // Grudge
-        addSlot(new SlotSmallShipyard(handler, 1, 53, 29, false, tile));  // Abyssium
-        addSlot(new SlotSmallShipyard(handler, 2, 73, 29, false, tile));  // Ammo
-        addSlot(new SlotSmallShipyard(handler, 3, 93, 29, false, tile));  // Polymetal
-
-        // Fuel slot (4)
-        addSlot(new SlotSmallShipyard(handler, FUEL_SLOT, 8, 53, false, tile));
+        // Existing slot positions are preserved; all five are now unified inputs.
+        addSlot(new SlotSmallShipyard(handler, 0, 33, 29, false, tile));
+        addSlot(new SlotSmallShipyard(handler, 1, 53, 29, false, tile));
+        addSlot(new SlotSmallShipyard(handler, 2, 73, 29, false, tile));
+        addSlot(new SlotSmallShipyard(handler, 3, 93, 29, false, tile));
+        addSlot(new SlotSmallShipyard(handler, 4, 8, 53, false, tile));
 
         // Output slot (5): no item placement
         addSlot(new SlotSmallShipyard(handler, OUTPUT_SLOT, 134, 44, true, tile));
@@ -109,6 +112,13 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
                             yield 0;
                         yield Math.max(0, (goal - consumed) / buildSpeed / 20);
                     }
+                    case DATA_STOCK_BASE, DATA_STOCK_BASE + 1,
+                            DATA_STOCK_BASE + 2, DATA_STOCK_BASE + 3 ->
+                            Math.min(tile.getMatStock(index - DATA_STOCK_BASE), 32767);
+                    case DATA_BUILD_BASE, DATA_BUILD_BASE + 1,
+                            DATA_BUILD_BASE + 2, DATA_BUILD_BASE + 3 ->
+                            tile.getMatBuild(index - DATA_BUILD_BASE);
+                    case DATA_SELECT_MAT -> tile.getSelectMat();
                     default -> 0;
                 };
             }
@@ -196,5 +206,17 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
 
     public int getBuildTimeSeconds() {
         return data.get(DATA_BUILD_TIME);
+    }
+
+    public int getMatStock(int index) {
+        return index >= 0 && index < 4 ? data.get(DATA_STOCK_BASE + index) : 0;
+    }
+
+    public int getMatBuild(int index) {
+        return index >= 0 && index < 4 ? data.get(DATA_BUILD_BASE + index) : 0;
+    }
+
+    public int getSelectMat() {
+        return data.get(DATA_SELECT_MAT);
     }
 }

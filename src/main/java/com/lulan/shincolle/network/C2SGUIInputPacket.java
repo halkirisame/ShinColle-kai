@@ -8,6 +8,7 @@ import com.lulan.shincolle.client.gui.inventory.ContainerLargeShipyard;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.client.gui.inventory.ContainerSmallShipyard;
 import com.lulan.shincolle.client.gui.inventory.ContainerVolCore;
+import com.lulan.shincolle.crafting.SmallRecipes;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.PointerItem;
@@ -112,8 +113,21 @@ public class C2SGUIInputPacket {
     }
 
     private static void handleSmallShipyardBtn(TileEntitySmallShipyard tile, int buttonId, int value) {
-        if (buttonId == ID.B.Shipyard_Type) {
-            tile.setBuildType(Math.max(0, Math.min(value, 4)));
+        switch (buttonId) {
+            case ID.B.Shipyard_Type:
+                tile.setBuildType(Math.max(0, Math.min(value, 4)));
+                break;
+            case ID.B.Shipyard_SelectMat:
+                tile.setSelectMat(Math.max(0, Math.min(value, 3)));
+                break;
+            case ID.B.Shipyard_INCDEC:
+                int matIndex = Math.max(0, Math.min(tile.getSelectMat(), 3));
+                int currentBuild = Math.max(0, tile.getMatBuild(matIndex));
+                int stock = Math.max(0, tile.getMatStock(matIndex));
+                int maxBuild = Math.min(SmallRecipes.MAX_MATERIAL, stock);
+                int target = Math.max(0, Math.min(currentBuild + value, maxBuild));
+                tile.setMatBuild(matIndex, target);
+                break;
         }
     }
 

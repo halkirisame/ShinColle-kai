@@ -2,10 +2,13 @@ package com.lulan.shincolle.tileentity;
 
 import com.lulan.shincolle.block.BlockSmallShipyard;
 import com.lulan.shincolle.client.gui.inventory.ContainerSmallShipyard;
+import com.lulan.shincolle.crafting.ShipCalc;
 import com.lulan.shincolle.crafting.SmallRecipes;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlockEntities;
 import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.item.IShipResourceItem;
+import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.utility.LogHelper;
 
 import net.minecraft.core.BlockPos;
@@ -36,18 +39,14 @@ import org.jetbrains.annotations.Nullable;
  * Handles ship/equipment building with fuel consumption and progress tracking.
  * <p>
  * Slot layout:
- * 0-3: Material inputs (Grudge, Abyssium, Ammo, Polymetal)
- * 4: Fuel input
+ * 0-4: Unified material/fuel inputs
  * 5: Build output
  */
 public class TileEntitySmallShipyard extends BasicTileInventory implements MenuProvider, ITileFurnace {
 
     public static final int SLOT_COUNT = 6;
-    public static final int SLOT_GRUDGE = 0;
-    public static final int SLOT_ABYSSIUM = 1;
-    public static final int SLOT_AMMO = 2;
-    public static final int SLOT_POLYMETAL = 3;
-    public static final int SLOT_FUEL = 4;
+    public static final int SLOT_INPUT_START = 0;
+    public static final int SLOT_INPUT_END = 4;
     public static final int SLOT_OUTPUT = 5;
     /**
      * Power added per Instant Construction Material
@@ -56,6 +55,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     private static final int LAVA_BUCKET_MB = 1000;
     private static final int LAVA_BUCKET_BURN_TIME = 20000;
     private static final int FLUID_TANK_CAPACITY = 16000;
+    private static final int MAX_STOCK = 1000000;
     // Config values loaded from ConfigHandler
     private static int POWER_MAX;
     private static int BUILD_SPEED;
@@ -81,6 +81,18 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Power goal for current build
      */
     private int powerGoal = 0;
+    /**
+     * Material stock counts: [grudge, abyssium, ammo, polymetal]
+     */
+    private int[] matsStock = new int[4];
+    /**
+     * Material amounts selected for the next build.
+     */
+    private int[] matsBuild = new int[4];
+    /**
+     * Material selected in the amount controls (0-3).
+     */
+    private int selectMat = 0;
     /**
      * Whether currently active (for blockstate sync)
      */
@@ -192,6 +204,37 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         setChanged();
     }
 
+    public int getSelectMat() {
+        return selectMat;
+    }
+
+    public void setSelectMat(int mat) {
+        this.selectMat = Math.max(0, Math.min(mat, 3));
+        setChanged();
+    }
+
+    public int getMatStock(int index) {
+        return index >= 0 && index < matsStock.length ? matsStock[index] : 0;
+    }
+
+    public void setMatStock(int index, int value) {
+        if (index >= 0 && index < matsStock.length) {
+            matsStock[index] = Math.max(0, Math.min(value, MAX_STOCK));
+            setChanged();
+        }
+    }
+
+    public int getMatBuild(int index) {
+        return index >= 0 && index < matsBuild.length ? matsBuild[index] : 0;
+    }
+
+    public void setMatBuild(int index, int value) {
+        if (index >= 0 && index < matsBuild.length) {
+            matsBuild[index] = Math.max(0, Math.min(value, SmallRecipes.MAX_MATERIAL));
+            setChanged();
+        }
+    }
+
     /**
      * Whether the shipyard has fuel and can build
      */
@@ -218,20 +261,26 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         if (!output.isEmpty())
             return false;
 
-        // Loop mode changes whether another cycle starts after completion; it
-        // must not permit fuel or instant materials to be consumed without a
-        // valid material set.
-        return powerGoal > 0;
+        if (powerGoal <= 0
+                || !SmallRecipes.isValidInput(matsBuild[0], matsBuild[1], matsBuild[2], matsBuild[3])) {
+            return false;
+        }
+        for (int i = 0; i < matsStock.length; i++) {
+            if (matsStock[i] < matsBuild[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
      * Calculate power goal from current material counts
      */
     private void calcPowerGoal() {
-        int grudge = getSlotCount(SLOT_GRUDGE);
-        int abyssium = getSlotCount(SLOT_ABYSSIUM);
-        int ammo = getSlotCount(SLOT_AMMO);
-        int polymetal = getSlotCount(SLOT_POLYMETAL);
+        int grudge = matsBuild[0];
+        int abyssium = matsBuild[1];
+        int ammo = matsBuild[2];
+        int polymetal = matsBuild[3];
 
         if (SmallRecipes.isValidInput(grudge, abyssium, ammo, polymetal)) {
             int totalMats = grudge + abyssium + ammo + polymetal;
@@ -242,56 +291,71 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     }
 
     /**
-     * Get item count in the specified material slot
+     * Scan unified input slots in the required priority order: ship egg,
+     * resource item, then fuel.
      */
-    private int getSlotCount(int slot) {
-        ItemStack stack = inventory.getStackInSlot(slot);
-        return stack.isEmpty() ? 0 : stack.getCount();
+    private void processInputSlots() {
+        for (int slot = SLOT_INPUT_START; slot <= SLOT_INPUT_END; slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+
+            if (stack.getItem() instanceof ShipSpawnEgg) {
+                if (recycleShipSpawnEgg(stack)) {
+                    stack.shrink(1);
+                    setChanged();
+                }
+            } else if (stack.getItem() instanceof IShipResourceItem resource) {
+                if (addResourceItem(resource, stack.getDamageValue())) {
+                    stack.shrink(1);
+                    setChanged();
+                }
+            } else if (!stack.is(ModItems.INSTANT_CON_MAT.get())) {
+                consumeFuelItem(slot, stack);
+            }
+        }
     }
 
-    /**
-     * Consume solid fuel from fuel slot, converting to power.
-     * Accepts Grudge items (with fixed 2400 base burn value) and any vanilla
-     * furnace fuel (coal, logs, lava buckets, blaze rods, etc.) via ForgeHooks.
-     */
-    private void decrItemFuel() {
-        if (powerRemained >= POWER_MAX)
-            return;
-
-        ItemStack fuelStack = inventory.getStackInSlot(SLOT_FUEL);
-        if (fuelStack.isEmpty())
-            return;
-
-        int fuelValue = 0;
-
-        // Priority 1: Grudge items use a fixed base burn value
-        if (fuelStack.is(ModItems.GRUDGE.get())) {
-            fuelValue = (int) (2400 * FUEL_MAGN);
-        } else {
-            // Priority 2: Any vanilla/modded furnace fuel
-            int burnTime = ForgeHooks.getBurnTime(fuelStack, null);
-            if (burnTime > 0) {
-                fuelValue = (int) (burnTime * FUEL_MAGN);
+    private boolean addResourceItem(IShipResourceItem resource, int damageValue) {
+        int[] addMats = resource.getResourceValue(damageValue);
+        if (ConfigHandler.easyMode()) {
+            for (int i = 0; i < addMats.length; i++) {
+                addMats[i] *= 10;
             }
         }
-
-        if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
-            // Handle container items (e.g., lava bucket -> empty bucket)
-            ItemStack containerStack = fuelStack.getCraftingRemainingItem();
-            if (!containerStack.isEmpty() && fuelStack.getCount() > 1) {
-                // Cannot consume stacked items that leave a container
-                return;
+        for (int i = 0; i < matsStock.length; i++) {
+            if (addMats[i] < 0 || matsStock[i] > MAX_STOCK - addMats[i]) {
+                return false;
             }
-
-            fuelStack.shrink(1);
-            powerRemained += fuelValue;
-
-            if (fuelStack.isEmpty()) {
-                // Replace with container item if applicable (e.g., empty bucket)
-                inventory.setStackInSlot(SLOT_FUEL, containerStack.isEmpty() ? ItemStack.EMPTY : containerStack.copy());
-            }
-            setChanged();
         }
+        for (int i = 0; i < matsStock.length; i++) {
+            matsStock[i] += addMats[i];
+        }
+        return true;
+    }
+
+    private void consumeFuelItem(int slot, ItemStack fuelStack) {
+        if (powerRemained >= POWER_MAX) {
+            return;
+        }
+        int burnTime = ForgeHooks.getBurnTime(fuelStack, null);
+        int fuelValue = burnTime > 0 ? (int) (burnTime * FUEL_MAGN) : 0;
+        if (fuelValue <= 0 || powerRemained + fuelValue > POWER_MAX) {
+            return;
+        }
+
+        ItemStack containerStack = fuelStack.getCraftingRemainingItem();
+        if (!containerStack.isEmpty() && fuelStack.getCount() > 1) {
+            return;
+        }
+
+        fuelStack.shrink(1);
+        powerRemained += fuelValue;
+        if (fuelStack.isEmpty()) {
+            inventory.setStackInSlot(slot, containerStack.isEmpty() ? ItemStack.EMPTY : containerStack.copy());
+        }
+        setChanged();
     }
 
     /**
@@ -312,17 +376,26 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     }
 
     private boolean hasInstantConstructionMaterial() {
-        return inventory.getStackInSlot(SLOT_FUEL).is(ModItems.INSTANT_CON_MAT.get());
+        return findInstantConstructionSlot() >= 0;
+    }
+
+    private int findInstantConstructionSlot() {
+        for (int slot = SLOT_INPUT_START; slot <= SLOT_INPUT_END; slot++) {
+            if (inventory.getStackInSlot(slot).is(ModItems.INSTANT_CON_MAT.get())) {
+                return slot;
+            }
+        }
+        return -1;
     }
 
     /**
      * Handle build completion - generate output item
      */
     private void buildComplete() {
-        int grudge = getSlotCount(SLOT_GRUDGE);
-        int abyssium = getSlotCount(SLOT_ABYSSIUM);
-        int ammo = getSlotCount(SLOT_AMMO);
-        int polymetal = getSlotCount(SLOT_POLYMETAL);
+        int grudge = matsBuild[0];
+        int abyssium = matsBuild[1];
+        int ammo = matsBuild[2];
+        int polymetal = matsBuild[3];
 
         boolean buildShip = (buildType == 1 || buildType == 3);
         assert level != null;
@@ -332,11 +405,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
             // Place result in output slot
             inventory.setStackInSlot(SLOT_OUTPUT, result);
 
-            // Consume materials
-            inventory.setStackInSlot(SLOT_GRUDGE, ItemStack.EMPTY);
-            inventory.setStackInSlot(SLOT_ABYSSIUM, ItemStack.EMPTY);
-            inventory.setStackInSlot(SLOT_AMMO, ItemStack.EMPTY);
-            inventory.setStackInSlot(SLOT_POLYMETAL, ItemStack.EMPTY);
+            for (int i = 0; i < matsStock.length; i++) {
+                matsStock[i] = Math.max(0, matsStock[i] - matsBuild[i]);
+            }
 
             LogHelper.debug("SMALL SHIPYARD: build complete, result=" + result);
         }
@@ -347,6 +418,15 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         // For non-loop builds, reset build type
         if (buildType == 1 || buildType == 2) {
             buildType = 0;
+            matsBuild = new int[4];
+        } else if (buildType == 3 || buildType == 4) {
+            for (int i = 0; i < matsStock.length; i++) {
+                if (matsStock[i] < matsBuild[i]) {
+                    buildType = 0;
+                    matsBuild = new int[4];
+                    break;
+                }
+            }
         }
         // Loop builds (3, 4) continue automatically
     }
@@ -388,51 +468,37 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Check if the given item is valid for the specified slot
      */
     public boolean isItemValidForSlot(int slot, ItemStack stack) {
-        if (stack.isEmpty())
+        if (stack.isEmpty() || slot < SLOT_INPUT_START || slot > SLOT_INPUT_END)
             return false;
-
-        switch (slot) {
-            case SLOT_GRUDGE:
-                return stack.is(ModItems.GRUDGE.get());
-            case SLOT_ABYSSIUM:
-                return stack.is(ModItems.ABYSS_METAL.get());
-            case SLOT_AMMO:
-                return stack.is(ModItems.AMMO.get());
-            case SLOT_POLYMETAL:
-                return stack.is(ModItems.POLYMETAL_NODULE.get());
-            case SLOT_FUEL:
-                return stack.is(ModItems.GRUDGE.get()) || stack.is(ModItems.INSTANT_CON_MAT.get())
-                        || ForgeHooks.getBurnTime(stack, null) > 0;
-            case SLOT_OUTPUT:
-                return false;
-            default:
-                return false;
-        }
+        return stack.getItem() instanceof ShipSpawnEgg
+                || stack.getItem() instanceof IShipResourceItem
+                || stack.is(ModItems.INSTANT_CON_MAT.get())
+                || ForgeHooks.getBurnTime(stack, null) > 0;
     }
 
     private void tickServer() {
         boolean sendUpdate = false;
         syncTime++;
 
-        // Update power goal based on current materials
+        processInputSlots();
+
+        // Update power goal based on selected material amounts
         if (buildType != 0) {
             calcPowerGoal();
         } else {
             powerGoal = 0;
         }
 
-        // Consume fuel items
-        decrItemFuel();
         decrFluidFuel();
 
         // Process building
         if (canBuild()) {
-            // Check for Instant Construction Material in fuel slot
-            ItemStack fuelStack = inventory.getStackInSlot(SLOT_FUEL);
-            if (!fuelStack.isEmpty() && fuelStack.is(ModItems.INSTANT_CON_MAT.get())) {
-                fuelStack.shrink(1);
-                if (fuelStack.isEmpty()) {
-                    inventory.setStackInSlot(SLOT_FUEL, ItemStack.EMPTY);
+            int instantSlot = findInstantConstructionSlot();
+            if (instantSlot >= 0) {
+                ItemStack instantStack = inventory.getStackInSlot(instantSlot);
+                instantStack.shrink(1);
+                if (instantStack.isEmpty()) {
+                    inventory.setStackInSlot(instantSlot, ItemStack.EMPTY);
                 }
                 powerConsumed += POWER_INSTANT;
             } else if (powerRemained >= BUILD_SPEED) {
@@ -477,6 +543,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         tag.putInt("PowerConsumed", powerConsumed);
         tag.putInt("PowerRemained", powerRemained);
         tag.putInt("PowerGoal", powerGoal);
+        tag.putInt("SelectMat", selectMat);
+        tag.putIntArray("MatsStock", matsStock);
+        tag.putIntArray("MatsBuild", matsBuild);
         tag.putBoolean("Active", isActive);
         tag.put("FuelFluid", fuelTank.writeToNBT(new CompoundTag()));
     }
@@ -488,10 +557,57 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         powerConsumed = tag.getInt("PowerConsumed");
         powerRemained = tag.getInt("PowerRemained");
         powerGoal = tag.getInt("PowerGoal");
+        selectMat = Math.max(0, Math.min(tag.getInt("SelectMat"), 3));
+        if (tag.contains("MatsStock")) {
+            int[] storedStock = tag.getIntArray("MatsStock");
+            if (storedStock.length == 4) {
+                for (int i = 0; i < storedStock.length; i++) {
+                    matsStock[i] = Math.max(0, Math.min(storedStock[i], MAX_STOCK));
+                }
+            }
+        }
+        if (tag.contains("MatsBuild")) {
+            int[] storedBuild = tag.getIntArray("MatsBuild");
+            if (storedBuild.length == 4) {
+                for (int i = 0; i < storedBuild.length; i++) {
+                    matsBuild[i] = Math.max(0, Math.min(storedBuild[i], SmallRecipes.MAX_MATERIAL));
+                }
+            }
+        }
         isActive = tag.getBoolean("Active");
         if (tag.contains("FuelFluid")) {
             fuelTank.readFromNBT(tag.getCompound("FuelFluid"));
         }
+    }
+
+    private boolean recycleShipSpawnEgg(ItemStack stack) {
+        ItemStack[] recycledItems = ShipCalc.getKaitaiItems(ShipSpawnEgg.getShipClass(stack));
+        int[] totalMats = new int[4];
+
+        for (ItemStack recycled : recycledItems) {
+            if (recycled.isEmpty() || !(recycled.getItem() instanceof IShipResourceItem resource)) {
+                return false;
+            }
+            int[] resourceValue = resource.getResourceValue(recycled.getDamageValue());
+            for (int i = 0; i < totalMats.length; i++) {
+                totalMats[i] += resourceValue[i] * recycled.getCount();
+            }
+        }
+
+        if (ConfigHandler.easyMode()) {
+            for (int i = 0; i < totalMats.length; i++) {
+                totalMats[i] *= 10;
+            }
+        }
+        for (int i = 0; i < totalMats.length; i++) {
+            if (totalMats[i] < 0 || matsStock[i] > MAX_STOCK - totalMats[i]) {
+                return false;
+            }
+        }
+        for (int i = 0; i < totalMats.length; i++) {
+            matsStock[i] += totalMats[i];
+        }
+        return true;
     }
 
     // ==================== Client-Server Sync ====================

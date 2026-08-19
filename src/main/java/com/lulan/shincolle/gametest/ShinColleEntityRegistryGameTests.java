@@ -1869,30 +1869,53 @@ public final class ShinColleEntityRegistryGameTests {
             throw new AssertionError("Small shipyard tile was not created.");
         }
         small.setBuildType(3);
-        small.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_FUEL,
+        small.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_END,
                 new ItemStack(ModItems.INSTANT_CON_MAT.get()));
         TileEntitySmallShipyard.serverTick(level, smallPos, level.getBlockState(smallPos), small);
-        if (small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_FUEL).isEmpty()) {
+        if (small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_END).isEmpty()) {
             throw new AssertionError("Small shipyard consumed instant material without valid inputs.");
         }
 
-        for (int slot = TileEntitySmallShipyard.SLOT_GRUDGE; slot <= TileEntitySmallShipyard.SLOT_POLYMETAL; slot++) {
-            ItemStack material = switch (slot) {
-                case TileEntitySmallShipyard.SLOT_GRUDGE -> new ItemStack(ModItems.GRUDGE.get(), 16);
-                case TileEntitySmallShipyard.SLOT_ABYSSIUM -> new ItemStack(ModItems.ABYSS_METAL.get(), 16);
-                case TileEntitySmallShipyard.SLOT_AMMO -> new ItemStack(ModItems.AMMO.get(), 16);
-                default -> new ItemStack(ModItems.POLYMETAL_NODULE.get(), 16);
-            };
-            small.getInventory().setStackInSlot(slot, material);
+        for (int material = 0; material < 4; material++) {
+            small.setMatStock(material, 16);
+            small.setMatBuild(material, 16);
         }
         TileEntitySmallShipyard.serverTick(level, smallPos, level.getBlockState(smallPos), small);
-        if (!small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_FUEL).isEmpty()) {
+        if (!small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_END).isEmpty()) {
             throw new AssertionError("Small shipyard did not consume instant material for a valid build.");
         }
         if (small.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_OUTPUT).isEmpty()) {
             throw new AssertionError("Instant construction did not complete the valid small build.");
         }
 
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void smallShipyardProcessesUnifiedMaterialAndFuelInputs(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(shipyardPos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(shipyardPos) instanceof TileEntitySmallShipyard shipyard)) {
+            throw new AssertionError("Small shipyard tile was not created for unified input test.");
+        }
+
+        shipyard.getInventory().setStackInSlot(0, new ItemStack(ModItems.ABYSS_METAL.get()));
+        shipyard.getInventory().setStackInSlot(1, new ItemStack(Items.COAL));
+        shipyard.getInventory().setStackInSlot(2, new ItemStack(ModItems.POLYMETAL_NODULE.get()));
+        shipyard.getInventory().setStackInSlot(3, new ItemStack(ModItems.GRUDGE.get()));
+        shipyard.getInventory().setStackInSlot(4, new ItemStack(ModItems.AMMO.get()));
+
+        TileEntitySmallShipyard.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+
+        for (int material = 0; material < 4; material++) {
+            if (shipyard.getMatStock(material) <= 0) {
+                throw new AssertionError("Unified input did not add small shipyard stock " + material);
+            }
+        }
+        if (shipyard.getPowerRemained() <= 0) {
+            throw new AssertionError("Unified input did not convert coal into small shipyard power.");
+        }
         helper.succeed();
     }
 
