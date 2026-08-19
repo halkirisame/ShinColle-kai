@@ -627,8 +627,11 @@ public abstract class BasicEntityShipHostile extends Mob
                     this.shipAttrs.getAttrsBuffed(ID.Attrs.HP));
         }
         if (this.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
+            float rawMov = this.shipAttrs.getAttrsRaw(ID.Attrs.MOV);
+            float buffedMov = this.shipAttrs.getAttrsBuffed(ID.Attrs.MOV);
+            float finalMov = Math.max(buffedMov, rawMov * BasicEntityShip.MIN_MOV_RATIO);
             Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.MOV));
+                    finalMov);
         }
         if (this.getAttribute(Attributes.FOLLOW_RANGE) != null) {
             Objects.requireNonNull(this.getAttribute(Attributes.FOLLOW_RANGE)).setBaseValue(64);

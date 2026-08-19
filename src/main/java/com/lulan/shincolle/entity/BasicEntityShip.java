@@ -92,6 +92,8 @@ public abstract class BasicEntityShip extends TamableAnimal
      * survives death alongside the ship's own inventory.
      */
     public static final String CURIOS_EGG_TAG = "ShinColleCuriosEquip";
+    /** Minimum final movement speed as a ratio of the ship's raw MOV. */
+    public static final float MIN_MOV_RATIO = 0.1F;
 
     // misc flags
     public static boolean stopAI = false;
@@ -931,8 +933,11 @@ public abstract class BasicEntityShip extends TamableAnimal
                         this.shipAttrs.getAttrsBuffed(ID.Attrs.HP));
             }
             if (this.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
+                float rawMov = this.shipAttrs.getAttrsRaw(ID.Attrs.MOV);
+                float buffedMov = this.shipAttrs.getAttrsBuffed(ID.Attrs.MOV);
+                float finalMov = Math.max(buffedMov, rawMov * MIN_MOV_RATIO);
                 Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(
-                        this.shipAttrs.getAttrsBuffed(ID.Attrs.MOV));
+                        finalMov);
             }
             if (this.getAttribute(Attributes.FOLLOW_RANGE) != null) {
                 Objects.requireNonNull(this.getAttribute(Attributes.FOLLOW_RANGE)).setBaseValue(64);
