@@ -4,6 +4,7 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
@@ -69,5 +70,14 @@ public class ShipEntityRenderer<T extends BasicEntityShip> extends MobRenderer<T
         // Avoid cumulative growth by rebuilding shadow size from the renderer's base
         // radius.
         this.shadowRadius = this.baseShadowRadius + Math.max(0, entity.getScaleLevel()) * 0.4F;
+    }
+
+    @Override
+    public void render(T entity, float entityYaw, float partialTick, PoseStack poseStack,
+                       MultiBufferSource bufferSource, int packedLight) {
+        super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+        if (YamatoChargeOrbRenderer.shouldRender(entity)) {
+            YamatoChargeOrbRenderer.render(entity, poseStack, bufferSource, partialTick);
+        }
     }
 }

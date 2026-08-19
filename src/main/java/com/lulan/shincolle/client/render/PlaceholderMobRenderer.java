@@ -4,6 +4,7 @@ import com.lulan.shincolle.entity.IShipEmotion;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
@@ -66,5 +67,14 @@ public class PlaceholderMobRenderer<T extends Mob> extends MobRenderer<T, Entity
             adjustedShadowRadius += Math.max(0, shipEmotion.getScaleLevel()) * 0.4F;
         }
         this.shadowRadius = adjustedShadowRadius;
+    }
+
+    @Override
+    public void render(T entity, float entityYaw, float partialTick, PoseStack poseStack,
+                       MultiBufferSource bufferSource, int packedLight) {
+        super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+        if (YamatoChargeOrbRenderer.shouldRender(entity)) {
+            YamatoChargeOrbRenderer.render(entity, poseStack, bufferSource, partialTick);
+        }
     }
 }
