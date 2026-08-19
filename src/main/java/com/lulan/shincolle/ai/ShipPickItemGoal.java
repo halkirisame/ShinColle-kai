@@ -2,6 +2,7 @@ package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -97,24 +98,30 @@ public class ShipPickItemGoal extends Goal {
                     ItemStack stack = itemEntity.getItem();
                     int count = stack.getCount();
 
-                    if (!itemEntity.hasPickUpDelay() &&
-                            this.ship.getCapaShipInventory().addItemStackToInventory(stack)) {
+                    if (!itemEntity.hasPickUpDelay()) {
+                        ItemStack attemptedStack = stack.copy();
+                        boolean picked = this.ship.getCapaShipInventory().addItemStackToInventory(stack);
+                        LogHelper.info("DIAG: pickitem ship=" + this.ship + " item=" + attemptedStack
+                                + " result=" + (picked ? "picked" : "inventory_full"));
 
-                        // play pickup sound
-                        this.ship.level().playSound(null,
-                                this.ship.getX(), this.ship.getY(), this.ship.getZ(),
-                                SoundEvents.ITEM_PICKUP, this.ship.getSoundSource(),
-                                0.8F,
-                                ((this.ship.getRandom().nextFloat() - this.ship.getRandom().nextFloat()) * 0.7F + 1.0F)
-                                        * 2.0F);
+                        if (picked) {
 
-                        // pickup animation
-                        this.ship.take(itemEntity, count);
+                            // play pickup sound
+                            this.ship.level().playSound(null,
+                                    this.ship.getX(), this.ship.getY(), this.ship.getZ(),
+                                    SoundEvents.ITEM_PICKUP, this.ship.getSoundSource(),
+                                    0.8F,
+                                    ((this.ship.getRandom().nextFloat() - this.ship.getRandom().nextFloat()) * 0.7F + 1.0F)
+                                            * 2.0F);
 
-                        // remove item entity if fully consumed
-                        if (stack.isEmpty()) {
-                            itemEntity.discard();
-                            this.entItem = null;
+                            // pickup animation
+                            this.ship.take(itemEntity, count);
+
+                            // remove item entity if fully consumed
+                            if (stack.isEmpty()) {
+                                itemEntity.discard();
+                                this.entItem = null;
+                            }
                         }
                     }
                 }
