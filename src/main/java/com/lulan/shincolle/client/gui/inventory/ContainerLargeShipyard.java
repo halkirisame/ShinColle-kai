@@ -2,12 +2,15 @@ package com.lulan.shincolle.client.gui.inventory;
 
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModMenuTypes;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CShipyardStockPacket;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
@@ -16,6 +19,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
+
+import java.util.Arrays;
 
 /**
  * Container/Menu for Large Shipyard (Grudge Heavy multiblock).
@@ -26,10 +31,10 @@ import net.minecraftforge.items.ItemStackHandler;
  * 1: buildPercent (0-1000)
  * 2: buildType (0-4)
  * 3: buildTimeSeconds
- * 4-7: matsStock[0-3] (grudge, abyssium, ammo, polymetal)
- * 8-11: matsBuild[0-3]
- * 12: invMode (0=recycle, 1=release)
- * 13: selectMat (0-3, currently selected material for increment UI)
+ * 4-7: matsBuild[0-3]
+ * 8: invMode (0=recycle, 1=release)
+ * 9: selectMat (0-3, currently selected material for increment UI)
+ * Material stock uses S2CShipyardStockPacket to preserve full int values.
  */
 public class ContainerLargeShipyard extends AbstractContainerMenu {
 
@@ -42,14 +47,17 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
     public static final int DATA_BUILD_PERCENT = 1;
     public static final int DATA_BUILD_TYPE = 2;
     public static final int DATA_BUILD_TIME = 3;
-    public static final int DATA_STOCK_BASE = 4;
-    public static final int DATA_BUILD_BASE = 8;
-    public static final int DATA_INV_MODE = 12;
-    public static final int DATA_SELECT_MAT = 13;
-    public static final int DATA_COUNT = 14;
+    public static final int DATA_BUILD_BASE = 4;
+    public static final int DATA_INV_MODE = 8;
+    public static final int DATA_SELECT_MAT = 9;
+    public static final int DATA_COUNT = 10;
 
     private final TileMultiGrudgeHeavy tile;
     private final ContainerData data;
+    private final Player player;
+    private final int[] syncedMatsStock = new int[4];
+    private final int[] lastSentMatsStock = {
+            Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
 
     /**
      * Client-side constructor
@@ -70,6 +78,7 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
         super(ModMenuTypes.LARGE_SHIPYARD.get(), containerId);
         this.tile = tile;
         this.data = data;
+        this.player = playerInv.player;
 
         IItemHandler handler = tile != null ? tile.getInventory() : new ItemStackHandler(SHIPYARD_SLOT_COUNT);
 
@@ -119,8 +128,6 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
                             yield 0;
                         yield Math.max(0, (goal - consumed) / buildSpeed / 20);
                     }
-                    case DATA_STOCK_BASE, DATA_STOCK_BASE + 1, DATA_STOCK_BASE + 2, DATA_STOCK_BASE + 3 ->
-                            Math.min(tile.getMatStock(index - DATA_STOCK_BASE), 32767);
                     case DATA_BUILD_BASE, DATA_BUILD_BASE + 1, DATA_BUILD_BASE + 2, DATA_BUILD_BASE + 3 ->
                             Math.min(tile.getMatBuild(index - DATA_BUILD_BASE), 32767);
                     case DATA_INV_MODE -> tile.getInvMode();
@@ -216,7 +223,7 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
     }
 
     public int getMatStock(int i) {
-        return data.get(DATA_STOCK_BASE + i);
+        return i >= 0 && i < syncedMatsStock.length ? syncedMatsStock[i] : 0;
     }
 
     public int getMatBuild(int i) {
@@ -229,5 +236,28 @@ public class ContainerLargeShipyard extends AbstractContainerMenu {
 
     public int getSelectMat() {
         return data.get(DATA_SELECT_MAT);
+    }
+
+    public void setMatStockFromServer(int[] stocks) {
+        if (stocks == null || stocks.length != syncedMatsStock.length) {
+            return;
+        }
+        System.arraycopy(stocks, 0, syncedMatsStock, 0, syncedMatsStock.length);
+    }
+
+    @Override
+    public void broadcastChanges() {
+        super.broadcastChanges();
+        if (!(player instanceof ServerPlayer serverPlayer) || tile == null) {
+            return;
+        }
+        int[] currentStock = new int[4];
+        for (int i = 0; i < currentStock.length; i++) {
+            currentStock[i] = tile.getMatStock(i);
+        }
+        if (!Arrays.equals(currentStock, lastSentMatsStock)) {
+            ModNetworking.sendToPlayer(new S2CShipyardStockPacket(containerId, currentStock), serverPlayer);
+            System.arraycopy(currentStock, 0, lastSentMatsStock, 0, currentStock.length);
+        }
     }
 }

@@ -27,6 +27,7 @@ import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.network.C2SInputPacket;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.S2CGUISyncPacket;
+import com.lulan.shincolle.network.S2CShipyardStockPacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.unitclass.Attrs;
@@ -1996,6 +1997,24 @@ public final class ShinColleEntityRegistryGameTests {
         if (!shipyard.getInventory().getStackInSlot(inputSlot).isEmpty()) {
             throw new AssertionError("Large shipyard old fuel slot did not consume material input.");
         }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipyardStockPacketPreservesFullIntegerValues(GameTestHelper helper) {
+        int[] expected = {32768, 65535, 500000, 1000000};
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+        new S2CShipyardStockPacket(37, expected).encode(buffer);
+
+        S2CShipyardStockPacket decoded = new S2CShipyardStockPacket(buffer);
+        if (decoded.getContainerId() != 37) {
+            throw new AssertionError("Shipyard stock packet lost its container id.");
+        }
+        if (!Arrays.equals(decoded.getStocks(), expected)) {
+            throw new AssertionError("Shipyard stock packet truncated full integer values: "
+                    + Arrays.toString(decoded.getStocks()));
+        }
+        buffer.release();
         helper.succeed();
     }
 

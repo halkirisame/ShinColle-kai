@@ -16,19 +16,20 @@ import net.minecraftforge.network.simple.SimpleChannel;
  * In 1.20.1 Forge, all packets are registered on a single SimpleChannel.
  * This class handles:
  * - Channel creation with protocol versioning
- * - Registration of all 6 packet types
+ * - Registration of all packet types
  * - Helper methods for sending packets in various distribution patterns
  * <p>
  * Packet directions:
  * S2C (Server to Client): S2CEntitySyncPacket, S2CSpawnParticlePacket,
- * S2CGUISyncPacket, S2CReactPacket
+ * S2CGUISyncPacket, S2CReactPacket, S2CShipItemListPacket,
+ * S2CShipyardStockPacket
  * C2S (Client to Server): C2SGUIInputPacket, C2SInputPacket
  */
 public class ModNetworking {
 
-    // S2CGUISyncPacket's player-state payload gained ring flags in this build.
-    // Reject mixed client/server jars rather than letting them misread the payload.
-    private static final String PROTOCOL_VERSION = "2";
+    // Shipyard stock sync adds a new packet type in this build. Reject mixed
+    // client/server jars rather than letting one side receive an unknown id.
+    private static final String PROTOCOL_VERSION = "3";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),
@@ -91,6 +92,12 @@ public class ModNetworking {
                 .encoder(C2SInputPacket::encode)
                 .decoder(C2SInputPacket::new)
                 .consumerMainThread(C2SInputPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CShipyardStockPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CShipyardStockPacket::encode)
+                .decoder(S2CShipyardStockPacket::new)
+                .consumerMainThread(S2CShipyardStockPacket::handle)
                 .add();
 
         LogHelper.info("ShinColle: Network packets registered (" + packetId + " packets).");

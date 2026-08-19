@@ -2,12 +2,15 @@ package com.lulan.shincolle.client.gui.inventory;
 
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModMenuTypes;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CShipyardStockPacket;
 import com.lulan.shincolle.tileentity.TileEntitySmallShipyard;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
@@ -16,6 +19,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
+
+import java.util.Arrays;
 
 /**
  * Container/Menu for Small Shipyard block.
@@ -27,9 +32,9 @@ import net.minecraftforge.items.ItemStackHandler;
  * 1: buildPercent (0-1000, representing 0%-100.0% progress)
  * 2: buildType (0=none, 1=ship, 2=equip, 3=ship_loop, 4=equip_loop)
  * 3: buildTimeSeconds (remaining seconds)
- * 4-7: matsStock[0-3]
- * 8-11: matsBuild[0-3]
- * 12: selectMat
+ * 4-7: matsBuild[0-3]
+ * 8: selectMat
+ * Material stock uses S2CShipyardStockPacket to preserve full int values.
  */
 public class ContainerSmallShipyard extends AbstractContainerMenu {
 
@@ -41,13 +46,16 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
     public static final int DATA_BUILD_PERCENT = 1;
     public static final int DATA_BUILD_TYPE = 2;
     public static final int DATA_BUILD_TIME = 3;
-    public static final int DATA_STOCK_BASE = 4;
-    public static final int DATA_BUILD_BASE = 8;
-    public static final int DATA_SELECT_MAT = 12;
-    public static final int DATA_COUNT = 13;
+    public static final int DATA_BUILD_BASE = 4;
+    public static final int DATA_SELECT_MAT = 8;
+    public static final int DATA_COUNT = 9;
 
     private final TileEntitySmallShipyard tile;
     private final ContainerData data;
+    private final Player player;
+    private final int[] syncedMatsStock = new int[4];
+    private final int[] lastSentMatsStock = {
+            Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
 
     /**
      * Client-side constructor (from network) - uses SimpleContainerData for
@@ -69,6 +77,7 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
         super(ModMenuTypes.SMALL_SHIPYARD.get(), containerId);
         this.tile = tile;
         this.data = data;
+        this.player = playerInv.player;
 
         IItemHandler handler = tile != null ? tile.getInventory() : new ItemStackHandler(SHIPYARD_SLOT_COUNT);
 
@@ -112,9 +121,6 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
                             yield 0;
                         yield Math.max(0, (goal - consumed) / buildSpeed / 20);
                     }
-                    case DATA_STOCK_BASE, DATA_STOCK_BASE + 1,
-                            DATA_STOCK_BASE + 2, DATA_STOCK_BASE + 3 ->
-                            Math.min(tile.getMatStock(index - DATA_STOCK_BASE), 32767);
                     case DATA_BUILD_BASE, DATA_BUILD_BASE + 1,
                             DATA_BUILD_BASE + 2, DATA_BUILD_BASE + 3 ->
                             tile.getMatBuild(index - DATA_BUILD_BASE);
@@ -209,7 +215,7 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
     }
 
     public int getMatStock(int index) {
-        return index >= 0 && index < 4 ? data.get(DATA_STOCK_BASE + index) : 0;
+        return index >= 0 && index < syncedMatsStock.length ? syncedMatsStock[index] : 0;
     }
 
     public int getMatBuild(int index) {
@@ -218,5 +224,28 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
 
     public int getSelectMat() {
         return data.get(DATA_SELECT_MAT);
+    }
+
+    public void setMatStockFromServer(int[] stocks) {
+        if (stocks == null || stocks.length != syncedMatsStock.length) {
+            return;
+        }
+        System.arraycopy(stocks, 0, syncedMatsStock, 0, syncedMatsStock.length);
+    }
+
+    @Override
+    public void broadcastChanges() {
+        super.broadcastChanges();
+        if (!(player instanceof ServerPlayer serverPlayer) || tile == null) {
+            return;
+        }
+        int[] currentStock = new int[4];
+        for (int i = 0; i < currentStock.length; i++) {
+            currentStock[i] = tile.getMatStock(i);
+        }
+        if (!Arrays.equals(currentStock, lastSentMatsStock)) {
+            ModNetworking.sendToPlayer(new S2CShipyardStockPacket(containerId, currentStock), serverPlayer);
+            System.arraycopy(currentStock, 0, lastSentMatsStock, 0, currentStock.length);
+        }
     }
 }
