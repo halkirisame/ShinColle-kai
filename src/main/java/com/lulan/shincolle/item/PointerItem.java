@@ -553,7 +553,8 @@ public class PointerItem extends BasicItem {
                 int uid = capa.getTeamMember(teamId, i);
                 if (uid > 0) {
                     tooltip.add(Component.literal(
-                            ChatFormatting.WHITE + String.format("%d: Ship #%d", j, uid)));
+                            (capa.isShipSelected(teamId, i) ? ChatFormatting.WHITE : ChatFormatting.GRAY)
+                                    + String.format("%d: Ship #%d", j, uid)));
                 } else {
                     tooltip.add(Component.literal(
                             ChatFormatting.DARK_RED + "" + ChatFormatting.OBFUSCATED +
