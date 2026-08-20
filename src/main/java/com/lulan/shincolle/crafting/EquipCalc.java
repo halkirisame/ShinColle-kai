@@ -466,6 +466,25 @@ public class EquipCalc {
         // Knockback resist (non-weapon only)
         newstat[ID.Attrs.KB] = enchantType != 1 ? raw[ID.Attrs.KB] + enchant[ID.Attrs.KB] : raw[ID.Attrs.KB];
 
+        boolean hasEnchantEffect = false;
+        for (float value : enchant) {
+            if (value != 0F) {
+                hasEnchantEffect = true;
+                break;
+            }
+        }
+        if (hasEnchantEffect) {
+            if (enchantType == 1) {
+                LogHelper.info("DIAG: enchant apply enchantType=1 target=attack atkBonus="
+                        + enchant[ID.Attrs.ATK_L]);
+            } else if (enchantType == 2) {
+                LogHelper.info("DIAG: enchant apply enchantType=2 target=defense defBonus="
+                        + enchant[ID.Attrs.DEF]);
+            } else {
+                LogHelper.info("DIAG: enchant apply enchantType=" + enchantType + " target=other");
+            }
+        }
+
         return newstat;
     }
 }

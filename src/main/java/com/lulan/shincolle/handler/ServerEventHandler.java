@@ -275,6 +275,11 @@ public class ServerEventHandler {
         capa.setHasRing(hasRing);
         capa.setRingActive(isActive);
 
+        if (wasPresent != hasRing || wasActive != isActive) {
+            LogHelper.info("DIAG: ring state player=" + player.getName().getString()
+                    + " hasRing=" + hasRing + " isActive=" + isActive);
+        }
+
         if (player instanceof ServerPlayer serverPlayer
                 && (wasPresent != capa.hasRing() || wasActive != capa.isRingActive()
                 || wasFlying != capa.isRingFlying())) {

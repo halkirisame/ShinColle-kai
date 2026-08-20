@@ -6,6 +6,7 @@ import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.entity.IShipProjectile;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.utility.CombatHelper;
+import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -177,6 +178,9 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
             }
             float damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
             boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), damage);
+            if (hurt) {
+                LogHelper.info("DIAG: beam hit beam=" + this + " target=" + ent + " damage=" + damage);
+            }
             if (hurt && ModList.get().isLoaded("curios")) {
                 ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, damage);
             }
