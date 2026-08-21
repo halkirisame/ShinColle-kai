@@ -4,12 +4,17 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipAttrs;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
+import com.lulan.shincolle.capability.CapaTeitoku;
+import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
+import com.lulan.shincolle.server.ServerDataManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -216,15 +221,56 @@ public class BuffHelper {
      * Update formation buff array.
      * Delegates to the AttrsAdv which uses FormationHelper.
      *
+     * @param host       the ship whose formation state is being updated
      * @param attrs      the ship attributes object
      * @param formatID   formation type (0=none, 1=Line Ahead, etc.)
      * @param formatSlot slot position in formation (0-5)
      */
-    public static void updateBuffFormation(AttrsAdv attrs, int formatID, int formatSlot) {
+    public static void updateBuffFormation(BasicEntityShip host, AttrsAdv attrs, int formatID, int formatSlot) {
         if (formatID <= 0) {
             attrs.resetAttrsFormation();
-        } else {
+            attrs.setMinMOV(0F);
+            return;
+        }
+
+        if (!(host.level() instanceof ServerLevel level)) {
             attrs.setAttrsFormation(formatID, formatSlot);
+            attrs.setMinMOV(0F);
+            return;
+        }
+
+        ServerPlayer owner = ServerDataManager.getPlayerByUID(host.getPlayerUID());
+        CapaTeitoku capa = owner == null
+                ? null : owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        int team = capa == null ? -1 : capa.findTeamOfShip(host.getShipUID());
+        int numShips = capa != null && team >= 0 ? capa.getNumberOfShip(level, team) : 0;
+        if (capa == null || team < 0 || numShips <= 4 || capa.getFormatID(team) <= 0) {
+            attrs.setMinMOV(0F);
+            attrs.resetAttrsFormation();
+            if (host.getStateMinor(ID.M.FormatType) != 0) {
+                host.setStateMinor(ID.M.FormatType, 0);
+                host.sendSyncPacketFormation();
+            }
+            return;
+        }
+
+        int resolvedSlot = formatSlot;
+        boolean syncFormation = false;
+        if (formatID == 3 && numShips == 5) {
+            int diamondPos = capa.getFormationPos(level, team, host.getShipUID());
+            if (diamondPos >= 0) {
+                resolvedSlot = diamondPos;
+                if (host.getStateMinor(ID.M.FormatPos) != resolvedSlot) {
+                    host.setStateMinor(ID.M.FormatPos, resolvedSlot);
+                    syncFormation = true;
+                }
+            }
+        }
+
+        attrs.setAttrsFormation(formatID, resolvedSlot);
+        attrs.setMinMOV(capa.getMinMOVInTeam(level, team));
+        if (syncFormation) {
+            host.sendSyncPacketFormation();
         }
     }
 

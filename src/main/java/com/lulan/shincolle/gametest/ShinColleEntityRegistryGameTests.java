@@ -31,6 +31,7 @@ import com.lulan.shincolle.network.S2CShipyardStockPacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.unitclass.Attrs;
+import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.team.TeamData;
 import com.lulan.shincolle.tileentity.BasicTileMulti;
@@ -63,6 +64,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
@@ -1851,6 +1854,7 @@ public final class ShinColleEntityRegistryGameTests {
         ServerLevel level = helper.getLevel();
 
         BlockPos largePos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(largePos, Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(largePos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
         if (!(level.getBlockEntity(largePos) instanceof TileMultiGrudgeHeavy large)) {
             throw new AssertionError("Large shipyard tile was not created.");
@@ -1866,6 +1870,7 @@ public final class ShinColleEntityRegistryGameTests {
         }
 
         BlockPos smallPos = helper.absolutePos(new BlockPos(6, 2, 2));
+        level.setBlock(smallPos, Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(smallPos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
         if (!(level.getBlockEntity(smallPos) instanceof TileEntitySmallShipyard small)) {
             throw new AssertionError("Small shipyard tile was not created.");
@@ -2369,6 +2374,114 @@ public final class ShinColleEntityRegistryGameTests {
         int shipUid = ship.getShipUID();
         ship.discard();
         ServerDataManager.removeShipData(shipUid);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity entity = ModEntities.BB_KONGOU.get().create(level);
+        if (!(entity instanceof BasicEntityShip ship) || !level.addFreshEntity(ship)) {
+            throw new AssertionError("Could not create and add BB_KONGOU for MOV floor test.");
+        }
+
+        AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
+        float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
+        float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
+        if (moraleMov != 0F || potionMov != 0F) {
+            throw new AssertionError("Unexpected initial MOV contributions. morale=" + moraleMov
+                    + " potion=" + potionMov);
+        }
+
+        float rawMov = 0.4F;
+        float equipMov = -0.7F;
+        attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
+        attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
+        ship.calcShipAttributes(0, false);
+
+        float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
+        float expected = rawMov * BasicEntityShip.MIN_MOV_RATIO;
+        AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (movement == null || Math.abs(buffedMov) > 1.0E-5F
+                || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
+            throw new AssertionError("Friendly MOV floor not applied. raw=" + rawMov + " equip=" + equipMov
+                    + " buffed=" + buffedMov + " expected=" + expected
+                    + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
+        }
+
+        ship.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void hostileShipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity entity = ModEntities.BB_YAMATO_MOB.get().create(level);
+        if (!(entity instanceof BasicEntityShipHostile ship) || !level.addFreshEntity(ship)) {
+            throw new AssertionError("Could not create and add BB_YAMATO_MOB for MOV floor test.");
+        }
+
+        AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
+        float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
+        float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
+        if (moraleMov != 0F || potionMov != 0F) {
+            throw new AssertionError("Unexpected initial hostile MOV contributions. morale=" + moraleMov
+                    + " potion=" + potionMov);
+        }
+
+        float rawMov = 0.4F;
+        float equipMov = -0.7F;
+        attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
+        attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
+        ship.calcShipAttributes(0, false);
+
+        float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
+        float expected = rawMov * BasicEntityShip.MIN_MOV_RATIO;
+        AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (movement == null || Math.abs(buffedMov) > 1.0E-5F
+                || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
+            throw new AssertionError("Hostile MOV floor not applied. raw=" + rawMov + " equip=" + equipMov
+                    + " buffed=" + buffedMov + " expected=" + expected
+                    + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
+        }
+
+        ship.discard();
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipMovementAboveFloorPreservesEquipMov(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Entity entity = ModEntities.BB_KONGOU.get().create(level);
+        if (!(entity instanceof BasicEntityShip ship) || !level.addFreshEntity(ship)) {
+            throw new AssertionError("Could not create and add BB_KONGOU for MOV regression test.");
+        }
+
+        AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
+        float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
+        float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
+        if (moraleMov != 0F || potionMov != 0F) {
+            throw new AssertionError("Unexpected initial MOV contributions. morale=" + moraleMov
+                    + " potion=" + potionMov);
+        }
+
+        float rawMov = 0.4F;
+        float equipMov = -0.05F;
+        float expected = rawMov + equipMov;
+        attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
+        attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
+        ship.calcShipAttributes(0, false);
+
+        float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
+        AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (movement == null || Math.abs(buffedMov - expected) > 1.0E-5F
+                || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
+            throw new AssertionError("Friendly MOV above floor changed unexpectedly. raw=" + rawMov
+                    + " equip=" + equipMov + " buffed=" + buffedMov + " expected=" + expected
+                    + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
+        }
+
+        ship.discard();
         helper.succeed();
     }
 

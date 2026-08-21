@@ -2,23 +2,37 @@ package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
-import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.reference.unitclass.MissileData;
+import com.lulan.shincolle.utility.CalcHelper;
+import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.LogHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -40,12 +54,18 @@ public abstract class BasicEntityMount extends TamableAnimal
      */
     public int keyPressed;
     public int keyTick;
+    private int lastDiagKeys = -1;
     /**
      * host ship entity
      */
     protected BasicEntityShip host;
     @Nullable
     private UUID hostUuid;
+    /**
+     * Host entity ID received by the client before the host spawn packet.
+     * This is client-only transient state and must not be persisted.
+     */
+    private int pendingClientHostId;
     protected ShipMoveControl shipMoveControl;
     /**
      * mount-specific fields
@@ -99,6 +119,32 @@ public abstract class BasicEntityMount extends TamableAnimal
                 this.hostUuid = host.getUUID();
                 this.setAIList();
             }
+        }
+    }
+
+    /**
+     * Retains a host ID received before the client has created the host entity.
+     */
+    public void setClientHostId(int hostId) {
+        if (!this.level().isClientSide() || hostId <= 0) {
+            return;
+        }
+        this.pendingClientHostId = hostId;
+        this.resolveClientHost();
+    }
+
+    private void resolveClientHost() {
+        if (!this.level().isClientSide() || this.pendingClientHostId <= 0) {
+            return;
+        }
+        Entity entity = this.level().getEntity(this.pendingClientHostId);
+        if (entity instanceof BasicEntityShip ship) {
+            if (this.host != ship) {
+                this.setHost(ship);
+            }
+            LogHelper.info("DIAG: mount host resolved client mount=" + this.getId()
+                    + " host=" + this.pendingClientHostId);
+            this.pendingClientHostId = 0;
         }
     }
 
@@ -416,6 +462,88 @@ public abstract class BasicEntityMount extends TamableAnimal
         return 1F;
     }
 
+    @Nullable
+    @Override
+    public LivingEntity getControllingPassenger() {
+        for (Entity passenger : this.getPassengers()) {
+            if (passenger instanceof Player player) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (hand == InteractionHand.OFF_HAND) {
+            return InteractionResult.FAIL;
+        }
+
+        if (this.level().isClientSide()) {
+            return InteractionResult.PASS;
+        }
+
+        ItemStack stack = player.getItemInHand(hand);
+        if (stack.is(ModItems.POINTER.get()) && PointerItem.getMode(stack) > PointerItem.MODE_FORMATION && this.host != null) {
+            if (this.host.getMorale() < (int) (ID.Morale.L_Excited * 1.3F)) {
+                this.host.addMorale(ConfigHandler.caressBaseMorale());
+            }
+            return InteractionResult.SUCCESS;
+        }
+
+        if (stack.is(Items.LEAD)) {
+            this.getNavigation().stop();
+            return InteractionResult.SUCCESS;
+        }
+
+        if (!player.isShiftKeyDown() && this.distanceToSqr(player) < 16D && !TeamHelper.checkIsBanned(this, player)) {
+            player.startRiding(this, true);
+            this.setStateEmotion(ID.S.Emotion, 1, false);
+            this.sendSyncPacket(0);
+            return InteractionResult.SUCCESS;
+        }
+
+        if (!player.isShiftKeyDown() && TeamHelper.checkSameOwner(player, this.host)) {
+            this.host.setEntitySit(!this.host.isOrderedToSit());
+            this.jumping = false;
+            this.getNavigation().stop();
+            this.host.getNavigation().stop();
+            this.setTarget(null);
+            this.setEntityTarget(null);
+            return InteractionResult.SUCCESS;
+        }
+
+        if (player.isShiftKeyDown() && TeamHelper.checkSameOwner(player, this.host)) {
+            if (player instanceof ServerPlayer serverPlayer) {
+                this.host.openGUI(serverPlayer);
+            }
+            return InteractionResult.SUCCESS;
+        }
+
+        return InteractionResult.PASS;
+    }
+
+    @Override
+    protected void positionRider(Entity passenger, MoveFunction callback) {
+        if (!this.isAlive() || passenger == null || passenger.getVehicle() != this) {
+            return;
+        }
+
+        float[] ridePos;
+        if (passenger instanceof BasicEntityShip) {
+            ridePos = this.seatPos;
+        } else if (passenger instanceof Player) {
+            ridePos = this.seatPos2;
+        } else {
+            callback.accept(passenger, this.getX(), this.getY() + this.getPassengersRidingOffset() + passenger.getMyRidingOffset(), this.getZ());
+            return;
+        }
+
+        float[] rotatedPos = CalcHelper.rotateXZByAxis(ridePos[0], ridePos[2], this.getYRot() * Values.N.DIV_PI_180, 1F);
+        callback.accept(passenger, this.getX() + rotatedPos[1],
+                this.getY() + ridePos[1] + passenger.getMyRidingOffset(), this.getZ() + rotatedPos[0]);
+    }
+
     // ========== IShipEmotion ==========
 
     public boolean getIsRiding() {
@@ -619,8 +747,187 @@ public abstract class BasicEntityMount extends TamableAnimal
         if (!this.level().isClientSide()) {
             this.resolveHost();
             this.setNoAi(BasicEntityShip.stopAI);
+        } else {
+            this.resolveClientHost();
         }
         super.tick();
+
+        if (this.keyTick > 0) {
+            boolean diagKeysChanged = this.keyPressed != this.lastDiagKeys;
+            if (diagKeysChanged) {
+                this.lastDiagKeys = this.keyPressed;
+                LogHelper.info("DIAG: mount input side=" + (this.level().isClientSide() ? "client" : "server")
+                        + " keys=" + Integer.toBinaryString(this.keyPressed)
+                        + " keyTick=" + this.keyTick
+                        + " localInstance=" + this.isControlledByLocalInstance()
+                        + " rider=" + this.getControllingPassenger()
+                        + " host=" + this.host
+                        + " noFuel=" + (this.host != null && this.host.getStateFlag(ID.F.NoFuel))
+                        + " motion=" + this.getDeltaMovement());
+            }
+
+            // [PORT] 1.10.2 -> 1.20.1: ridden-entity physics runs on the
+            // controlling player's client and vanilla sends the resulting
+            // position back to the server with ServerboundMoveVehiclePacket.
+            if (this.isControlledByLocalInstance() && this.host != null
+                    && !this.host.getStateFlag(ID.F.NoFuel)) {
+                LivingEntity rider = this.getControllingPassenger();
+                if (rider instanceof Player) {
+                    float pitch = rider.getXRot() * Values.N.DIV_PI_180;
+                    float yaw = rider.getYHeadRot() * Values.N.DIV_PI_180;
+                    if (diagKeysChanged) {
+                        LogHelper.info("DIAG: mount orient yaw=" + yaw + " pitch=" + pitch
+                                + " keys=" + Integer.toBinaryString(this.keyPressed)
+                                + " yRotBefore=" + this.getYRot()
+                                + " motionBefore=" + this.getDeltaMovement());
+                    }
+                    this.applyMovement(pitch, yaw);
+                    if (diagKeysChanged) {
+                        LogHelper.info("DIAG: mount orient result motion=" + this.getDeltaMovement());
+                    }
+                    // Keep the model and movement on the same instantaneous look yaw.
+                    this.setYRot(rider.getYHeadRot());
+                    this.setYHeadRot(rider.getYHeadRot());
+                    this.setYBodyRot(rider.getYHeadRot());
+                }
+            }
+            this.keyTick--;
+        }
+    }
+
+    private void applyMovement(float pitch, float yaw) {
+        final float moveSpeed = this.getMoveSpeed();
+        // The ported helper rotates opposite to the 1.10.2 helper. Negating yaw
+        // restores the original mount movement vectors without changing other callers.
+        final float[] moveZ = CalcHelper.rotateXZByAxis(moveSpeed, 0F, -yaw, 1F);
+        final float[] moveX = CalcHelper.rotateXZByAxis(0F, moveSpeed, -yaw, 1F);
+        Vec3 motion = this.getDeltaMovement();
+        double motionX = motion.x;
+        double motionY = motion.y;
+        double motionZ = motion.z;
+
+        if ((this.keyPressed & 16) > 0) {
+            this.getJumpControl().jump();
+            if (this.getShipDepth() > 0) {
+                motionY += moveSpeed * 0.1F;
+                if (motionY > 1D) {
+                    motionY = 1D;
+                }
+            }
+        }
+
+        if (this.onGround() || EntityHelper.checkEntityIsInLiquid(this)) {
+            if ((this.keyPressed & 1) > 0) {
+                motionX += moveZ[1] * 0.25F;
+                if (Math.abs(motionX) > Math.abs(moveZ[1])) {
+                    motionX = moveZ[1];
+                }
+                motionZ += moveZ[0] * 0.25F;
+                if (Math.abs(motionZ) > Math.abs(moveZ[0])) {
+                    motionZ = moveZ[0];
+                }
+
+                if (pitch > 1F) {
+                    motionY += -0.1F;
+                    if (motionY < -moveSpeed * 0.5F) {
+                        motionY = -moveSpeed * 0.5F;
+                    }
+                } else if (pitch < -1F) {
+                    motionY += 0.1F;
+                    if (motionY > moveSpeed * 0.5F) {
+                        motionY = moveSpeed * 0.5F;
+                    }
+                }
+            }
+            if ((this.keyPressed & 2) > 0) {
+                motionX -= moveZ[1] * 0.25F;
+                if (Math.abs(motionX) > Math.abs(moveZ[1])) {
+                    motionX = -moveZ[1];
+                }
+                motionZ -= moveZ[0] * 0.25F;
+                if (Math.abs(motionZ) > Math.abs(moveZ[0])) {
+                    motionZ = -moveZ[0];
+                }
+
+                if (pitch > 1F) {
+                    motionY += 0.1F;
+                    if (motionY > moveSpeed * 0.5F) {
+                        motionY = moveSpeed * 0.5F;
+                    }
+                } else if (pitch < -1F) {
+                    motionY += -0.1F;
+                    if (motionY < -moveSpeed * 0.5F) {
+                        motionY = -moveSpeed * 0.5F;
+                    }
+                }
+            }
+            if ((this.keyPressed & 4) > 0) {
+                motionX += moveX[1] * 0.25F;
+                if (Math.abs(motionX) > Math.abs(moveX[1])) {
+                    motionX = moveX[1];
+                }
+                motionZ += moveX[0] * 0.25F;
+                if (Math.abs(motionZ) > Math.abs(moveX[0])) {
+                    motionZ = moveX[0];
+                }
+            }
+            if ((this.keyPressed & 8) > 0) {
+                motionX -= moveX[1] * 0.25F;
+                if (Math.abs(motionX) > Math.abs(moveX[1])) {
+                    motionX = -moveX[1];
+                }
+                motionZ -= moveX[0] * 0.25F;
+                if (Math.abs(motionZ) > Math.abs(moveX[0])) {
+                    motionZ = -moveX[0];
+                }
+            }
+            if (this.horizontalCollision) {
+                motionY += 0.4D;
+            }
+        } else {
+            if ((this.keyPressed & 1) > 0) {
+                motionX += moveZ[1] * 0.25F;
+                if (Math.abs(motionX) > Math.abs(moveZ[1])) {
+                    motionX = moveZ[1];
+                }
+                motionZ += moveZ[0] * 0.25F;
+                if (Math.abs(motionZ) > Math.abs(moveZ[0])) {
+                    motionZ = moveZ[0];
+                }
+            }
+            if ((this.keyPressed & 2) > 0) {
+                motionX -= moveZ[1] * 0.25F;
+                if (Math.abs(motionX) > Math.abs(moveZ[1])) {
+                    motionX = -moveZ[1];
+                }
+                motionZ -= moveZ[0] * 0.25F;
+                if (Math.abs(motionZ) > Math.abs(moveZ[0])) {
+                    motionZ = -moveZ[0];
+                }
+            }
+            if ((this.keyPressed & 4) > 0) {
+                motionX += moveX[1] * 0.03125F;
+                if (Math.abs(motionX) > Math.abs(moveX[1])) {
+                    motionX = moveX[1];
+                }
+                motionZ += moveX[0] * 0.03125F;
+                if (Math.abs(motionZ) > Math.abs(moveX[0])) {
+                    motionZ = moveX[0];
+                }
+            }
+            if ((this.keyPressed & 8) > 0) {
+                motionX -= moveX[1] * 0.03125F;
+                if (Math.abs(motionX) > Math.abs(moveX[1])) {
+                    motionX = -moveX[1];
+                }
+                motionZ -= moveX[0] * 0.03125F;
+                if (Math.abs(motionZ) > Math.abs(moveX[0])) {
+                    motionZ = -moveX[0];
+                }
+            }
+        }
+
+        this.setDeltaMovement(motionX, motionY, motionZ);
     }
 
     @Override
@@ -644,6 +951,11 @@ public abstract class BasicEntityMount extends TamableAnimal
         Entity entity = serverLevel.getEntity(this.hostUuid);
         if (entity instanceof BasicEntityShip ship) {
             this.setHost(ship);
+            LogHelper.info("DIAG: mount host resolved server mount=" + this.getId()
+                    + " host=" + ship.getId());
+            // The mount may have begun tracking before its saved host reference
+            // could be resolved. Re-send the host ID to those tracking clients.
+            this.sendSyncPacket(4);
         }
     }
 

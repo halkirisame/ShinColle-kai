@@ -154,6 +154,62 @@ public class FormationHelper {
         return newPos;
     }
 
+    /**
+     * Apply a safe guard position for a line-ahead or echelon formation member,
+     * then return the following member's target position.
+     */
+    public static int[] setFormationPosAndApplyGuardPos1(BasicEntityShip ship, int formatType,
+                                                           boolean alongX, boolean faceP,
+                                                           int x, int y, int z, Level level) {
+        int[] pos = BlockHelper.getSafeBlockWithin5x5(level, x, y, z);
+
+        if (pos != null) {
+            applyShipGuard(ship, pos[0], pos[1], pos[2], true);
+            if (formatType == 4) {
+                return nextEchelonPos(faceP, pos[0], pos[1], pos[2]);
+            }
+            return nextLineAheadPos(alongX, faceP, pos[0], pos[1], pos[2]);
+        }
+
+        applyShipGuard(ship, x, y, z, true);
+        return new int[]{x, y, z};
+    }
+
+    /**
+     * Apply a safe guard position for a double-line, diamond, or line-abreast
+     * formation member.
+     */
+    public static void setFormationPosAndApplyGuardPos2(BasicEntityShip ship, int formatType,
+                                                          boolean alongX, boolean faceP,
+                                                          int x, int y, int z, Level level) {
+        int formatPos = ship.getStateMinor(ID.M.FormatPos);
+        if (formatPos < 0 || formatPos > 5) {
+            formatPos = 0;
+        }
+
+        int[] pos = new int[]{x, y, z};
+        switch (formatType) {
+            case 2:
+                pos = nextDoubleLinePos(alongX, faceP, formatPos, x, y, z);
+                break;
+            case 3:
+                pos = nextDiamondPos(alongX, faceP, formatPos, x, y, z);
+                break;
+            case 5:
+                pos = nextLineAbreastPos(alongX, formatPos, x, y, z);
+                break;
+            default:
+                break;
+        }
+
+        int[] safePos = BlockHelper.getSafeBlockWithin5x5(level, pos[0], pos[1], pos[2]);
+        if (safePos != null) {
+            applyShipGuard(ship, safePos[0], safePos[1], safePos[2], true);
+        } else {
+            applyShipGuard(ship, x, y, z, true);
+        }
+    }
+
     // ========== Formation Position Functions ==========
 
     /**

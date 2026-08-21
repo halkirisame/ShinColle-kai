@@ -923,7 +923,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             }
             // recalc formation buff
             if ((flag & 16) == 16) {
-                BuffHelper.updateBuffFormation(this.shipAttrs,
+                BuffHelper.updateBuffFormation(this, this.shipAttrs,
                         getStateMinor(ID.M.FormatType), getStateMinor(ID.M.FormatPos));
                 this.setUpdateFlag(ID.FlagUpdate.AttrsFormation, true);
             }
@@ -3832,6 +3832,8 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.startRiding(mount, true);
         LogHelper.info("DIAG: mount summon host=" + this + " mount=" + mount);
         mount.sendSyncPacket(4);
+        LogHelper.info("DIAG: mount summon sync sent mount=" + mount.getId()
+                + " host=" + mount.getHostEntity());
     }
 
     /**

@@ -764,8 +764,12 @@ public class S2CEntitySyncPacket {
         int hostId = buf.readInt();
         if (entity instanceof BasicEntityMount mount && hostId > 0) {
             Entity host = level.getEntity(hostId);
+            LogHelper.info("DIAG: mount host sync received mount=" + mount.getId()
+                    + " host=" + hostId + " hostPresent=" + (host != null));
             if (host instanceof BasicEntityShip hostShip) {
                 mount.setHost(hostShip);
+            } else {
+                mount.setClientHostId(hostId);
             }
             if (riderCount > 1) {
                 mount.setStateEmotion(ID.S.Emotion, 1, false);

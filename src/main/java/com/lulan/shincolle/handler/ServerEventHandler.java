@@ -2,6 +2,7 @@ package com.lulan.shincolle.handler;
 
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
@@ -158,13 +159,21 @@ public class ServerEventHandler {
     /** Send custom ship state when a client begins tracking an existing entity. */
     @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
-        if (event.getEntity() instanceof ServerPlayer player
-                && event.getTarget() instanceof BasicEntityShip ship) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        if (event.getTarget() instanceof BasicEntityShip ship) {
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAllMisc(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAttrs(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncRiders(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncUnitName(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncBuffMap(ship), player);
+        } else if (event.getTarget() instanceof BasicEntityMount mount) {
+            // [FIX] 2026-08-21: restore the host reference when an existing mount
+            // begins tracking. syncRiders also carries the mount host entity ID.
+            LogHelper.info("DIAG: mount tracking sync sent mount=" + mount.getId()
+                    + " host=" + mount.getHostEntity() + " player=" + player.getGameProfile().getName());
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncRiders(mount), player);
         }
     }
 

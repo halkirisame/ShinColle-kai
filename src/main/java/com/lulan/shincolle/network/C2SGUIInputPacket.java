@@ -797,9 +797,9 @@ public class C2SGUIInputPacket {
                 continue;
             }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (ship != null) {
-                if (ship.getStateFlag(ID.F.NoFuel))
-                    continue;
+            if (ship != null && ship.level() == level
+                    && player.distanceToSqr(ship) < POINTER_RANGE_SQR
+                    && !ship.getStateFlag(ID.F.NoFuel)) {
                 ship.setEntitySit(false);
                 ship.setEntityTarget(livingTarget);
                 ship.applyEmotesReaction(5);
@@ -826,14 +826,21 @@ public class C2SGUIInputPacket {
         }
 
         int teamId = capa.getSelectTeam();
+        boolean formationGateOk = mode != PointerItem.MODE_FORMATION
+                || capa.getFormatID(teamId) <= 0
+                || capa.getNumberOfShip(level, teamId) > 4;
+        if (!formationGateOk) {
+            return;
+        }
+
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             if (!includesSlot(capa, teamId, i, mode)) {
                 continue;
             }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (ship != null) {
-                if (ship.getStateFlag(ID.F.NoFuel))
-                    continue;
+            if (ship != null && ship.level() == level
+                    && player.distanceToSqr(ship) < POINTER_RANGE_SQR
+                    && !ship.getStateFlag(ID.F.NoFuel)) {
                 FormationHelper.applyShipGuardEntity(ship, target);
                 ship.sendSyncPacketGuard();
             }
@@ -910,44 +917,101 @@ public class C2SGUIInputPacket {
             return;
         }
 
+        int formatId = capa.getFormatID(teamId);
+        boolean formationMove = mode == 2 && formatId > 0;
+
         ArrayList<BasicEntityShip> ships = new ArrayList<>();
+        boolean formationMemberMissing = false;
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
+            if (!includesSlot(capa, teamId, i, mode)) {
+                continue;
+            }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (includesSlot(capa, teamId, i, mode)
-                    && ship != null && !ship.getStateFlag(ID.F.NoFuel)
-                    && player.distanceToSqr(ship) <= 4096D) {
+            if (ship == null && formationMove) {
+                int shipUid = capa.getTeamMember(teamId, i);
+                BasicEntityShip persistentShip = ServerDataManager.getShipByUID(shipUid);
+                if (persistentShip != null && persistentShip.getPlayerUID() == capa.getPlayerUID()) {
+                    ship = persistentShip;
+                } else if (shipUid > 0) {
+                    formationMemberMissing = true;
+                }
+            }
+            if (ship != null && !ship.getStateFlag(ID.F.NoFuel)) {
                 ships.add(ship);
             }
         }
 
+        if (formationMove && formationMemberMissing) {
+            return;
+        }
         if (ships.isEmpty()) {
             return;
         }
 
-        int formatId = capa.getFormatID(teamId);
-        boolean formationMove = mode == 2 && formatId > 0;
         if (formationMove && ships.size() < 5) {
             return;
         }
 
-        double[] destination = {gx, gy, gz};
+        if (formationMove) {
+            for (BasicEntityShip ship : ships) {
+                if (ship.getStateMinor(ID.M.FormatType) != formatId
+                        || ship.level() != level
+                        || player.distanceToSqr(ship) > 4096D) {
+                    return;
+                }
+            }
+        } else {
+            ships.removeIf(ship -> ship.level() != level || player.distanceToSqr(ship) > 4096D);
+            if (ships.isEmpty()) {
+                return;
+            }
+        }
+
         BasicEntityShip flagship = ships.get(0);
         boolean[] facing = FormationHelper.getFormationDirection(
                 gx, gz, flagship.getX(), flagship.getZ());
 
+        int[] oldGuardPos = null;
+        if (formationMove && flagship.getGuardedPos(1) > 0 && flagship.getGuardedPos(4) >= 0) {
+            oldGuardPos = new int[]{flagship.getGuardedPos(0), flagship.getGuardedPos(1),
+                    flagship.getGuardedPos(2)};
+        }
+
+        int[] cursor = {gx, gy, gz};
         for (BasicEntityShip ship : ships) {
-            int sx = gx;
-            int sy = gy;
-            int sz = gz;
             if (formationMove) {
-                int[] formationPos = FormationHelper.calcFormationPos(
-                        formatId, ship.getStateMinor(ID.M.FormatPos), destination, facing);
-                sx = formationPos[0];
-                sy = formationPos[1];
-                sz = formationPos[2];
+                switch (formatId) {
+                    case 1:
+                    case 4:
+                        cursor = FormationHelper.setFormationPosAndApplyGuardPos1(ship, formatId,
+                                facing[0], facing[1], cursor[0], cursor[1], cursor[2], level);
+                        break;
+                    case 2:
+                    case 3:
+                    case 5:
+                        FormationHelper.setFormationPosAndApplyGuardPos2(ship, formatId,
+                                facing[0], facing[1], gx, gy, gz, level);
+                        break;
+                    default:
+                        FormationHelper.applyShipGuard(ship, gx, gy, gz, true);
+                        break;
+                }
+                ship.applyEmotesReaction(5);
+            } else {
+                FormationHelper.applyShipGuard(ship, gx, gy, gz, false, guardType);
             }
-            FormationHelper.applyShipGuard(ship, sx, sy, sz, false, guardType);
             ship.sendSyncPacketGuard();
+        }
+
+        if (formationMove && oldGuardPos != null
+                && flagship.getGuardedPos(0) == oldGuardPos[0]
+                && flagship.getGuardedPos(1) == oldGuardPos[1]
+                && flagship.getGuardedPos(2) == oldGuardPos[2]) {
+            for (BasicEntityShip ship : ships) {
+                ship.setGuardedPos(-1, -1, -1, 0, 0);
+                ship.setGuardedEntity(null);
+                ship.setStateFlag(ID.F.CanFollow, true);
+            }
         }
     }
 
@@ -998,7 +1062,9 @@ public class C2SGUIInputPacket {
         if (capa == null || teamId < 0 || teamId >= CapaTeitoku.TEAM_NUM) {
             return;
         }
-        int formationId = Mth.clamp(values[2], 0, 5);
+        int requestedFormation = Mth.clamp(values[2], 0, 5);
+        int numShips = capa.getNumberOfShip(player.serverLevel(), teamId);
+        int formationId = numShips > 4 && requestedFormation > 0 ? requestedFormation : 0;
         capa.setFormatID(teamId, formationId);
         // Update all ships in team
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
@@ -1068,12 +1134,33 @@ public class C2SGUIInputPacket {
             int m1 = capa.getTeamMember(teamId, slot1);
             int s1 = capa.getTeamSID(teamId, slot1);
             boolean selected1 = capa.isShipSelected(teamId, slot1);
-            capa.setTeamMember(teamId, slot1, capa.getTeamMember(teamId, slot2));
-            capa.setTeamSID(teamId, slot1, capa.getTeamSID(teamId, slot2));
-            capa.setShipSelected(teamId, slot1, capa.isShipSelected(teamId, slot2));
+            int m2 = capa.getTeamMember(teamId, slot2);
+            int s2 = capa.getTeamSID(teamId, slot2);
+            boolean selected2 = capa.isShipSelected(teamId, slot2);
+
+            ServerLevel level = player.serverLevel();
+            BasicEntityShip shipOriginallyAtSlot1 = resolveTeamShip(level, capa, teamId, slot1);
+            BasicEntityShip shipOriginallyAtSlot2 = resolveTeamShip(level, capa, teamId, slot2);
+            if (shipOriginallyAtSlot1 != null) {
+                s1 = shipOriginallyAtSlot1.getId();
+            }
+            if (shipOriginallyAtSlot2 != null) {
+                s2 = shipOriginallyAtSlot2.getId();
+            }
+
+            capa.setTeamMember(teamId, slot1, m2);
+            capa.setTeamSID(teamId, slot1, s2);
+            capa.setShipSelected(teamId, slot1, selected2);
             capa.setTeamMember(teamId, slot2, m1);
             capa.setTeamSID(teamId, slot2, s1);
             capa.setShipSelected(teamId, slot2, selected1);
+
+            if (shipOriginallyAtSlot1 != null) {
+                shipOriginallyAtSlot1.setStateMinor(ID.M.FormatPos, slot2);
+            }
+            if (shipOriginallyAtSlot2 != null) {
+                shipOriginallyAtSlot2.setStateMinor(ID.M.FormatPos, slot1);
+            }
             ModNetworking.sendToPlayer(S2CGUISyncPacket.syncShipsInTeam(capa, teamId), player);
         }
     }

@@ -839,7 +839,8 @@ public class ConfigHandler {
                             e -> e instanceof Integer);
 
             expGainConfig = builder
-                    .comment("Exp gain for: [Melee, Light Attack, Heavy Attack, Light Aircraft, Heavy Aircraft, Move per Block (AP only), Other Action (AP only)]")
+                    .comment("Exp gain for: [Melee, Light Attack, Heavy Attack, Light Aircraft, "
+                            + "Heavy Aircraft, Move per Block (AP only), Other Action (AP only)]")
                     .defineList("expGain",
                             Arrays.asList(2, 4, 12, 8, 24, 1, 2),
                             e -> e instanceof Integer);

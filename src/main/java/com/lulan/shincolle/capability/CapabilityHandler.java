@@ -45,7 +45,9 @@ public class CapabilityHandler {
         // wasDeath: true = respawn after death, false = return from End
         // In both cases, copy all data to the new player entity
         event.getOriginal().reviveCaps(); // required to access old caps
-        event.getOriginal().getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(oldCap -> event.getEntity().getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(newCap -> newCap.copyFrom(oldCap)));
+        event.getOriginal().getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(oldCap ->
+                event.getEntity().getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(newCap ->
+                        newCap.copyFrom(oldCap)));
         event.getOriginal().invalidateCaps();
     }
 

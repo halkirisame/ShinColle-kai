@@ -151,10 +151,16 @@ public class C2SInputPacket {
 
         if (player.isPassenger() && player.getVehicle() instanceof BasicEntityMount mount) {
             BasicEntityShip ship = mount.getHost();
+            boolean sameOwner = ship != null && TargetHelper.checkSameOwner(player, ship);
 
-            if (ship != null && TargetHelper.checkSameOwner(player, ship)) {
+            LogHelper.info("DIAG: mount key recv keys=" + Integer.toBinaryString(values[0])
+                    + " host=" + ship + " sameOwner=" + sameOwner);
+            if (sameOwner) {
                 mount.setMountKeyInput(values[0]);
             }
+        } else {
+            LogHelper.info("DIAG: mount key recv rejected: not riding a mount, vehicle="
+                    + player.getVehicle());
         }
     }
 

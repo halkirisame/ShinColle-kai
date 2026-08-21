@@ -3,8 +3,10 @@ package com.lulan.shincolle.ai.path;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipNavigator;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
+import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.LogHelper;
 
@@ -39,12 +41,19 @@ public class ShipMoveControl extends MoveControl {
      * Get formation-adjusted movement speed
      */
     private static float getFormationMOV(BasicEntityShip ship) {
-        int formatType = ship.getStateMinor(ID.M.FormatType);
-        int formatSlot = ship.getStateMinor(ID.M.FormatPos);
-        float[] buffs = com.lulan.shincolle.utility.FormationHelper.getFormationBuffValue(formatType, formatSlot);
-        // formation buff index 4 is MOV multiplier
-        float movBuff = buffs.length > 4 ? buffs[4] : 1.0F;
-        return (float) ship.getAttributeValue(Attributes.MOVEMENT_SPEED) * movBuff;
+        if (ship.getStateMinor(ID.M.FormatType) <= 0 || !(ship.getAttrs() instanceof AttrsAdv attrs)) {
+            return (float) ship.getAttributeValue(Attributes.MOVEMENT_SPEED);
+        }
+
+        float mov = attrs.getMinMOV()
+                + attrs.getAttrsFormation(ID.Attrs.MOV) * (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
+        float limit = (float) ConfigHandler.limitShipAttrs[ID.Attrs.MOV];
+        if (limit >= 0F && mov > limit) {
+            mov = limit;
+        } else if (mov < 0F) {
+            mov = 0F;
+        }
+        return mov;
     }
 
     public boolean isUpdating() {

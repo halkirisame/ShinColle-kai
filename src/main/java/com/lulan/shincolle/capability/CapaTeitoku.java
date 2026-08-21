@@ -1,9 +1,13 @@
 package com.lulan.shincolle.capability;
 
+import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.server.ServerDataManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import java.util.ArrayList;
@@ -494,6 +498,109 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
             sidList[team][slot] = entityId;
         }
+    }
+
+    /**
+     * Find the team containing a persistent ship UID.
+     *
+     * @return the team index, or -1 when the ship is not assigned to this player
+     */
+    public int findTeamOfShip(int shipUID) {
+        if (shipUID <= 0) {
+            return -1;
+        }
+        for (int team = 0; team < TEAM_NUM; team++) {
+            for (int slot = 0; slot < SLOT_NUM; slot++) {
+                if (teamList[team][slot] == shipUID) {
+                    return team;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Return the lowest current buffed MOV among the resolved ships in a team.
+     */
+    public float getMinMOVInTeam(ServerLevel level, int team) {
+        if (level == null || team < 0 || team >= TEAM_NUM) {
+            return 0F;
+        }
+
+        float minMov = 10F;
+        boolean foundShip = false;
+        for (int slot = 0; slot < SLOT_NUM; slot++) {
+            BasicEntityShip ship = resolveTeamShip(level, team, slot);
+            if (ship != null && ship.getAttrs() != null) {
+                foundShip = true;
+                minMov = Math.min(minMov, ship.getAttrs().getMoveSpeed());
+            }
+        }
+        return foundShip ? minMov : 0F;
+    }
+
+    /**
+     * Count loaded, living ships in a team.
+     */
+    public int getNumberOfShip(ServerLevel level, int team) {
+        if (level == null || team < 0 || team >= TEAM_NUM) {
+            return 0;
+        }
+
+        int count = 0;
+        for (int slot = 0; slot < SLOT_NUM; slot++) {
+            BasicEntityShip ship = resolveTeamShip(level, team, slot);
+            if (ship != null && ship.isAlive()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Return a living ship's compacted position in a team, for five-ship diamond formations.
+     */
+    public int getFormationPos(ServerLevel level, int team, int shipUID) {
+        if (level == null || team < 0 || team >= TEAM_NUM) {
+            return -1;
+        }
+
+        int position = 0;
+        for (int slot = 0; slot < SLOT_NUM; slot++) {
+            BasicEntityShip ship = resolveTeamShip(level, team, slot);
+            if (ship != null && ship.isAlive()) {
+                if (ship.getShipUID() == shipUID) {
+                    return position;
+                }
+                position++;
+            }
+        }
+        return -1;
+    }
+
+    private BasicEntityShip resolveTeamShip(ServerLevel level, int team, int slot) {
+        int shipUID = getTeamMember(team, slot);
+        if (shipUID <= 0) {
+            return null;
+        }
+
+        int entityId = getTeamSID(team, slot);
+        if (entityId > 0) {
+            Entity entity = level.getEntity(entityId);
+            if (entity instanceof BasicEntityShip ship
+                    && ship.getShipUID() == shipUID
+                    && ship.getPlayerUID() == playerUID) {
+                return ship;
+            }
+        }
+
+        BasicEntityShip ship = ServerDataManager.getShipByUID(shipUID);
+        if (ship != null && ship.level() == level && ship.getPlayerUID() == playerUID) {
+            setTeamSID(team, slot, ship.getId());
+            return ship;
+        }
+        setTeamSID(team, slot, -1);
+        return null;
     }
 
     public boolean isShipSelected(int team, int slot) {
