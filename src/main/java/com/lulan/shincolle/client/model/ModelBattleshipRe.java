@@ -653,7 +653,12 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
         // [PORT] 1.10.2 -> 1.20.1: restore legacy dead-pose grounding offset.
-        this.offsetY += 1.13F;
+        // Model space has Y pointing down (LivingEntityRenderer scales by
+        // -1,-1,1), so a larger offsetY pushes the model further down. This has
+        // to match applyNormalPose's standing offset, otherwise the model jumps
+        // upward the moment the ship runs out of fuel: 1.13F left it floating
+        // about a block above the ground while face-down.
+        this.offsetY += 2.18F;
 
         this.setFaceHungry(ent);
 
