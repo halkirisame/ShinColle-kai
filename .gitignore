@@ -46,7 +46,9 @@ run
 *.backup
 
 # Root artifacts from Forge gameTestServer run
-/config/
+# (checkstyle's own ruleset is tracked source, not a runtime artifact)
+/config/*
+!/config/checkstyle/
 /world/
 /logs/
 /server.properties
