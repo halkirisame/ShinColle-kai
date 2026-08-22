@@ -1,5 +1,8 @@
 {
   "equip_id": 204,
+  "item": "shincolle:equip_torpedo",
+  "variant": 2,
+  "equip_type": "torpedo_lo",
   "compatible": [
     "cannon"
   ],

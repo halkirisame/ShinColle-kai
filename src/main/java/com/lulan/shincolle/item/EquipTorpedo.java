@@ -28,25 +28,8 @@ public class EquipTorpedo extends BasicEquip implements IShipEffectItem {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        switch (meta) {
-            case 0:
-            case 1:
-            case 2:
-                return ID.EquipType.TORPEDO_LO;
-            case 3:
-            case 4:
-            case 5:
-            case 6:
-                return ID.EquipType.TORPEDO_HI;
-            default:
-                return 0;
-        }
-    }
-
-    @Override
     public int getItemEnchantability(ItemStack stack) {
-        switch (this.getEquipTypeIDFromMeta(getEquipMeta(stack))) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.TORPEDO_LO:
                 return 16;
             case ID.EquipType.TORPEDO_HI:
@@ -57,8 +40,8 @@ public class EquipTorpedo extends BasicEquip implements IShipEffectItem {
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
-        switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int[] getResourceValue(ItemStack stack) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.TORPEDO_LO: // 160
                 return new int[]{
                         itemRand.nextInt(4) + 8,

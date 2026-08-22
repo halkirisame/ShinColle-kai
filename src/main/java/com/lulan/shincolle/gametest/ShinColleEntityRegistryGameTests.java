@@ -17,16 +17,22 @@ import com.lulan.shincolle.block.BlockWaypoint;
 import com.lulan.shincolle.entity.other.EntityFloatingFort;
 import com.lulan.shincolle.entity.other.EntityProjectileBeam;
 import com.lulan.shincolle.entity.other.EntityProjectileStatic;
+import com.lulan.shincolle.equipdata.ClientEquipData;
+import com.lulan.shincolle.equipdata.EquipDataRegistry;
+import com.lulan.shincolle.equipdata.EquipDataSnapshot;
+import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.BasicEquip;
+import com.lulan.shincolle.item.IShipResourceItem;
 import com.lulan.shincolle.item.MarriageRing;
 import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.network.C2SInputPacket;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.S2CGUISyncPacket;
+import com.lulan.shincolle.network.S2CEquipDataSyncPacket;
 import com.lulan.shincolle.network.S2CShipyardStockPacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -53,6 +59,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerBossEvent;
@@ -2185,6 +2192,256 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentIndexesResolveTheSameDefinition(GameTestHelper helper) {
+        EquipDefinition byItemVariant = EquipDataRegistry.server().byItemVariant(
+                new ResourceLocation(Reference.MOD_ID, "equip_cannon"), 0);
+        EquipDefinition byLegacyId = EquipDataRegistry.server().byLegacyId(0);
+        if (byItemVariant == null || byLegacyId == null) {
+            throw new AssertionError("Built-in cannon definition was not loaded into both indexes.");
+        }
+        if (byItemVariant != byLegacyId) {
+            throw new AssertionError("Item/variant and legacy indexes did not return the same definition instance.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentDefinitionCreatesMatchingVariant(GameTestHelper helper) {
+        EquipDefinition definition = EquipDataRegistry.server().get(
+                new ResourceLocation(Reference.MOD_ID, "aircraft_fhellcatb"));
+        if (definition == null) {
+            throw new AssertionError("Built-in aircraft definition was not loaded.");
+        }
+        ItemStack stack = EquipCalc.createItemStack(definition, 0);
+        if (stack.isEmpty() || BasicEquip.getEquipMeta(stack) != definition.variant()) {
+            throw new AssertionError("Definition did not create an ItemStack with its JSON variant.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentDefinitionWithUnknownItemFailsSafely(GameTestHelper helper) {
+        EquipDefinition definition = new EquipDefinition(
+                new ResourceLocation(Reference.MOD_ID, "missing_item_test"),
+                new ResourceLocation(Reference.MOD_ID, "missing_equipment_item"),
+                7, ID.EquipType.CANNON_SI, null, new float[Attrs.AttrsLength], List.of("cannon"),
+                1, "ammo", 0, 0, ID.EquipType.CANNON_SI);
+        if (!EquipCalc.createItemStack(definition, 0).isEmpty()) {
+            throw new AssertionError("An unregistered equipment item produced a non-empty ItemStack.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSyncRoundTripPreservesEveryField(GameTestHelper helper) {
+        ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
+        EquipDefinition withLegacy = createSyncTestDefinition("sync_round_trip_legacy", item, 4,
+                ID.EquipType.CANNON_TW_LO, 204, 1.25F);
+        EquipDefinition withoutLegacy = createSyncTestDefinition("sync_round_trip_modern", item, 41,
+                ID.EquipType.CANNON_TR, null, 2.5F);
+        EquipDataSnapshot source = createSyncTestSnapshot(List.of(withLegacy, withoutLegacy),
+                Map.of(item, Map.of(4, withLegacy, 41, withoutLegacy)), Map.of(204, withLegacy));
+
+        S2CEquipDataSyncPacket decodedPacket = roundTripEquipDataPacket(source);
+        if (!decodedPacket.isValid()) {
+            throw new AssertionError("Valid equipment snapshot failed to decode: " + decodedPacket.decodeError());
+        }
+        EquipDataSnapshot decoded = decodedPacket.snapshot();
+        assertEquipDefinitionEquals(withLegacy, decoded.get(withLegacy.id()));
+        assertEquipDefinitionEquals(withoutLegacy, decoded.get(withoutLegacy.id()));
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSyncIndexesShareDefinitionInstances(GameTestHelper helper) {
+        ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_airplane");
+        EquipDefinition definition = createSyncTestDefinition("sync_shared_instance", item, 7,
+                ID.EquipType.AIR_F_LO, 702, 3.0F);
+        EquipDataSnapshot source = createSyncTestSnapshot(List.of(definition),
+                Map.of(item, Map.of(7, definition)), Map.of(702, definition));
+        EquipDataSnapshot decoded = roundTripEquipDataPacket(source).snapshot();
+
+        EquipDefinition byId = decoded.get(definition.id());
+        if (byId == null || byId != decoded.byItemVariant(item, 7) || byId != decoded.byLegacyId(702)) {
+            throw new AssertionError("Decoded equipment indexes do not share the byId definition instance.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentResyncRemovesStaleDefinitions(GameTestHelper helper) {
+        EquipDataSnapshot original = ClientEquipData.current();
+        try {
+            ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_drum");
+            EquipDefinition stale = createSyncTestDefinition("sync_stale", item, 1,
+                    ID.EquipType.DRUM_LO, 111, 4.0F);
+            EquipDefinition current = createSyncTestDefinition("sync_current", item, 2,
+                    ID.EquipType.DRUM_LO, 222, 5.0F);
+            ClientEquipData.install(createSyncTestSnapshot(List.of(stale),
+                    Map.of(item, Map.of(1, stale)), Map.of(111, stale)));
+            ClientEquipData.install(createSyncTestSnapshot(List.of(current),
+                    Map.of(item, Map.of(2, current)), Map.of(222, current)));
+
+            if (ClientEquipData.current().get(stale.id()) != null
+                    || ClientEquipData.current().byItemVariant(item, 1) != null
+                    || ClientEquipData.current().byLegacyId(111) != null) {
+                throw new AssertionError("A removed equipment definition survived full snapshot replacement.");
+            }
+        } finally {
+            ClientEquipData.install(original);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSyncPreservesItemVariantCollisionWinner(GameTestHelper helper) {
+        ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
+        EquipDefinition loser = createSyncTestDefinition("sync_item_loser", item, 6,
+                ID.EquipType.CANNON_TW_LO, null, 6.0F);
+        EquipDefinition winner = createSyncTestDefinition("sync_item_winner", item, 6,
+                ID.EquipType.CANNON_TW_HI, null, 7.0F);
+        EquipDataSnapshot server = createSyncTestSnapshot(List.of(loser, winner),
+                Map.of(item, Map.of(6, winner)), Map.of());
+        EquipDataSnapshot client = roundTripEquipDataPacket(server).snapshot();
+
+        if (server.byItemVariant(item, 6) != winner
+                || client.byItemVariant(item, 6) != client.get(winner.id())) {
+            throw new AssertionError("The resolved item/variant collision winner changed during synchronization.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSyncPreservesLegacyCollisionWinner(GameTestHelper helper) {
+        ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
+        EquipDefinition loser = createSyncTestDefinition("sync_legacy_loser", item, 8,
+                ID.EquipType.CANNON_TW_HI, 808, 8.0F);
+        EquipDefinition winner = createSyncTestDefinition("sync_legacy_winner", item, 9,
+                ID.EquipType.CANNON_TR, 808, 9.0F);
+        EquipDataSnapshot server = createSyncTestSnapshot(List.of(loser, winner), Map.of(), Map.of(808, winner));
+        EquipDataSnapshot client = roundTripEquipDataPacket(server).snapshot();
+
+        if (server.byLegacyId(808) != winner || client.byLegacyId(808) != client.get(winner.id())) {
+            throw new AssertionError("The resolved legacy-ID collision winner changed during synchronization.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSyncRejectsPartialSnapshotsAtomically(GameTestHelper helper) {
+        EquipDataSnapshot original = ClientEquipData.current();
+        ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
+        EquipDefinition retained = createSyncTestDefinition("sync_retained", item, 3,
+                ID.EquipType.CANNON_TW_LO, 303, 10.0F);
+        EquipDataSnapshot retainedSnapshot = createSyncTestSnapshot(List.of(retained),
+                Map.of(item, Map.of(3, retained)), Map.of(303, retained));
+        try {
+            ClientEquipData.install(retainedSnapshot);
+
+            FriendlyByteBuf excessiveCount = new FriendlyByteBuf(Unpooled.buffer());
+            excessiveCount.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
+            excessiveCount.writeVarInt(S2CEquipDataSyncPacket.MAX_DEFINITIONS + 1);
+            assertInvalidSyncKeepsSnapshot(decodeEquipDataPacket(excessiveCount), retainedSnapshot,
+                    "definition count overflow");
+
+            FriendlyByteBuf invalidStats = new FriendlyByteBuf(Unpooled.buffer());
+            invalidStats.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
+            invalidStats.writeVarInt(1);
+            writeSyncTestDefinition(invalidStats, retained, Attrs.AttrsLength - 1);
+            assertInvalidSyncKeepsSnapshot(decodeEquipDataPacket(invalidStats), retainedSnapshot,
+                    "invalid stats length");
+
+            FriendlyByteBuf missingReference = new FriendlyByteBuf(Unpooled.buffer());
+            missingReference.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
+            missingReference.writeVarInt(1);
+            writeSyncTestDefinition(missingReference, retained, Attrs.AttrsLength);
+            missingReference.writeVarInt(1);
+            writeSyncTestResourceLocation(missingReference, item);
+            missingReference.writeVarInt(3);
+            writeSyncTestResourceLocation(missingReference,
+                    new ResourceLocation(Reference.MOD_ID, "sync_missing_definition"));
+            assertInvalidSyncKeepsSnapshot(decodeEquipDataPacket(missingReference), retainedSnapshot,
+                    "missing definition reference");
+        } finally {
+            ClientEquipData.install(original);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentServerAndClientSnapshotsAreSeparate(GameTestHelper helper) {
+        EquipDataSnapshot original = ClientEquipData.current();
+        try {
+            EquipDataSnapshot decodedServerCopy = roundTripEquipDataPacket(EquipDataRegistry.server()).snapshot();
+            ClientEquipData.install(decodedServerCopy);
+            if (EquipDataRegistry.server() == EquipDataRegistry.client()) {
+                throw new AssertionError("Server and client equipment snapshots share the same object.");
+            }
+        } finally {
+            ClientEquipData.install(original);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentEmptyClientSnapshotUsesSafeDefaults(GameTestHelper helper) {
+        EquipDataSnapshot empty = EquipDataSnapshot.EMPTY;
+        ResourceLocation missing = new ResourceLocation(Reference.MOD_ID, "sync_missing");
+        if (empty.get(missing) != null || empty.byItemVariant(missing, 0) != null
+                || empty.byLegacyId(0) != null || !empty.all().isEmpty()) {
+            throw new AssertionError("An unsynchronized client equipment snapshot did not use safe empty defaults.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentResourceValuesFollowEquipVariant(GameTestHelper helper) {
+        ItemStack low = new ItemStack(ModItems.EQUIP_AIRPLANE.get());
+        BasicEquip.setEquipMeta(low, 0);
+        ItemStack high = new ItemStack(ModItems.EQUIP_AIRPLANE.get());
+        BasicEquip.setEquipMeta(high, 3);
+
+        int[] lowValue = getShipResourceValue(low);
+        int[] highValue = getShipResourceValue(high);
+        assertResourceRanges(lowValue, new int[][]{{80, 99}, {100, 129}, {120, 159}, {150, 199}},
+                "low-tier aircraft");
+        assertResourceRanges(highValue, new int[][]{{130, 179}, {170, 229}, {210, 279}, {230, 304}},
+                "high-tier aircraft");
+        if (Arrays.equals(lowValue, highValue)) {
+            throw new AssertionError("Different aircraft variants returned the same resource values.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentResourceValuesIgnoreDurabilityDamage(GameTestHelper helper) {
+        ItemStack recon = new ItemStack(ModItems.EQUIP_AIRPLANE.get());
+        BasicEquip.setEquipMeta(recon, 13);
+        recon.setDamageValue(3);
+
+        if (BasicEquip.getEquipMeta(recon) != 13) {
+            throw new AssertionError("Test setup lost the equipment variant after setting durability damage.");
+        }
+        int[] value = getShipResourceValue(recon);
+        assertResourceRanges(value, new int[][]{{3, 14}, {5, 18}, {5, 18}, {11, 26}},
+                "recon aircraft with unrelated durability damage");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void ordinaryResourceItemsKeepTheirValues(GameTestHelper helper) {
+        assertResourceValue(new ItemStack(ModItems.GRUDGE.get()), new int[]{1, 0, 0, 0}, "grudge");
+        assertResourceValue(new ItemStack(ModItems.GRUDGE_1.get()), new int[]{1, 0, 0, 0}, "grudge_1");
+        assertResourceValue(new ItemStack(ModItems.POLYMETAL_NODULE.get()), new int[]{0, 0, 0, 1},
+                "polymetal_nodule");
+        assertResourceValue(new ItemStack(ModItems.AMMO.get()), new int[]{0, 0, 1, 0}, "ammo");
+        assertResourceValue(new ItemStack(ModItems.AMMO_1.get()), new int[]{0, 0, 9, 0}, "ammo_1");
+        assertResourceValue(new ItemStack(ModItems.AMMO_2.get()), new int[]{0, 0, 4, 0}, "ammo_2");
+        assertResourceValue(new ItemStack(ModItems.AMMO_3.get()), new int[]{0, 0, 36, 0}, "ammo_3");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void rangeTargetStopClearsOnlyItsOwnTarget(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity friendlyEntity = ModEntities.BB_KONGOU.get().create(level);
@@ -2869,6 +3126,127 @@ public final class ShinColleEntityRegistryGameTests {
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Failed to inspect throttle field "
                     + instance.getClass().getSimpleName() + "." + fieldName, e);
+        }
+    }
+
+    private static EquipDefinition createSyncTestDefinition(String path, ResourceLocation item, int variant,
+                                                              int equipType, Integer legacyId, float seed) {
+        float[] stats = new float[Attrs.AttrsLength];
+        for (int i = 0; i < stats.length; i++) {
+            stats[i] = seed + i * 0.125F;
+        }
+        return new EquipDefinition(new ResourceLocation(Reference.MOD_ID, path), item, variant, equipType,
+                legacyId, stats, List.of("cannon", "aircraft"), 3, "polymetal", 17, 29, equipType);
+    }
+
+    private static int[] getShipResourceValue(ItemStack stack) {
+        if (!(stack.getItem() instanceof IShipResourceItem resource)) {
+            throw new AssertionError("Test item does not implement IShipResourceItem: " + stack.getItem());
+        }
+        return resource.getResourceValue(stack);
+    }
+
+    private static void assertResourceRanges(int[] actual, int[][] ranges, String description) {
+        if (actual.length != ranges.length) {
+            throw new AssertionError("Resource value length mismatch for " + description + ".");
+        }
+        for (int i = 0; i < ranges.length; i++) {
+            if (actual[i] < ranges[i][0] || actual[i] > ranges[i][1]) {
+                throw new AssertionError("Resource value outside expected range for " + description
+                        + " at index " + i + ": " + actual[i] + " not in "
+                        + ranges[i][0] + ".." + ranges[i][1]);
+            }
+        }
+    }
+
+    private static void assertResourceValue(ItemStack stack, int[] expected, String description) {
+        int[] actual = getShipResourceValue(stack);
+        if (!Arrays.equals(expected, actual)) {
+            throw new AssertionError("Resource value changed for " + description + ". expected="
+                    + Arrays.toString(expected) + " actual=" + Arrays.toString(actual));
+        }
+    }
+
+    private static EquipDataSnapshot createSyncTestSnapshot(
+            List<EquipDefinition> definitions,
+            Map<ResourceLocation, Map<Integer, EquipDefinition>> itemVariants,
+            Map<Integer, EquipDefinition> legacyDefinitions) {
+        Map<ResourceLocation, EquipDefinition> byId = new HashMap<>();
+        for (EquipDefinition definition : definitions) {
+            byId.put(definition.id(), definition);
+        }
+        return new EquipDataSnapshot(byId, itemVariants, legacyDefinitions);
+    }
+
+    private static S2CEquipDataSyncPacket roundTripEquipDataPacket(EquipDataSnapshot snapshot) {
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            new S2CEquipDataSyncPacket(snapshot).encode(buffer);
+            return new S2CEquipDataSyncPacket(buffer);
+        } finally {
+            buffer.release();
+        }
+    }
+
+    private static S2CEquipDataSyncPacket decodeEquipDataPacket(FriendlyByteBuf buffer) {
+        try {
+            return new S2CEquipDataSyncPacket(buffer);
+        } finally {
+            buffer.release();
+        }
+    }
+
+    private static void assertInvalidSyncKeepsSnapshot(S2CEquipDataSyncPacket packet,
+                                                        EquipDataSnapshot expected, String caseName) {
+        if (packet.isValid() || packet.applyToClient()) {
+            throw new AssertionError("Malformed equipment sync was accepted: " + caseName);
+        }
+        if (ClientEquipData.current() != expected) {
+            throw new AssertionError("Malformed equipment sync replaced existing state: " + caseName);
+        }
+    }
+
+    private static void writeSyncTestDefinition(FriendlyByteBuf buffer, EquipDefinition definition,
+                                                 int statsLength) {
+        writeSyncTestResourceLocation(buffer, definition.id());
+        writeSyncTestResourceLocation(buffer, definition.item());
+        buffer.writeVarInt(definition.variant());
+        buffer.writeVarInt(definition.equipType());
+        buffer.writeBoolean(definition.legacyEquipId() != null);
+        if (definition.legacyEquipId() != null) {
+            buffer.writeVarInt(definition.legacyEquipId());
+        }
+        buffer.writeVarInt(statsLength);
+        for (int i = 0; i < statsLength; i++) {
+            buffer.writeFloat(definition.stats()[i]);
+        }
+        buffer.writeVarInt(definition.compatible().size());
+        for (String compatible : definition.compatible()) {
+            buffer.writeUtf(compatible, 128);
+        }
+        buffer.writeVarInt(definition.enchantType());
+        buffer.writeUtf(definition.developMaterial(), 128);
+        buffer.writeVarInt(definition.developAmount());
+        buffer.writeVarInt(definition.rareMean());
+        buffer.writeVarInt(definition.rollType());
+    }
+
+    private static void writeSyncTestResourceLocation(FriendlyByteBuf buffer, ResourceLocation value) {
+        buffer.writeUtf(value.toString(), 256);
+    }
+
+    private static void assertEquipDefinitionEquals(EquipDefinition expected, EquipDefinition actual) {
+        if (actual == null || !expected.id().equals(actual.id()) || !expected.item().equals(actual.item())
+                || expected.variant() != actual.variant() || expected.equipType() != actual.equipType()
+                || !Objects.equals(expected.legacyEquipId(), actual.legacyEquipId())
+                || !Arrays.equals(expected.stats(), actual.stats())
+                || !expected.compatible().equals(actual.compatible())
+                || expected.enchantType() != actual.enchantType()
+                || !expected.developMaterial().equals(actual.developMaterial())
+                || expected.developAmount() != actual.developAmount()
+                || expected.rareMean() != actual.rareMean() || expected.rollType() != actual.rollType()) {
+            throw new AssertionError("Equipment definition changed during synchronization. expected="
+                    + expected.id() + " actual=" + (actual == null ? "null" : actual.id()));
         }
     }
 

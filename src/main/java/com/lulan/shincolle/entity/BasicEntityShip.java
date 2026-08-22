@@ -13,7 +13,6 @@ import com.lulan.shincolle.entity.other.BasicEntityItem;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.entity.other.EntityShipFishingHook;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
-import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlocks;
@@ -993,10 +992,9 @@ public abstract class BasicEntityShip extends TamableAnimal
                 continue;
 
             int meta = BasicEquip.getEquipMeta(stack);
-            int equipID = equipItem.getEquipID(meta);
 
             // look up stat modifiers from datapack-driven equipment data
-            EquipDefinition def = EquipDataRegistry.get(equipID);
+            EquipDefinition def = BasicEquip.getServerDefinition(stack);
             if (def == null)
                 continue;
 

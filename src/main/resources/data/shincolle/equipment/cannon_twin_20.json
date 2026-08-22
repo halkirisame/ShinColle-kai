@@ -1,5 +1,8 @@
 {
   "equip_id": 802,
+  "item": "shincolle:equip_cannon",
+  "variant": 8,
+  "equip_type": "cannon_tw_hi",
   "compatible": [
     "cannon"
   ],

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.crafting.EquipCalc;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDefinition;
@@ -11,12 +12,17 @@ import com.lulan.shincolle.utility.EnchantHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * Base class for ship equipment items.
@@ -29,6 +35,7 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
     public static final String TAG_EQUIP_META = "EquipMeta";
 
     protected static final Random itemRand = new Random();
+    private static final Set<String> REPORTED_MISSING_DEFINITIONS = ConcurrentHashMap.newKeySet();
 
     private final int numVariants;
 
@@ -62,16 +69,54 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
         return numVariants;
     }
 
-    /**
-     * Get the equipment type ID for a given variant meta
-     */
-    public abstract int getEquipTypeIDFromMeta(int meta);
+    /** Resolve a stack through the authoritative server item/variant index. */
+    public static EquipDefinition getServerDefinition(ItemStack stack) {
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        EquipDefinition definition = itemId == null ? null
+                : EquipDataRegistry.server().byItemVariant(itemId, getEquipMeta(stack));
+        if (definition == null) {
+            reportMissingDefinition(itemId, getEquipMeta(stack));
+        }
+        return definition;
+    }
 
-    /**
-     * Calculate the unique equipment ID (EquipTypeID + meta * 100)
-     */
-    public int getEquipID(int meta) {
-        return getEquipTypeIDFromMeta(meta) + meta * 100;
+    /** Resolve a stack through the display-only client item/variant index. */
+    public static EquipDefinition getClientDefinition(ItemStack stack) {
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        EquipDefinition definition = itemId == null ? null
+                : EquipDataRegistry.client().byItemVariant(itemId, getEquipMeta(stack));
+        if (definition == null) {
+            reportMissingDefinition(itemId, getEquipMeta(stack));
+        }
+        return definition;
+    }
+
+    protected EquipDefinition getServerDefinition(int variant) {
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(this);
+        EquipDefinition definition = itemId == null ? null
+                : EquipDataRegistry.server().byItemVariant(itemId, variant);
+        if (definition == null) {
+            reportMissingDefinition(itemId, variant);
+        }
+        return definition;
+    }
+
+    protected int getEquipType(ItemStack stack) {
+        EquipDefinition definition = getServerDefinition(stack);
+        return definition == null ? -1 : definition.equipType();
+    }
+
+    protected int getEquipType(int variant) {
+        EquipDefinition definition = getServerDefinition(variant);
+        return definition == null ? -1 : definition.equipType();
+    }
+
+    private static void reportMissingDefinition(ResourceLocation itemId, int variant) {
+        String key = String.valueOf(itemId) + '#' + variant;
+        if (REPORTED_MISSING_DEFINITIONS.add(key)) {
+            ShinColle.LOGGER.warn("No ship equipment definition for item {} variant {}; using safe defaults",
+                    itemId, variant);
+        }
     }
 
     /**
@@ -82,11 +127,10 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
     }
 
     /**
-     * Get the texture icon index for a given meta value.
+     * Get the texture icon index for a synchronized client definition.
      * Used by ItemProperties to select model overrides.
-     * Subclasses override to map meta ranges to icon indices.
      */
-    public int getIconFromDamage(int meta) {
+    public int getIconIndex(EquipDefinition definition) {
         return 0;
     }
 
@@ -110,7 +154,7 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
         return new int[]{0, 0, 0, 0};
     }
 
@@ -191,10 +235,7 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
             }
         }
 
-        int meta = getEquipMeta(stack);
-        int equipID = getEquipID(meta);
-
-        EquipDefinition def = EquipDataRegistry.get(equipID);
+        EquipDefinition def = getClientDefinition(stack);
 
         if (def != null) {
             // Apply enchant effect

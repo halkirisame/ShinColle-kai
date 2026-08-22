@@ -1,5 +1,7 @@
 package com.lulan.shincolle.item;
 
+import net.minecraft.world.item.ItemStack;
+
 /**
  * Ammo material item - ammunition resource with type-dependent values.
  * Original meta types:
@@ -41,7 +43,7 @@ public class Ammo extends BasicItem implements IShipResourceItem, IShipFoodItem 
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
         return switch (this.type) {
             case 1 -> new int[]{0, 0, 9, 0};
             case 2 -> new int[]{0, 0, 4, 0};

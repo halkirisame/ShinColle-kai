@@ -1,5 +1,8 @@
 {
   "equip_id": 715,
+  "item": "shincolle:equip_radar",
+  "variant": 7,
+  "equip_type": "radar_hi",
   "compatible": [
     "cannon",
     "aircraft"

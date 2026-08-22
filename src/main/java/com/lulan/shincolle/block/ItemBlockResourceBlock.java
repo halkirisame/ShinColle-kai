@@ -3,6 +3,7 @@ package com.lulan.shincolle.block;
 import com.lulan.shincolle.item.IShipResourceItem;
 
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
 /**
@@ -26,7 +27,7 @@ public class ItemBlockResourceBlock extends BlockItem implements IShipResourceIt
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
         return resourceValues;
     }
 }

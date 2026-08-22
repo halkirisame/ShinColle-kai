@@ -1,16 +1,19 @@
 package com.lulan.shincolle.crafting;
 
+import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDefinition;
-import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.utility.CalcHelper;
 import com.lulan.shincolle.utility.LogHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -126,7 +129,8 @@ public class EquipCalc {
                     " MD " + meanDist + " PR " + prob);
         }
 
-        return weightedRoll(probList, random);
+        Integer result = weightedRoll(probList, random);
+        return result == null ? -1 : result;
     }
 
     /**
@@ -141,10 +145,10 @@ public class EquipCalc {
         if (type == -1)
             return ItemStack.EMPTY;
 
-        Map<Integer, Float> equipList = new HashMap<>();
+        Map<ResourceLocation, Float> equipList = new HashMap<>();
 
         // Find all equipment of this type from the datapack-driven equipment data
-        for (EquipDefinition def : EquipDataRegistry.all()) {
+        for (EquipDefinition def : EquipDataRegistry.server().all()) {
             if (def.rollType() == type) {
                 int totalMat = totalMats;
                 // Scale small build resolution
@@ -154,14 +158,14 @@ public class EquipCalc {
 
                 int meanDist = Mth.abs(totalMat - def.rareMean());
                 float prob = CalcHelper.getNormDist(meanDist);
-                equipList.put(def.equipId(), prob);
-                LogHelper.debug("DEBUG: roll equip: ID " + def.equipId() +
+                equipList.put(def.id(), prob);
+                LogHelper.debug("DEBUG: roll equip: ID " + def.id() +
                         " MEAN " + def.rareMean() +
                         " MD " + meanDist + " PR " + prob);
             }
         }
 
-        int rollResult = weightedRoll(equipList, random);
+        ResourceLocation rollResult = weightedRoll(equipList, random);
 
         // Calculate enchant level based on total materials
         int enchLv = 0;
@@ -187,136 +191,70 @@ public class EquipCalc {
     /**
      * Weighted random roll from probability map.
      *
-     * @return the key that was rolled, or -1
+     * @return the key that was rolled, or {@code null}
      */
-    private static int weightedRoll(Map<Integer, Float> probList, RandomSource random) {
+    private static <T> T weightedRoll(Map<T, Float> probList, RandomSource random) {
         float totalProb = 0F;
         for (float p : probList.values()) {
             totalProb += p;
         }
 
         if (totalProb <= 0F)
-            return -1;
+            return null;
 
         float roll = random.nextFloat() * totalProb;
         float sumProb = 0.0125F; // small offset to prevent float comparison bug
 
-        for (Map.Entry<Integer, Float> entry : probList.entrySet()) {
+        for (Map.Entry<T, Float> entry : probList.entrySet()) {
             sumProb += entry.getValue();
             if (sumProb > roll) {
                 return entry.getKey();
             }
         }
 
-        return -1;
+        return null;
     }
 
     /**
-     * Convert equipment ID to ItemStack.
-     * EquipID = EquipType + EquipSubID * 100
+     * Convert a datapack equipment ID to an ItemStack.
      */
-    private static ItemStack getItemStackFromId(int itemID, int enchLv) {
-        if (itemID == -1)
+    private static ItemStack getItemStackFromId(ResourceLocation definitionId, int enchLv) {
+        if (definitionId == null) {
             return ItemStack.EMPTY;
-
-        int itemType = itemID % 100; // equip type
-        int itemMeta = itemID / 100; // equip sub ID (variant)
-        int enchType = 0; // enchant type: 0=weapon, 1=armor, 2=misc
-
-        ItemStack item;
-        switch (itemType) {
-            case ID.EquipType.CANNON_SI:
-            case ID.EquipType.CANNON_TW_LO:
-            case ID.EquipType.CANNON_TW_HI:
-            case ID.EquipType.CANNON_TR:
-                item = new ItemStack(ModItems.EQUIP_CANNON.get());
-
-                break;
-            case ID.EquipType.GUN_LO:
-            case ID.EquipType.GUN_HI:
-                item = new ItemStack(ModItems.EQUIP_MACHINEGUN.get());
-
-                break;
-            case ID.EquipType.TORPEDO_LO:
-            case ID.EquipType.TORPEDO_HI:
-                item = new ItemStack(ModItems.EQUIP_TORPEDO.get());
-
-                break;
-            case ID.EquipType.AIR_T_LO:
-            case ID.EquipType.AIR_T_HI:
-            case ID.EquipType.AIR_F_LO:
-            case ID.EquipType.AIR_F_HI:
-            case ID.EquipType.AIR_B_LO:
-            case ID.EquipType.AIR_B_HI:
-            case ID.EquipType.AIR_R_LO:
-            case ID.EquipType.AIR_R_HI:
-                item = new ItemStack(ModItems.EQUIP_AIRPLANE.get());
-
-                break;
-            case ID.EquipType.RADAR_LO:
-            case ID.EquipType.RADAR_HI:
-                item = new ItemStack(ModItems.EQUIP_RADAR.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.TURBINE_LO:
-            case ID.EquipType.TURBINE_HI:
-                item = new ItemStack(ModItems.EQUIP_TURBINE.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.ARMOR_LO:
-            case ID.EquipType.ARMOR_HI:
-                item = new ItemStack(ModItems.EQUIP_ARMOR.get());
-                enchType = 1;
-                break;
-            case ID.EquipType.CATAPULT_LO:
-            case ID.EquipType.CATAPULT_HI:
-                item = new ItemStack(ModItems.EQUIP_CATAPULT.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.DRUM_LO:
-                item = new ItemStack(ModItems.EQUIP_DRUM.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.COMPASS_LO:
-                item = new ItemStack(ModItems.EQUIP_COMPASS.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.FLARE_LO:
-                item = new ItemStack(ModItems.EQUIP_FLARE.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.SEARCHLIGHT_LO:
-                item = new ItemStack(ModItems.EQUIP_SEARCHLIGHT.get());
-                enchType = 2;
-                break;
-            case ID.EquipType.AMMO_LO:
-            case ID.EquipType.AMMO_HI:
-                item = new ItemStack(ModItems.EQUIP_AMMO.get());
-
-                break;
-            default:
-                return ItemStack.EMPTY;
         }
-
-        // Set the equipment variant/meta from the sub ID
-        if (!item.isEmpty() && item.getItem() instanceof BasicEquip) {
-            BasicEquip.setEquipMeta(item, itemMeta);
+        EquipDefinition definition = EquipDataRegistry.server().get(definitionId);
+        if (definition == null) {
+            ShinColle.LOGGER.warn("No ship equipment definition for {}; returning an empty stack", definitionId);
+            return ItemStack.EMPTY;
         }
+        return createItemStack(definition, enchLv);
+    }
 
-        // JSON is authoritative for enchant category. Keep the switch values
-        // above only as a fallback for definitions supplied by an older addon.
-        EquipDefinition definition = EquipDataRegistry.get(itemID);
-        if (definition != null) {
-            enchType = definition.enchantType() - 1;
+    /** Create an equipment stack from one loaded or test definition. */
+    public static ItemStack createItemStack(EquipDefinition definition, int enchLv) {
+        if (!ForgeRegistries.ITEMS.containsKey(definition.item())) {
+            ShinColle.LOGGER.warn("Ship equipment {} references unregistered item {}; returning an empty stack",
+                    definition.id(), definition.item());
+            return ItemStack.EMPTY;
         }
+        Item registeredItem = ForgeRegistries.ITEMS.getValue(definition.item());
+        if (registeredItem == null) {
+            ShinColle.LOGGER.warn("Ship equipment {} could not resolve registered item {}; returning an empty stack",
+                    definition.id(), definition.item());
+            return ItemStack.EMPTY;
+        }
+        ItemStack item = new ItemStack(registeredItem);
+        BasicEquip.setEquipMeta(item, definition.variant());
+        int enchType = definition.enchantType() - 1;
 
         // Apply random enchantments based on enchant level
         if (enchLv > 0) {
             applyRandomEnchantToEquip(item, enchType, enchLv);
         }
 
-        LogHelper.debug("DEBUG: equip calc: get itemstack: type=" + itemType + " meta=" + itemMeta + " enchLv=" + enchLv
-                + " item=" + item);
+        LogHelper.debug("DEBUG: equip calc: get itemstack: definition=" + definition.id()
+                + " item=" + definition.item() + " variant=" + definition.variant()
+                + " enchLv=" + enchLv + " stack=" + item);
         return item;
     }
 

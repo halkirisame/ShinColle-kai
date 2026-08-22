@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
 import com.lulan.shincolle.reference.ID;
@@ -26,13 +27,8 @@ public class EquipDrum extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        return ID.EquipType.DRUM_LO;
-    }
-
-    @Override
-    public int getIconFromDamage(int meta) {
-        return Math.min(meta, 2); // 0=item, 1=liquid, 2=EU
+    public int getIconIndex(EquipDefinition definition) {
+        return definition == null ? 0 : Math.min(definition.variant(), 2); // 0=item, 1=liquid, 2=EU
     }
 
     @Override
@@ -50,8 +46,8 @@ public class EquipDrum extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
-        if (this.getEquipTypeIDFromMeta(meta) == ID.EquipType.DRUM_LO) { // 120
+    public int[] getResourceValue(ItemStack stack) {
+        if (this.getEquipType(stack) == ID.EquipType.DRUM_LO) { // 120
             return new int[]{
                     itemRand.nextInt(4) + 5,
                     itemRand.nextInt(5) + 9,

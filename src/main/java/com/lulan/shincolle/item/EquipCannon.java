@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.item.ItemStack;
@@ -31,36 +32,8 @@ public class EquipCannon extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        switch (meta) {
-            case 0:
-            case 1:
-            case 12:
-                return ID.EquipType.CANNON_SI;
-            case 2:
-            case 3:
-            case 4:
-            case 5:
-            case 13:
-                return ID.EquipType.CANNON_TW_LO;
-            case 6:
-            case 7:
-            case 8:
-                return ID.EquipType.CANNON_TW_HI;
-            case 9:
-            case 10:
-            case 11:
-            case 14:
-            case 15:
-                return ID.EquipType.CANNON_TR;
-            default:
-                return 0;
-        }
-    }
-
-    @Override
-    public int getIconFromDamage(int meta) {
-        switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int getIconIndex(EquipDefinition definition) {
+        switch (definition == null ? -1 : definition.equipType()) {
             case ID.EquipType.CANNON_SI:
                 return 0; // single cannon
             case ID.EquipType.CANNON_TW_LO:
@@ -75,7 +48,7 @@ public class EquipCannon extends BasicEquip {
 
     @Override
     public int getItemEnchantability(ItemStack stack) {
-        switch (this.getEquipTypeIDFromMeta(getEquipMeta(stack))) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.CANNON_TW_LO:
                 return 12;
             case ID.EquipType.CANNON_TW_HI:
@@ -88,8 +61,8 @@ public class EquipCannon extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
-        switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int[] getResourceValue(ItemStack stack) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.CANNON_SI: // 128
                 return new int[]{
                         itemRand.nextInt(4) + 5,

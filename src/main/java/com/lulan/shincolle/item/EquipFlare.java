@@ -25,13 +25,8 @@ public class EquipFlare extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        return ID.EquipType.FLARE_LO;
-    }
-
-    @Override
-    public int[] getResourceValue(int meta) {
-        if (this.getEquipTypeIDFromMeta(meta) == ID.EquipType.FLARE_LO) { // 80
+    public int[] getResourceValue(ItemStack stack) {
+        if (this.getEquipType(stack) == ID.EquipType.FLARE_LO) { // 80
             return new int[]{
                     itemRand.nextInt(2) + 2,
                     itemRand.nextInt(3) + 3,

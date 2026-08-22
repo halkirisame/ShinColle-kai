@@ -1,5 +1,7 @@
 package com.lulan.shincolle.item;
 
+import net.minecraft.world.item.ItemStack;
+
 /**
  * Polymetallic Nodule material item.
  * In 1.10.2, this was AbyssMetal with meta=1.
@@ -27,7 +29,7 @@ public class PolymetalNodule extends BasicItem implements IShipResourceItem, ISh
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
         return new int[]{0, 0, 0, 1};
     }
 }

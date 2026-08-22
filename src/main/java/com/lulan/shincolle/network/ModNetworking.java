@@ -29,7 +29,7 @@ public class ModNetworking {
 
     // Shipyard stock sync adds a new packet type in this build. Reject mixed
     // client/server jars rather than letting one side receive an unknown id.
-    private static final String PROTOCOL_VERSION = "3";
+    private static final String PROTOCOL_VERSION = "4";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),
@@ -98,6 +98,12 @@ public class ModNetworking {
                 .encoder(S2CShipyardStockPacket::encode)
                 .decoder(S2CShipyardStockPacket::new)
                 .consumerMainThread(S2CShipyardStockPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CEquipDataSyncPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CEquipDataSyncPacket::encode)
+                .decoder(S2CEquipDataSyncPacket::new)
+                .consumerMainThread(S2CEquipDataSyncPacket::handle)
                 .add();
 
         LogHelper.info("ShinColle: Network packets registered (" + packetId + " packets).");

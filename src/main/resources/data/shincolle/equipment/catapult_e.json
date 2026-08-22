@@ -1,5 +1,8 @@
 {
   "equip_id": 323,
+  "item": "shincolle:equip_catapult",
+  "variant": 3,
+  "equip_type": "catapult_hi",
   "compatible": [
     "aircraft"
   ],

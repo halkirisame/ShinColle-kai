@@ -1,5 +1,7 @@
 package com.lulan.shincolle.item;
 
+import net.minecraft.world.item.ItemStack;
+
 /**
  * Grudge material item - primary resource for ship entities.
  */
@@ -25,7 +27,7 @@ public class Grudge extends BasicItem implements IShipResourceItem, IShipFoodIte
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
         return new int[]{1, 0, 0, 0};
     }
 }

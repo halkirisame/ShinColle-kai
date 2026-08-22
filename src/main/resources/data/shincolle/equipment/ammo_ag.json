@@ -1,5 +1,8 @@
 {
   "equip_id": 629,
+  "item": "shincolle:equip_ammo",
+  "variant": 6,
+  "equip_type": "ammo_hi",
   "compatible": [
     "cannon",
     "aircraft"

@@ -310,7 +310,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
                     setChanged();
                 }
             } else if (stack.getItem() instanceof IShipResourceItem resource) {
-                if (addResourceItem(resource, stack.getDamageValue())) {
+                if (addResourceItem(resource, stack)) {
                     stack.shrink(1);
                     setChanged();
                 }
@@ -320,8 +320,8 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         }
     }
 
-    private boolean addResourceItem(IShipResourceItem resource, int damageValue) {
-        int[] addMats = resource.getResourceValue(damageValue);
+    private boolean addResourceItem(IShipResourceItem resource, ItemStack stack) {
+        int[] addMats = resource.getResourceValue(stack);
         if (ConfigHandler.easyMode()) {
             for (int i = 0; i < addMats.length; i++) {
                 addMats[i] *= 10;
@@ -591,7 +591,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
             if (recycled.isEmpty() || !(recycled.getItem() instanceof IShipResourceItem resource)) {
                 return false;
             }
-            int[] resourceValue = resource.getResourceValue(recycled.getDamageValue());
+            int[] resourceValue = resource.getResourceValue(recycled);
             for (int i = 0; i < totalMats.length; i++) {
                 totalMats[i] += resourceValue[i] * recycled.getCount();
             }

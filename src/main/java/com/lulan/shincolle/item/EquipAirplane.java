@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.item.ItemStack;
@@ -38,23 +39,8 @@ public class EquipAirplane extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        return switch (meta) {
-            case 0, 1, 2 -> ID.EquipType.AIR_T_LO;
-            case 3, 15 -> ID.EquipType.AIR_T_HI;
-            case 4, 5, 6 -> ID.EquipType.AIR_F_LO;
-            case 7, 8, 16, 18, 21 -> ID.EquipType.AIR_F_HI;
-            case 9, 10 -> ID.EquipType.AIR_B_LO;
-            case 11, 12, 17, 19, 20 -> ID.EquipType.AIR_B_HI;
-            case 13 -> ID.EquipType.AIR_R_LO;
-            case 14, 22 -> ID.EquipType.AIR_R_HI;
-            default -> 0;
-        };
-    }
-
-    @Override
-    public int getIconFromDamage(int meta) {
-        return switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int getIconIndex(EquipDefinition definition) {
+        return switch (definition == null ? -1 : definition.equipType()) {
             case ID.EquipType.AIR_T_LO, ID.EquipType.AIR_T_HI -> 0; // torpedo bomber
             case ID.EquipType.AIR_F_LO, ID.EquipType.AIR_F_HI -> 1; // fighter
             case ID.EquipType.AIR_B_LO, ID.EquipType.AIR_B_HI -> 2; // bomber
@@ -65,7 +51,7 @@ public class EquipAirplane extends BasicEquip {
 
     @Override
     public int getItemEnchantability(ItemStack stack) {
-        return switch (this.getEquipTypeIDFromMeta(getEquipMeta(stack))) {
+        return switch (this.getEquipType(stack)) {
             case ID.EquipType.AIR_T_LO, ID.EquipType.AIR_F_LO, ID.EquipType.AIR_B_LO, ID.EquipType.AIR_R_LO -> 18;
             case ID.EquipType.AIR_T_HI, ID.EquipType.AIR_F_HI, ID.EquipType.AIR_B_HI, ID.EquipType.AIR_R_HI -> 25;
             default -> 9;
@@ -73,8 +59,8 @@ public class EquipAirplane extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
-        return switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int[] getResourceValue(ItemStack stack) {
+        return switch (this.getEquipType(stack)) {
             case ID.EquipType.AIR_T_LO, ID.EquipType.AIR_F_LO, ID.EquipType.AIR_B_LO -> // 2400
                     new int[]{
                             itemRand.nextInt(20) + 80,

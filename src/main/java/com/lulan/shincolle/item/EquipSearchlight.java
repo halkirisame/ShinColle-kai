@@ -25,13 +25,8 @@ public class EquipSearchlight extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        return ID.EquipType.SEARCHLIGHT_LO;
-    }
-
-    @Override
-    public int[] getResourceValue(int meta) {
-        if (this.getEquipTypeIDFromMeta(meta) == ID.EquipType.SEARCHLIGHT_LO) { // 80
+    public int[] getResourceValue(ItemStack stack) {
+        if (this.getEquipType(stack) == ID.EquipType.SEARCHLIGHT_LO) { // 80
             return new int[]{
                     itemRand.nextInt(4) + 4,
                     itemRand.nextInt(3) + 3,

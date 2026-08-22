@@ -387,7 +387,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                 }
             } else if (stack.getItem() instanceof IShipResourceItem resource) {
                 if (invMode == 0) {
-                    int[] addMats = resource.getResourceValue(stack.getDamageValue());
+                    int[] addMats = resource.getResourceValue(stack);
                     if (ConfigHandler.easyMode()) {
                         for (int k = 0; k < 4; k++) addMats[k] *= 10;
                     }
@@ -601,7 +601,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
             if (recycled.isEmpty() || !(recycled.getItem() instanceof IShipResourceItem resource)) {
                 return false;
             }
-            int[] resourceValue = resource.getResourceValue(recycled.getDamageValue());
+            int[] resourceValue = resource.getResourceValue(recycled);
             for (int k = 0; k < 4; k++) {
                 totalMats[k] += resourceValue[k] * recycled.getCount();
             }

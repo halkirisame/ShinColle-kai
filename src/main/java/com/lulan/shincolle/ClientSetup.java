@@ -8,6 +8,8 @@ import com.lulan.shincolle.client.render.*;
 import com.lulan.shincolle.client.render.block.RenderDesk;
 import com.lulan.shincolle.client.render.block.RenderLargeShipyard;
 import com.lulan.shincolle.client.render.block.RenderSmallShipyard;
+import com.lulan.shincolle.equipdata.ClientEquipData;
+import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.init.*;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.item.PointerItem;
@@ -25,7 +27,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -471,6 +475,7 @@ public class ClientSetup {
 
     @SubscribeEvent
     public static void clientSetup(FMLClientSetupEvent event) {
+        MinecraftForge.EVENT_BUS.addListener(ClientSetup::onClientLogout);
         event.enqueueWork(() -> {
             MenuScreens.register(ModMenuTypes.SHIP_INVENTORY.get(), GuiShipInventory::new);
             MenuScreens.register(ModMenuTypes.SMALL_SHIPYARD.get(), GuiSmallShipyard::new);
@@ -496,16 +501,21 @@ public class ClientSetup {
         });
     }
 
+    private static void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        ClientEquipData.clear();
+    }
+
     /**
      * Register the "equip_icon" item property for equipment items that have
-     * variant textures. Maps EquipMeta NBT → icon index via getIconFromDamage().
+     * variant textures. Resolves EquipMeta through the synchronized client snapshot.
      */
     private static void registerEquipIconProperty(Item item) {
         ItemProperties.register(item,
                 new ResourceLocation(Reference.MOD_ID, "equip_icon"),
                 (stack, level, entity, seed) -> {
                     if (stack.getItem() instanceof BasicEquip equip) {
-                        return (float) equip.getIconFromDamage(BasicEquip.getEquipMeta(stack));
+                        EquipDefinition definition = BasicEquip.getClientDefinition(stack);
+                        return (float) equip.getIconIndex(definition);
                     }
                     return 0.0F;
                 });

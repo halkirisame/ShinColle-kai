@@ -1,5 +1,7 @@
 package com.lulan.shincolle.equipdata;
 
+import net.minecraft.resources.ResourceLocation;
+
 import java.util.List;
 
 /**
@@ -8,10 +10,13 @@ import java.util.List;
  * Values.EquipAttrsMain}/{@code EquipAttrsMisc} static maps - one JSON file
  * per equipment instead of one line in a 92-entry hardcoded table.
  *
- * @param equipId          {@code EquipType + EquipSubID * 100}, matching {@link
- *                         com.lulan.shincolle.item.BasicEquip#getEquipID}. Kept as
- *                         an int (not migrated to ResourceLocation) so this is a
- *                         data-format change only, not an ID-scheme change.
+ * @param id               definition ID derived from the datapack file path
+ * @param item             registered item used to create the equipment stack
+ * @param variant          value stored in the stack's {@code EquipMeta} tag
+ * @param equipType        numeric {@link com.lulan.shincolle.reference.ID.EquipType}
+ *                         value parsed from the JSON {@code equip_type}
+ * @param legacyEquipId    old {@code EquipType + EquipSubID * 100} identifier,
+ *                         or {@code null} for definitions that do not expose one
  * @param stats            length {@link com.lulan.shincolle.reference.unitclass.Attrs#AttrsLength},
  *                         indexed by {@link com.lulan.shincolle.reference.ID.Attrs}.
  * @param compatible       ship types this equipment can be worn on -
@@ -32,7 +37,11 @@ import java.util.List;
  *                         100} but kept explicit since nothing guarantees that.
  */
 public record EquipDefinition(
-        int equipId,
+        ResourceLocation id,
+        ResourceLocation item,
+        int variant,
+        int equipType,
+        Integer legacyEquipId,
         float[] stats,
         List<String> compatible,
         int enchantType,

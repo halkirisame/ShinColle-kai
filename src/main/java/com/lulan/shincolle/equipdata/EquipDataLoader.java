@@ -19,7 +19,7 @@ import java.util.Map;
 
 /**
  * Loads {@code data/<domain>/equipment/*.json} into {@link EquipDefinition}s,
- * keyed by their {@code equip_id}. Any datapack can add, override, or (with
+ * keyed by their file-path {@link ResourceLocation}. Any datapack can add, override, or (with
  * {@code "replace"}-style datapack layering) shadow entries here - the point
  * of moving off the old hardcoded {@code Values.EquipAttrsMain}/{@code
  * EquipAttrsMisc} maps.
@@ -34,6 +34,37 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
 
     /** Maps a JSON stats-object key to its {@link ID.Attrs} index. */
     private static final Map<String, Integer> STAT_KEYS = new HashMap<>();
+    private static final Map<String, Integer> EQUIP_TYPES = Map.ofEntries(
+            Map.entry("cannon_si", (int) ID.EquipType.CANNON_SI),
+            Map.entry("cannon_tw_lo", (int) ID.EquipType.CANNON_TW_LO),
+            Map.entry("cannon_tw_hi", (int) ID.EquipType.CANNON_TW_HI),
+            Map.entry("cannon_tr", (int) ID.EquipType.CANNON_TR),
+            Map.entry("torpedo_lo", (int) ID.EquipType.TORPEDO_LO),
+            Map.entry("torpedo_hi", (int) ID.EquipType.TORPEDO_HI),
+            Map.entry("air_t_lo", (int) ID.EquipType.AIR_T_LO),
+            Map.entry("air_t_hi", (int) ID.EquipType.AIR_T_HI),
+            Map.entry("air_f_lo", (int) ID.EquipType.AIR_F_LO),
+            Map.entry("air_f_hi", (int) ID.EquipType.AIR_F_HI),
+            Map.entry("air_b_lo", (int) ID.EquipType.AIR_B_LO),
+            Map.entry("air_b_hi", (int) ID.EquipType.AIR_B_HI),
+            Map.entry("air_r_lo", (int) ID.EquipType.AIR_R_LO),
+            Map.entry("air_r_hi", (int) ID.EquipType.AIR_R_HI),
+            Map.entry("radar_lo", (int) ID.EquipType.RADAR_LO),
+            Map.entry("radar_hi", (int) ID.EquipType.RADAR_HI),
+            Map.entry("turbine_lo", (int) ID.EquipType.TURBINE_LO),
+            Map.entry("turbine_hi", (int) ID.EquipType.TURBINE_HI),
+            Map.entry("armor_lo", (int) ID.EquipType.ARMOR_LO),
+            Map.entry("armor_hi", (int) ID.EquipType.ARMOR_HI),
+            Map.entry("gun_lo", (int) ID.EquipType.GUN_LO),
+            Map.entry("gun_hi", (int) ID.EquipType.GUN_HI),
+            Map.entry("catapult_lo", (int) ID.EquipType.CATAPULT_LO),
+            Map.entry("catapult_hi", (int) ID.EquipType.CATAPULT_HI),
+            Map.entry("drum_lo", (int) ID.EquipType.DRUM_LO),
+            Map.entry("compass_lo", (int) ID.EquipType.COMPASS_LO),
+            Map.entry("flare_lo", (int) ID.EquipType.FLARE_LO),
+            Map.entry("searchlight_lo", (int) ID.EquipType.SEARCHLIGHT_LO),
+            Map.entry("ammo_lo", (int) ID.EquipType.AMMO_LO),
+            Map.entry("ammo_hi", (int) ID.EquipType.AMMO_HI));
 
     static {
         STAT_KEYS.put("hp", (int) ID.Attrs.HP);
@@ -59,38 +90,65 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
         STAT_KEYS.put("kb", (int) ID.Attrs.KB);
     }
 
-    private static volatile Map<Integer, EquipDefinition> registry = Map.of();
+    private static volatile EquipDataSnapshot serverSnapshot = EquipDataSnapshot.EMPTY;
 
     public EquipDataLoader() {
         super(GSON, DIRECTORY);
     }
 
-    static Map<Integer, EquipDefinition> currentRegistry() {
-        return registry;
+    static EquipDataSnapshot currentServerSnapshot() {
+        return serverSnapshot;
     }
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> object, ResourceManager resourceManager,
                           ProfilerFiller profiler) {
-        Map<Integer, EquipDefinition> result = new HashMap<>();
+        Map<ResourceLocation, EquipDefinition> definitions = new HashMap<>();
+        Map<ResourceLocation, Map<Integer, EquipDefinition>> itemVariants = new HashMap<>();
+        Map<Integer, EquipDefinition> legacyDefinitions = new HashMap<>();
         for (Map.Entry<ResourceLocation, JsonElement> entry : object.entrySet()) {
             try {
-                EquipDefinition def = parse(entry.getValue().getAsJsonObject());
-                EquipDefinition previous = result.put(def.equipId(), def);
-                if (previous != null) {
-                    ShinColle.LOGGER.warn("Ship equipment {}: equip_id {} collides with another file, "
-                            + "last one loaded wins", entry.getKey(), def.equipId());
+                EquipDefinition def = parse(entry.getKey(), entry.getValue().getAsJsonObject());
+                definitions.put(def.id(), def);
+
+                Map<Integer, EquipDefinition> variants = itemVariants.computeIfAbsent(
+                        def.item(), unused -> new HashMap<>());
+                EquipDefinition previousVariant = variants.put(def.variant(), def);
+                if (previousVariant != null) {
+                    ShinColle.LOGGER.warn("Ship equipment item/variant collision: {} and {} both use item {} "
+                                    + "variant {}; last one loaded wins", previousVariant.id(), def.id(),
+                            def.item(), def.variant());
+                }
+
+                if (def.legacyEquipId() != null) {
+                    EquipDefinition previousLegacy = legacyDefinitions.put(def.legacyEquipId(), def);
+                    if (previousLegacy != null) {
+                        ShinColle.LOGGER.warn("Ship equipment legacy ID collision: {} and {} both use equip_id {}; "
+                                        + "last one loaded wins", previousLegacy.id(), def.id(),
+                                def.legacyEquipId());
+                    }
                 }
             } catch (RuntimeException e) {
                 ShinColle.LOGGER.error("Failed to parse ship equipment {}: {}", entry.getKey(), e.toString());
             }
         }
-        registry = Map.copyOf(result);
-        ShinColle.LOGGER.info("Loaded {} ship equipment definitions", registry.size());
+
+        serverSnapshot = new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
+        ShinColle.LOGGER.info("Loaded {} ship equipment definitions", serverSnapshot.byId().size());
     }
 
-    private static EquipDefinition parse(JsonObject json) {
-        int equipId = json.get("equip_id").getAsInt();
+    private static EquipDefinition parse(ResourceLocation id, JsonObject json) {
+        ResourceLocation item = ResourceLocation.tryParse(json.get("item").getAsString());
+        if (item == null) {
+            throw new IllegalArgumentException("invalid item ResourceLocation");
+        }
+        int variant = json.get("variant").getAsInt();
+        String equipTypeName = json.get("equip_type").getAsString();
+        Integer equipType = EQUIP_TYPES.get(equipTypeName);
+        if (equipType == null) {
+            throw new IllegalArgumentException("unknown equip_type '" + equipTypeName + "'");
+        }
+        Integer legacyEquipId = json.has("equip_id") ? json.get("equip_id").getAsInt() : null;
 
         float[] stats = new float[Attrs.AttrsLength];
         if (json.has("stats")) {
@@ -116,9 +174,10 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
         int amount = develop.has("amount") ? develop.get("amount").getAsInt() : 0;
         int rareMean = develop.has("rare_mean") ? develop.get("rare_mean").getAsInt() : 0;
 
-        int rollType = json.has("roll_type") ? json.get("roll_type").getAsInt() : equipId % 100;
+        int rollType = json.has("roll_type") ? json.get("roll_type").getAsInt() : equipType;
 
-        return new EquipDefinition(equipId, stats, compatible, enchantType, material, amount, rareMean, rollType);
+        return new EquipDefinition(id, item, variant, equipType, legacyEquipId, stats, compatible,
+                enchantType, material, amount, rareMean, rollType);
     }
 
     private static int enchantTypeFromString(String value) {

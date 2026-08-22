@@ -1,23 +1,20 @@
 package com.lulan.shincolle.equipdata;
 
-import java.util.Collection;
-
 /**
- * Read-only lookup for {@link EquipDefinition}s loaded by {@link EquipDataLoader}.
- * The direct replacement for {@code Values.EquipAttrsMain.get(id)} / {@code
- * EquipAttrsMisc.get(id)}.
+ * Explicit access to the authoritative server snapshot and the separately synchronized client snapshot.
  */
 public final class EquipDataRegistry {
 
     private EquipDataRegistry() {
     }
 
-    /** The definition for this equip ID, or {@code null} if none is loaded. */
-    public static EquipDefinition get(int equipId) {
-        return EquipDataLoader.currentRegistry().get(equipId);
+    /** Game-logic authority loaded from server datapacks. */
+    public static EquipDataSnapshot server() {
+        return EquipDataLoader.currentServerSnapshot();
     }
 
-    public static Collection<EquipDefinition> all() {
-        return EquipDataLoader.currentRegistry().values();
+    /** Display-only copy. It remains empty until the S2C synchronization layer installs a snapshot. */
+    public static EquipDataSnapshot client() {
+        return ClientEquipData.current();
     }
 }

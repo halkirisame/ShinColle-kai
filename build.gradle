@@ -47,7 +47,24 @@ minecraft {
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
+        // Second client for multiplayer testing. Needs its own username and
+        // working directory: an offline-mode server kicks the first session
+        // when a second one logs in under the same name ("You logged in from
+        // another location"), and two clients sharing run/ fight over
+        // options.txt and saves/.
+        client2 {
+            parent runs.client
+            workingDirectory project.file('run-client2')
+            args '--username', 'Dev2'
+        }
+
         server {
+            // Keep the dedicated server out of run/, so it can be started
+            // alongside runClient without the two fighting over saves/,
+            // options.txt and usercache.json. Needed to reproduce the
+            // dedicated-server case, where client and server are separate JVMs
+            // and do not share statics.
+            workingDirectory project.file('run-server')
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
         }

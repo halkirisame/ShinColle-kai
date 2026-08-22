@@ -1,5 +1,7 @@
 package com.lulan.shincolle.item;
 
+import net.minecraft.world.item.ItemStack;
+
 /**
  * Abyss Metal material item - abyssium and polymetal resource.
  * Meta 0 = Abyssium, Meta 1 = Polymetal
@@ -29,7 +31,11 @@ public class AbyssMetal extends BasicItem implements IShipResourceItem, IShipFoo
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
+        int meta = stack.getDamageValue();
+        // [PORT] 1.10.2 -> 1.20.1: 旧 meta==1 は polymetal 変種だったが、
+        // 1.20.1 では abyss_metal_1 の Item が存在せず到達しない。
+        // variant を Item 分割へ移す際に復活させるかは未決。
         if (meta == 1) {
             return new int[]{0, 0, 0, 1};
         }

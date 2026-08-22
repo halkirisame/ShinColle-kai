@@ -19,22 +19,8 @@ public class EquipCatapult extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        switch (meta) {
-            case 0:
-            case 1:
-                return ID.EquipType.CATAPULT_LO;
-            case 2:
-            case 3:
-                return ID.EquipType.CATAPULT_HI;
-            default:
-                return 0;
-        }
-    }
-
-    @Override
     public int getItemEnchantability(ItemStack stack) {
-        switch (this.getEquipTypeIDFromMeta(getEquipMeta(stack))) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.CATAPULT_LO:
                 return 18;
             case ID.EquipType.CATAPULT_HI:
@@ -45,8 +31,8 @@ public class EquipCatapult extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
-        switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int[] getResourceValue(ItemStack stack) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.CATAPULT_LO: // 2800
                 return new int[]{
                         itemRand.nextInt(40) + 120,

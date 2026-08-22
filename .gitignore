@@ -42,6 +42,8 @@ tmpclaude-*
 tools
 *.py
 run
+run-server
+run-client2
 *.ps1
 *.backup
 

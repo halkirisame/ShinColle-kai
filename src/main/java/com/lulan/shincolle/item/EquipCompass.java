@@ -25,13 +25,8 @@ public class EquipCompass extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        return ID.EquipType.COMPASS_LO;
-    }
-
-    @Override
-    public int[] getResourceValue(int meta) {
-        if (this.getEquipTypeIDFromMeta(meta) == ID.EquipType.COMPASS_LO) { // 90
+    public int[] getResourceValue(ItemStack stack) {
+        if (this.getEquipType(stack) == ID.EquipType.COMPASS_LO) { // 90
             return new int[]{
                     itemRand.nextInt(5) + 5,
                     itemRand.nextInt(3) + 4,

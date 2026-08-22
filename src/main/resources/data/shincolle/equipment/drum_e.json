@@ -1,5 +1,8 @@
 {
   "equip_id": 224,
+  "item": "shincolle:equip_drum",
+  "variant": 2,
+  "equip_type": "drum_lo",
   "compatible": [
     "cannon",
     "aircraft"

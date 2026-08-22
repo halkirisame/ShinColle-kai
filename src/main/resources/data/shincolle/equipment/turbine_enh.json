@@ -1,5 +1,8 @@
 {
   "equip_id": 217,
+  "item": "shincolle:equip_turbine",
+  "variant": 2,
+  "equip_type": "turbine_hi",
   "compatible": [
     "cannon",
     "aircraft"

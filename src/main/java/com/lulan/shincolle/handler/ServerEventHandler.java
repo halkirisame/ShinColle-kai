@@ -9,7 +9,9 @@ import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.item.MarriageRing;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
+import com.lulan.shincolle.network.S2CEquipDataSyncPacket;
 import com.lulan.shincolle.network.S2CGUISyncPacket;
+import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.EntityHelper;
@@ -23,6 +25,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.level.LevelEvent;
@@ -138,6 +141,17 @@ public class ServerEventHandler {
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         updatePlayerCacheOnServer(event.getEntity());
+    }
+
+    /** Send the authoritative equipment snapshot on login and after every datapack reload. */
+    @SubscribeEvent
+    public static void onDatapackSync(OnDatapackSyncEvent event) {
+        S2CEquipDataSyncPacket packet = new S2CEquipDataSyncPacket(EquipDataRegistry.server());
+        for (ServerPlayer player : event.getPlayers()) {
+            ModNetworking.sendToPlayer(packet, player);
+        }
+        LogHelper.info("Synchronized " + EquipDataRegistry.server().byId().size()
+                + " ship equipment definitions to " + event.getPlayers().size() + " player(s)");
     }
 
     /**

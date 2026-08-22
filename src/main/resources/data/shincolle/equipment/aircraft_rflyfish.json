@@ -1,5 +1,8 @@
 {
   "equip_id": 1413,
+  "item": "shincolle:equip_airplane",
+  "variant": 14,
+  "equip_type": "air_r_hi",
   "compatible": [
     "cannon",
     "aircraft"

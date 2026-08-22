@@ -24,27 +24,8 @@ public class EquipRadar extends BasicEquip {
     }
 
     @Override
-    public int getEquipTypeIDFromMeta(int meta) {
-        switch (meta) {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
-            case 4:
-                return ID.EquipType.RADAR_LO;
-            case 5:
-            case 6:
-            case 7:
-            case 8:
-                return ID.EquipType.RADAR_HI;
-            default:
-                return 0;
-        }
-    }
-
-    @Override
     public int getItemEnchantability(ItemStack stack) {
-        switch (this.getEquipTypeIDFromMeta(getEquipMeta(stack))) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.RADAR_LO:
                 return 12;
             case ID.EquipType.RADAR_HI:
@@ -55,8 +36,8 @@ public class EquipRadar extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
-        switch (this.getEquipTypeIDFromMeta(meta)) {
+    public int[] getResourceValue(ItemStack stack) {
+        switch (this.getEquipType(stack)) {
             case ID.EquipType.RADAR_LO: // 200
                 return new int[]{
                         itemRand.nextInt(7) + 12,

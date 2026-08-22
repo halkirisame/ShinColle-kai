@@ -44,7 +44,7 @@ public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem
     }
 
     @Override
-    public int[] getResourceValue(int meta) {
+    public int[] getResourceValue(ItemStack stack) {
         // GrudgeHeavy provides 81 grudge (9x9 grudge items)
         return new int[]{81, 0, 0, 0};
     }

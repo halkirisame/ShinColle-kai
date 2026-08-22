@@ -1,5 +1,8 @@
 {
   "equip_id": 1609,
+  "item": "shincolle:equip_airplane",
+  "variant": 16,
+  "equip_type": "air_f_hi",
   "compatible": [
     "aircraft"
   ],
