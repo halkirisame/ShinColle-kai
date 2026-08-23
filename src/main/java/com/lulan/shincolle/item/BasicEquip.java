@@ -7,6 +7,7 @@ import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.EnchantHelper;
 import net.minecraft.ChatFormatting;
@@ -154,8 +155,8 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
-        return new int[]{0, 0, 0, 0};
+    public ResourceAmount getResourceAmount(ItemStack stack) {
+        return ResourceAmount.ZERO;
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -27,7 +28,7 @@ public class Grudge extends BasicItem implements IShipResourceItem, IShipFoodIte
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
-        return new int[]{1, 0, 0, 0};
+    public ResourceAmount getResourceAmount(ItemStack stack) {
+        return new ResourceAmount(1, 0, 0, 0);
     }
 }

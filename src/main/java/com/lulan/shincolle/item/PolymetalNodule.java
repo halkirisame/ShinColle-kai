@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -29,7 +30,7 @@ public class PolymetalNodule extends BasicItem implements IShipResourceItem, ISh
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
-        return new int[]{0, 0, 0, 1};
+    public ResourceAmount getResourceAmount(ItemStack stack) {
+        return new ResourceAmount(0, 0, 0, 1);
     }
 }

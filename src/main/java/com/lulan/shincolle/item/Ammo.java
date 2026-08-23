@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -43,12 +44,12 @@ public class Ammo extends BasicItem implements IShipResourceItem, IShipFoodItem 
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         return switch (this.type) {
-            case 1 -> new int[]{0, 0, 9, 0};
-            case 2 -> new int[]{0, 0, 4, 0};
-            case 3 -> new int[]{0, 0, 36, 0};
-            default -> new int[]{0, 0, 1, 0};
+            case 1 -> new ResourceAmount(0, 0, 9, 0);
+            case 2 -> new ResourceAmount(0, 0, 4, 0);
+            case 3 -> new ResourceAmount(0, 0, 36, 0);
+            default -> new ResourceAmount(0, 0, 1, 0);
         };
     }
 }

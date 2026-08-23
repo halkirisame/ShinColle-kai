@@ -1,6 +1,7 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -43,24 +44,24 @@ public class EquipAmmo extends BasicEquip implements IShipEffectItem {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         switch (this.getEquipType(stack)) {
             case ID.EquipType.AMMO_LO: // 120
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(3) + 4,
                         itemRand.nextInt(4) + 7,
                         itemRand.nextInt(5) + 9,
                         itemRand.nextInt(2) + 4
-                };
+                );
             case ID.EquipType.AMMO_HI: // 1000
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(25) + 35,
                         itemRand.nextInt(30) + 45,
                         itemRand.nextInt(40) + 70,
                         itemRand.nextInt(20) + 40
-                };
+                );
             default:
-                return new int[]{0, 0, 0, 0};
+                return ResourceAmount.ZERO;
         }
     }
 

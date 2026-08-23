@@ -1,6 +1,7 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 
 import net.minecraft.world.item.ItemStack;
 
@@ -33,24 +34,24 @@ public class EquipTurbine extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         switch (this.getEquipType(stack)) {
             case ID.EquipType.TURBINE_LO: // 1400
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(35) + 90,
                         itemRand.nextInt(25) + 80,
                         itemRand.nextInt(15) + 45,
                         itemRand.nextInt(20) + 60
-                };
+                );
             case ID.EquipType.TURBINE_HI: // 3200
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(70) + 200,
                         itemRand.nextInt(55) + 170,
                         itemRand.nextInt(25) + 90,
                         itemRand.nextInt(40) + 130
-                };
+                );
             default:
-                return new int[]{0, 0, 0, 0};
+                return ResourceAmount.ZERO;
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -40,24 +41,24 @@ public class EquipTorpedo extends BasicEquip implements IShipEffectItem {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         switch (this.getEquipType(stack)) {
             case ID.EquipType.TORPEDO_LO: // 160
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(4) + 8,
                         itemRand.nextInt(5) + 8,
                         itemRand.nextInt(6) + 12,
                         itemRand.nextInt(4) + 5
-                };
+                );
             case ID.EquipType.TORPEDO_HI: // 1200
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(20) + 60,
                         itemRand.nextInt(25) + 70,
                         itemRand.nextInt(30) + 80,
                         itemRand.nextInt(15) + 45
-                };
+                );
             default:
-                return new int[]{0, 0, 0, 0};
+                return ResourceAmount.ZERO;
         }
     }
 

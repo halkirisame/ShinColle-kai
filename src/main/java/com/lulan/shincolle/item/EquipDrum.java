@@ -4,6 +4,7 @@ import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import com.lulan.shincolle.utility.EnchantHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -46,16 +47,16 @@ public class EquipDrum extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         if (this.getEquipType(stack) == ID.EquipType.DRUM_LO) { // 120
-            return new int[]{
+            return new ResourceAmount(
                     itemRand.nextInt(4) + 5,
                     itemRand.nextInt(5) + 9,
                     itemRand.nextInt(4) + 4,
                     itemRand.nextInt(3) + 3
-            };
+            );
         }
-        return new int[]{0, 0, 0, 0};
+        return ResourceAmount.ZERO;
     }
 
     @Override

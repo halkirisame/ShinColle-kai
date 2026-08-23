@@ -1,6 +1,7 @@
 package com.lulan.shincolle.block;
 
 import com.lulan.shincolle.item.IShipResourceItem;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -19,15 +20,15 @@ import net.minecraft.world.level.block.Block;
  */
 public class ItemBlockResourceBlock extends BlockItem implements IShipResourceItem {
 
-    private final int[] resourceValues;
+    private final ResourceAmount resourceAmount;
 
     public ItemBlockResourceBlock(Block block, Properties properties, int[] resourceValues) {
         super(block, properties);
-        this.resourceValues = resourceValues;
+        this.resourceAmount = ResourceAmount.fromArray(resourceValues);
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
-        return resourceValues;
+    public ResourceAmount getResourceAmount(ItemStack stack) {
+        return this.resourceAmount;
     }
 }

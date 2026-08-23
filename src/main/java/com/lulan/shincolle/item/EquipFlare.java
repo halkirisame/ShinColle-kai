@@ -2,6 +2,7 @@ package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -25,16 +26,16 @@ public class EquipFlare extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         if (this.getEquipType(stack) == ID.EquipType.FLARE_LO) { // 80
-            return new int[]{
+            return new ResourceAmount(
                     itemRand.nextInt(2) + 2,
                     itemRand.nextInt(3) + 3,
                     itemRand.nextInt(4) + 4,
                     itemRand.nextInt(2) + 2
-            };
+            );
         }
-        return new int[]{0, 0, 0, 0};
+        return ResourceAmount.ZERO;
     }
 
     @Override

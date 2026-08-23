@@ -1,5 +1,6 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -31,14 +32,14 @@ public class AbyssMetal extends BasicItem implements IShipResourceItem, IShipFoo
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         int meta = stack.getDamageValue();
         // [PORT] 1.10.2 -> 1.20.1: 旧 meta==1 は polymetal 変種だったが、
         // 1.20.1 では abyss_metal_1 の Item が存在せず到達しない。
         // variant を Item 分割へ移す際に復活させるかは未決。
         if (meta == 1) {
-            return new int[]{0, 0, 0, 1};
+            return new ResourceAmount(0, 0, 0, 1);
         }
-        return new int[]{0, 1, 0, 0};
+        return new ResourceAmount(0, 1, 0, 0);
     }
 }

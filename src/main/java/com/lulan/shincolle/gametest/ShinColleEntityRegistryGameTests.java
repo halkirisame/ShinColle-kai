@@ -3207,7 +3207,7 @@ public final class ShinColleEntityRegistryGameTests {
         if (!(stack.getItem() instanceof IShipResourceItem resource)) {
             throw new AssertionError("Test item does not implement IShipResourceItem: " + stack.getItem());
         }
-        return resource.getResourceValue(stack);
+        return resource.getResourceAmount(stack).toArray();
     }
 
     private static void assertResourceRanges(int[] actual, int[][] ranges, String description) {

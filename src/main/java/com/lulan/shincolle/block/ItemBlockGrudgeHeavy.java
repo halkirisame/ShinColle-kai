@@ -1,6 +1,7 @@
 package com.lulan.shincolle.block;
 
 import com.lulan.shincolle.item.IShipResourceItem;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -44,8 +45,8 @@ public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         // GrudgeHeavy provides 81 grudge (9x9 grudge items)
-        return new int[]{81, 0, 0, 0};
+        return new ResourceAmount(81, 0, 0, 0);
     }
 }

@@ -1,6 +1,7 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 
 import net.minecraft.world.item.ItemStack;
 
@@ -34,24 +35,24 @@ public class EquipMachinegun extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         switch (this.getEquipType(stack)) {
             case ID.EquipType.GUN_LO: // 100
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(3) + 4,
                         itemRand.nextInt(4) + 7,
                         itemRand.nextInt(5) + 8,
                         itemRand.nextInt(2) + 4
-                };
+                );
             case ID.EquipType.GUN_HI: // 800
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(20) + 30,
                         itemRand.nextInt(25) + 40,
                         itemRand.nextInt(30) + 50,
                         itemRand.nextInt(15) + 20
-                };
+                );
             default:
-                return new int[]{0, 0, 0, 0};
+                return ResourceAmount.ZERO;
         }
     }
 }

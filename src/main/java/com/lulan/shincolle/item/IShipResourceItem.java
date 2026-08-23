@@ -1,11 +1,12 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.world.item.ItemStack;
 
 /**
  * Interface for items that provide resources when fed or consumed.
- * Returns int[4] = {grudge, abyssium, ammo, polymetal}
+ * Returns an immutable amount of grudge, abyssium, ammo, and polymetal.
  */
 public interface IShipResourceItem {
-    int[] getResourceValue(ItemStack stack);
+    ResourceAmount getResourceAmount(ItemStack stack);
 }

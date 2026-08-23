@@ -1,6 +1,7 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 
 import net.minecraft.world.item.ItemStack;
 
@@ -34,24 +35,24 @@ public class EquipArmor extends BasicEquip {
     }
 
     @Override
-    public int[] getResourceValue(ItemStack stack) {
+    public ResourceAmount getResourceAmount(ItemStack stack) {
         switch (this.getEquipType(stack)) {
             case ID.EquipType.ARMOR_LO: // 80
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(3) + 3,
                         itemRand.nextInt(4) + 4,
                         itemRand.nextInt(2) + 2,
                         itemRand.nextInt(2) + 2
-                };
+                );
             case ID.EquipType.ARMOR_HI: // 500
-                return new int[]{
+                return new ResourceAmount(
                         itemRand.nextInt(15) + 35,
                         itemRand.nextInt(20) + 45,
                         itemRand.nextInt(10) + 25,
                         itemRand.nextInt(5) + 15
-                };
+                );
             default:
-                return new int[]{0, 0, 0, 0};
+                return ResourceAmount.ZERO;
         }
     }
 }
