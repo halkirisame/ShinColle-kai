@@ -7,6 +7,7 @@ import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerFormation;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.crafting.EquipCalc;
+import com.lulan.shincolle.crafting.ResourceYieldPolicy;
 import com.lulan.shincolle.crafting.ShipCalc;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityAirplane;
@@ -38,6 +39,7 @@ import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.team.TeamData;
 import com.lulan.shincolle.tileentity.BasicTileMulti;
@@ -2390,6 +2392,68 @@ public final class ShinColleEntityRegistryGameTests {
         if (empty.get(missing) != null || empty.byItemVariant(missing, 0) != null
                 || empty.byLegacyId(0) != null || !empty.all().isEmpty()) {
             throw new AssertionError("An unsynchronized client equipment snapshot did not use safe empty defaults.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void resourceAmountConversionsAreDefensiveAndExact(GameTestHelper helper) {
+        int[] source = new int[]{1, 2, 3, 4};
+        ResourceAmount amount = ResourceAmount.fromArray(source);
+        source[0] = 99;
+        if (!amount.equals(new ResourceAmount(1, 2, 3, 4))) {
+            throw new AssertionError("ResourceAmount retained its source array.");
+        }
+
+        int[] firstArray = amount.toArray();
+        int[] secondArray = amount.toArray();
+        firstArray[1] = 99;
+        if (firstArray == secondArray || !Arrays.equals(secondArray, new int[]{1, 2, 3, 4})) {
+            throw new AssertionError("ResourceAmount.toArray did not return an independent array.");
+        }
+
+        ResourceAmount sum = amount.plus(new ResourceAmount(4, 3, 2, 1));
+        if (!sum.equals(new ResourceAmount(5, 5, 5, 5)) || !amount.isNonNegative()
+                || new ResourceAmount(-1, 0, 0, 0).isNonNegative()) {
+            throw new AssertionError("ResourceAmount arithmetic or non-negative check changed values.");
+        }
+
+        try {
+            ResourceAmount.fromArray(new int[]{1, 2, 3});
+            throw new AssertionError("ResourceAmount accepted an array with the wrong length.");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+
+        try {
+            new ResourceAmount(Integer.MAX_VALUE, 0, 0, 0).plus(new ResourceAmount(1, 0, 0, 0));
+            throw new AssertionError("ResourceAmount.plus allowed integer overflow.");
+        } catch (ArithmeticException expected) {
+            // expected
+        }
+
+        try {
+            new ResourceAmount(Integer.MAX_VALUE, 0, 0, 0).times(2);
+            throw new AssertionError("ResourceAmount.times allowed integer overflow.");
+        } catch (ArithmeticException expected) {
+            // expected
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void resourceYieldPolicyAppliesMultiplierWithoutMutation(GameTestHelper helper) {
+        ResourceAmount base = new ResourceAmount(1, 2, 3, 4);
+        ResourceAmount multiplied = ResourceYieldPolicy.applyMultiplier(base,
+                ResourceYieldPolicy.EASY_MODE_MULTIPLIER);
+        if (!multiplied.equals(new ResourceAmount(10, 20, 30, 40))) {
+            throw new AssertionError("Resource yield policy did not apply the requested multiplier.");
+        }
+        if (!base.equals(new ResourceAmount(1, 2, 3, 4))) {
+            throw new AssertionError("Resource yield policy changed its immutable input.");
+        }
+        if (!ResourceYieldPolicy.applyMultiplier(base, 1).equals(base)) {
+            throw new AssertionError("Identity resource multiplier changed the resource values.");
         }
         helper.succeed();
     }
