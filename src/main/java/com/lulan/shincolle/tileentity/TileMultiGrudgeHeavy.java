@@ -2,12 +2,14 @@ package com.lulan.shincolle.tileentity;
 
 import com.lulan.shincolle.client.gui.inventory.ContainerLargeShipyard;
 import com.lulan.shincolle.crafting.LargeRecipes;
+import com.lulan.shincolle.crafting.ResourceYieldPolicy;
 import com.lulan.shincolle.crafting.ShipCalc;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlockEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.IShipResourceItem;
 import com.lulan.shincolle.item.ShipSpawnEgg;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import com.lulan.shincolle.utility.LogHelper;
 
 import net.minecraft.core.BlockPos;
@@ -387,10 +389,13 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                 }
             } else if (stack.getItem() instanceof IShipResourceItem resource) {
                 if (invMode == 0) {
-                    int[] addMats = resource.getResourceAmount(stack).toArray();
-                    if (ConfigHandler.easyMode()) {
-                        for (int k = 0; k < 4; k++) addMats[k] *= 10;
+                    ResourceAmount adjusted;
+                    try {
+                        adjusted = ResourceYieldPolicy.apply(resource.getResourceAmount(stack));
+                    } catch (ArithmeticException e) {
+                        continue;
                     }
+                    int[] addMats = adjusted.toArray();
                     boolean canAdd = true;
                     for (int k = 0; k < 4; k++) {
                         if (addMats[k] < 0 || matsStock[k] > MAX_STOCK - addMats[k]) {
@@ -595,23 +600,20 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
      */
     private boolean recycleShipSpawnEgg(ItemStack stack) {
         ItemStack[] recycledItems = ShipCalc.getKaitaiItems(ShipSpawnEgg.getShipClass(stack));
-        int[] totalMats = new int[4];
-
-        for (ItemStack recycled : recycledItems) {
-            if (recycled.isEmpty() || !(recycled.getItem() instanceof IShipResourceItem resource)) {
-                return false;
+        ResourceAmount totalAmount = ResourceAmount.ZERO;
+        try {
+            for (ItemStack recycled : recycledItems) {
+                if (recycled.isEmpty() || !(recycled.getItem() instanceof IShipResourceItem resource)) {
+                    return false;
+                }
+                ResourceAmount resourceAmount = resource.getResourceAmount(recycled);
+                totalAmount = totalAmount.plus(resourceAmount.times(recycled.getCount()));
             }
-            int[] resourceValue = resource.getResourceAmount(recycled).toArray();
-            for (int k = 0; k < 4; k++) {
-                totalMats[k] += resourceValue[k] * recycled.getCount();
-            }
+            totalAmount = ResourceYieldPolicy.apply(totalAmount);
+        } catch (ArithmeticException e) {
+            return false;
         }
-
-        if (ConfigHandler.easyMode()) {
-            for (int k = 0; k < 4; k++) {
-                totalMats[k] *= 10;
-            }
-        }
+        int[] totalMats = totalAmount.toArray();
         for (int k = 0; k < 4; k++) {
             if (totalMats[k] < 0 || matsStock[k] > MAX_STOCK - totalMats[k]) {
                 return false;
