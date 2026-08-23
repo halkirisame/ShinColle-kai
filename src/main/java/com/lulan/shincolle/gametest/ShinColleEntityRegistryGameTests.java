@@ -22,6 +22,7 @@ import com.lulan.shincolle.equipdata.ClientEquipData;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDataSnapshot;
 import com.lulan.shincolle.equipdata.EquipDefinition;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
@@ -94,6 +95,7 @@ import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -1993,6 +1995,92 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "resource_amount_config")
+    public static void shipyardResourcePolicyUsesEasyModeExactlyOnce(GameTestHelper helper) {
+        boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
+        Path configPath = FMLPaths.CONFIGDIR.get().resolve("shincolle-common.toml");
+        boolean originalConfigExists = Files.exists(configPath);
+        byte[] originalConfigBytes = readOptionalFile(configPath);
+
+        try {
+            ServerLevel level = helper.getLevel();
+            ConfigHandler.COMMON.easyMode.set(true);
+            assertEasyModeValue(true);
+
+            TileEntitySmallShipyard easySmall = createSmallShipyard(helper, new BlockPos(2, 2, 2),
+                    "EasyMode resource input");
+            TileMultiGrudgeHeavy easyLarge = createLargeShipyard(helper, new BlockPos(6, 2, 2),
+                    "EasyMode resource input");
+            assertSmallShipyardResourceSequence(level, easySmall, 90, "EasyMode small shipyard");
+            assertLargeShipyardResourceSequence(level, easyLarge, 90, "EasyMode large shipyard");
+
+            TileEntitySmallShipyard dismantleSmall = createSmallShipyard(helper, new BlockPos(2, 2, 6),
+                    "EasyMode dismantling");
+            TileMultiGrudgeHeavy dismantleLarge = createLargeShipyard(helper, new BlockPos(6, 2, 6),
+                    "EasyMode dismantling");
+            assertSmallShipyardDismantling(level, dismantleSmall, "EasyMode small shipyard");
+            assertLargeShipyardDismantling(level, dismantleLarge, "EasyMode large shipyard");
+
+            ItemStack excessiveInput = new ItemStack(ModItems.EQUIP_CANNON.get());
+            BasicEquip.setEquipMeta(excessiveInput, 0);
+            TileEntitySmallShipyard overflowSmall = createSmallShipyard(helper, new BlockPos(10, 2, 6),
+                    "overflow rejection");
+            TileMultiGrudgeHeavy overflowLarge = createLargeShipyard(helper, new BlockPos(14, 2, 6),
+                    "overflow rejection");
+            assertSmallShipyardRejectsExcess(level, overflowSmall, excessiveInput);
+            assertLargeShipyardRejectsExcess(level, overflowLarge, excessiveInput);
+            assertSmallShipyardCatchesPolicyOverflow(overflowSmall);
+
+            ConfigHandler.COMMON.easyMode.set(false);
+            assertEasyModeValue(false);
+            TileEntitySmallShipyard normalSmall = createSmallShipyard(helper, new BlockPos(10, 2, 2),
+                    "normal-mode resource input");
+            TileMultiGrudgeHeavy normalLarge = createLargeShipyard(helper, new BlockPos(14, 2, 2),
+                    "normal-mode resource input");
+            assertSmallShipyardResourceSequence(level, normalSmall, 9, "normal-mode small shipyard");
+            assertLargeShipyardResourceSequence(level, normalLarge, 9, "normal-mode large shipyard");
+        } finally {
+            ConfigHandler.COMMON.easyMode.set(originalEasyMode);
+            if (ConfigHandler.COMMON.easyMode.get() != originalEasyMode) {
+                throw new AssertionError("GameTest did not restore the original EasyMode value.");
+            }
+            boolean restoredConfigExists = Files.exists(configPath);
+            byte[] restoredConfigBytes = readOptionalFile(configPath);
+            if (restoredConfigExists != originalConfigExists
+                    || !Arrays.equals(restoredConfigBytes, originalConfigBytes)) {
+                throw new AssertionError("GameTest did not restore shincolle-common.toml exactly.");
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shipyardStockNbtKeepsLegacyIntArray(GameTestHelper helper) {
+        int[] expected = {32768, 65535, 500000, 1000000};
+
+        TileEntitySmallShipyard small = createSmallShipyard(helper, new BlockPos(2, 2, 2),
+                "stock NBT save");
+        setShipyardStocks(small, expected);
+        CompoundTag smallTag = small.saveWithFullMetadata();
+        assertStockTag(smallTag, expected, "small shipyard");
+        TileEntitySmallShipyard loadedSmall = createSmallShipyard(helper, new BlockPos(6, 2, 2),
+                "stock NBT load");
+        loadedSmall.load(smallTag);
+        assertShipyardStocks(loadedSmall, expected, "loaded small shipyard");
+
+        TileMultiGrudgeHeavy large = createLargeShipyard(helper, new BlockPos(2, 2, 6),
+                "stock NBT save");
+        setShipyardStocks(large, expected);
+        CompoundTag largeTag = large.saveWithFullMetadata();
+        assertStockTag(largeTag, expected, "large shipyard");
+        TileMultiGrudgeHeavy loadedLarge = createLargeShipyard(helper, new BlockPos(6, 2, 6),
+                "stock NBT load");
+        loadedLarge.load(largeTag);
+        assertShipyardStocks(loadedLarge, expected, "loaded large shipyard");
+
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void largeShipyardOldFuelSlotAcceptsMaterial(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -2058,6 +2146,224 @@ public final class ShinColleEntityRegistryGameTests {
                 TileMultiGrudgeHeavy.SLOT_OUTPUT, large.getInventory(), "large shipyard");
 
         helper.succeed();
+    }
+
+    private static TileEntitySmallShipyard createSmallShipyard(GameTestHelper helper, BlockPos relativePos,
+                                                                 String scenario) {
+        ServerLevel level = helper.getLevel();
+        BlockPos absolutePos = helper.absolutePos(relativePos);
+        level.setBlock(absolutePos, Blocks.AIR.defaultBlockState(), 3);
+        level.setBlock(absolutePos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(absolutePos) instanceof TileEntitySmallShipyard shipyard)) {
+            throw new AssertionError("Small shipyard tile was not created for " + scenario + ".");
+        }
+        return shipyard;
+    }
+
+    private static TileMultiGrudgeHeavy createLargeShipyard(GameTestHelper helper, BlockPos relativePos,
+                                                              String scenario) {
+        ServerLevel level = helper.getLevel();
+        BlockPos absolutePos = helper.absolutePos(relativePos);
+        level.setBlock(absolutePos, Blocks.AIR.defaultBlockState(), 3);
+        level.setBlock(absolutePos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(absolutePos) instanceof TileMultiGrudgeHeavy shipyard)) {
+            throw new AssertionError("Large shipyard tile was not created for " + scenario + ".");
+        }
+        shipyard.setInvMode(0);
+        return shipyard;
+    }
+
+    private static void assertSmallShipyardResourceSequence(ServerLevel level, TileEntitySmallShipyard shipyard,
+                                                              int expectedPerItem, String description) {
+        ItemStack resourceStack = new ItemStack(ModItems.GRUDGE_BLOCK_ITEM.get());
+        ResourceAmount baseAmount = ((IShipResourceItem) resourceStack.getItem()).getResourceAmount(resourceStack);
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            shipyard.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_START,
+                    resourceStack.copy());
+            TileEntitySmallShipyard.serverTick(level, shipyard.getBlockPos(),
+                    level.getBlockState(shipyard.getBlockPos()), shipyard);
+            assertShipyardStocks(shipyard, new int[]{expectedPerItem * attempt, 0, 0, 0},
+                    description + " input " + attempt);
+            if (!shipyard.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_START).isEmpty()) {
+                throw new AssertionError(description + " did not consume resource input " + attempt + ".");
+            }
+        }
+        if (!baseAmount.equals(new ResourceAmount(9, 0, 0, 0))
+                || !((IShipResourceItem) resourceStack.getItem()).getResourceAmount(resourceStack)
+                .equals(baseAmount)) {
+            throw new AssertionError(description + " mutated the resource item's base amount.");
+        }
+    }
+
+    private static void assertLargeShipyardResourceSequence(ServerLevel level, TileMultiGrudgeHeavy shipyard,
+                                                              int expectedPerItem, String description) {
+        ItemStack resourceStack = new ItemStack(ModItems.GRUDGE_BLOCK_ITEM.get());
+        ResourceAmount baseAmount = ((IShipResourceItem) resourceStack.getItem()).getResourceAmount(resourceStack);
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            shipyard.getInventory().setStackInSlot(TileMultiGrudgeHeavy.SLOT_INPUT_START,
+                    resourceStack.copy());
+            TileMultiGrudgeHeavy.serverTick(level, shipyard.getBlockPos(),
+                    level.getBlockState(shipyard.getBlockPos()), shipyard);
+            assertShipyardStocks(shipyard, new int[]{expectedPerItem * attempt, 0, 0, 0},
+                    description + " input " + attempt);
+            if (!shipyard.getInventory().getStackInSlot(TileMultiGrudgeHeavy.SLOT_INPUT_START).isEmpty()) {
+                throw new AssertionError(description + " did not consume resource input " + attempt + ".");
+            }
+        }
+        if (!baseAmount.equals(new ResourceAmount(9, 0, 0, 0))
+                || !((IShipResourceItem) resourceStack.getItem()).getResourceAmount(resourceStack)
+                .equals(baseAmount)) {
+            throw new AssertionError(description + " mutated the resource item's base amount.");
+        }
+    }
+
+    private static void assertSmallShipyardDismantling(ServerLevel level, TileEntitySmallShipyard shipyard,
+                                                        String description) {
+        ItemStack egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
+        ShipSpawnEgg.setShipClass(egg, ID.ShipClass.DDRO);
+        shipyard.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_START, egg);
+        TileEntitySmallShipyard.serverTick(level, shipyard.getBlockPos(),
+                level.getBlockState(shipyard.getBlockPos()), shipyard);
+        if (!shipyard.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_START).isEmpty()) {
+            throw new AssertionError(description + " did not consume the dismantled ship egg.");
+        }
+        assertEasyDismantlingStocks(shipyard, description);
+    }
+
+    private static void assertLargeShipyardDismantling(ServerLevel level, TileMultiGrudgeHeavy shipyard,
+                                                        String description) {
+        ItemStack egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
+        ShipSpawnEgg.setShipClass(egg, ID.ShipClass.DDRO);
+        shipyard.getInventory().setStackInSlot(TileMultiGrudgeHeavy.SLOT_INPUT_START, egg);
+        TileMultiGrudgeHeavy.serverTick(level, shipyard.getBlockPos(),
+                level.getBlockState(shipyard.getBlockPos()), shipyard);
+        if (!shipyard.getInventory().getStackInSlot(TileMultiGrudgeHeavy.SLOT_INPUT_START).isEmpty()) {
+            throw new AssertionError(description + " did not consume the dismantled ship egg.");
+        }
+        assertEasyDismantlingStocks(shipyard, description);
+    }
+
+    private static void assertSmallShipyardRejectsExcess(ServerLevel level, TileEntitySmallShipyard shipyard,
+                                                          ItemStack excessiveInput) {
+        int[] initial = {1000000, 22, 33, 44};
+        setShipyardStocks(shipyard, initial);
+        shipyard.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_START,
+                excessiveInput.copy());
+        TileEntitySmallShipyard.serverTick(level, shipyard.getBlockPos(),
+                level.getBlockState(shipyard.getBlockPos()), shipyard);
+        assertShipyardStocks(shipyard, initial, "small shipyard after excessive input rejection");
+        if (shipyard.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_INPUT_START).isEmpty()) {
+            throw new AssertionError("Small shipyard consumed an excessive resource item.");
+        }
+    }
+
+    private static void assertLargeShipyardRejectsExcess(ServerLevel level, TileMultiGrudgeHeavy shipyard,
+                                                          ItemStack excessiveInput) {
+        int[] initial = {1000000, 22, 33, 44};
+        setShipyardStocks(shipyard, initial);
+        shipyard.getInventory().setStackInSlot(TileMultiGrudgeHeavy.SLOT_INPUT_START,
+                excessiveInput.copy());
+        TileMultiGrudgeHeavy.serverTick(level, shipyard.getBlockPos(),
+                level.getBlockState(shipyard.getBlockPos()), shipyard);
+        assertShipyardStocks(shipyard, initial, "large shipyard after excessive input rejection");
+        if (shipyard.getInventory().getStackInSlot(TileMultiGrudgeHeavy.SLOT_INPUT_START).isEmpty()) {
+            throw new AssertionError("Large shipyard consumed an excessive resource item.");
+        }
+    }
+
+    private static void assertSmallShipyardCatchesPolicyOverflow(TileEntitySmallShipyard shipyard) {
+        int[] initial = {11, 22, 33, 44};
+        setShipyardStocks(shipyard, initial);
+        IShipResourceItem overflowingResource = stack ->
+                new ResourceAmount(Integer.MAX_VALUE, 1, 1, 1);
+        ItemStack registeredStack = new ItemStack(ModItems.GRUDGE.get());
+
+        try {
+            Method method = TileEntitySmallShipyard.class.getDeclaredMethod("addResourceItem",
+                    IShipResourceItem.class, ItemStack.class);
+            method.setAccessible(true);
+            Object result = method.invoke(shipyard, overflowingResource, registeredStack);
+            if (!(result instanceof Boolean accepted) || accepted) {
+                throw new AssertionError("Small shipyard accepted a resource amount that overflowed EasyMode.");
+            }
+        } catch (ReflectiveOperationException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            throw new AssertionError("Small shipyard did not catch ResourceYieldPolicy overflow.", cause);
+        }
+        assertShipyardStocks(shipyard, initial, "small shipyard after policy overflow rejection");
+    }
+
+    private static void assertEasyDismantlingStocks(TileEntitySmallShipyard shipyard, String description) {
+        for (int resource = 0; resource < 4; resource++) {
+            assertEasyDismantlingStock(shipyard.getMatStock(resource), description, resource);
+        }
+    }
+
+    private static void assertEasyDismantlingStocks(TileMultiGrudgeHeavy shipyard, String description) {
+        for (int resource = 0; resource < 4; resource++) {
+            assertEasyDismantlingStock(shipyard.getMatStock(resource), description, resource);
+        }
+    }
+
+    private static void assertEasyDismantlingStock(int actual, String description, int resource) {
+        if (actual < 200 || actual > 270 || actual % ResourceYieldPolicy.EASY_MODE_MULTIPLIER != 0) {
+            throw new AssertionError(description + " applied the dismantling multiplier incorrectly at index "
+                    + resource + ": " + actual);
+        }
+    }
+
+    private static void setShipyardStocks(TileEntitySmallShipyard shipyard, int[] values) {
+        for (int resource = 0; resource < values.length; resource++) {
+            shipyard.setMatStock(resource, values[resource]);
+        }
+    }
+
+    private static void setShipyardStocks(TileMultiGrudgeHeavy shipyard, int[] values) {
+        for (int resource = 0; resource < values.length; resource++) {
+            shipyard.setMatStock(resource, values[resource]);
+        }
+    }
+
+    private static void assertShipyardStocks(TileEntitySmallShipyard shipyard, int[] expected,
+                                              String description) {
+        for (int resource = 0; resource < expected.length; resource++) {
+            if (shipyard.getMatStock(resource) != expected[resource]) {
+                throw new AssertionError(description + " stock mismatch at index " + resource + ": expected="
+                        + expected[resource] + " actual=" + shipyard.getMatStock(resource));
+            }
+        }
+    }
+
+    private static void assertShipyardStocks(TileMultiGrudgeHeavy shipyard, int[] expected,
+                                              String description) {
+        for (int resource = 0; resource < expected.length; resource++) {
+            if (shipyard.getMatStock(resource) != expected[resource]) {
+                throw new AssertionError(description + " stock mismatch at index " + resource + ": expected="
+                        + expected[resource] + " actual=" + shipyard.getMatStock(resource));
+            }
+        }
+    }
+
+    private static void assertStockTag(CompoundTag tag, int[] expected, String description) {
+        int[] stored = tag.getIntArray("MatsStock");
+        if (stored.length != 4 || !Arrays.equals(stored, expected)) {
+            throw new AssertionError(description + " changed the MatsStock int[4] NBT: "
+                    + Arrays.toString(stored));
+        }
+    }
+
+    private static void assertEasyModeValue(boolean expected) {
+        if (ConfigHandler.COMMON.easyMode.get() != expected || ConfigHandler.easyMode() != expected) {
+            throw new AssertionError("GameTest could not set EasyMode to " + expected + ".");
+        }
+    }
+
+    private static byte[] readOptionalFile(Path path) {
+        try {
+            return Files.exists(path) ? Files.readAllBytes(path) : null;
+        } catch (Exception e) {
+            throw new AssertionError("Failed to read config file for restoration check: " + path, e);
+        }
     }
 
     private static void assertShipyardAutomationHandler(IItemHandler handler, int inputSlot, int outputSlot,
@@ -2455,6 +2761,13 @@ public final class ShinColleEntityRegistryGameTests {
         if (!ResourceYieldPolicy.applyMultiplier(base, 1).equals(base)) {
             throw new AssertionError("Identity resource multiplier changed the resource values.");
         }
+        try {
+            ResourceYieldPolicy.applyMultiplier(new ResourceAmount(Integer.MAX_VALUE, 1, 1, 1),
+                    ResourceYieldPolicy.EASY_MODE_MULTIPLIER);
+            throw new AssertionError("Resource yield policy allowed integer overflow.");
+        } catch (ArithmeticException expected) {
+            // expected
+        }
         helper.succeed();
     }
 
@@ -2502,6 +2815,25 @@ public final class ShinColleEntityRegistryGameTests {
         assertResourceValue(new ItemStack(ModItems.AMMO_1.get()), new int[]{0, 0, 9, 0}, "ammo_1");
         assertResourceValue(new ItemStack(ModItems.AMMO_2.get()), new int[]{0, 0, 4, 0}, "ammo_2");
         assertResourceValue(new ItemStack(ModItems.AMMO_3.get()), new int[]{0, 0, 36, 0}, "ammo_3");
+        assertResourceValue(new ItemStack(ModItems.ABYSSIUM_BLOCK_ITEM.get()), new int[]{0, 9, 0, 0},
+                "abyssium_block");
+        assertResourceValue(new ItemStack(ModItems.GRUDGE_BLOCK_ITEM.get()), new int[]{9, 0, 0, 0},
+                "grudge_block");
+        assertResourceValue(new ItemStack(ModItems.GRUDGE_HEAVY_DECO_BLOCK_ITEM.get()),
+                new int[]{81, 0, 0, 0}, "grudge_heavy_deco_block");
+        assertResourceValue(new ItemStack(ModItems.POLYMETAL_GRAVEL_BLOCK_ITEM.get()),
+                new int[]{0, 0, 0, 4}, "polymetal_gravel_block");
+        assertResourceValue(new ItemStack(ModItems.POLYMETAL_BLOCK_ITEM.get()), new int[]{0, 0, 0, 9},
+                "polymetal_block");
+        assertResourceValue(new ItemStack(ModItems.GRUDGE_HEAVY_BLOCK_ITEM.get()), new int[]{81, 0, 0, 0},
+                "grudge_heavy_block");
+
+        ItemStack abyssMetal = new ItemStack(ModItems.ABYSS_METAL.get());
+        assertResourceValue(abyssMetal, new int[]{0, 1, 0, 0}, "abyss_metal");
+        ItemStack legacyPolymetalAbyssMetal = abyssMetal.copy();
+        legacyPolymetalAbyssMetal.setDamageValue(1);
+        assertResourceValue(legacyPolymetalAbyssMetal, new int[]{0, 0, 0, 1},
+                "abyss_metal legacy damage/meta 1");
         helper.succeed();
     }
 
