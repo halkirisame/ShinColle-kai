@@ -783,5 +783,7 @@
   "inter.shincolle.flower": "怨念团块",
   "creativetab.shincolle": "ShinColle",
   "gui.shincolle.peek.empty": "空",
-  "gui.shincolle.egg.contents": "存放物品: %s"
+  "gui.shincolle.egg.contents": "存放物品: %s",
+  "gui.shincolle.additional_attributes": "附加属性",
+  "gui.shincolle.additional_attributes.more": "...另有%s项"
 }

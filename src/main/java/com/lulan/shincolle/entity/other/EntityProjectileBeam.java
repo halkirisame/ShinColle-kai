@@ -4,7 +4,7 @@ import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipCustomTexture;
 import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.entity.IShipProjectile;
-import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
@@ -15,7 +15,6 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.fml.ModList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -178,10 +177,10 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
             float damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
             boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), damage);
             if (hurt) {
-                LogHelper.info("DIAG: beam hit beam=" + this + " target=" + ent + " damage=" + damage);
+                LogHelper.diag("DIAG: beam hit beam=" + this + " target=" + ent + " damage=" + damage);
             }
-            if (hurt && ModList.get().isLoaded("curios")) {
-                ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, damage);
+            if (hurt) {
+                ShipOnHitEffects.dispatch(this.hostEntity, ent, damage);
             }
         }
     }

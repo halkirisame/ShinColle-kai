@@ -18,6 +18,7 @@ import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.TeamHelper;
 
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -32,6 +33,9 @@ import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Server-side event handler for ShinColle.
@@ -146,12 +150,37 @@ public class ServerEventHandler {
     /** Send the authoritative equipment snapshot on login and after every datapack reload. */
     @SubscribeEvent
     public static void onDatapackSync(OnDatapackSyncEvent event) {
+        List<Entity> recalculatedShips = event.getPlayer() == null
+                ? recalculateLoadedShipAttributes(event.getPlayerList().getServer())
+                : List.of();
+
+        // Definitions must arrive before the attributes calculated from them.
         S2CEquipDataSyncPacket packet = new S2CEquipDataSyncPacket(EquipDataRegistry.server());
         for (ServerPlayer player : event.getPlayers()) {
             ModNetworking.sendToPlayer(packet, player);
         }
+        for (Entity ship : recalculatedShips) {
+            ModNetworking.sendToAllTracking(S2CEntitySyncPacket.syncAllAttrs(ship), ship);
+        }
         LogHelper.info("Synchronized " + EquipDataRegistry.server().byId().size()
-                + " ship equipment definitions to " + event.getPlayers().size() + " player(s)");
+                + " ship equipment definitions to " + event.getPlayers().size() + " player(s); recalculated "
+                + recalculatedShips.size() + " loaded ship(s)");
+    }
+
+    private static List<Entity> recalculateLoadedShipAttributes(MinecraftServer server) {
+        List<Entity> recalculated = new ArrayList<>();
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof BasicEntityShip ship) {
+                    ship.calcShipAttributes(31, false);
+                    recalculated.add(ship);
+                } else if (entity instanceof BasicEntityShipHostile hostile) {
+                    hostile.calcShipAttributes(31, false);
+                    recalculated.add(hostile);
+                }
+            }
+        }
+        return recalculated;
     }
 
     /**
@@ -178,14 +207,16 @@ public class ServerEventHandler {
         }
         if (event.getTarget() instanceof BasicEntityShip ship) {
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAllMisc(ship), player);
-            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAttrs(ship), player);
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAllAttrs(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncRiders(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncUnitName(ship), player);
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncBuffMap(ship), player);
+        } else if (event.getTarget() instanceof BasicEntityShipHostile hostile) {
+            ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncAllAttrs(hostile), player);
         } else if (event.getTarget() instanceof BasicEntityMount mount) {
             // [FIX] 2026-08-21: restore the host reference when an existing mount
             // begins tracking. syncRiders also carries the mount host entity ID.
-            LogHelper.info("DIAG: mount tracking sync sent mount=" + mount.getId()
+            LogHelper.diag("DIAG: mount tracking sync sent mount=" + mount.getId()
                     + " host=" + mount.getHostEntity() + " player=" + player.getGameProfile().getName());
             ModNetworking.sendToPlayer(S2CEntitySyncPacket.syncRiders(mount), player);
         }
@@ -299,7 +330,7 @@ public class ServerEventHandler {
         capa.setRingActive(isActive);
 
         if (wasPresent != hasRing || wasActive != isActive) {
-            LogHelper.info("DIAG: ring state player=" + player.getName().getString()
+            LogHelper.diag("DIAG: ring state player=" + player.getName().getString()
                     + " hasRing=" + hasRing + " isActive=" + isActive);
         }
 

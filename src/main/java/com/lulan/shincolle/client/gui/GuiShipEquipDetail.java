@@ -1,8 +1,11 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
-import com.lulan.shincolle.equip.tinkers.ShipTinkersIntegration;
+import com.lulan.shincolle.item.ShipAttributeTooltipFormatter;
+import com.lulan.shincolle.item.ShipAttackEffectTooltipFormatter;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Standalone scrollable window listing every modifier/trait on the ship's
+ * Standalone scrollable window listing resolved attributes on the ship's
  * third-party (Curios-slot) equipment.
  *
  * <p>Opened from a button on {@link GuiShipInventory} - that screen's own
@@ -34,7 +37,7 @@ public class GuiShipEquipDetail extends Screen {
     private static final int HEADER_HEIGHT = 20;
     private static final int FOOTER_HEIGHT = 6;
 
-    /** One rendered line. {@code detail} is non-null only for modifier lines, and only shown while Ctrl is held. */
+    /** One rendered line. {@code detail} is non-null only for optional detail text shown while Ctrl is held. */
     private record LineEntry(Component text, Component detail) {
         static LineEntry plain(Component text) {
             return new LineEntry(text, null);
@@ -79,28 +82,45 @@ public class GuiShipEquipDetail extends Screen {
         }
 
         List<ItemStack> equipped = ShipCuriosIntegration.getEquippedStacks(ship);
-        if (!ModList.get().isLoaded("tconstruct")) {
-            result.add(LineEntry.plain(Component.literal(
-                    tr("gui.shincolle.equip.notinkers", "Tinkers' Construct not installed"))));
-            return result;
-        }
-
         boolean any = false;
         for (ItemStack stack : equipped) {
-            List<ShipTinkersIntegration.ModifierLine> traits = ShipTinkersIntegration.INSTANCE.describeModifiers(stack);
-            if (traits.isEmpty()) {
-                continue;
-            }
             any = true;
             result.add(LineEntry.plain(stack.getHoverName().copy().withStyle(ChatFormatting.YELLOW)));
-            for (ShipTinkersIntegration.ModifierLine trait : traits) {
-                result.add(new LineEntry(Component.literal("  ").append(trait.name()), trait.description()));
+            var resolved = ShipEquipmentResolver.resolveClient(stack);
+            if (resolved.isEmpty()) {
+                result.add(LineEntry.plain(Component.literal("  "
+                        + tr("gui.shincolle.equip.unresolved", "No resolved equipment data"))
+                        .withStyle(ChatFormatting.DARK_GRAY)));
+                continue;
             }
+            appendResolvedLines(result, resolved.get());
         }
         if (!any) {
             result.add(LineEntry.plain(Component.literal(tr("gui.shincolle.equip.none", "No traits"))));
         }
         return result;
+    }
+
+    private static void appendResolvedLines(List<LineEntry> result, ResolvedShipEquipment resolved) {
+        List<Component> attributes = new ArrayList<>();
+        ShipAttributeTooltipFormatter.append(resolved.attributes(), attributes);
+        for (Component attribute : attributes) {
+            result.add(LineEntry.plain(Component.literal("  ").append(attribute)));
+        }
+        List<Component> attackEffects = new ArrayList<>();
+        ShipAttackEffectTooltipFormatter.append(resolved.attackEffects(), attackEffects);
+        for (Component attackEffect : attackEffects) {
+            result.add(LineEntry.plain(Component.literal("  ").append(attackEffect)));
+        }
+        if (attributes.isEmpty()) {
+            result.add(LineEntry.plain(Component.literal("  "
+                    + tr("gui.shincolle.equip.noattributes", "No attributes"))
+                    .withStyle(ChatFormatting.DARK_GRAY)));
+        }
+        resolved.definitionId().ifPresent(id -> result.add(LineEntry.plain(Component.literal("  JSON: " + id)
+                .withStyle(ChatFormatting.DARK_GRAY))));
+        resolved.providerId().ifPresent(id -> result.add(LineEntry.plain(Component.literal("  Provider: " + id)
+                .withStyle(ChatFormatting.DARK_GRAY))));
     }
 
     private static String tr(String key, String fallback) {

@@ -1,18 +1,22 @@
 package com.lulan.shincolle.equip.curios;
 
-import com.lulan.shincolle.ShinColle;
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
-import com.lulan.shincolle.equip.ShipEquipProvider;
-import com.lulan.shincolle.equip.ShipEquipProviders;
 import com.lulan.shincolle.equip.ShipEquipSlots;
-import com.lulan.shincolle.handler.ConfigHandler;
-import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.equip.ShipEquipmentAttributeMath;
+import com.lulan.shincolle.equip.ShipEquipmentInternalEffects;
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -35,6 +39,9 @@ import java.util.List;
  * on paths that are never executed.
  */
 public final class ShipCuriosIntegration {
+
+    public static final ResourceLocation STACK_SOURCE_ID =
+            ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "curios_ship_slots");
 
     private ShipCuriosIntegration() {
     }
@@ -64,7 +71,7 @@ public final class ShipCuriosIntegration {
         if (attrs == null) {
             return;
         }
-        float[] target = attrs.getAttrsEquip();
+        ShipAttributeValues target = attrs.shipAttributes(ShipAttributeLayer.EQUIPMENT);
 
         var inventory = CuriosApi.getCuriosInventory(shipEntity).resolve().orElse(null);
         if (inventory == null) {
@@ -82,90 +89,29 @@ public final class ShipCuriosIntegration {
         // reaches the ship: these slots are additional to ShinColle's own six,
         // and every piece may carry its own movement penalty. Left unchecked,
         // a full loadout could drive MOV below zero and immobilise the ship.
-        float[] total = new float[Attrs.AttrsLength];
+        ShipAttributeValues total = ShipAttributeValues.defaults(
+                ShipAttributeLayout.current(), ShipAttributeLayer.EQUIPMENT);
         for (int i = 0; i < limit; i++) {
             ItemStack stack = stacks.getStackInSlot(i);
-            ShipEquipProvider provider = ShipEquipProviders.find(stack);
-            if (provider != null) {
-                float[] add = provider.computeShipAttrs(stack);
-                for (int j = 0; j < Attrs.AttrsLength && j < add.length; j++) {
-                    total[j] += add[j];
-                }
-
-                // ShinColle clears AttackEffectMap in calcShipAttributesAddEffect(),
-                // called earlier in the same recalculation, so entries added
-                // here survive until the next recalculation and apply on every hit.
-                if (ship.getAttackEffectMap() != null) {
-                    provider.applyAttackEffects(ship.getAttackEffectMap(), stack);
-                }
+            ResolvedShipEquipment resolved = (shipEntity.level().isClientSide
+                    ? ShipEquipmentResolver.resolveDynamicClient(stack)
+                    : ShipEquipmentResolver.resolveDynamicServer(stack)).orElse(null);
+            if (resolved == null) {
+                continue;
+            }
+            try {
+                ShipAttributeValues candidate = ShipEquipmentAttributeMath.add(total, resolved.attributes());
+                ShipEquipmentAttributeMath.add(target, ShipEquipmentAttributeMath.scale(candidate));
+                total = candidate;
+                ShipEquipmentInternalEffects.apply(shipEntity, ship, stack, resolved);
+            } catch (RuntimeException ignored) {
+                // Reject the whole stack contribution; the canonical resolver has already logged source failures.
             }
         }
 
-        total[ID.Attrs.MOV] = Math.max(total[ID.Attrs.MOV], MAX_MOVEMENT_PENALTY);
-        accumulate(target, total);
-    }
-
-    private static void accumulate(float[] target, float[] add) {
-        for (int i = 0; i < Attrs.AttrsLength && i < add.length; i++) {
-            target[i] += add[i] * scaleFor(i);
-        }
-    }
-
-    /** Mirrors the per-stat config scaling ShinColle applies to its own equipment. */
-    private static float scaleFor(int attrIndex) {
-        return switch (attrIndex) {
-            case ID.Attrs.HP -> (float) ConfigHandler.scaleShip[ID.AttrsBase.HP];
-            case ID.Attrs.ATK_L, ID.Attrs.ATK_H, ID.Attrs.ATK_AL, ID.Attrs.ATK_AH ->
-                    (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
-            case ID.Attrs.DEF -> (float) ConfigHandler.scaleShip[ID.AttrsBase.DEF];
-            case ID.Attrs.SPD -> (float) ConfigHandler.scaleShip[ID.AttrsBase.SPD];
-            case ID.Attrs.MOV -> (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
-            case ID.Attrs.HIT -> (float) ConfigHandler.scaleShip[ID.AttrsBase.HIT];
-            default -> 1F;
-        };
-    }
-
-    /**
-     * Calls {@link IShipEquipment#onShipHit} for each equipped piece after the
-     * ship (or one of its carrier aircraft, attacking on its behalf) lands an
-     * attack. ShinColle attacks by calling {@code target.hurt(...)} directly,
-     * so no other mod's attack pipeline ever runs otherwise - this is the
-     * only hook equipment gets to react to the ship's hits at all.
-     *
-     * @param shipEntity the ship wearing the equipment (its Curios inventory
-     *                   is what gets searched, and what's passed to {@code
-     *                   onShipHit} as the attacker - see the two-reference
-     *                   note on {@link #applyEquipStats})
-     */
-    public static void runOnHitHooks(LivingEntity shipEntity, Entity target, float damageDealt) {
-        if (target == null || shipEntity.level().isClientSide) {
-            return;
-        }
-
-        var inventory = CuriosApi.getCuriosInventory(shipEntity).resolve().orElse(null);
-        if (inventory == null) {
-            return;
-        }
-        var handler = inventory.getStacksHandler(ShipEquipSlots.SLOT_ID).orElse(null);
-        if (handler == null) {
-            return;
-        }
-
-        var stacks = handler.getStacks();
-        int limit = Math.min(stacks.getSlots(), ShipEquipSlots.slotCount());
-        for (int i = 0; i < limit; i++) {
-            ItemStack stack = stacks.getStackInSlot(i);
-            ShipEquipProvider provider = ShipEquipProviders.find(stack);
-            if (provider != null) {
-                try {
-                    provider.onShipHit(shipEntity, target, damageDealt, stack);
-                } catch (RuntimeException e) {
-                    // Third-party equipment must never be able to abort the
-                    // ship's attack; log and carry on with the rest.
-                    ShinColle.LOGGER.warn("[equip] {} threw during onShipHit", stack.getItem(), e);
-                }
-            }
-        }
+        total = ShipEquipmentAttributeMath.withMinimum(total, CoreShipAttributes.MOV, MAX_MOVEMENT_PENALTY);
+        attrs.setShipAttributes(ShipAttributeLayer.EQUIPMENT,
+                ShipEquipmentAttributeMath.add(target, ShipEquipmentAttributeMath.scale(total)));
     }
 
     /**

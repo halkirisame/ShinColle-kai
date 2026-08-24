@@ -15,17 +15,17 @@
   },
   "roll_type": 15,
   "stats": {
-    "atk_l": 4.0,
-    "atk_h": 6.0,
-    "atk_al": 8.0,
-    "atk_ah": 10.0,
-    "def": 0.12,
-    "mov": -0.12,
-    "hit": 3.0,
-    "cri": 0.06,
-    "miss": 0.18,
-    "aa": 24.0,
-    "asm": 24.0,
-    "dodge": 0.08
+    "shincolle:atk_l": 4.0,
+    "shincolle:atk_h": 6.0,
+    "shincolle:atk_al": 8.0,
+    "shincolle:atk_ah": 10.0,
+    "shincolle:def": 0.12,
+    "shincolle:mov": -0.12,
+    "shincolle:hit": 3.0,
+    "shincolle:cri": 0.06,
+    "shincolle:miss": 0.18,
+    "shincolle:aa": 24.0,
+    "shincolle:asm": 24.0,
+    "shincolle:dodge": 0.08
   }
 }

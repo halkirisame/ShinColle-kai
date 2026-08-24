@@ -25,6 +25,29 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+def includeKubeJSRuntime = providers.gradleProperty('shincolleKubeJSRuntime')
+        .map { Boolean.parseBoolean(it) }
+        .getOrElse(false)
+
+// Optional-mod runtime switches for the standalone-startup checks in 検証.txt B層.
+// Every integration sits behind a ModList.isLoaded() guard, so the mod must also
+// boot with none of these present. Default true keeps the normal dev run unchanged.
+//   -PshincolleMinimalRuntime=true   drop every optional mod at once
+//   -PshincolleCuriosRuntime=false   drop just Curios
+//   -PshincolleTinkersRuntime=false  drop just Tinkers' Construct (+ Mantle)
+def minimalRuntime = providers.gradleProperty('shincolleMinimalRuntime')
+        .map { Boolean.parseBoolean(it) }
+        .getOrElse(false)
+def optionalRuntime = { String property ->
+    if (minimalRuntime) {
+        return false
+    }
+    providers.gradleProperty(property).map { Boolean.parseBoolean(it) }.getOrElse(true)
+}
+def includeJEIRuntime = optionalRuntime('shincolleJEIRuntime')
+def includeCuriosRuntime = optionalRuntime('shincolleCuriosRuntime')
+def includeTinkersRuntime = optionalRuntime('shincolleTinkersRuntime')
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
 
@@ -73,8 +96,15 @@ minecraft {
             workingDirectory project.file('.')
             property 'forge.enabledGameTestNamespaces', "${mod_id},minecraft"
             property 'forge.logging.console.level', 'info'
+            property 'shincolle.publicationRoot', project.projectDir.absolutePath
             jvmArgs '--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED'
             args '--nogui'
+        }
+
+        kubeJSGameTestServer {
+            parent runs.gameTestServer
+            workingDirectory project.file('build/kubejs-gametest')
+            property 'shincolle.kubejsSmokeTest', 'true'
         }
 
         data {
@@ -84,6 +114,76 @@ minecraft {
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+sourceSets {
+    addonExample {
+        java.srcDir 'examples/java_addon/src/main/java'
+        resources.srcDir 'examples/java_addon/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('compileAddonExampleJava')
+}
+
+tasks.named('compileAddonExampleJava', JavaCompile).configure {
+    description = 'Compiles the copyable Java addon example against the current Public API.'
+    options.encoding = 'UTF-8'
+}
+
+tasks.register('validateAddonExampleApiBoundary') {
+    description = 'Rejects ShinColle internal-package references from the public Java addon example.'
+    def exampleSources = fileTree('examples/java_addon/src/main/java') {
+        include '**/*.java'
+    }
+    inputs.files(exampleSources)
+    doLast {
+        exampleSources.each { sourceFile ->
+            def forbidden = sourceFile.getText('UTF-8') =~ /com\.lulan\.shincolle\.(?!api(?:\.|;))/
+            if (forbidden.find()) {
+                throw new GradleException("Java addon example references a ShinColle internal package: ${sourceFile}")
+            }
+        }
+    }
+}
+
+tasks.register('validateAddonExampleIsolation') {
+    description = 'Ensures the Java addon example is not packaged into the ShinColle-kai release JAR.'
+    dependsOn tasks.named('jar')
+    def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    inputs.file(releaseJar)
+    doLast {
+        def leaked = zipTree(releaseJar.get().asFile).matching {
+            include 'example/shincolleaddon/**'
+            include 'data/shincolle_example/**'
+            include 'assets/shincolle_example/**'
+        }.files
+        if (!leaked.isEmpty()) {
+            throw new GradleException("Java addon example leaked into the release JAR: ${leaked}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('validateAddonExampleApiBoundary')
+    dependsOn tasks.named('validateAddonExampleIsolation')
+}
+
+tasks.register('prepareKubeJSSmokeResources', Sync) {
+    from 'src/kubejsTest'
+    from('gameteststructures') {
+        into 'gameteststructures'
+    }
+    from('src/main/resources') {
+        into 'src/main/resources'
+    }
+    into layout.buildDirectory.dir('kubejs-gametest')
+}
+
+tasks.matching { it.name == 'prepareRunKubeJSGameTestServer' }.configureEach {
+    dependsOn tasks.named('prepareKubeJSSmokeResources')
+}
 
 // Expand gradle.properties into mods.toml
 tasks.named('processResources', ProcessResources).configure {
@@ -127,6 +227,21 @@ repositories {
         url = 'https://maven.theillusivec4.top/'
         content { includeGroup 'top.theillusivec4.curios' }
     }
+    maven {
+        name = 'Architectury'
+        url = 'https://maven.architectury.dev/'
+        content { includeGroup 'dev.architectury' }
+    }
+    maven {
+        name = 'Saps'
+        url = 'https://maven.saps.dev/minecraft/'
+        content { includeGroup 'dev.latvian.mods' }
+    }
+    maven {
+        name = 'Latvian Releases'
+        url = 'https://maven.latvian.dev/releases/'
+        content { includeGroup 'dev.latvian.mods' }
+    }
 }
 
 dependencies {
@@ -135,14 +250,18 @@ dependencies {
     // JEI - deobfuscated for dev environment
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.20.0.129")
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.20.0.129")
-    runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:15.20.0.129")
+    if (includeJEIRuntime) {
+        runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:15.20.0.129")
+    }
 
     // Curios API - optional. Gives ship-girls a parallel set of equipment
     // slots that other mods' items can occupy (see com.lulan.shincolle.equip).
     // All curios-referencing code lives behind a ModList.isLoaded("curios")
     // guard so the mod works standalone without it.
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1:api")
-    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1")
+    if (includeCuriosRuntime) {
+        runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1")
+    }
 
     // Tinkers' Construct (+ its required Mantle) - optional. Lets a Curios
     // ship-equip slot read a Tinkers tool's own material/modifier stats
@@ -150,8 +269,23 @@ dependencies {
     // code lives behind a ModList.isLoaded("tconstruct") guard, same as Curios.
     compileOnly fg.deobf("curse.maven:mantle-74924:7414488")
     compileOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
-    runtimeOnly fg.deobf("curse.maven:mantle-74924:7414488")
-    runtimeOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+    if (includeTinkersRuntime) {
+        runtimeOnly fg.deobf("curse.maven:mantle-74924:7414488")
+        runtimeOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+    }
+
+    // KubeJS - optional scripting adapter. The integration class is discovered
+    // through kubejs.plugins.txt only when KubeJS is present. Keep the API on the
+    // compile classpath, and opt into a full dev runtime with
+    // -PshincolleKubeJSRuntime=true so standalone runs remain covered.
+    compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+    compileOnly fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
+    compileOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    if (includeKubeJSRuntime) {
+        runtimeOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+        runtimeOnly fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
+        runtimeOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    }
 
     // ---- Verification mods (runClient only, never shipped) --------------------
     // Dropping release jars into run/mods does not work in a dev run: those jars
@@ -169,7 +303,9 @@ dependencies {
     // mixin.env.remapRefMap / mixin.env.refMapRemappingFile to the run config.
     // runtimeOnly fg.deobf("maven.modrinth:jade:11.8.0")
     // Edits this mod's config (engageDistance and friends) in-game, no restart.
-    runtimeOnly fg.deobf("maven.modrinth:forge-config-screens:v8.0.2-1.20.1-Forge")
+    if (!minimalRuntime) {
+        runtimeOnly fg.deobf("maven.modrinth:forge-config-screens:v8.0.2-1.20.1-Forge")
+    }
 }
 
 tasks.named('jar', Jar).configure {

@@ -155,7 +155,7 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
 
                     if (host_target instanceof LivingEntity living) {
                         this.setTarget(living);
-                        LogHelper.info("DIAG: summon inherit target=" + this + " host=" + this.host
+                        LogHelper.diag("DIAG: summon inherit target=" + this + " host=" + this.host
                                 + " hostTarget=" + host_target + " result=inherited");
                     } else {
                         shouldDie = true;
@@ -168,7 +168,7 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             }
 
             if (shouldDie) {
-                LogHelper.info("DIAG: summon despawn=" + this + " host=" + this.host
+                LogHelper.diag("DIAG: summon despawn=" + this + " host=" + this.host
                         + " reason=" + despawnReason);
                 if (this.host != null) {
                     this.returnSummonResource();

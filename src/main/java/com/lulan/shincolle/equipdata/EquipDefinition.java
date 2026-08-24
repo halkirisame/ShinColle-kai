@@ -1,8 +1,13 @@
 package com.lulan.shincolle.equipdata;
 
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * A single ship equipment's data, as loaded from a
@@ -17,8 +22,7 @@ import java.util.List;
  *                         value parsed from the JSON {@code equip_type}
  * @param legacyEquipId    old {@code EquipType + EquipSubID * 100} identifier,
  *                         or {@code null} for definitions that do not expose one
- * @param stats            length {@link com.lulan.shincolle.reference.unitclass.Attrs#AttrsLength},
- *                         indexed by {@link com.lulan.shincolle.reference.ID.Attrs}.
+ * @param stats            immutable ResourceLocation-keyed ship attribute values
  * @param compatible       ship types this equipment can be worn on -
  *                         {@code "cannon"}, {@code "aircraft"}, or both (the old
  *                         {@code EQUIP_TYPE == 2} "misc, fits either" case).
@@ -42,7 +46,8 @@ public record EquipDefinition(
         int variant,
         int equipType,
         Integer legacyEquipId,
-        float[] stats,
+        ShipAttributeValues stats,
+        Map<ResourceLocation, ShipAttackEffect> attackEffects,
         List<String> compatible,
         int enchantType,
         String developMaterial,
@@ -50,6 +55,30 @@ public record EquipDefinition(
         int rareMean,
         int rollType
 ) {
+
+    public EquipDefinition {
+        stats = Objects.requireNonNull(stats, "stats");
+        Objects.requireNonNull(attackEffects, "attackEffects");
+        Map<ResourceLocation, ShipAttackEffect> effectCopy = new LinkedHashMap<>();
+        attackEffects.forEach((effectId, effect) -> {
+            Objects.requireNonNull(effectId, "attack effect ID");
+            Objects.requireNonNull(effect, "attack effect");
+            if (!effectId.equals(effect.effectId())) {
+                throw new IllegalArgumentException("Attack effect key does not match value ID " + effectId);
+            }
+            effectCopy.put(effectId, effect);
+        });
+        attackEffects = Map.copyOf(effectCopy);
+        compatible = List.copyOf(compatible);
+    }
+
+    public EquipDefinition(ResourceLocation id, ResourceLocation item, int variant, int equipType,
+                           Integer legacyEquipId, ShipAttributeValues stats, List<String> compatible,
+                           int enchantType, String developMaterial, int developAmount, int rareMean,
+                           int rollType) {
+        this(id, item, variant, equipType, legacyEquipId, stats, Map.of(), compatible,
+                enchantType, developMaterial, developAmount, rareMean, rollType);
+    }
 
     public boolean isCompatibleWith(String tag) {
         return compatible.contains(tag);

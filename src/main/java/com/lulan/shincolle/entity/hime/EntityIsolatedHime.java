@@ -5,6 +5,7 @@ import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.entity.mounts.EntityMountIsH;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
@@ -47,6 +48,21 @@ public class EntityIsolatedHime extends BasicEntityShipCV implements IShipRiderT
 
     public int getEquipType() {
         return 2;
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int level = this.getLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.BLINDNESS,
+                0, 100 + level, level);
+        // Original 1.10.2 gates this poison on marriage, not on level. The
+        // level / 75 term is the amplifier, so an unmarried ship gets nothing
+        // while a married one gets poison I below level 75.
+        if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect)) {
+            ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.POISON,
+                    level / 75, 80 + level, level);
+        }
     }
 
     @Override

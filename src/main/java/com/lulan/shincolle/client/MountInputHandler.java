@@ -79,7 +79,7 @@ public class MountInputHandler {
             // Update the client immediately for smooth prediction; server-only updates stutter.
             mount.keyPressed = newKeys;
             mount.keyTick = 10;
-            LogHelper.info("DIAG: mount key send keys=" + Integer.toBinaryString(newKeys)
+            LogHelper.diag("DIAG: mount key send keys=" + Integer.toBinaryString(newKeys)
                     + " mount=" + mount + " vehicle=" + player.getVehicle());
             ModNetworking.sendToServer(new C2SInputPacket(C2SInputPacket.MountMove, newKeys));
         }

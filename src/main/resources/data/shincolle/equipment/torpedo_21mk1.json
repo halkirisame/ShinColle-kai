@@ -14,10 +14,10 @@
   },
   "roll_type": 4,
   "stats": {
-    "atk_h": 6.0,
-    "mov": -0.08,
-    "cri": 0.03,
-    "asm": 8.0,
-    "ammo": 0.1
+    "shincolle:atk_h": 6.0,
+    "shincolle:mov": -0.08,
+    "shincolle:cri": 0.03,
+    "shincolle:asm": 8.0,
+    "shincolle:ammo": 0.1
   }
 }

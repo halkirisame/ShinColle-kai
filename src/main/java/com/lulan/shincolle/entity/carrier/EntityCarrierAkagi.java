@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.carrier;
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -47,6 +48,14 @@ public class EntityCarrierAkagi extends BasicEntityShipCV {
     @Override
     public int getEquipType() {
         return 3;
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int level = this.getLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.HUNGER,
+                level / 120, 100 + level, level);
     }
 
     @Override

@@ -1,12 +1,15 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import net.minecraft.resources.ResourceLocation;
+
 import java.util.Map;
 
 /**
  * Interface for items that apply effects on attack.
  */
 public interface IShipEffectItem {
-    Map<Integer, int[]> getEffectOnAttack(int meta);
+    Map<ResourceLocation, ShipAttackEffect> getEffectOnAttack(int meta);
 
     int getMissileType(int meta);
 

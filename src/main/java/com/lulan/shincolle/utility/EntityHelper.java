@@ -359,13 +359,13 @@ public class EntityHelper {
      */
     public static void spawnMobShip(Player player, CapaTeitoku capa) {
         if (!(player.level() instanceof ServerLevel level) || capa == null) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=notServerOrMissingCapability");
             return;
         }
 
         if (level.getDifficulty() == Difficulty.PEACEFUL) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=peaceful");
             return;
         }
@@ -375,38 +375,38 @@ public class EntityHelper {
         int loadedHostileShips = countLoadedHostileShips(level);
         String spawnLimit = spawnCfg != null && spawnCfg.length >= 1
                 ? Integer.toString(spawnCfg[0]) : "invalid";
-        LogHelper.info("DIAG: spawn mob ship check player=" + player.getName().getString()
+        LogHelper.diag("DIAG: spawn mob ship check player=" + player.getName().getString()
                 + " checkRing=" + ConfigHandler.checkRing() + " hasRing=" + capa.hasRing()
                 + " inSeaBiome=" + inSeaBiome
                 + " loadedHostileShips=" + loadedHostileShips + "/" + spawnLimit);
 
         if (ConfigHandler.checkRing() && !capa.hasRing()) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=ringRequired");
             return;
         }
 
         if (!inSeaBiome) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=notSeaBiome");
             return;
         }
 
         if (spawnCfg == null || spawnCfg.length < 5) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=invalidSpawnConfig");
             return;
         }
 
         if (loadedHostileShips > spawnCfg[0]) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=hostileLimit");
             return;
         }
 
         RandomSource rng = player.getRandom();
         if (rng.nextInt(100) > spawnCfg[1]) {
-            LogHelper.info("DIAG: spawn mob ship rejected player=" + player.getName().getString()
+            LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=randomChance");
             return;
         }
@@ -425,7 +425,7 @@ public class EntityHelper {
             int seaTestY = Mth.clamp(level.getSeaLevel() - 2, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
             BlockPos seaCheck = new BlockPos(spawnX, seaTestY, spawnZ);
             if (!level.getFluidState(seaCheck).is(FluidTags.WATER)) {
-                LogHelper.info("DIAG: spawn mob ship: no water at " + spawnX + "," + seaTestY + "," + spawnZ
+                LogHelper.diag("DIAG: spawn mob ship: no water at " + spawnX + "," + seaTestY + "," + spawnZ
                         + " block=" + level.getBlockState(seaCheck));
                 continue;
             }

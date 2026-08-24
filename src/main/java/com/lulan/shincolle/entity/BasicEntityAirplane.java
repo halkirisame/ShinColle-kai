@@ -2,13 +2,15 @@ package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.ShipAircraftAttackGoal;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
-import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.TargetHelper;
 import net.minecraft.util.Mth;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -19,7 +21,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.fml.ModList;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -44,7 +45,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
     private Entity revengeTarget;
     private int revengeTime;
     private HashMap<Integer, Integer> buffMap = new HashMap<>();
-    private HashMap<Integer, int[]> attackEffectMap = new HashMap<>();
+    private HashMap<ResourceLocation, ShipAttackEffect> attackEffectMap = new HashMap<>();
 
     protected BasicEntityAirplane(EntityType<? extends BasicEntityAirplane> type, Level level) {
         super(type, level);
@@ -348,8 +349,8 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
             isHurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
         }
 
-        if (isHurt && ModList.get().isLoaded("curios") && this.host instanceof LivingEntity hostEntity) {
-            ShipCuriosIntegration.runOnHitHooks(hostEntity, target, atk);
+        if (isHurt && this.host instanceof LivingEntity hostEntity) {
+            ShipOnHitEffects.dispatch(hostEntity, target, atk);
         }
 
         return isHurt;
@@ -389,8 +390,8 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
             isHurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
         }
 
-        if (isHurt && ModList.get().isLoaded("curios") && this.host instanceof LivingEntity hostEntity) {
-            ShipCuriosIntegration.runOnHitHooks(hostEntity, target, atk);
+        if (isHurt && this.host instanceof LivingEntity hostEntity) {
+            ShipOnHitEffects.dispatch(hostEntity, target, atk);
         }
 
         return isHurt;
@@ -627,7 +628,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
     }
 
     @Override
-    public HashMap<Integer, int[]> getAttackEffectMap() {
+    public HashMap<ResourceLocation, ShipAttackEffect> getAttackEffectMap() {
         if (this.host != null) {
             return this.host.getAttackEffectMap();
         }
@@ -635,7 +636,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
     }
 
     @Override
-    public void setAttackEffectMap(HashMap<Integer, int[]> map) {
+    public void setAttackEffectMap(HashMap<ResourceLocation, ShipAttackEffect> map) {
         this.attackEffectMap = map;
     }
 

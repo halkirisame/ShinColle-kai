@@ -15,8 +15,8 @@
   },
   "roll_type": 20,
   "stats": {
-    "atk_l": 1.0,
-    "mov": -0.02,
-    "aa": 8.0
+    "shincolle:atk_l": 1.0,
+    "shincolle:mov": -0.02,
+    "shincolle:aa": 8.0
   }
 }

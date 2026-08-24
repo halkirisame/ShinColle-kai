@@ -14,11 +14,11 @@
   },
   "roll_type": 9,
   "stats": {
-    "atk_al": 16.0,
-    "spd": 0.08,
-    "mov": -0.24,
-    "hit": 5.0,
-    "miss": 0.02,
-    "aa": 80.0
+    "shincolle:atk_al": 16.0,
+    "shincolle:spd": 0.08,
+    "shincolle:mov": -0.24,
+    "shincolle:hit": 5.0,
+    "shincolle:miss": 0.02,
+    "shincolle:aa": 80.0
   }
 }

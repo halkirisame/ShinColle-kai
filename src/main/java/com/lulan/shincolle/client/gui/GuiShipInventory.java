@@ -1,9 +1,14 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.equip.ShipEquipSlots;
+import com.lulan.shincolle.item.ShipAttributeTooltipFormatter;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.reference.ID;
@@ -488,6 +493,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         Attrs attrs = ship.getAttrs();
         if (attrs == null)
             return;
+        ShipAttributeValues buffed = ship.shipAttributes(ShipAttributeLayer.BUFFED);
 
         int textX = 75;
         int textY = 20;
@@ -495,8 +501,10 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int vc = 0xFFFFFF;
 
         String atkKey = showAirAttack ? "gui.shincolle.firepower2" : "gui.shincolle.firepower1";
-        float atkVal = showAirAttack ? attrs.getAttrsBuffed(ID.Attrs.ATK_AL) : attrs.getAttrsBuffed(ID.Attrs.ATK_L);
-        float torpedoVal = showAirAttack ? attrs.getAttrsBuffed(ID.Attrs.ATK_AH) : attrs.getAttrsBuffed(ID.Attrs.ATK_H);
+        float atkVal = showAirAttack ? buffed.get(CoreShipAttributes.ATK_AL)
+                : buffed.get(CoreShipAttributes.ATK_L);
+        float torpedoVal = showAirAttack ? buffed.get(CoreShipAttributes.ATK_AH)
+                : buffed.get(CoreShipAttributes.ATK_H);
         String atkText = String.format("%.1f / %.1f", atkVal, torpedoVal);
 
         drawStatLine(graphics, textX, textY, I18n.get(atkKey),
@@ -504,19 +512,19 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
                 VALUE_ROW_OFFSET);
         textY += 21;
         drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.armor"),
-                String.format("%.1f%%", attrs.getAttrsBuffed(ID.Attrs.DEF) * 100F), lc,
+                String.format("%.1f%%", buffed.get(CoreShipAttributes.DEF) * 100F), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.DEF)));
         textY += 21;
         drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.attackspeed"),
-                String.format("%.2f", attrs.getAttrsBuffed(ID.Attrs.SPD)), lc,
+                String.format("%.2f", buffed.get(CoreShipAttributes.SPD)), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.SPD)));
         textY += 21;
         drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.movespeed"),
-                String.format("%.2f", attrs.getAttrsBuffed(ID.Attrs.MOV)), lc,
+                String.format("%.2f", buffed.get(CoreShipAttributes.MOV)), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.MOV)));
         textY += 21;
         drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.range"),
-                String.format("%.1f", attrs.getAttrsBuffed(ID.Attrs.HIT)), lc,
+                String.format("%.1f", buffed.get(CoreShipAttributes.HIT)), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.HIT)));
     }
 
@@ -681,7 +689,27 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         BasicEntityShip ship = this.menu.getShip();
         if (ship != null && isHoveringMoraleIcon(mouseX, mouseY)) {
             renderMoraleTooltip(graphics, ship, mouseX, mouseY);
+        } else if (ship != null && isHoveringAttributePanel(mouseX, mouseY)) {
+            renderCustomAttributeTooltip(graphics, ship, mouseX, mouseY);
         }
+    }
+
+    private boolean isHoveringAttributePanel(int mouseX, int mouseY) {
+        int relX = mouseX - this.leftPos;
+        int relY = mouseY - this.topPos;
+        return this.infoPage == 1 && relX >= 73 && relX <= 133 && relY >= 18 && relY <= 125;
+    }
+
+    private void renderCustomAttributeTooltip(GuiGraphics graphics, BasicEntityShip ship,
+                                              int mouseX, int mouseY) {
+        List<Component> lines = new ArrayList<>();
+        ShipAttributeTooltipFormatter.appendFinalCustom(
+                ship.shipAttributes(ShipAttributeLayer.BUFFED), ShipAttributeLayout.current(), lines);
+        if (lines.isEmpty()) {
+            return;
+        }
+        lines.add(0, Component.translatable("gui.shincolle.additional_attributes"));
+        graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);
     }
 
     /**
@@ -704,46 +732,47 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
         Attrs attrs = ship.getAttrs();
         if (attrs instanceof AttrsAdv adv) {
+            ShipAttributeValues moraleValues = adv.shipAttributes(ShipAttributeLayer.MORALE);
             lines.add(Component.literal(tr("gui.shincolle.firepower1", "Firepower") + ": x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.ATK_L) * 100F)
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_L) * 100F)
                     + "% / "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.ATK_H) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_H) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.airfirepower", "Air Firepower") + ": x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.ATK_AL) * 100F)
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_AL) * 100F)
                     + "% / "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.ATK_AH) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_AH) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.attackspeed", "Attack Speed") + ": x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.SPD) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.SPD) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.range", "Range") + ": + "
-                    + String.format("%.1f", adv.getAttrsMorale(ID.Attrs.HIT))));
+                    + String.format("%.1f", moraleValues.get(CoreShipAttributes.HIT))));
             lines.add(Component.literal(tr("gui.shincolle.critical", "Critical") + ": x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.CRI) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.CRI) * 100F) + "%"));
             lines.add(Component.literal("DHIT: x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.DHIT) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.DHIT) * 100F) + "%"));
             lines.add(Component.literal("THIT: x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.THIT) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.THIT) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.missrate", "Miss") + ": x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.MISS) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.MISS) * 100F) + "%"));
             lines.add(Component.literal("AA: x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.AA) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.AA) * 100F) + "%"));
             lines.add(Component.literal("ASM: x "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.ASM) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.ASM) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.armor", "Armor") + ": + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.DEF) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.DEF) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.dodge", "Dodge") + ": + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.DODGE) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.DODGE) * 100F) + "%"));
             lines.add(Component.literal("XP: + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.XP) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.XP) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.grudge", "Grudge") + ": + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.GRUDGE) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.GRUDGE) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.ammo", "Ammo") + ": + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.AMMO) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.AMMO) * 100F) + "%"));
             lines.add(Component.literal("HPRES: + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.HPRES) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.HPRES) * 100F) + "%"));
             lines.add(Component.literal("KB: + "
-                    + String.format("%.0f", adv.getAttrsMorale(ID.Attrs.KB) * 100F) + "%"));
+                    + String.format("%.0f", moraleValues.get(CoreShipAttributes.KB) * 100F) + "%"));
             lines.add(Component.literal(tr("gui.shincolle.movespeed", "Move Speed") + ": + "
-                    + String.format("%.2f", adv.getAttrsMorale(ID.Attrs.MOV))));
+                    + String.format("%.2f", moraleValues.get(CoreShipAttributes.MOV))));
         }
 
         graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);

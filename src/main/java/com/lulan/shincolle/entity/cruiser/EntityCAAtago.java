@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.cruiser;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
@@ -42,6 +43,14 @@ public class EntityCAAtago extends BasicEntityShipSmall {
      */
     public int getEquipType() {
         return 1;
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int level = this.getLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.SLOWNESS,
+                level / 100, 100 + level, level);
     }
 
     @Override

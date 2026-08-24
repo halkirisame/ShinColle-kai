@@ -15,13 +15,13 @@
   },
   "roll_type": 14,
   "stats": {
-    "atk_l": 2.0,
-    "atk_al": 3.0,
-    "def": 0.03,
-    "mov": -0.08,
-    "hit": 1.0,
-    "miss": 0.05,
-    "aa": 12.0,
-    "dodge": 0.02
+    "shincolle:atk_l": 2.0,
+    "shincolle:atk_al": 3.0,
+    "shincolle:def": 0.03,
+    "shincolle:mov": -0.08,
+    "shincolle:hit": 1.0,
+    "shincolle:miss": 0.05,
+    "shincolle:aa": 12.0,
+    "shincolle:dodge": 0.02
   }
 }

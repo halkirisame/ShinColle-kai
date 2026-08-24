@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.entity.mounts.EntityMountBaH;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
@@ -40,6 +41,14 @@ public class EntityBattleshipHime extends BasicEntityShipSmall implements IShipR
 
     public int getEquipType() {
         return 1;
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int level = this.getLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.MINING_FATIGUE,
+                level / 70, 100 + level, level);
     }
 
     @Override

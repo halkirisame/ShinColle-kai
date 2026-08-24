@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.battleship;
 
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.BossEvent;
@@ -44,6 +45,14 @@ public class EntityBattleshipNagatoMob extends BasicEntityShipHostile {
         this.setStateEmotion(ID.S.State, 3, false);
 
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int scale = this.getScaleLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.POISON,
+                scale / 2, 60 + scale * 40, 25 + scale * 25);
     }
 
     @Override

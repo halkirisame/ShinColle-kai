@@ -15,11 +15,11 @@
   },
   "roll_type": 18,
   "stats": {
-    "hp": 180.0,
-    "def": 0.02,
-    "mov": -0.12,
-    "dodge": 0.04,
-    "hpres": 0.1,
-    "kb": 0.1
+    "shincolle:hp": 180.0,
+    "shincolle:def": 0.02,
+    "shincolle:mov": -0.12,
+    "shincolle:dodge": 0.04,
+    "shincolle:hpres": 0.1,
+    "shincolle:kb": 0.1
   }
 }

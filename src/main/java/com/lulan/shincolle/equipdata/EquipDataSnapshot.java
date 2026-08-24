@@ -7,7 +7,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * One immutable generation of all ship-equipment definitions and their resolved indexes.
+ * One deeply immutable generation of all ship-equipment definitions and their resolved indexes.
+ * Map structures are copied here; {@link EquipDefinition} owns defensive copies of its mutable inputs.
  */
 public record EquipDataSnapshot(
         Map<ResourceLocation, EquipDefinition> byId,

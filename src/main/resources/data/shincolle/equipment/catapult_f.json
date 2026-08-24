@@ -14,9 +14,9 @@
   },
   "roll_type": 22,
   "stats": {
-    "spd": 0.4,
-    "mov": -0.15,
-    "hit": 2.0,
-    "kb": 0.08
+    "shincolle:spd": 0.4,
+    "shincolle:mov": -0.15,
+    "shincolle:hit": 2.0,
+    "shincolle:kb": 0.08
   }
 }

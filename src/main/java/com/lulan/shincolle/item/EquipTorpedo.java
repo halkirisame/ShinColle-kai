@@ -1,9 +1,11 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -63,8 +65,8 @@ public class EquipTorpedo extends BasicEquip implements IShipEffectItem {
     }
 
     @Override
-    public Map<Integer, int[]> getEffectOnAttack(int meta) {
-        return null;
+    public Map<ResourceLocation, ShipAttackEffect> getEffectOnAttack(int meta) {
+        return Map.of();
     }
 
     @Override

@@ -101,7 +101,7 @@ public class ShipPickItemGoal extends Goal {
                     if (!itemEntity.hasPickUpDelay()) {
                         ItemStack attemptedStack = stack.copy();
                         boolean picked = this.ship.getCapaShipInventory().addItemStackToInventory(stack);
-                        LogHelper.info("DIAG: pickitem ship=" + this.ship + " item=" + attemptedStack
+                        LogHelper.diag("DIAG: pickitem ship=" + this.ship + " item=" + attemptedStack
                                 + " result=" + (picked ? "picked" : "inventory_full"));
 
                         if (picked) {

@@ -4,6 +4,7 @@ import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.BasicEntitySummon;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipEmotion;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import net.minecraft.util.RandomSource;
@@ -143,7 +144,12 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
 
         float atk = this.shipAttrs.getAttackDamage();
         if (target instanceof LivingEntity livingTarget) {
-            return livingTarget.hurt(this.damageSources().mobAttack(this), atk);
+            boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
+            Entity hostEntity = this.getHostEntity();
+            if (hurt && hostEntity instanceof LivingEntity livingHost) {
+                ShipOnHitEffects.dispatch(livingHost, target, atk);
+            }
+            return hurt;
         }
         return false;
     }

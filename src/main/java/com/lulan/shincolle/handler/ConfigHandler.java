@@ -1,6 +1,9 @@
 package com.lulan.shincolle.handler;
 
+import com.lulan.shincolle.ShinColle;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
 import com.lulan.shincolle.reference.unitclass.Attrs;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
@@ -34,7 +37,9 @@ public class ConfigHandler {
     /**
      * Max attrs limit, -1 = no limit, index by ID.Attrs
      */
-    public static double[] limitShipAttrs = new double[Attrs.AttrsLength];
+    public static volatile double[] limitShipAttrs = new double[Attrs.AttrsLength];
+    private static volatile ShipAttributeLimits shipAttributeLimits = ShipAttributeLimits.unlimited();
+    private static volatile boolean shipAttributeLayoutReady;
     /**
      * Modern bonus point limit per attribute
      */
@@ -181,11 +186,11 @@ public class ConfigHandler {
      * Synchronize cached static fields from ForgeConfigSpec values.
      * Called after config load/reload via ModConfigEvent.
      */
-    public static void syncConfig() {
+    public static synchronized void syncConfig() {
         modernLimit = COMMON.attrsLimitModernization.get();
 
         // Sync double arrays
-        syncDoubleArray(limitShipAttrs, COMMON.limitShipAttrsConfig.get());
+        rebuildShipAttributeLimits();
         syncDoubleArray(scaleShip, COMMON.scaleShipConfig.get());
         syncDoubleArray(scaleBossSmall, COMMON.scaleBossSmallConfig.get());
         syncDoubleArray(scaleBossLarge, COMMON.scaleBossLargeConfig.get());
@@ -218,6 +223,32 @@ public class ConfigHandler {
         // Sync boolean arrays
         syncBooleanArray(enableTask, COMMON.enableTaskConfig.get());
         syncBooleanArray(polyGravelBaseBlock, COMMON.polyGravelBaseBlockConfig.get());
+    }
+
+    /** Completes named-limit validation after the code-defined attribute registry is frozen. */
+    public static synchronized void onShipAttributeLayoutReady() {
+        shipAttributeLayoutReady = true;
+        rebuildShipAttributeLimits();
+    }
+
+    /** Returns the configured maximum for one stable attribute ID, or -1 when no config cap exists. */
+    public static double shipAttributeMaximum(ResourceLocation id) {
+        return shipAttributeLimits.maximum(id);
+    }
+
+    private static void rebuildShipAttributeLimits() {
+        ShipAttributeLimits resolved = shipAttributeLayoutReady
+                ? ShipAttributeLimits.resolve(COMMON.limitShipAttrsConfig.get(),
+                COMMON.limitShipAttributesByIdConfig.get(), ShipAttributeLayout.current(),
+                ConfigHandler::warnInvalidShipAttributeLimit)
+                : ShipAttributeLimits.legacyOnly(COMMON.limitShipAttrsConfig.get(),
+                ConfigHandler::warnInvalidShipAttributeLimit);
+        shipAttributeLimits = resolved;
+        limitShipAttrs = resolved.legacyLimits();
+    }
+
+    private static void warnInvalidShipAttributeLimit(String message) {
+        ShinColle.LOGGER.warn("Invalid ship attribute limit config: {}", message);
     }
 
     // ========== Config sync ==========
@@ -495,6 +526,7 @@ public class ConfigHandler {
         // Ship array configs
         public final ConfigValue<List<? extends Double>> scaleShipConfig;
         public final ConfigValue<List<? extends Double>> limitShipAttrsConfig;
+        public final ConfigValue<List<? extends String>> limitShipAttributesByIdConfig;
         public final ConfigValue<List<? extends Double>> scaleBossSmallConfig;
         public final ConfigValue<List<? extends Double>> scaleBossLargeConfig;
         public final ConfigValue<List<? extends Double>> scaleMobSmallConfig;
@@ -769,6 +801,12 @@ public class ConfigHandler {
                                     0.75D, -1D, -1D, -1D, -1D,
                                     1D),
                             e -> e instanceof Double);
+
+            limitShipAttributesByIdConfig = builder
+                    .comment("Ship attribute max limits by stable ID. Entries use namespace:path=value.",
+                            "These override limitShipAttrs for core attributes. -1 means no config limit.",
+                            "Example: [\"addon:sonar_precision=0.75\", \"shincolle:dodge=0.6\"]")
+                    .defineList("limitShipAttributesById", List.of(), e -> e instanceof String);
 
             scaleBossSmallConfig = builder
                     .comment("Small boss base attribute values: [HP, firepower, armor, attack speed, move speed, range]")

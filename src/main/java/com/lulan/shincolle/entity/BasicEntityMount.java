@@ -2,6 +2,7 @@ package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.PointerItem;
@@ -18,6 +19,7 @@ import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -142,7 +144,7 @@ public abstract class BasicEntityMount extends TamableAnimal
             if (this.host != ship) {
                 this.setHost(ship);
             }
-            LogHelper.info("DIAG: mount host resolved client mount=" + this.getId()
+            LogHelper.diag("DIAG: mount host resolved client mount=" + this.getId()
                     + " host=" + this.pendingClientHostId);
             this.pendingClientHostId = 0;
         }
@@ -266,7 +268,7 @@ public abstract class BasicEntityMount extends TamableAnimal
 
                 // teleport to host if too far away (> 32 blocks)
                 if (self.distanceToSqr(self.host) > 1024.0D) {
-                    LogHelper.info("DIAG: mount recall host=" + self.host + " mount=" + self
+                    LogHelper.diag("DIAG: mount recall host=" + self.host + " mount=" + self
                             + " distSq=" + self.distanceToSqr(self.host));
                     self.setPos(self.host.getX(), self.host.getY(), self.host.getZ());
                 }
@@ -696,13 +698,13 @@ public abstract class BasicEntityMount extends TamableAnimal
     public void setBuffMap(HashMap<Integer, Integer> map) {
     }
 
-    public HashMap<Integer, int[]> getAttackEffectMap() {
+    public HashMap<ResourceLocation, ShipAttackEffect> getAttackEffectMap() {
         if (this.host != null)
             return this.host.getAttackEffectMap();
         return new HashMap<>();
     }
 
-    public void setAttackEffectMap(HashMap<Integer, int[]> map) {
+    public void setAttackEffectMap(HashMap<ResourceLocation, ShipAttackEffect> map) {
     }
 
     public MissileData getMissileData(int type) {
@@ -756,7 +758,7 @@ public abstract class BasicEntityMount extends TamableAnimal
             boolean diagKeysChanged = this.keyPressed != this.lastDiagKeys;
             if (diagKeysChanged) {
                 this.lastDiagKeys = this.keyPressed;
-                LogHelper.info("DIAG: mount input side=" + (this.level().isClientSide() ? "client" : "server")
+                LogHelper.diag("DIAG: mount input side=" + (this.level().isClientSide() ? "client" : "server")
                         + " keys=" + Integer.toBinaryString(this.keyPressed)
                         + " keyTick=" + this.keyTick
                         + " localInstance=" + this.isControlledByLocalInstance()
@@ -776,14 +778,14 @@ public abstract class BasicEntityMount extends TamableAnimal
                     float pitch = rider.getXRot() * Values.N.DIV_PI_180;
                     float yaw = rider.getYHeadRot() * Values.N.DIV_PI_180;
                     if (diagKeysChanged) {
-                        LogHelper.info("DIAG: mount orient yaw=" + yaw + " pitch=" + pitch
+                        LogHelper.diag("DIAG: mount orient yaw=" + yaw + " pitch=" + pitch
                                 + " keys=" + Integer.toBinaryString(this.keyPressed)
                                 + " yRotBefore=" + this.getYRot()
                                 + " motionBefore=" + this.getDeltaMovement());
                     }
                     this.applyMovement(pitch, yaw);
                     if (diagKeysChanged) {
-                        LogHelper.info("DIAG: mount orient result motion=" + this.getDeltaMovement());
+                        LogHelper.diag("DIAG: mount orient result motion=" + this.getDeltaMovement());
                     }
                     // Keep the model and movement on the same instantaneous look yaw.
                     this.setYRot(rider.getYHeadRot());
@@ -951,7 +953,7 @@ public abstract class BasicEntityMount extends TamableAnimal
         Entity entity = serverLevel.getEntity(this.hostUuid);
         if (entity instanceof BasicEntityShip ship) {
             this.setHost(ship);
-            LogHelper.info("DIAG: mount host resolved server mount=" + this.getId()
+            LogHelper.diag("DIAG: mount host resolved server mount=" + this.getId()
                     + " host=" + ship.getId());
             // The mount may have begun tracking before its saved host reference
             // could be resolved. Re-send the host ID to those tracking clients.

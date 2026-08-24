@@ -27,9 +27,9 @@ import net.minecraftforge.network.simple.SimpleChannel;
  */
 public class ModNetworking {
 
-    // Shipyard stock sync adds a new packet type in this build. Reject mixed
-    // client/server jars rather than letting one side receive an unknown id.
-    private static final String PROTOCOL_VERSION = "4";
+    // Dynamic entity attribute sync changes its wire schema. Reject mixed
+    // client/server jars rather than decoding the wrong schema.
+    private static final String PROTOCOL_VERSION = "7";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),

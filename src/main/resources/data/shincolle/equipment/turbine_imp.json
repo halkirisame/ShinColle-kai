@@ -15,8 +15,8 @@
   },
   "roll_type": 16,
   "stats": {
-    "mov": 0.16,
-    "dodge": 0.08,
-    "grudge": 0.3
+    "shincolle:mov": 0.16,
+    "shincolle:dodge": 0.08,
+    "shincolle:grudge": 0.3
   }
 }

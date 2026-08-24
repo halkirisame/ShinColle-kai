@@ -119,7 +119,7 @@ public class CapaShipInventory {
         // The boolean contract is all-or-nothing. Do not partially mutate the
         // destination when the full stack cannot fit.
         if (capacity < stack.getCount()) {
-            LogHelper.info("DIAG: cargo insert failed capacity=" + capacity
+            LogHelper.diag("DIAG: cargo insert failed capacity=" + capacity
                     + " requested=" + stack.getCount() + " item=" + stack.getItem());
             return false;
         }

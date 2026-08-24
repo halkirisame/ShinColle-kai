@@ -117,9 +117,6 @@ public class CapaShipSavedValues {
             ship.setTextureID(nbt.getInt("TextureID"));
         }
 
-        // recalc attributes after loading
-        ship.calcShipAttributes(31, false);
-
         // set exp next value
         ship.setExpNext();
     }

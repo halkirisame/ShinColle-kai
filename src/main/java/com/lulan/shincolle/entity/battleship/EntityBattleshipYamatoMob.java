@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.battleship;
 
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.entity.other.EntityProjectileBeam;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModSounds;
@@ -50,6 +51,14 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
         this.setStateEmotion(ID.S.State, 15, false);
 
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int scale = this.getScaleLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.MINING_FATIGUE,
+                (int) (scale / 1.5D), 100 + scale * 50, 25 + scale * 25);
     }
 
     @Override

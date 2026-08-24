@@ -153,13 +153,13 @@ public class C2SInputPacket {
             BasicEntityShip ship = mount.getHost();
             boolean sameOwner = ship != null && TargetHelper.checkSameOwner(player, ship);
 
-            LogHelper.info("DIAG: mount key recv keys=" + Integer.toBinaryString(values[0])
+            LogHelper.diag("DIAG: mount key recv keys=" + Integer.toBinaryString(values[0])
                     + " host=" + ship + " sameOwner=" + sameOwner);
             if (sameOwner) {
                 mount.setMountKeyInput(values[0]);
             }
         } else {
-            LogHelper.info("DIAG: mount key recv rejected: not riding a mount, vehicle="
+            LogHelper.diag("DIAG: mount key recv rejected: not riding a mount, vehicle="
                     + player.getVehicle());
         }
     }

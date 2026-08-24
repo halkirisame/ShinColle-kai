@@ -845,5 +845,7 @@
   "chat.shincolle.wrongowner": "你不是擁有者：",
   "creativetab.shincolle": "ShinColle",
   "gui.shincolle.peek.empty": "空",
-  "gui.shincolle.egg.contents": "存放物品: %s"
+  "gui.shincolle.egg.contents": "存放物品: %s",
+  "gui.shincolle.additional_attributes": "附加屬性",
+  "gui.shincolle.additional_attributes.more": "...另有%s項"
 }

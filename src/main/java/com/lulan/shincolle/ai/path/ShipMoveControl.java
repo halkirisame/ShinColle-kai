@@ -1,5 +1,7 @@
 package com.lulan.shincolle.ai.path;
 
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipNavigator;
@@ -46,8 +48,9 @@ public class ShipMoveControl extends MoveControl {
         }
 
         float mov = attrs.getMinMOV()
-                + attrs.getAttrsFormation(ID.Attrs.MOV) * (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
-        float limit = (float) ConfigHandler.limitShipAttrs[ID.Attrs.MOV];
+                + attrs.shipAttributes(ShipAttributeLayer.FORMATION).get(CoreShipAttributes.MOV)
+                * (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
+        float limit = (float) ConfigHandler.shipAttributeMaximum(CoreShipAttributes.MOV);
         if (limit >= 0F && mov > limit) {
             mov = limit;
         } else if (mov < 0F) {
@@ -141,9 +144,9 @@ public class ShipMoveControl extends MoveControl {
                     if (this.entity instanceof BasicEntityShip ship && ship.getAttrs() != null) {
                         shipAttrs = " formatType=" + ship.getStateMinor(ID.M.FormatType)
                                 + " formatSlot=" + ship.getStateMinor(ID.M.FormatPos)
-                                + " shipAttrsMOV=" + ship.getAttrs().getAttrsBuffed(ID.Attrs.MOV);
+                                + " shipAttrsMOV=" + ship.shipAttribute(CoreShipAttributes.MOV);
                     }
-                    LogHelper.info("DIAG: move speed=" + moveSpeed + " modifier=" + this.speedModifier
+                    LogHelper.diag("DIAG: move speed=" + moveSpeed + " modifier=" + this.speedModifier
                             + " base=" + this.baseSpeedMultiplier + shipAttrs + " ship=" + this.entity);
                 }
                 this.entity.setSpeed(moveSpeed);

@@ -3,7 +3,9 @@ package com.lulan.shincolle;
 import com.lulan.shincolle.capability.CapabilityHandler;
 import com.lulan.shincolle.command.CommandHandler;
 import com.lulan.shincolle.config.ConfigMining;
-import com.lulan.shincolle.equip.ShipEquipProviders;
+import com.lulan.shincolle.api.equipment.ShipEquipmentProviders;
+import com.lulan.shincolle.equip.ShipEquipmentOptionalIntegrations;
+import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.equip.curios.ShipCuriosRecalcHandler;
 import com.lulan.shincolle.equip.curios.ShipEquipCurioCapabilityHandler;
 import com.lulan.shincolle.equip.tinkers.ShipTinkersIntegration;
@@ -24,6 +26,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
@@ -47,6 +50,7 @@ public class ShinColle {
         ModCreativeTabs.CREATIVE_TABS.register(modEventBus);
         ModRecipes.RECIPE_SERIALIZERS.register(modEventBus);
         ModParticles.PARTICLES.register(modEventBus);
+        ModShipAttributes.register(modEventBus);
         ShinColleLootModifiers.register(modEventBus);
 
         // Register config
@@ -55,6 +59,7 @@ public class ShinColle {
 
         // Register lifecycle event listeners
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::loadComplete);
         modEventBus.addListener(this::onConfigLoad);
         modEventBus.addListener(this::onConfigReload);
         modEventBus.addListener(CapabilityHandler::onRegisterCapabilities);
@@ -72,12 +77,15 @@ public class ShinColle {
         if (ModList.get().isLoaded("curios")) {
             MinecraftForge.EVENT_BUS.register(new ShipCuriosRecalcHandler());
             MinecraftForge.EVENT_BUS.register(new ShipEquipCurioCapabilityHandler());
+            ShipEquipmentOptionalIntegrations.registerStackSource(
+                    ShipCuriosIntegration.STACK_SOURCE_ID, ShipCuriosIntegration::getEquippedStacks);
         }
 
         // Lets a ship-equip Curios slot read a plain Tinkers' Construct tool's
         // own material/modifier stats, same optional-dependency pattern as Curios.
         if (ModList.get().isLoaded("tconstruct")) {
-            ShipEquipProviders.register(ShipTinkersIntegration.INSTANCE);
+            ShipEquipmentProviders.register(ShipTinkersIntegration.PROVIDER_ID, 0,
+                    ShipTinkersIntegration.INSTANCE);
         }
 
         LOGGER.info("ShinColle: Mod loading initialized.");
@@ -89,9 +97,18 @@ public class ShinColle {
     private void commonSetup(FMLCommonSetupEvent event) {
         ModNetworking.register();
         ModWorldGen.init();
+        event.enqueueWork(() -> {
+            ModShipAttributes.initializeLayout();
+            ConfigHandler.onShipAttributeLayoutReady();
+        });
 
         // Load mining loot table config (CSV file)
         ConfigMining.load(FMLPaths.CONFIGDIR.get().resolve("shincolle-mining.cfg").toFile());
+    }
+
+    /** Freezes addon equipment-provider registration after every mod has constructed. */
+    private void loadComplete(FMLLoadCompleteEvent event) {
+        event.enqueueWork(ShipEquipmentProviders::freeze);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.cruiser;
 
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.BossEvent;
@@ -47,6 +48,14 @@ public class EntityCATakaoMob extends BasicEntityShipHostile {
         this.setStateEmotion(ID.S.State, this.random.nextInt(16), false);
 
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int scale = this.getScaleLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.SLOWNESS,
+                scale / 2, 100 + scale * 50, 25 + scale * 25);
     }
 
     @Override

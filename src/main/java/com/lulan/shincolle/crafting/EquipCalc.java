@@ -1,11 +1,15 @@
 package com.lulan.shincolle.crafting;
 
 import com.lulan.shincolle.ShinColle;
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeEnchantRule;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeType;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.utility.CalcHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -324,105 +328,54 @@ public class EquipCalc {
      * @param enchant   enchantment effect values
      * @return enchanted equipment stats
      */
-    public static float[] calcEquipStatWithEnchant(int enchantType, float[] raw, float[] enchant) {
-        float[] newstat = new float[Attrs.AttrsLength];
-        float modTemp;
-
-        // HP
-        newstat[ID.Attrs.HP] = raw[ID.Attrs.HP] * (1F + enchant[ID.Attrs.HP]);
-
-        // ATK (weapon only)
-        modTemp = enchantType == 1 ? 1F + enchant[ID.Attrs.ATK_L] : 1F;
-        newstat[ID.Attrs.ATK_L] = raw[ID.Attrs.ATK_L] * modTemp;
-        newstat[ID.Attrs.ATK_H] = raw[ID.Attrs.ATK_H] * modTemp;
-        newstat[ID.Attrs.ATK_AL] = raw[ID.Attrs.ATK_AL] * modTemp;
-        newstat[ID.Attrs.ATK_AH] = raw[ID.Attrs.ATK_AH] * modTemp;
-
-        // DEF (armor only)
-        modTemp = enchantType == 2 ? 1F + enchant[ID.Attrs.DEF] : 1F;
-        newstat[ID.Attrs.DEF] = raw[ID.Attrs.DEF] * modTemp;
-
-        // SPD
-        newstat[ID.Attrs.SPD] = raw[ID.Attrs.SPD] * (1F + enchant[ID.Attrs.SPD]);
-
-        // MOV (negative: reduce, positive: increase)
-        if (raw[ID.Attrs.MOV] < 0F) {
-            modTemp = 1F - enchant[ID.Attrs.MOV];
-            if (modTemp < 0F)
-                modTemp = 0F;
-        } else {
-            modTemp = 1F + enchant[ID.Attrs.MOV];
-        }
-        newstat[ID.Attrs.MOV] = raw[ID.Attrs.MOV] * modTemp;
-
-        // Range
-        newstat[ID.Attrs.HIT] = raw[ID.Attrs.HIT] * (1F + enchant[ID.Attrs.HIT]);
-
-        // CRI
-        newstat[ID.Attrs.CRI] = raw[ID.Attrs.CRI] * (1F + enchant[ID.Attrs.CRI]);
-
-        // DHIT
-        newstat[ID.Attrs.DHIT] = raw[ID.Attrs.DHIT] * (1F + enchant[ID.Attrs.DHIT]);
-
-        // THIT
-        newstat[ID.Attrs.THIT] = raw[ID.Attrs.THIT] * (1F + enchant[ID.Attrs.THIT]);
-
-        // MISS
-        newstat[ID.Attrs.MISS] = raw[ID.Attrs.MISS] * (1F + enchant[ID.Attrs.MISS]);
-
-        // AA
-        newstat[ID.Attrs.AA] = raw[ID.Attrs.AA] * (1F + enchant[ID.Attrs.AA]);
-
-        // ASM
-        newstat[ID.Attrs.ASM] = raw[ID.Attrs.ASM] * (1F + enchant[ID.Attrs.ASM]);
-
-        // DODGE (negative: reduce, positive: increase)
-        if (raw[ID.Attrs.DODGE] < 0F) {
-            modTemp = 1F - enchant[ID.Attrs.DODGE];
-            if (modTemp < 0F)
-                modTemp = 0F;
-        } else {
-            modTemp = 1F + enchant[ID.Attrs.DODGE];
-        }
-        newstat[ID.Attrs.DODGE] = raw[ID.Attrs.DODGE] * modTemp;
-
-        // XP gain (weapon only)
-        newstat[ID.Attrs.XP] = enchantType == 1 ? raw[ID.Attrs.XP] + enchant[ID.Attrs.XP] : raw[ID.Attrs.XP];
-
-        // Grudge gain (non-weapon only)
-        newstat[ID.Attrs.GRUDGE] = enchantType != 1 ? raw[ID.Attrs.GRUDGE] + enchant[ID.Attrs.GRUDGE]
-                : raw[ID.Attrs.GRUDGE];
-
-        // Ammo gain (weapon only)
-        newstat[ID.Attrs.AMMO] = enchantType == 1 ? raw[ID.Attrs.AMMO] + enchant[ID.Attrs.AMMO]
-                : raw[ID.Attrs.AMMO];
-
-        // HP restore (non-weapon only)
-        newstat[ID.Attrs.HPRES] = enchantType != 1 ? raw[ID.Attrs.HPRES] + enchant[ID.Attrs.HPRES]
-                : raw[ID.Attrs.HPRES];
-
-        // Knockback resist (non-weapon only)
-        newstat[ID.Attrs.KB] = enchantType != 1 ? raw[ID.Attrs.KB] + enchant[ID.Attrs.KB] : raw[ID.Attrs.KB];
-
-        boolean hasEnchantEffect = false;
-        for (float value : enchant) {
-            if (value != 0F) {
-                hasEnchantEffect = true;
-                break;
+    public static ShipAttributeValues calcEquipStatWithEnchant(int enchantType, ShipAttributeValues raw,
+                                                                ShipAttributeValues enchant) {
+        ShipAttributeLayout rawLayout = raw.layout();
+        ShipAttributeLayout enchantLayout = enchant.layout();
+        ShipAttributeValues.Builder result = ShipAttributeValues.builder(rawLayout);
+        for (ResourceLocation id : rawLayout.ids()) {
+            ShipAttributeType type = rawLayout.type(id);
+            ResourceLocation effectId = type.enchantEffectSource(id);
+            float effect = enchantLayout.indexOf(effectId) < 0 ? 0F : enchant.get(effectId);
+            float value = applyEnchantRule(type.enchantRule(), enchantType, raw.get(id), effect);
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("Equipment enchant result is non-finite for " + id);
             }
+            result.set(id, value);
         }
+
+        boolean hasEnchantEffect = enchant.asMap().values().stream().anyMatch(value -> value != 0F);
         if (hasEnchantEffect) {
             if (enchantType == 1) {
-                LogHelper.info("DIAG: enchant apply enchantType=1 target=attack atkBonus="
-                        + enchant[ID.Attrs.ATK_L]);
+                LogHelper.diag("DIAG: enchant apply enchantType=1 target=attack atkBonus="
+                        + getOrZero(enchant, CoreShipAttributes.ATK_L));
             } else if (enchantType == 2) {
-                LogHelper.info("DIAG: enchant apply enchantType=2 target=defense defBonus="
-                        + enchant[ID.Attrs.DEF]);
+                LogHelper.diag("DIAG: enchant apply enchantType=2 target=defense defBonus="
+                        + getOrZero(enchant, CoreShipAttributes.DEF));
             } else {
-                LogHelper.info("DIAG: enchant apply enchantType=" + enchantType + " target=other");
+                LogHelper.diag("DIAG: enchant apply enchantType=" + enchantType + " target=other");
             }
         }
 
-        return newstat;
+        return result.build();
+    }
+
+    private static float getOrZero(ShipAttributeValues values, ResourceLocation id) {
+        return values.layout().indexOf(id) < 0 ? 0F : values.get(id);
+    }
+
+    private static float applyEnchantRule(ShipAttributeEnchantRule rule, int enchantType,
+                                          float raw, float effect) {
+        return switch (rule) {
+            case NONE -> raw;
+            case MULTIPLY -> raw * (1F + effect);
+            case WEAPON_MULTIPLY -> enchantType == 1 ? raw * (1F + effect) : raw;
+            case ARMOR_MULTIPLY -> enchantType == 2 ? raw * (1F + effect) : raw;
+            case SIGNED_MULTIPLY -> raw < 0F
+                    ? raw * Math.max(0F, 1F - effect)
+                    : raw * (1F + effect);
+            case WEAPON_ADDITIVE -> enchantType == 1 ? raw + effect : raw;
+            case NON_WEAPON_ADDITIVE -> enchantType == 1 ? raw : raw + effect;
+        };
     }
 }

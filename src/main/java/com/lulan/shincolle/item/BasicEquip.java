@@ -1,12 +1,12 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.ShinColle;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.crafting.EquipCalc;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDefinition;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
-import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.EnchantHelper;
@@ -37,6 +37,7 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
 
     protected static final Random itemRand = new Random();
     private static final Set<String> REPORTED_MISSING_DEFINITIONS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> REPORTED_INVALID_TOOLTIPS = ConcurrentHashMap.newKeySet();
 
     private final int numVariants;
 
@@ -187,44 +188,6 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
         return Component.translatable(this.getDescriptionId(stack));
     }
 
-    /**
-     * One stat's tooltip rendering rule: which {@link ID.Attrs} slot, color,
-     * number format, {@link ID.AttrsBase} scale index (-1 = no config
-     * scaling), whether it's shown as a percentage, and whether the
-     * translated label comes before the number (the XP/GRUDGE/AMMO/HPRES/KB
-     * "regen stat" style) or after it (everything else).
-     *
-     * <p>Adding a 22nd stat axis some day means adding one entry here rather
-     * than another copy-pasted {@code if} block.
-     */
-    private record StatDisplay(byte attrIndex, ChatFormatting color, String key, String format,
-                                int scaleIndex, boolean percent, boolean labelFirst) {
-    }
-
-    private static final List<StatDisplay> STAT_DISPLAYS = List.of(
-            new StatDisplay(ID.Attrs.HP, ChatFormatting.RED, "gui.shincolle.hp", "%.1f", ID.AttrsBase.HP, false, false),
-            new StatDisplay(ID.Attrs.ATK_L, ChatFormatting.RED, "gui.shincolle.firepower1", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.ATK_H, ChatFormatting.GREEN, "gui.shincolle.torpedo", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.ATK_AL, ChatFormatting.RED, "gui.shincolle.airfirepower", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.ATK_AH, ChatFormatting.GREEN, "gui.shincolle.airtorpedo", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.DEF, ChatFormatting.WHITE, "gui.shincolle.armor", "%.1f", ID.AttrsBase.DEF, true, false),
-            new StatDisplay(ID.Attrs.SPD, ChatFormatting.WHITE, "gui.shincolle.attackspeed", "%.2f", ID.AttrsBase.SPD, false, false),
-            new StatDisplay(ID.Attrs.MOV, ChatFormatting.GRAY, "gui.shincolle.movespeed", "%.2f", ID.AttrsBase.MOV, false, false),
-            new StatDisplay(ID.Attrs.HIT, ChatFormatting.LIGHT_PURPLE, "gui.shincolle.range", "%.1f", ID.AttrsBase.HIT, false, false),
-            new StatDisplay(ID.Attrs.CRI, ChatFormatting.AQUA, "gui.shincolle.critical", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.DHIT, ChatFormatting.YELLOW, "gui.shincolle.doublehit", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.THIT, ChatFormatting.GOLD, "gui.shincolle.triplehit", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.MISS, ChatFormatting.RED, "gui.shincolle.missreduce", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.DODGE, ChatFormatting.GOLD, "gui.shincolle.dodge", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.AA, ChatFormatting.YELLOW, "gui.shincolle.antiair", "%.1f", -1, false, false),
-            new StatDisplay(ID.Attrs.ASM, ChatFormatting.AQUA, "gui.shincolle.antiss", "%.1f", -1, false, false),
-            new StatDisplay(ID.Attrs.XP, ChatFormatting.GREEN, "gui.shincolle.equip.xp", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.GRUDGE, ChatFormatting.DARK_PURPLE, "gui.shincolle.equip.grudge", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.AMMO, ChatFormatting.DARK_AQUA, "gui.shincolle.equip.ammo", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.HPRES, ChatFormatting.DARK_GREEN, "gui.shincolle.equip.hpres", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.KB, ChatFormatting.DARK_RED, "gui.shincolle.equip.kb", "%.0f", -1, true, true)
-    );
-
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         // Toggle enchantment visibility with Ctrl key
@@ -239,22 +202,17 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
         EquipDefinition def = getClientDefinition(stack);
 
         if (def != null) {
-            // Apply enchant effect
-            float[] main = EquipCalc.calcEquipStatWithEnchant(def.enchantType(), def.stats(),
-                    EnchantHelper.calcEnchantEffect(stack));
-
-            // Draw stat values
-            for (StatDisplay sd : STAT_DISPLAYS) {
-                float value = main[sd.attrIndex()];
-                if (value == 0F) {
-                    continue;
+            try {
+                ShipAttributeValues main = EquipCalc.calcEquipStatWithEnchant(def.enchantType(), def.stats(),
+                        EnchantHelper.calcEnchantEffect(stack));
+                appendAttributeTooltip(main, ShipAttributeLayout.current(), tooltip);
+                ShipAttackEffectTooltipFormatter.append(def.attackEffects(), tooltip);
+            } catch (RuntimeException exception) {
+                String key = def.id() + "#" + def.item() + "#" + getEquipMeta(stack);
+                if (REPORTED_INVALID_TOOLTIPS.add(key)) {
+                    ShinColle.LOGGER.warn("Skipping invalid equipment attribute tooltip for {} item {} variant {}: {}",
+                            def.id(), def.item(), getEquipMeta(stack), exception.toString());
                 }
-                float scale = sd.scaleIndex() >= 0 ? (float) ConfigHandler.scaleShip[sd.scaleIndex()] : 1F;
-                float displayValue = value * scale * (sd.percent() ? 100F : 1F);
-                String numStr = String.format(sd.format(), displayValue) + (sd.percent() ? "%" : "");
-                String label = Component.translatable(sd.key()).getString();
-                String text = sd.labelFirst() ? (label + " " + numStr) : (numStr + " " + label);
-                tooltip.add(Component.literal(sd.color() + text));
             }
 
             // Enchant type and equip type
@@ -303,5 +261,18 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
                     ChatFormatting.GRAY + " " + String.format("%.0f", (float) def.rareMean());
             tooltip.add(Component.literal(drawstr));
         }
+    }
+
+    static void appendAttributeTooltip(ShipAttributeValues values, List<Component> tooltip) {
+        ShipAttributeTooltipFormatter.append(values, tooltip);
+    }
+
+    /**
+     * Appends display lines using the locally registered attribute metadata. Packet-only attributes
+     * are intentionally absent from {@code displayLayout} and therefore use the opaque fallback.
+     */
+    static void appendAttributeTooltip(ShipAttributeValues values, ShipAttributeLayout displayLayout,
+                                       List<Component> tooltip) {
+        ShipAttributeTooltipFormatter.append(values, displayLayout, tooltip);
     }
 }

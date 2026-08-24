@@ -171,7 +171,7 @@ public class TileEntityHelper {
     }
 
     private static void logPairingRejected(ServerPlayer player, String reason) {
-        LogHelper.info("DIAG: pairing rejected player=" + player.getName().getString()
+        LogHelper.diag("DIAG: pairing rejected player=" + player.getName().getString()
                 + " reason=" + reason);
     }
 

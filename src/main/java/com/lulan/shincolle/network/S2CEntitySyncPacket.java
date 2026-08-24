@@ -2,7 +2,6 @@ package com.lulan.shincolle.network;
 
 import com.lulan.shincolle.entity.*;
 import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.PacketHelper;
@@ -16,9 +15,10 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -30,6 +30,10 @@ import java.util.function.Supplier;
  * Ported from 1.10.2 S2CEntitySync.
  */
 public class S2CEntitySyncPacket {
+
+    public static final int MAX_PAYLOAD_BYTES = 1_048_576;
+    private static final Set<String> REPORTED_ATTRIBUTE_SYNC_ERRORS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> REPORTED_PACKET_DECODE_ERRORS = ConcurrentHashMap.newKeySet();
 
     // ========== Packet IDs ==========
 
@@ -60,6 +64,7 @@ public class S2CEntitySyncPacket {
     private final byte type;
     private final int entityId;
     private final byte[] payload;
+    private final String decodeError;
 
     // ========== Constructors ==========
 
@@ -67,16 +72,39 @@ public class S2CEntitySyncPacket {
         this.type = type;
         this.entityId = entityId;
         this.payload = payload != null ? payload : new byte[0];
+        if (this.payload.length > MAX_PAYLOAD_BYTES) {
+            throw new IllegalArgumentException("Entity synchronization payload exceeds " + MAX_PAYLOAD_BYTES);
+        }
+        this.decodeError = null;
     }
 
     /**
      * Decoder constructor
      */
     public S2CEntitySyncPacket(FriendlyByteBuf buf) {
-        this.type = buf.readByte();
-        this.entityId = buf.readInt();
-        int len = buf.readVarInt();
-        this.payload = buf.readByteArray(len);
+        byte decodedType = 0;
+        int decodedEntityId = -1;
+        byte[] decodedPayload = new byte[0];
+        String error = null;
+        try {
+            decodedType = buf.readByte();
+            decodedEntityId = buf.readInt();
+            int declaredLength = buf.readVarInt();
+            if (declaredLength < 0 || declaredLength > MAX_PAYLOAD_BYTES) {
+                throw new IllegalArgumentException("Invalid entity synchronization payload length "
+                        + declaredLength);
+            }
+            decodedPayload = buf.readByteArray(declaredLength);
+            if (decodedPayload.length != declaredLength) {
+                throw new IllegalArgumentException("Entity synchronization payload length mismatch");
+            }
+        } catch (RuntimeException exception) {
+            error = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+        }
+        this.type = decodedType;
+        this.entityId = decodedEntityId;
+        this.payload = decodedPayload;
+        this.decodeError = error;
     }
 
     /**
@@ -331,53 +359,54 @@ public class S2CEntitySyncPacket {
      */
     public static S2CEntitySyncPacket syncAttrs(BasicEntityShip ship) {
         AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
-        byte[] data = toBytes(buf -> {
-            boolean bonus = ship.getUpdateFlag(ID.FlagUpdate.AttrsBonus);
-            boolean raw = ship.getUpdateFlag(ID.FlagUpdate.AttrsRaw);
-            boolean equip = ship.getUpdateFlag(ID.FlagUpdate.AttrsEquip);
-            boolean morale = ship.getUpdateFlag(ID.FlagUpdate.AttrsMorale);
-            boolean potion = ship.getUpdateFlag(ID.FlagUpdate.AttrsPotion);
-            boolean formation = ship.getUpdateFlag(ID.FlagUpdate.AttrsFormation);
-            boolean buffed = ship.getUpdateFlag(ID.FlagUpdate.AttrsBuffed);
+        int fieldMask = attributeFieldMask(ship);
+        return new S2CEntitySyncPacket(SyncShip_Attrs, ship.getId(),
+                ShipAttributeSyncV2Codec.encode(attrs, attrs.nextAttributeSyncRevision(), fieldMask));
+    }
 
-            buf.writeBoolean(bonus);
-            buf.writeBoolean(raw);
-            buf.writeBoolean(equip);
-            buf.writeBoolean(morale);
-            buf.writeBoolean(potion);
-            buf.writeBoolean(formation);
-            buf.writeBoolean(buffed);
+    /**
+     * Create a complete attribute snapshot for a player that begins tracking an existing ship.
+     * Unlike the delta factory, this does not read or consume update flags.
+     */
+    public static S2CEntitySyncPacket syncAllAttrs(Entity entity) {
+        if (!(entity instanceof IShipAttrs ship) || !(ship.getAttrs() instanceof AttrsAdv attrs)) {
+            throw new IllegalArgumentException("Full ship attribute sync requires an entity with AttrsAdv");
+        }
+        return new S2CEntitySyncPacket(SyncShip_Attrs, entity.getId(),
+                ShipAttributeSyncV2Codec.encode(attrs, attrs.nextAttributeSyncRevision(),
+                        ShipAttributeSyncV2Codec.ALL_FIELDS_MASK));
+    }
 
-            if (bonus)
-                PacketHelper.writeByteArray(buf, attrs.getAttrsBonus());
-            if (raw)
-                PacketHelper.writeFloatArray(buf, attrs.getAttrsRaw());
-            if (equip)
-                PacketHelper.writeFloatArray(buf, attrs.getAttrsEquip());
-            if (morale)
-                PacketHelper.writeFloatArray(buf, attrs.getAttrsMorale());
-            if (potion)
-                PacketHelper.writeFloatArray(buf, attrs.getAttrsPotion());
-            if (formation) {
-                PacketHelper.writeFloatArray(buf, attrs.getAttrsFormation());
-                buf.writeFloat(attrs.getMinMOV());
-            }
-            if (buffed) {
-                PacketHelper.writeFloatArray(buf, attrs.getAttrsBuffed());
-                buf.writeFloat(attrs.getMinMOV());
-            }
-        });
+    public static void clearSyncedAttributeFlags(BasicEntityShip ship, int fieldMask) {
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.BONUS_MASK, ID.FlagUpdate.AttrsBonus);
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.RAW_MASK, ID.FlagUpdate.AttrsRaw);
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.EQUIPMENT_MASK, ID.FlagUpdate.AttrsEquip);
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.MORALE_MASK, ID.FlagUpdate.AttrsMorale);
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.POTION_MASK, ID.FlagUpdate.AttrsPotion);
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.FORMATION_MASK, ID.FlagUpdate.AttrsFormation);
+        clearAttributeFlag(ship, fieldMask, ShipAttributeSyncV2Codec.BUFFED_MASK, ID.FlagUpdate.AttrsBuffed);
+    }
 
-        // reset update flags after encoding
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsBuffed, false);
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsBonus, false);
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsEquip, false);
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsMorale, false);
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsPotion, false);
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsFormation, false);
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsRaw, false);
+    public static int attributeFieldMask(BasicEntityShip ship) {
+        int result = 0;
+        result |= flagMask(ship, ID.FlagUpdate.AttrsBonus, ShipAttributeSyncV2Codec.BONUS_MASK);
+        result |= flagMask(ship, ID.FlagUpdate.AttrsRaw, ShipAttributeSyncV2Codec.RAW_MASK);
+        result |= flagMask(ship, ID.FlagUpdate.AttrsEquip, ShipAttributeSyncV2Codec.EQUIPMENT_MASK);
+        result |= flagMask(ship, ID.FlagUpdate.AttrsMorale, ShipAttributeSyncV2Codec.MORALE_MASK);
+        result |= flagMask(ship, ID.FlagUpdate.AttrsPotion, ShipAttributeSyncV2Codec.POTION_MASK);
+        result |= flagMask(ship, ID.FlagUpdate.AttrsFormation, ShipAttributeSyncV2Codec.FORMATION_MASK);
+        result |= flagMask(ship, ID.FlagUpdate.AttrsBuffed, ShipAttributeSyncV2Codec.BUFFED_MASK);
+        return result;
+    }
 
-        return new S2CEntitySyncPacket(SyncShip_Attrs, ship.getId(), data);
+    private static int flagMask(BasicEntityShip ship, int flag, int mask) {
+        return ship.getUpdateFlag(flag) ? mask : 0;
+    }
+
+    private static void clearAttributeFlag(BasicEntityShip ship, int fieldMask, int mask, int flag) {
+        if ((fieldMask & mask) != 0) {
+            ship.setUpdateFlag(flag, false);
+        }
     }
 
     /**
@@ -685,51 +714,12 @@ public class S2CEntitySyncPacket {
 
     @OnlyIn(Dist.CLIENT)
     private static void handleSyncAttrs(Entity entity, FriendlyByteBuf buf) {
-        if (!(entity instanceof BasicEntityShip ship))
+        if (!(entity instanceof IShipAttrs ship))
             return;
         if (!(ship.getAttrs() instanceof AttrsAdv attrs))
             return;
 
-        boolean bonus = buf.readBoolean();
-        boolean raw = buf.readBoolean();
-        boolean equip = buf.readBoolean();
-        boolean morale = buf.readBoolean();
-        boolean potion = buf.readBoolean();
-        boolean formation = buf.readBoolean();
-        boolean buffed = buf.readBoolean();
-
-        if (bonus) {
-            byte[] bonusData = PacketHelper.readByteArray(buf);
-            byte[] dst = new byte[attrs.getAttrsBonus().length];
-            System.arraycopy(bonusData, 0, dst, 0, Math.min(bonusData.length, dst.length));
-            attrs.setAttrsBonus(dst);
-        }
-        if (raw)
-            attrs.setAttrsRaw(readFloatAttrArray(buf));
-        if (equip)
-            attrs.setAttrsEquip(readFloatAttrArray(buf));
-        if (morale)
-            attrs.setAttrsMorale(readFloatAttrArray(buf));
-        if (potion)
-            attrs.setAttrsPotion(readFloatAttrArray(buf));
-        if (formation) {
-            attrs.setAttrsFormation(readFloatAttrArray(buf));
-            attrs.setMinMOV(buf.readFloat());
-        }
-        if (buffed) {
-            attrs.setAttrsBuffed(readFloatAttrArray(buf));
-            attrs.setMinMOV(buf.readFloat());
-        }
-    }
-
-    /**
-     * Read float array and ensure it's exactly AttrsLength.
-     */
-    private static float[] readFloatAttrArray(FriendlyByteBuf buf) {
-        float[] raw = PacketHelper.readFloatArray(buf);
-        if (raw.length == Attrs.AttrsLength)
-            return raw;
-        return Arrays.copyOf(raw, Attrs.AttrsLength);
+        ShipAttributeSyncV2Codec.decode(buf).applyTo(attrs);
     }
 
     @OnlyIn(Dist.CLIENT)
@@ -764,7 +754,7 @@ public class S2CEntitySyncPacket {
         int hostId = buf.readInt();
         if (entity instanceof BasicEntityMount mount && hostId > 0) {
             Entity host = level.getEntity(hostId);
-            LogHelper.info("DIAG: mount host sync received mount=" + mount.getId()
+            LogHelper.diag("DIAG: mount host sync received mount=" + mount.getId()
                     + " host=" + hostId + " hostPresent=" + (host != null));
             if (host instanceof BasicEntityShip hostShip) {
                 mount.setHost(hostShip);
@@ -884,6 +874,12 @@ public class S2CEntitySyncPacket {
      * Encode
      */
     public void encode(FriendlyByteBuf buf) {
+        if (decodeError != null) {
+            throw new IllegalStateException("Cannot encode invalid entity synchronization packet");
+        }
+        if (payload.length > MAX_PAYLOAD_BYTES) {
+            throw new IllegalArgumentException("Entity synchronization payload exceeds " + MAX_PAYLOAD_BYTES);
+        }
         buf.writeByte(type);
         buf.writeInt(entityId);
         buf.writeVarInt(payload.length);
@@ -903,6 +899,10 @@ public class S2CEntitySyncPacket {
 
     @OnlyIn(Dist.CLIENT)
     private void handleClient() {
+        if (decodeError != null) {
+            reportPacketDecodeError(decodeError);
+            return;
+        }
         if (payload.length == 0 && type != SyncEntity_PlayerUID)
             return;
 
@@ -975,10 +975,26 @@ public class S2CEntitySyncPacket {
                     break;
             }
         } catch (Exception e) {
-            LogHelper.debug("S2CEntitySyncPacket: handler error type=" + type
-                    + " eid=" + entityId + " err=" + e.getMessage());
+            if (type == SyncShip_Attrs) {
+                reportAttributeSyncError(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            } else {
+                LogHelper.debug("S2CEntitySyncPacket: handler error type=" + type
+                        + " eid=" + entityId + " err=" + e.getMessage());
+            }
         } finally {
             buf.release();
+        }
+    }
+
+    private static void reportAttributeSyncError(String error) {
+        if (REPORTED_ATTRIBUTE_SYNC_ERRORS.add(error)) {
+            LogHelper.warn("Rejected ship attribute synchronization packet: " + error);
+        }
+    }
+
+    private static void reportPacketDecodeError(String error) {
+        if (REPORTED_PACKET_DECODE_ERRORS.add(error)) {
+            LogHelper.warn("Rejected entity synchronization packet: " + error);
         }
     }
 

@@ -1,17 +1,18 @@
 package com.lulan.shincolle.entity.other;
 
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.entity.*;
-import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
-import com.lulan.shincolle.utility.BuffHelper;
 import com.lulan.shincolle.utility.CombatHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
@@ -23,7 +24,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
-import net.minecraftforge.fml.ModList;
 
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +49,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
 
     public int moveType;
     public int life;
-    public HashMap<Integer, int[]> effectMap;
+    public HashMap<ResourceLocation, ShipAttackEffect> effectMap;
     // velocity
     public double velX, velY, velZ;
     public double vel0;
@@ -102,7 +102,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
         if (host instanceof LivingEntity le) {
             this.hostEntity = le;
         }
-        this.effectMap = host.getAttackEffectMap();
+        this.effectMap = new HashMap<>(host.getAttackEffectMap());
         this.setPlayerUID(host.getPlayerUID());
         this.type = missileType;
         this.moveType = moveType;
@@ -437,10 +437,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
                         com.lulan.shincolle.utility.LogHelper.debug("DEBUG: heavy impact: " + this.hostEntity
                                 + " -> " + ent + " dmg=" + dmg + " hurtAccepted=" + isTargetHurt);
                         if (isTargetHurt && !isSameOwner(ent)) {
-                            BuffHelper.applyBuffOnTarget(ent, this.effectMap);
-                            if (ModList.get().isLoaded("curios")) {
-                                ShipCuriosIntegration.runOnHitHooks(this.hostEntity, ent, dmg);
-                            }
+                            ShipOnHitEffects.dispatch(this.hostEntity, ent, dmg, this.effectMap);
                         }
                     }
                 }

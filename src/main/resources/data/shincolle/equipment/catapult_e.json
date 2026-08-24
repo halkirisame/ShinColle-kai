@@ -14,13 +14,13 @@
   },
   "roll_type": 23,
   "stats": {
-    "hp": 100.0,
-    "def": 0.1,
-    "spd": 2.2,
-    "mov": -0.4,
-    "hit": 8.0,
-    "grudge": 0.25,
-    "hpres": 0.5,
-    "kb": 0.2
+    "shincolle:hp": 100.0,
+    "shincolle:def": 0.1,
+    "shincolle:spd": 2.2,
+    "shincolle:mov": -0.4,
+    "shincolle:hit": 8.0,
+    "shincolle:grudge": 0.25,
+    "shincolle:hpres": 0.5,
+    "shincolle:kb": 0.2
   }
 }

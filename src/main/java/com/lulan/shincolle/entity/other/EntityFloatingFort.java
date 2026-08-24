@@ -5,7 +5,7 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.reference.unitclass.MissileData;
-import com.lulan.shincolle.utility.BuffHelper;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
 import com.lulan.shincolle.utility.TargetHelper;
@@ -120,7 +120,10 @@ public class EntityFloatingFort extends BasicEntityAirplane {
             }
 
             if (ent instanceof LivingEntity living && living.hurt(this.damageSources().mobAttack(this), atk)) {
-                BuffHelper.applyBuffOnTarget(ent, this.getAttackEffectMap());
+                Entity hostEntity = this.getHostEntity();
+                if (hostEntity instanceof LivingEntity livingHost) {
+                    ShipOnHitEffects.dispatch(livingHost, ent, atk);
+                }
             }
         }
 

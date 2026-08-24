@@ -15,8 +15,8 @@
   },
   "roll_type": 24,
   "stats": {
-    "mov": -0.25,
-    "xp": 0.5,
-    "hpres": 0.15
+    "shincolle:mov": -0.25,
+    "shincolle:xp": 0.5,
+    "shincolle:hpres": 0.15
   }
 }

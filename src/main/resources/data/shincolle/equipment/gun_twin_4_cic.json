@@ -15,11 +15,11 @@
   },
   "roll_type": 21,
   "stats": {
-    "atk_l": 3.0,
-    "mov": -0.1,
-    "hit": 2.0,
-    "cri": 0.04,
-    "miss": 0.06,
-    "aa": 65.0
+    "shincolle:atk_l": 3.0,
+    "shincolle:mov": -0.1,
+    "shincolle:hit": 2.0,
+    "shincolle:cri": 0.04,
+    "shincolle:miss": 0.06,
+    "shincolle:aa": 65.0
   }
 }

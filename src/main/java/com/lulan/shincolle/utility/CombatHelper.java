@@ -1,6 +1,7 @@
 package com.lulan.shincolle.utility;
 
 import com.lulan.shincolle.entity.*;
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
 import com.lulan.shincolle.entity.other.EntityProjectileStatic;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
@@ -262,10 +263,10 @@ public class CombatHelper {
         if (attrs == null)
             return false;
 
-        float dodge = attrs.getAttrsBuffed(ID.Attrs.DODGE);
+        float dodge = host.shipAttribute(CoreShipAttributes.DODGE);
 
         // apply config limit
-        double limit = ConfigHandler.limitShipAttrs[ID.Attrs.DODGE];
+        double limit = ConfigHandler.shipAttributeMaximum(CoreShipAttributes.DODGE);
         if (limit > 0 && dodge > limit) {
             dodge = (float) limit;
         }

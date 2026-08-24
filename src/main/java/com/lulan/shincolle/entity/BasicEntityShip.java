@@ -1,29 +1,35 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.ai.*;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.api.ship.PlayerOwnedShip;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.capability.CapaShipSavedValues;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
-import com.lulan.shincolle.crafting.EquipCalc;
 import com.lulan.shincolle.entity.other.BasicEntityItem;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.entity.other.EntityShipFishingHook;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
+import com.lulan.shincolle.equip.ShipEquipmentAttributeMath;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
-import com.lulan.shincolle.equipdata.EquipDefinition;
+import com.lulan.shincolle.equip.ShipEquipmentInternalEffects;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.init.ModSounds;
-import com.lulan.shincolle.item.BasicEquip;
-import com.lulan.shincolle.item.IShipEffectItem;
 import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.network.*;
-import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.reference.unitclass.Attrs;
@@ -68,13 +74,16 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.world.ForgeChunkManager;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * SHIP DATA
@@ -82,7 +91,8 @@ import java.util.UUID;
  * Ported from 1.10.2 EntityTameable to 1.20.1 TamableAnimal.`
  */
 public abstract class BasicEntityShip extends TamableAnimal
-        implements IShipCannonAttack, IShipGuardian, IShipFloating, IShipNavigator, IShipCustomTexture, MenuProvider {
+        implements IShipCannonAttack, IShipGuardian, IShipFloating, IShipNavigator, IShipCustomTexture,
+        PlayerOwnedShip, MenuProvider {
 
     // ========== Fields ==========
 
@@ -93,6 +103,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     public static final String CURIOS_EGG_TAG = "ShinColleCuriosEquip";
     /** Minimum final movement speed as a ratio of the ship's raw MOV. */
     public static final float MIN_MOV_RATIO = 0.1F;
+    private static final Set<String> REPORTED_INVALID_EQUIPMENT = ConcurrentHashMap.newKeySet();
+    private static final Set<String> REPORTED_INVALID_EQUIPMENT_SCALE = ConcurrentHashMap.newKeySet();
 
     // misc flags
     public static boolean stopAI = false;
@@ -170,7 +182,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * attack attributes
      */
     protected HashMap<Integer, Integer> BuffMap;
-    protected HashMap<Integer, int[]> AttackEffectMap;
+    protected HashMap<ResourceLocation, ShipAttackEffect> AttackEffectMap;
     protected MissileData[] MissileData;
     // model render
     protected float[] rotateAngle;
@@ -526,6 +538,12 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
         // Entity IDs are runtime-only and must never be restored from NBT.
         setStateMinor(ID.M.GuardID, -1);
+
+        // Derived attributes depend on the equipment inventory. Recalculate only
+        // after every persisted dependency has been restored; doing this from
+        // CapaShipSavedValues ran before deserializeNBT and produced an empty
+        // equipment layer until the next periodic update.
+        this.calcShipAttributes(31, false);
     }
 
     // ========== Tick / aiStep (Update Loop) ==========
@@ -743,10 +761,10 @@ public abstract class BasicEntityShip extends TamableAnimal
                         if (this.hasShipMounts() && !this.canSummonMounts()) {
                             if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount) {
                                 if (this.getStateFlag(ID.F.NoFuel)) {
-                                    LogHelper.info("DIAG: mount dismount host=" + this + " reason=noFuel");
+                                    LogHelper.diag("DIAG: mount dismount host=" + this + " reason=noFuel");
                                 }
                                 if ((this.getStateEmotion(ID.S.State) & 1) == 0) {
-                                    LogHelper.info("DIAG: mount dismount host=" + this + " reason=stateDisabled");
+                                    LogHelper.diag("DIAG: mount dismount host=" + this + " reason=stateDisabled");
                                 }
                                 this.stopRiding();
                             }
@@ -986,111 +1004,57 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (inv == null)
             return;
 
+        ShipAttributeValues equipment = ShipAttributeValues.defaults(
+                ShipAttributeLayout.current(), ShipAttributeLayer.EQUIPMENT);
         for (int i = 0; i < ContainerShipInventory.EQUIP_SLOTS; i++) {
             ItemStack stack = inv.getStackInSlot(i);
-            if (stack.isEmpty() || !(stack.getItem() instanceof BasicEquip equipItem))
+            if (stack.isEmpty())
                 continue;
 
-            int meta = BasicEquip.getEquipMeta(stack);
-
-            // look up stat modifiers from datapack-driven equipment data
-            EquipDefinition def = BasicEquip.getServerDefinition(stack);
-            if (def == null)
+            ResolvedShipEquipment resolved = ShipEquipmentResolver.resolveServer(stack).orElse(null);
+            if (resolved == null || !isEquipmentCompatible(resolved))
                 continue;
 
-            // check equip type compatibility
-            // legacyEquipTypeValue(): 0=none, 1=cannon, 2=both, 3=aircraft
-            // Ship getEquipType(): 1=cannon only, 2=both, 3=aircraft only
-            int legacyEquipType = def.legacyEquipTypeValue();
-            if (this.getEquipType() != 2 && legacyEquipType != 2) {
-                if (this.getEquipType() != legacyEquipType)
-                    continue;
+            try {
+                equipment = ShipEquipmentAttributeMath.addScaled(equipment, resolved.attributes());
+            } catch (RuntimeException exception) {
+                reportInvalidEquipment(resolved, stack, exception);
+                continue;
             }
-
-            // apply enchant effect to raw stats
-            float[] enchant = EnchantHelper.calcEnchantEffect(stack);
-            float[] equipStats = EquipCalc.calcEquipStatWithEnchant(
-                    def.enchantType(), def.stats(), enchant);
-
-            // add modifiers to ship's equip attrs
-            float[] attrsEquip = this.shipAttrs.getAttrsEquip();
-            for (int j = 0; j < Attrs.AttrsLength; j++) {
-                attrsEquip[j] += equipStats[j];
-            }
-
-            // apply special equip effects (drum, compass, flare, searchlight)
-            EnumEquipEffectSP effect = equipItem.getSpecialEffect(stack);
-            switch (effect) {
-                case DRUM:
-                case DRUM_LIQUID:
-                case DRUM_EU:
-                    this.setStateMinor(ID.M.DrumState,
-                            this.getStateMinor(ID.M.DrumState) + 1);
-                    break;
-                case COMPASS:
-                    this.setStateMinor(ID.M.LevelChunkLoader,
-                            this.getStateMinor(ID.M.LevelChunkLoader) + 1);
-                    break;
-                case FLARE:
-                    this.setStateMinor(ID.M.LevelFlare,
-                            this.getStateMinor(ID.M.LevelFlare) + 1);
-                    break;
-                case SEARCHLIGHT:
-                    this.setStateMinor(ID.M.LevelSearchlight,
-                            this.getStateMinor(ID.M.LevelSearchlight) + 1);
-                    break;
-                default:
-                    break;
-            }
-
-            // apply IShipEffectItem effects (missile type, move type, speed)
-            if (stack.getItem() instanceof IShipEffectItem eitem) {
-
-                // apply missile type
-                int mtype = eitem.getMissileType(meta);
-                if (mtype > 0) {
-                    for (int m = 0; m < 5; m++) {
-                        this.getMissileData(m).type = mtype;
-                    }
-                }
-
-                // apply missile move type
-                mtype = eitem.getMissileMoveType(meta);
-                if (mtype >= 0) {
-                    for (int m = 0; m < 5; m++) {
-                        this.getMissileData(m).movetype = mtype;
-                    }
-                }
-
-                // apply missile speed
-                int speedLv = eitem.getMissileSpeedLevel(meta);
-                if (speedLv != 0) {
-                    float addSpeed = speedLv * 0.025F;
-                    float addAccY = speedLv * 0.004F;
-                    for (int m = 0; m < 5; m++) {
-                        this.getMissileData(m).vel0 += addSpeed;
-                        this.getMissileData(m).accY1 += addAccY;
-                        this.getMissileData(m).accY2 = this.getMissileData(m).accY1;
-                    }
-                }
-            }
+            ShipEquipmentInternalEffects.apply(this, this, stack, resolved);
         }
 
-        // apply config scale to equip attrs
-        float[] equip = this.shipAttrs.getAttrsEquip();
-        equip[ID.Attrs.HP] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.HP];
-        equip[ID.Attrs.ATK_L] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
-        equip[ID.Attrs.ATK_H] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
-        equip[ID.Attrs.ATK_AL] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
-        equip[ID.Attrs.ATK_AH] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
-        equip[ID.Attrs.DEF] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.DEF];
-        equip[ID.Attrs.SPD] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.SPD];
-        equip[ID.Attrs.MOV] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
-        equip[ID.Attrs.HIT] *= (float) ConfigHandler.scaleShip[ID.AttrsBase.HIT];
+        this.shipAttrs.setShipAttributes(ShipAttributeLayer.EQUIPMENT, equipment);
 
         // fold in equipment worn in the Curios-backed slot, if Curios is present
         if (ModList.get().isLoaded("curios")) {
             ShipCuriosIntegration.applyEquipStats(this, this);
+        }
+
+        // DIAG: equipment verification. Enabled by the debugMode config.
+        // Checked before building the message: this runs on every recalculation.
+        if (!this.level().isClientSide() && LogHelper.diagEnabled()) {
+            StringBuilder slots = new StringBuilder();
+            int equipped = 0;
+            for (int i = 0; i < ContainerShipInventory.EQUIP_SLOTS; i++) {
+                ItemStack stack = inv.getStackInSlot(i);
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                equipped++;
+                slots.append(slots.length() == 0 ? "" : ",").append(i).append('=')
+                        .append(ForgeRegistries.ITEMS.getKey(stack.getItem()));
+            }
+            LogHelper.diag("DIAG: equip recalc ship=" + this.getClass().getSimpleName()
+                    + " id=" + this.getId()
+                    + " level=" + this.getLevel()
+                    + " equipped=" + equipped
+                    + " slots=[" + slots + "]"
+                    + " equipATK_L=" + this.shipAttrs.getAttrsEquip(ID.Attrs.ATK_L)
+                    + " equipDEF=" + this.shipAttrs.getAttrsEquip(ID.Attrs.DEF)
+                    + " equipMOV=" + this.shipAttrs.getAttrsEquip(ID.Attrs.MOV)
+                    + " equipHIT=" + this.shipAttrs.getAttrsEquip(ID.Attrs.HIT)
+                    + " effects=" + this.AttackEffectMap.keySet());
         }
     }
 
@@ -1152,9 +1116,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         if (isTargetHurt) {
             applyEmotesReaction(3);
-            if (ModList.get().isLoaded("curios")) {
-                ShipCuriosIntegration.runOnHitHooks(this, target, atk);
-            }
+            ShipOnHitEffects.dispatch(this, target, atk);
         }
 
         return isTargetHurt;
@@ -1228,14 +1190,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (isTargetHurt) {
             applyEmotesReaction(3);
 
-            // Apply attack effect buffs
-            if (this.AttackEffectMap != null && !this.AttackEffectMap.isEmpty()) {
-                BuffHelper.applyBuffOnTarget(target, this.AttackEffectMap);
-            }
-
-            if (ModList.get().isLoaded("curios")) {
-                ShipCuriosIntegration.runOnHitHooks(this, target, atk);
-            }
+            ShipOnHitEffects.dispatch(this, target, atk);
         }
 
         return isTargetHurt;
@@ -1625,6 +1580,71 @@ public abstract class BasicEntityShip extends TamableAnimal
         if ((noFuel && (hasGoals || hasTargetGoals)) || (!noFuel && (!hasGoals || !hasTargetGoals))) {
             this.fuelAiRefreshPending = true;
         }
+    }
+
+    private boolean isEquipmentCompatible(ResolvedShipEquipment equipment) {
+        boolean cannon = equipment.isCompatibleWith(ResolvedShipEquipment.CANNON_COMPATIBILITY);
+        boolean aircraft = equipment.isCompatibleWith(ResolvedShipEquipment.AIRCRAFT_COMPATIBILITY);
+        int shipType = this.getEquipType();
+        if (shipType == 2 || (cannon && aircraft)) {
+            return true;
+        }
+        if (cannon) {
+            return shipType == 1;
+        }
+        if (aircraft) {
+            return shipType == 3;
+        }
+        return shipType == 0;
+    }
+
+    private static void reportInvalidEquipment(ResolvedShipEquipment equipment, ItemStack stack,
+                                               RuntimeException exception) {
+        CompoundTag tag = stack.getTag();
+        int variant = tag == null ? 0 : tag.getInt(ShipEquipmentResolver.EQUIP_META_TAG);
+        String source = equipment.definitionId().map(ResourceLocation::toString)
+                .orElseGet(() -> equipment.providerId().map(ResourceLocation::toString).orElse("item"));
+        String key = source + "#" + stack.getItem() + "#" + variant;
+        if (REPORTED_INVALID_EQUIPMENT.add(key)) {
+            ShinColle.LOGGER.warn("Ignoring invalid ship equipment contribution {} item {} variant {}: {}",
+                    source, stack.getItem(), variant, exception.toString());
+        }
+    }
+
+    static void addFiniteEquipmentContribution(float[] target, float[] contribution) {
+        if (target.length != Attrs.AttrsLength || contribution.length != Attrs.AttrsLength) {
+            throw new IllegalArgumentException("Equipment contribution must contain exactly "
+                    + Attrs.AttrsLength + " legacy attributes");
+        }
+        float[] combined = target.clone();
+        for (int index = 0; index < Attrs.AttrsLength; index++) {
+            combined[index] += contribution[index];
+            if (!Float.isFinite(combined[index])) {
+                throw new IllegalArgumentException("equipment sum is non-finite at legacy index " + index);
+            }
+        }
+        System.arraycopy(combined, 0, target, 0, Attrs.AttrsLength);
+    }
+
+    private static void applyFiniteEquipmentScale(float[] values, int attributeIndex, int scaleIndex,
+                                                  ResourceLocation attributeId) {
+        double scale = ConfigHandler.scaleShip[scaleIndex];
+        applyFiniteEquipmentScale(values, attributeIndex, scale, attributeId);
+    }
+
+    static boolean applyFiniteEquipmentScale(float[] values, int attributeIndex, double scale,
+                                             ResourceLocation attributeId) {
+        double candidate = values[attributeIndex] * scale;
+        if (Double.isFinite(candidate) && candidate <= Float.MAX_VALUE && candidate >= -Float.MAX_VALUE) {
+            values[attributeIndex] = (float) candidate;
+            return true;
+        }
+        String key = attributeId + "#" + Double.toString(scale);
+        if (REPORTED_INVALID_EQUIPMENT_SCALE.add(key)) {
+            ShinColle.LOGGER.warn("Ignoring non-finite equipment scale result for {} with scale {}",
+                    attributeId, scale);
+        }
+        return false;
     }
 
     private void applyPendingFuelAiRefresh() {
@@ -2057,8 +2077,10 @@ public abstract class BasicEntityShip extends TamableAnimal
      */
     public void sendSyncPacketAttrs() {
         if (!this.level().isClientSide()) {
-            ModNetworking.sendToAllTracking(
-                    S2CEntitySyncPacket.syncAttrs(this), this);
+            int fieldMask = S2CEntitySyncPacket.attributeFieldMask(this);
+            S2CEntitySyncPacket packet = S2CEntitySyncPacket.syncAttrs(this);
+            ModNetworking.sendToAllTracking(packet, this);
+            S2CEntitySyncPacket.clearSyncedAttributeFlags(this, fieldMask);
         }
     }
 
@@ -2481,6 +2503,11 @@ public abstract class BasicEntityShip extends TamableAnimal
     // ========== IShipOwner Implementation ==========
 
     @Override
+    public boolean isOwnedByPlayer(Player player) {
+        return TeamHelper.checkSameOwner(player, this);
+    }
+
+    @Override
     public int getPlayerUID() {
         return getStateMinor(ID.M.PlayerUID);
     }
@@ -2619,12 +2646,12 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     @Override
-    public HashMap<Integer, int[]> getAttackEffectMap() {
+    public HashMap<ResourceLocation, ShipAttackEffect> getAttackEffectMap() {
         return this.AttackEffectMap;
     }
 
     @Override
-    public void setAttackEffectMap(HashMap<Integer, int[]> map) {
+    public void setAttackEffectMap(HashMap<ResourceLocation, ShipAttackEffect> map) {
         this.AttackEffectMap = map;
     }
 
@@ -3383,6 +3410,21 @@ public abstract class BasicEntityShip extends TamableAnimal
                 }
                 egg.setTag(eggNbt);
 
+                // DIAG: death-egg verification. Enabled by the debugMode config.
+                int savedEquip = 0;
+                for (int i = 0; i < ContainerShipInventory.EQUIP_SLOTS; i++) {
+                    if (!this.itemHandler.getStackInSlot(i).isEmpty()) {
+                        savedEquip++;
+                    }
+                }
+                LogHelper.diag("DIAG: death egg saved ship=" + this.getClass().getSimpleName()
+                        + " id=" + this.getId()
+                        + " level=" + this.getLevel()
+                        + " shipClass=" + this.getShipClass()
+                        + " equipSlotsSaved=" + savedEquip
+                        + " curios=" + eggNbt.contains(CURIOS_EGG_TAG)
+                        + " married=" + getStateFlag(ID.F.IsMarried));
+
                 // [PORT] 1.10.2 -> 1.20.1: use custom item entity to preserve legacy
                 // fire-proof/non-push/owner-check behavior and reduce loss risk.
                 BasicEntityItem entityItem = new BasicEntityItem(
@@ -3828,9 +3870,9 @@ public abstract class BasicEntityShip extends TamableAnimal
             passenger.stopRiding();
         }
         this.startRiding(mount, true);
-        LogHelper.info("DIAG: mount summon host=" + this + " mount=" + mount);
+        LogHelper.diag("DIAG: mount summon host=" + this + " mount=" + mount);
         mount.sendSyncPacket(4);
-        LogHelper.info("DIAG: mount summon sync sent mount=" + mount.getId()
+        LogHelper.diag("DIAG: mount summon sync sent mount=" + mount.getId()
                 + " host=" + mount.getHostEntity());
     }
 

@@ -1,6 +1,6 @@
 package com.lulan.shincolle.equip.curios;
 
-import com.lulan.shincolle.equip.ShipEquipProviders;
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraft.core.Direction;
@@ -20,8 +20,8 @@ import top.theillusivec4.curios.api.type.capability.ICurioItem;
 /**
  * Curios only auto-attaches its {@code ICurio} capability to items whose
  * class directly implements {@link ICurioItem} - see that interface's own
- * doc. Third-party equipment recognised by a {@link com.lulan.shincolle.
- * equip.ShipEquipProvider} (e.g. a plain Tinkers' Construct tool, which
+ * doc. Third-party equipment recognised by a canonical equipment provider
+ * (e.g. a plain Tinkers' Construct tool, which
  * can't implement {@code ICurioItem} itself - that's Tinkers' own item
  * class) would otherwise never satisfy Curios' own slot-insertion check and
  * silently bounce out of the ship-equip slot.
@@ -34,6 +34,8 @@ public final class ShipEquipCurioCapabilityHandler {
 
     private static final ResourceLocation CAPABILITY_ID =
             new ResourceLocation(Reference.MOD_ID, "ship_equip_curio");
+    private static final ThreadLocal<Boolean> CHECKING_DYNAMIC_SOURCE =
+            ThreadLocal.withInitial(() -> false);
 
     @SubscribeEvent
     public void onAttachItemCapabilities(AttachCapabilitiesEvent<ItemStack> event) {
@@ -44,7 +46,20 @@ public final class ShipEquipCurioCapabilityHandler {
         if (stack.getItem() instanceof ICurioItem) {
             return;
         }
-        if (!ShipEquipProviders.accepts(stack)) {
+        // Provider predicates receive a defensive ItemStack copy. Creating
+        // that copy can itself fire AttachCapabilitiesEvent, so suppress only
+        // the nested attachment pass to avoid unbounded recursion.
+        if (CHECKING_DYNAMIC_SOURCE.get()) {
+            return;
+        }
+        boolean accepted;
+        CHECKING_DYNAMIC_SOURCE.set(true);
+        try {
+            accepted = ShipEquipmentResolver.hasDynamicSource(stack);
+        } finally {
+            CHECKING_DYNAMIC_SOURCE.remove();
+        }
+        if (!accepted) {
             return;
         }
 

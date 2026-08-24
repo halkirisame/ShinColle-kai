@@ -885,5 +885,7 @@
   "chat.shincolle.wrongowner": "You do not have ownership:",
   "creativetab.shincolle": "Shin Colle",
   "gui.shincolle.peek.empty": "Empty",
-  "gui.shincolle.egg.contents": "Stored items: %s"
+  "gui.shincolle.egg.contents": "Stored items: %s",
+  "gui.shincolle.additional_attributes": "Additional Attributes",
+  "gui.shincolle.additional_attributes.more": "...and %s more"
 }

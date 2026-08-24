@@ -1,5 +1,6 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolverGameTests;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraftforge.event.RegisterGameTestsEvent;
@@ -16,5 +17,6 @@ public final class ShinColleGameTestRegistration {
     @SubscribeEvent
     public static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(ShinColleEntityRegistryGameTests.class);
+        event.register(ShipEquipmentResolverGameTests.class);
     }
 }

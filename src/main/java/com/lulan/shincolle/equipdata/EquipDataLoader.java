@@ -4,18 +4,25 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.lulan.shincolle.ShinColle;
-import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.reference.unitclass.Attrs;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import com.lulan.shincolle.network.EquipmentSyncV2Codec;
+import com.lulan.shincolle.reference.Reference;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraftforge.registries.ForgeRegistries;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Loads {@code data/<domain>/equipment/*.json} into {@link EquipDefinition}s,
@@ -31,64 +38,7 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
 
     private static final Gson GSON = new Gson();
     private static final String DIRECTORY = "equipment";
-
-    /** Maps a JSON stats-object key to its {@link ID.Attrs} index. */
-    private static final Map<String, Integer> STAT_KEYS = new HashMap<>();
-    private static final Map<String, Integer> EQUIP_TYPES = Map.ofEntries(
-            Map.entry("cannon_si", (int) ID.EquipType.CANNON_SI),
-            Map.entry("cannon_tw_lo", (int) ID.EquipType.CANNON_TW_LO),
-            Map.entry("cannon_tw_hi", (int) ID.EquipType.CANNON_TW_HI),
-            Map.entry("cannon_tr", (int) ID.EquipType.CANNON_TR),
-            Map.entry("torpedo_lo", (int) ID.EquipType.TORPEDO_LO),
-            Map.entry("torpedo_hi", (int) ID.EquipType.TORPEDO_HI),
-            Map.entry("air_t_lo", (int) ID.EquipType.AIR_T_LO),
-            Map.entry("air_t_hi", (int) ID.EquipType.AIR_T_HI),
-            Map.entry("air_f_lo", (int) ID.EquipType.AIR_F_LO),
-            Map.entry("air_f_hi", (int) ID.EquipType.AIR_F_HI),
-            Map.entry("air_b_lo", (int) ID.EquipType.AIR_B_LO),
-            Map.entry("air_b_hi", (int) ID.EquipType.AIR_B_HI),
-            Map.entry("air_r_lo", (int) ID.EquipType.AIR_R_LO),
-            Map.entry("air_r_hi", (int) ID.EquipType.AIR_R_HI),
-            Map.entry("radar_lo", (int) ID.EquipType.RADAR_LO),
-            Map.entry("radar_hi", (int) ID.EquipType.RADAR_HI),
-            Map.entry("turbine_lo", (int) ID.EquipType.TURBINE_LO),
-            Map.entry("turbine_hi", (int) ID.EquipType.TURBINE_HI),
-            Map.entry("armor_lo", (int) ID.EquipType.ARMOR_LO),
-            Map.entry("armor_hi", (int) ID.EquipType.ARMOR_HI),
-            Map.entry("gun_lo", (int) ID.EquipType.GUN_LO),
-            Map.entry("gun_hi", (int) ID.EquipType.GUN_HI),
-            Map.entry("catapult_lo", (int) ID.EquipType.CATAPULT_LO),
-            Map.entry("catapult_hi", (int) ID.EquipType.CATAPULT_HI),
-            Map.entry("drum_lo", (int) ID.EquipType.DRUM_LO),
-            Map.entry("compass_lo", (int) ID.EquipType.COMPASS_LO),
-            Map.entry("flare_lo", (int) ID.EquipType.FLARE_LO),
-            Map.entry("searchlight_lo", (int) ID.EquipType.SEARCHLIGHT_LO),
-            Map.entry("ammo_lo", (int) ID.EquipType.AMMO_LO),
-            Map.entry("ammo_hi", (int) ID.EquipType.AMMO_HI));
-
-    static {
-        STAT_KEYS.put("hp", (int) ID.Attrs.HP);
-        STAT_KEYS.put("atk_l", (int) ID.Attrs.ATK_L);
-        STAT_KEYS.put("atk_h", (int) ID.Attrs.ATK_H);
-        STAT_KEYS.put("atk_al", (int) ID.Attrs.ATK_AL);
-        STAT_KEYS.put("atk_ah", (int) ID.Attrs.ATK_AH);
-        STAT_KEYS.put("def", (int) ID.Attrs.DEF);
-        STAT_KEYS.put("spd", (int) ID.Attrs.SPD);
-        STAT_KEYS.put("mov", (int) ID.Attrs.MOV);
-        STAT_KEYS.put("hit", (int) ID.Attrs.HIT);
-        STAT_KEYS.put("cri", (int) ID.Attrs.CRI);
-        STAT_KEYS.put("dhit", (int) ID.Attrs.DHIT);
-        STAT_KEYS.put("thit", (int) ID.Attrs.THIT);
-        STAT_KEYS.put("miss", (int) ID.Attrs.MISS);
-        STAT_KEYS.put("aa", (int) ID.Attrs.AA);
-        STAT_KEYS.put("asm", (int) ID.Attrs.ASM);
-        STAT_KEYS.put("dodge", (int) ID.Attrs.DODGE);
-        STAT_KEYS.put("xp", (int) ID.Attrs.XP);
-        STAT_KEYS.put("grudge", (int) ID.Attrs.GRUDGE);
-        STAT_KEYS.put("ammo", (int) ID.Attrs.AMMO);
-        STAT_KEYS.put("hpres", (int) ID.Attrs.HPRES);
-        STAT_KEYS.put("kb", (int) ID.Attrs.KB);
-    }
+    static final int MAX_STATS_PER_DEFINITION = EquipmentJsonFormat.MAX_STATS;
 
     private static volatile EquipDataSnapshot serverSnapshot = EquipDataSnapshot.EMPTY;
 
@@ -133,51 +83,187 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
             }
         }
 
-        serverSnapshot = new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
+        EquipDataSnapshot candidate = new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
+        if (!publishCandidate(candidate)) {
+            return;
+        }
         ShinColle.LOGGER.info("Loaded {} ship equipment definitions", serverSnapshot.byId().size());
     }
 
-    private static EquipDefinition parse(ResourceLocation id, JsonObject json) {
-        ResourceLocation item = ResourceLocation.tryParse(json.get("item").getAsString());
+    static boolean publishCandidate(EquipDataSnapshot candidate) {
+        try {
+            EquipmentSyncV2Codec.validateSnapshotForServer(candidate);
+        } catch (IllegalArgumentException exception) {
+            ShinColle.LOGGER.error("Rejected ship equipment reload generation; keeping previous snapshot: {}",
+                    exception.toString());
+            return false;
+        }
+        serverSnapshot = candidate;
+        return true;
+    }
+
+    static EquipDefinition parse(ResourceLocation id, JsonObject json) {
+        validateKnownFields(json, EquipmentJsonFormat.TOP_LEVEL_FIELDS, "equipment definition");
+        for (String field : EquipmentJsonFormat.REQUIRED_FIELDS) {
+            if (!json.has(field)) {
+                throw new IllegalArgumentException("missing required equipment definition field '" + field + "'");
+            }
+        }
+        if (json.has("$schema")) {
+            requireString(json, "$schema");
+        }
+
+        ResourceLocation item = ResourceLocation.tryParse(requireString(json, "item"));
         if (item == null) {
             throw new IllegalArgumentException("invalid item ResourceLocation");
         }
-        int variant = json.get("variant").getAsInt();
-        String equipTypeName = json.get("equip_type").getAsString();
-        Integer equipType = EQUIP_TYPES.get(equipTypeName);
+        int variant = requireNonNegative(requireInt(json, "variant"), "variant");
+        String equipTypeName = requireString(json, "equip_type");
+        Integer equipType = EquipmentJsonFormat.EQUIP_TYPES.get(equipTypeName);
         if (equipType == null) {
             throw new IllegalArgumentException("unknown equip_type '" + equipTypeName + "'");
         }
-        Integer legacyEquipId = json.has("equip_id") ? json.get("equip_id").getAsInt() : null;
+        Integer legacyEquipId = json.has("equip_id")
+                ? requireNonNegative(requireInt(json, "equip_id"), "equip_id") : null;
 
-        float[] stats = new float[Attrs.AttrsLength];
+        ShipAttributeValues stats = ShipAttributeValues.zero(ShipAttributeLayout.current());
         if (json.has("stats")) {
-            for (Map.Entry<String, JsonElement> e : json.getAsJsonObject("stats").entrySet()) {
-                Integer index = STAT_KEYS.get(e.getKey());
-                if (index == null) {
-                    throw new IllegalArgumentException("unknown stat key '" + e.getKey() + "'");
-                }
-                stats[index] = e.getValue().getAsFloat();
+            JsonElement statsElement = json.get("stats");
+            if (statsElement == null || !statsElement.isJsonObject()) {
+                throw new IllegalArgumentException("stats must be a JSON object");
             }
+            stats = parseStats(statsElement.getAsJsonObject(), ShipAttributeLayout.current());
         }
+
+        Map<ResourceLocation, ShipAttackEffect> attackEffects = parseAttackEffects(json);
 
         List<String> compatible = new ArrayList<>();
         if (json.has("compatible")) {
-            json.getAsJsonArray("compatible").forEach(e -> compatible.add(e.getAsString()));
+            JsonElement element = json.get("compatible");
+            if (!element.isJsonArray()) {
+                throw new IllegalArgumentException("compatible must be a JSON array");
+            }
+            if (element.getAsJsonArray().size() > EquipmentJsonFormat.MAX_COMPATIBLE) {
+                throw new IllegalArgumentException("compatible count exceeds "
+                        + EquipmentJsonFormat.MAX_COMPATIBLE);
+            }
+            Set<String> seen = new HashSet<>();
+            element.getAsJsonArray().forEach(value -> {
+                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+                    throw new IllegalArgumentException("compatible values must be strings");
+                }
+                String name = value.getAsString();
+                if (!EquipmentJsonFormat.COMPATIBILITY.contains(name)) {
+                    throw new IllegalArgumentException("unknown compatible value '" + name + "'");
+                }
+                if (!seen.add(name)) {
+                    throw new IllegalArgumentException("duplicate compatible value '" + name + "'");
+                }
+                compatible.add(name);
+            });
         }
 
-        int enchantType = enchantTypeFromString(
-                json.has("enchant_type") ? json.get("enchant_type").getAsString() : "none");
+        String enchantTypeName = json.has("enchant_type") ? requireString(json, "enchant_type") : "none";
+        if (!EquipmentJsonFormat.ENCHANT_TYPES.contains(enchantTypeName)) {
+            throw new IllegalArgumentException("unknown enchant_type '" + enchantTypeName + "'");
+        }
+        int enchantType = enchantTypeFromString(enchantTypeName);
 
-        JsonObject develop = json.has("develop") ? json.getAsJsonObject("develop") : new JsonObject();
-        String material = develop.has("material") ? develop.get("material").getAsString() : "grudge";
-        int amount = develop.has("amount") ? develop.get("amount").getAsInt() : 0;
-        int rareMean = develop.has("rare_mean") ? develop.get("rare_mean").getAsInt() : 0;
+        JsonObject develop = optionalObject(json, "develop");
+        validateKnownFields(develop, EquipmentJsonFormat.DEVELOP_FIELDS, "develop");
+        String material = develop.has("material") ? requireString(develop, "material") : "grudge";
+        if (!EquipmentJsonFormat.DEVELOP_MATERIALS.contains(material)) {
+            throw new IllegalArgumentException("unknown develop material '" + material + "'");
+        }
+        int amount = develop.has("amount")
+                ? requireNonNegative(requireInt(develop, "amount"), "develop.amount") : 0;
+        int rareMean = develop.has("rare_mean")
+                ? requireNonNegative(requireInt(develop, "rare_mean"), "develop.rare_mean") : 0;
 
-        int rollType = json.has("roll_type") ? json.get("roll_type").getAsInt() : equipType;
+        int rollType = json.has("roll_type")
+                ? requireNonNegative(requireInt(json, "roll_type"), "roll_type") : equipType;
 
-        return new EquipDefinition(id, item, variant, equipType, legacyEquipId, stats, compatible,
+        return new EquipDefinition(id, item, variant, equipType, legacyEquipId, stats, attackEffects, compatible,
                 enchantType, material, amount, rareMean, rollType);
+    }
+
+    private static Map<ResourceLocation, ShipAttackEffect> parseAttackEffects(JsonObject json) {
+        if (!json.has("attack_effects")) {
+            return Map.of();
+        }
+        JsonElement element = json.get("attack_effects");
+        if (element == null || !element.isJsonArray()) {
+            throw new IllegalArgumentException("attack_effects must be a JSON array");
+        }
+        if (element.getAsJsonArray().size() > EquipmentJsonFormat.MAX_ATTACK_EFFECTS) {
+            throw new IllegalArgumentException("attack_effects count exceeds "
+                    + EquipmentJsonFormat.MAX_ATTACK_EFFECTS);
+        }
+        Map<ResourceLocation, ShipAttackEffect> effects = new java.util.LinkedHashMap<>();
+        element.getAsJsonArray().forEach(value -> {
+            if (value == null || !value.isJsonObject()) {
+                throw new IllegalArgumentException("attack_effects values must be objects");
+            }
+            JsonObject effectJson = value.getAsJsonObject();
+            validateKnownFields(effectJson, EquipmentJsonFormat.ATTACK_EFFECT_FIELDS, "attack effect");
+            for (String field : EquipmentJsonFormat.ATTACK_EFFECT_FIELDS) {
+                if (!effectJson.has(field)) {
+                    throw new IllegalArgumentException("missing required attack effect field '" + field + "'");
+                }
+            }
+            ResourceLocation effectId = ResourceLocation.tryParse(requireString(effectJson, "effect"));
+            if (effectId == null || !ForgeRegistries.MOB_EFFECTS.containsKey(effectId)) {
+                throw new IllegalArgumentException("unknown MobEffect '" + effectJson.get("effect") + "'");
+            }
+            ShipAttackEffect effect = new ShipAttackEffect(effectId,
+                    requireInt(effectJson, "amplifier"), requireInt(effectJson, "duration"),
+                    requireInt(effectJson, "chance"));
+            if (effects.put(effectId, effect) != null) {
+                throw new IllegalArgumentException("duplicate attack effect '" + effectId + "'");
+            }
+        });
+        return Map.copyOf(effects);
+    }
+
+    /** Parses one stats object against an explicit layout so addon IDs can be tested without registry mutation. */
+    static ShipAttributeValues parseStats(JsonObject stats, ShipAttributeLayout layout) {
+        if (stats.size() > EquipmentJsonFormat.MAX_STATS) {
+            throw new IllegalArgumentException("stats count exceeds " + MAX_STATS_PER_DEFINITION);
+        }
+        ShipAttributeValues.Builder result = ShipAttributeValues.builder(layout);
+        Set<ResourceLocation> seen = new HashSet<>();
+        for (Map.Entry<String, JsonElement> entry : stats.entrySet()) {
+            String key = entry.getKey();
+            ResourceLocation id = parseStatId(key);
+            if (!seen.add(id)) {
+                throw new IllegalArgumentException("duplicate stat '" + id + "' from key '" + key + "'");
+            }
+            if (layout.indexOf(id) < 0) {
+                throw new IllegalArgumentException("unknown stat key '" + key + "'");
+            }
+            JsonElement element = entry.getValue();
+            if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+                throw new IllegalArgumentException("stat '" + key + "' must be a number");
+            }
+            float value = element.getAsFloat();
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("stat '" + key + "' must be finite");
+            }
+            result.set(id, value);
+        }
+        return result.build();
+    }
+
+    private static ResourceLocation parseStatId(String key) {
+        if (key == null || key.isEmpty() || key.length() > EquipmentJsonFormat.MAX_STAT_ID_LENGTH) {
+            throw new IllegalArgumentException("invalid stat key length");
+        }
+        String normalized = key.indexOf(':') >= 0 ? key : Reference.MOD_ID + ':' + key;
+        ResourceLocation id = ResourceLocation.tryParse(normalized);
+        if (id == null) {
+            throw new IllegalArgumentException("invalid stat ResourceLocation '" + key + "'");
+        }
+        return id;
     }
 
     private static int enchantTypeFromString(String value) {
@@ -187,6 +273,57 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
             case "misc" -> 3;
             default -> 0;
         };
+    }
+
+    private static void validateKnownFields(JsonObject json, Set<String> known, String context) {
+        for (String field : json.keySet()) {
+            if (!known.contains(field)) {
+                throw new IllegalArgumentException("unknown " + context + " field '" + field + "'");
+            }
+        }
+    }
+
+    private static JsonObject optionalObject(JsonObject json, String field) {
+        if (!json.has(field)) {
+            return new JsonObject();
+        }
+        JsonElement element = json.get(field);
+        if (element == null || !element.isJsonObject()) {
+            throw new IllegalArgumentException(field + " must be a JSON object");
+        }
+        return element.getAsJsonObject();
+    }
+
+    private static String requireString(JsonObject json, String field) {
+        JsonElement element = json.get(field);
+        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+            throw new IllegalArgumentException(field + " must be a string");
+        }
+        String value = element.getAsString();
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException(field + " must not be empty");
+        }
+        return value;
+    }
+
+    private static int requireInt(JsonObject json, String field) {
+        JsonElement element = json.get(field);
+        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException(field + " must be an integer");
+        }
+        try {
+            BigDecimal value = element.getAsBigDecimal();
+            return value.intValueExact();
+        } catch (ArithmeticException | NumberFormatException exception) {
+            throw new IllegalArgumentException(field + " must be a 32-bit integer", exception);
+        }
+    }
+
+    private static int requireNonNegative(int value, String field) {
+        if (value < 0) {
+            throw new IllegalArgumentException(field + " must not be negative");
+        }
+        return value;
     }
 
     /** Inverse of {@link #enchantTypeFromString}, used by the Values.java -> JSON conversion tool. */

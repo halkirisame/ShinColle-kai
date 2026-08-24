@@ -829,5 +829,7 @@
   "inter.shincolle.flower": "怨念ノ塊",
   "creativetab.shincolle": "ShinColle",
   "gui.shincolle.peek.empty": "空っぽ",
-  "gui.shincolle.egg.contents": "保管中のアイテム: %s"
+  "gui.shincolle.egg.contents": "保管中のアイテム: %s",
+  "gui.shincolle.additional_attributes": "追加属性",
+  "gui.shincolle.additional_attributes.more": "...ほか%s件"
 }

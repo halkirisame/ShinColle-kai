@@ -227,7 +227,7 @@ public class ShipRangeAttackGoal extends Goal {
                 // light attack
                 if (this.delayLight <= 0 && this.host.useAmmoLight() && this.host.hasAmmoLight()) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.fire_light");
-                    LogHelper.info("DIAG: attack fire ship=" + this.entity
+                    LogHelper.diag("DIAG: attack fire ship=" + this.entity
                             + " type=light target=" + this.target);
                     this.host.attackEntityWithAmmo(this.target);
                     this.delayLight = this.maxDelayLight;
@@ -238,7 +238,7 @@ public class ShipRangeAttackGoal extends Goal {
                 // heavy attack
                 if (this.delayHeavy <= 0 && this.host.useAmmoHeavy() && this.host.hasAmmoHeavy()) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.fire_heavy");
-                    LogHelper.info("DIAG: attack fire ship=" + this.entity
+                    LogHelper.diag("DIAG: attack fire ship=" + this.entity
                             + " type=heavy target=" + this.target);
                     this.host.attackEntityWithHeavyAmmo(this.target);
                     this.delayHeavy = this.maxDelayHeavy;
@@ -280,7 +280,7 @@ public class ShipRangeAttackGoal extends Goal {
     private void logDiagnosticState(String state) {
         if (!state.equals(this.lastDiagnosticState)) {
             this.lastDiagnosticState = state;
-            LogHelper.info("DIAG: attack state ship=" + this.entity + " reason=" + state);
+            LogHelper.diag("DIAG: attack state ship=" + this.entity + " reason=" + state);
         }
     }
 

@@ -151,7 +151,7 @@ public class ShipRangeTargetGoal extends Goal {
                     this.targetEntity = targets.get(0);
                 }
                 DebugProfiler.count(profiler, "shincolle.ai.range_target.can_use.success");
-                LogHelper.info("DIAG: target select ship=" + this.entity
+                LogHelper.diag("DIAG: target select ship=" + this.entity
                         + " tier=" + targetTier + " target=" + this.targetEntity);
                 LogHelper.debug("DEBUG: range target AI: " + this.entity
                         + " acquired target=" + this.targetEntity

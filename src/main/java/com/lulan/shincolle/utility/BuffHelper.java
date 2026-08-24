@@ -1,5 +1,11 @@
 package com.lulan.shincolle.utility;
 
+import com.lulan.shincolle.ShinColle;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
+import com.lulan.shincolle.api.attribute.ShipAttributeScaleGroup;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import com.lulan.shincolle.attribute.ShipAttributeLayerEngine;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipAttrs;
@@ -13,6 +19,7 @@ import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.server.ServerDataManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -24,10 +31,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Helper for ship attribute buff calculations.
@@ -39,6 +49,8 @@ import java.util.Map;
  * Ported from 1.10.2 CalcHelper / BuffHelper.
  */
 public class BuffHelper {
+
+    private static final Set<ResourceLocation> WARNED_COMBINE_FAILURES = ConcurrentHashMap.newKeySet();
 
     /**
      * Calculate raw attributes from base stats, level, and bonus points.
@@ -447,75 +459,34 @@ public class BuffHelper {
         if (attrs == null)
             return;
 
-        float[] raw = attrs.getAttrsRaw();
-        float[] equip = attrs.getAttrsEquip();
-        float[] potion = attrs.getAttrsPotion();
-        float[] morale = attrs.getAttrsMorale();
-        float[] formation = attrs.getAttrsFormation();
-        float[] buffed = new float[Attrs.AttrsLength];
+        ShipAttributeValues buffed = ShipAttributeLayerEngine.combine(
+                attrs.shipAttributes(ShipAttributeLayer.RAW),
+                attrs.shipAttributes(ShipAttributeLayer.EQUIPMENT),
+                attrs.shipAttributes(ShipAttributeLayer.MORALE),
+                attrs.shipAttributes(ShipAttributeLayer.POTION),
+                attrs.shipAttributes(ShipAttributeLayer.FORMATION),
+                BuffHelper::resolveAttributeScale,
+                ConfigHandler::shipAttributeMaximum,
+                BuffHelper::reportCombineFailure);
+        attrs.setShipAttributes(ShipAttributeLayer.BUFFED, buffed);
+    }
 
-        float scaleHP = (float) ConfigHandler.scaleShip[ID.AttrsBase.HP];
-        float scaleATK = (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
-        float scaleDEF = (float) ConfigHandler.scaleShip[ID.AttrsBase.DEF];
-        float scaleSPD = (float) ConfigHandler.scaleShip[ID.AttrsBase.SPD];
-        float scaleMOV = (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
-        float scaleHIT = (float) ConfigHandler.scaleShip[ID.AttrsBase.HIT];
+    private static float resolveAttributeScale(ShipAttributeScaleGroup group) {
+        return switch (group) {
+            case HP -> (float) ConfigHandler.scaleShip[ID.AttrsBase.HP];
+            case ATK -> (float) ConfigHandler.scaleShip[ID.AttrsBase.ATK];
+            case DEF -> (float) ConfigHandler.scaleShip[ID.AttrsBase.DEF];
+            case SPD -> (float) ConfigHandler.scaleShip[ID.AttrsBase.SPD];
+            case MOV -> (float) ConfigHandler.scaleShip[ID.AttrsBase.MOV];
+            case HIT -> (float) ConfigHandler.scaleShip[ID.AttrsBase.HIT];
+            case NONE -> 1F;
+        };
+    }
 
-        int id;
-
-        // HP: raw + equip + (morale + potion + formation) * scaleHP
-        id = ID.Attrs.HP;
-        buffed[id] = raw[id] + equip[id] + (morale[id] + potion[id] + formation[id]) * scaleHP;
-
-        // HIT: raw + equip + (morale + potion + formation) * scaleHIT
-        id = ID.Attrs.HIT;
-        buffed[id] = raw[id] + equip[id] + (morale[id] + potion[id] + formation[id]) * scaleHIT;
-
-        // DODGE: additive (no scale)
-        id = ID.Attrs.DODGE;
-        buffed[id] = raw[id] + equip[id] + morale[id] + potion[id] + formation[id];
-
-        // XP, GRUDGE, AMMO, HPRES, KB: additive (no scale)
-        for (int idx : new int[]{ID.Attrs.XP, ID.Attrs.GRUDGE, ID.Attrs.AMMO, ID.Attrs.HPRES, ID.Attrs.KB}) {
-            buffed[idx] = raw[idx] + equip[idx] + morale[idx] + potion[idx] + formation[idx];
+    private static void reportCombineFailure(ResourceLocation id, RuntimeException error) {
+        if (WARNED_COMBINE_FAILURES.add(id)) {
+            ShinColle.LOGGER.warn("Ship attribute {} failed to combine; using its safe default", id, error);
         }
-
-        // MOV: raw + equip + (morale + potion) * scaleMOV (NO formation!)
-        id = ID.Attrs.MOV;
-        buffed[id] = raw[id] + equip[id] + (morale[id] + potion[id]) * scaleMOV;
-
-        // ATK_L: (raw + equip + potion * scaleATK) * morale * formation
-        id = ID.Attrs.ATK_L;
-        buffed[id] = (raw[id] + equip[id] + potion[id] * scaleATK) * morale[id] * formation[id];
-
-        // ATK_H: (raw + equip + potion * 3 * scaleATK) * morale * formation
-        id = ID.Attrs.ATK_H;
-        buffed[id] = (raw[id] + equip[id] + potion[id] * 3F * scaleATK) * morale[id] * formation[id];
-
-        // ATK_AL: (raw + equip + potion * scaleATK) * morale * formation
-        id = ID.Attrs.ATK_AL;
-        buffed[id] = (raw[id] + equip[id] + potion[id] * scaleATK) * morale[id] * formation[id];
-
-        // ATK_AH: (raw + equip + potion * 3 * scaleATK) * morale * formation
-        id = ID.Attrs.ATK_AH;
-        buffed[id] = (raw[id] + equip[id] + potion[id] * 3F * scaleATK) * morale[id] * formation[id];
-
-        // SPD: (raw + equip + potion * scaleSPD) * morale * formation
-        id = ID.Attrs.SPD;
-        buffed[id] = (raw[id] + equip[id] + potion[id] * scaleSPD) * morale[id] * formation[id];
-
-        // CRI, DHIT, THIT, MISS, AA, ASM: (raw + equip + potion) * morale * formation
-        for (int idx : new int[]{ID.Attrs.CRI, ID.Attrs.DHIT, ID.Attrs.THIT, ID.Attrs.MISS, ID.Attrs.AA,
-                ID.Attrs.ASM}) {
-            buffed[idx] = (raw[idx] + equip[idx] + potion[idx]) * morale[idx] * formation[idx];
-        }
-
-        // DEF: (raw + equip + (morale + potion) * scaleDEF) * formation
-        id = ID.Attrs.DEF;
-        buffed[id] = (raw[id] + equip[id] + (morale[id] + potion[id]) * scaleDEF) * formation[id];
-
-        attrs.setAttrsBuffed(buffed);
-        attrs.checkAttrsLimit();
     }
 
     /**
@@ -654,60 +625,49 @@ public class BuffHelper {
         }
     }
 
-    /**
-     * Apply attack effect buffs from the attacker's equipment to the target.
-     * Accepts integer-keyed map (from ship AttackEffectMap).
-     * Map format: key=potion ID, value=int[]{ampLevel, ticks, chance(0~100)}
-     */
-    public static void applyBuffOnTarget(Entity target, java.util.HashMap<Integer, int[]> effectMap) {
+    /** Applies immutable ResourceLocation-keyed attack effects to a living target. */
+    public static void applyBuffOnTarget(Entity target,
+                                         Map<ResourceLocation, ShipAttackEffect> effectMap) {
         if (target == null || effectMap == null || effectMap.isEmpty())
             return;
         if (!(target instanceof net.minecraft.world.entity.LivingEntity living))
             return;
 
-        effectMap.forEach((id, content) -> {
-            if (content == null || content.length < 3)
+        effectMap.forEach((id, attackEffect) -> {
+            if (id == null || attackEffect == null || !id.equals(attackEffect.effectId()))
                 return;
 
-            // chance check: content[2] is percent chance 0-100
-            if (living.getRandom().nextInt(100) >= content[2])
-                return;
+            int roll = living.getRandom().nextInt(100);
+            boolean procced = roll < attackEffect.chancePercent();
 
-            net.minecraft.world.effect.MobEffect effect = net.minecraft.world.effect.MobEffect.byId(id);
-            if (effect == null)
+            net.minecraft.world.effect.MobEffect effect = ForgeRegistries.MOB_EFFECTS.getValue(id);
+
+            // DIAG: attack-effect verification. Enabled by the debugMode config.
+            // Checked before building the message: this runs on every successful hit.
+            if (LogHelper.diagEnabled()) {
+                LogHelper.diag("DIAG: attack effect target=" + living.getType()
+                        + " effect=" + id
+                        + " amp=" + attackEffect.amplifier()
+                        + " dur=" + attackEffect.durationTicks()
+                        + " chance=" + attackEffect.chancePercent()
+                        + " roll=" + roll
+                        + " result=" + (effect == null ? "unknown_effect" : procced ? "applied" : "missed"));
+            }
+
+            if (!procced || effect == null)
                 return;
 
             MobEffectInstance pe;
 
-            // instant heal (6) and instant damage (7): force duration to 5 ticks
-            if (id == 6 || id == 7) {
-                pe = new MobEffectInstance(effect, 5, content[0]);
+            // Preserve the original handling of vanilla instant health/damage.
+            if (effect == MobEffects.HEAL || effect == MobEffects.HARM) {
+                pe = new MobEffectInstance(effect, 5, attackEffect.amplifier());
             } else {
-                // content[0] = amplifier, content[1] = duration
-                pe = new MobEffectInstance(effect, content[1], content[0]);
+                pe = new MobEffectInstance(effect, attackEffect.durationTicks(), attackEffect.amplifier());
             }
 
             living.addEffect(pe);
         });
-    }
-
-    /**
-     * Apply attack effect buffs from the attacker's equipment to the target.
-     */
-    public static void applyBuffOnTarget(Entity target,
-                                         java.util.Map<net.minecraft.world.effect.MobEffect, int[]> effectMap) {
-        if (target == null || effectMap == null || effectMap.isEmpty())
-            return;
-        if (!(target instanceof net.minecraft.world.entity.LivingEntity living))
-            return;
-
-        for (java.util.Map.Entry<net.minecraft.world.effect.MobEffect, int[]> entry : effectMap.entrySet()) {
-            if (entry.getValue() != null && entry.getValue().length >= 2) {
-                int duration = entry.getValue()[0];
-                int amplifier = entry.getValue()[1];
-                living.addEffect(new MobEffectInstance(entry.getKey(), duration, amplifier));
-            }
-        }
     }
 
     // ======== Potion Level Helpers ========

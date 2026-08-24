@@ -2,6 +2,7 @@ package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.capability.CapaShipSavedValues;
+import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
@@ -338,6 +339,23 @@ public class ShipSpawnEgg extends BasicItem {
                     ship.setPlayerUID(playerUID);
                 }
             }
+
+            // DIAG: death-egg verification. Enabled by the debugMode config.
+            int restoredEquip = 0;
+            CapaShipInventory restoredInv = ship.getCapaShipInventory();
+            if (restoredInv != null) {
+                for (int i = 0; i < ContainerShipInventory.EQUIP_SLOTS; i++) {
+                    if (!restoredInv.getStackInSlot(i).isEmpty()) {
+                        restoredEquip++;
+                    }
+                }
+            }
+            LogHelper.diag("DIAG: death egg restored ship=" + ship.getClass().getSimpleName()
+                    + " id=" + ship.getId()
+                    + " level=" + ship.getLevel()
+                    + " equipSlotsRestored=" + restoredEquip
+                    + " curios=" + nbt.contains(BasicEntityShip.CURIOS_EGG_TAG)
+                    + " married=" + ship.getStateFlag(ID.F.IsMarried));
         } else {
             // construction egg: set initial level
             ship.setShipLevel(1, true);

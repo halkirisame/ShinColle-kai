@@ -1,7 +1,8 @@
 package com.lulan.shincolle.utility;
 
-import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.reference.unitclass.Attrs;
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -78,8 +79,8 @@ public class EnchantHelper {
      * hp, atk, def, spd, mov, range, cri, dhit, thit, miss,
      * aa, asm, dodge, xp gain, grudge gain, ammo gain, -hp delay
      */
-    public static float[] calcEnchantEffect(ItemStack stack) {
-        float[] ench = new float[Attrs.AttrsLength];
+    public static ShipAttributeValues calcEnchantEffect(ItemStack stack) {
+        ShipAttributeValues.Builder ench = ShipAttributeValues.builder(ShipAttributeLayout.current());
         Map<Enchantment, Integer> enchMap = EnchantmentHelper.getEnchantments(stack);
 
         for (Map.Entry<Enchantment, Integer> entry : enchMap.entrySet()) {
@@ -89,115 +90,115 @@ public class EnchantHelper {
 
             // hp - blast_protection (with knockback resist bonus)
             if (e == Enchantments.BLAST_PROTECTION) {
-                ench[ID.Attrs.HP] += 0.05F * lv;
-                ench[ID.Attrs.KB] += 0.1F * lv;
+                ench.add(CoreShipAttributes.HP, 0.05F * lv);
+                ench.add(CoreShipAttributes.KB, 0.1F * lv);
                 handled = true;
             }
             // hp - fire_protection, projectile_protection
             else if (e == Enchantments.FIRE_PROTECTION || e == Enchantments.PROJECTILE_PROTECTION) {
-                ench[ID.Attrs.HP] += 0.05F * lv;
+                ench.add(CoreShipAttributes.HP, 0.05F * lv);
                 handled = true;
             }
             // hp - protection (base)
             else if (e == Enchantments.ALL_DAMAGE_PROTECTION) {
-                ench[ID.Attrs.HP] += 0.1F * lv;
+                ench.add(CoreShipAttributes.HP, 0.1F * lv);
                 handled = true;
             }
             // atk - smite, bane_of_arthropods
             else if (e == Enchantments.SMITE || e == Enchantments.BANE_OF_ARTHROPODS) {
-                ench[ID.Attrs.ATK_L] += 0.08F * lv;
+                ench.add(CoreShipAttributes.ATK_L, 0.08F * lv);
                 handled = true;
             }
             // atk - sharpness, power
             else if (e == Enchantments.SHARPNESS || e == Enchantments.POWER_ARROWS) {
-                ench[ID.Attrs.ATK_L] += 0.08F * lv;
+                ench.add(CoreShipAttributes.ATK_L, 0.08F * lv);
                 handled = true;
             }
             // def - unbreaking
             else if (e == Enchantments.UNBREAKING) {
-                ench[ID.Attrs.DEF] += 0.2F * lv;
+                ench.add(CoreShipAttributes.DEF, 0.2F * lv);
                 handled = true;
             }
             // spd - efficiency
             else if (e == Enchantments.BLOCK_EFFICIENCY) {
-                ench[ID.Attrs.SPD] += 0.1F * lv;
+                ench.add(CoreShipAttributes.SPD, 0.1F * lv);
                 handled = true;
             }
             // mov - aqua_affinity, depth_strider
             else if (e == Enchantments.AQUA_AFFINITY || e == Enchantments.DEPTH_STRIDER) {
-                ench[ID.Attrs.MOV] += 0.05F * lv;
-                ench[ID.Attrs.DODGE] += 0.25F * lv;
+                ench.add(CoreShipAttributes.MOV, 0.05F * lv);
+                ench.add(CoreShipAttributes.DODGE, 0.25F * lv);
                 handled = true;
             }
             // mov - feather_falling
             else if (e == Enchantments.FALL_PROTECTION) {
-                ench[ID.Attrs.MOV] += 0.1F * lv;
-                ench[ID.Attrs.KB] -= 0.1F * lv;
+                ench.add(CoreShipAttributes.MOV, 0.1F * lv);
+                ench.add(CoreShipAttributes.KB, -0.1F * lv);
                 handled = true;
             }
             // range - punch, knockback
             else if (e == Enchantments.PUNCH_ARROWS || e == Enchantments.KNOCKBACK) {
-                ench[ID.Attrs.HIT] += 0.15F * lv;
-                ench[ID.Attrs.KB] += 0.05F * lv;
+                ench.add(CoreShipAttributes.HIT, 0.15F * lv);
+                ench.add(CoreShipAttributes.KB, 0.05F * lv);
                 handled = true;
             }
             // cri - frost_walker
             else if (e == Enchantments.FROST_WALKER) {
-                ench[ID.Attrs.CRI] += 0.25F * lv;
+                ench.add(CoreShipAttributes.CRI, 0.25F * lv);
                 handled = true;
             }
             // dhit, thit - fire_aspect, flame
             else if (e == Enchantments.FIRE_ASPECT || e == Enchantments.FLAMING_ARROWS) {
-                ench[ID.Attrs.DHIT] += 0.25F * lv;
-                ench[ID.Attrs.THIT] += 0.25F * lv;
+                ench.add(CoreShipAttributes.DHIT, 0.25F * lv);
+                ench.add(CoreShipAttributes.THIT, 0.25F * lv);
                 handled = true;
             }
             // miss - lure
             else if (e == Enchantments.FISHING_SPEED) {
-                ench[ID.Attrs.MISS] += 0.25F * lv;
+                ench.add(CoreShipAttributes.MISS, 0.25F * lv);
                 handled = true;
             }
             // aa - thorns
             else if (e == Enchantments.THORNS) {
-                ench[ID.Attrs.AA] += 0.15F * lv;
+                ench.add(CoreShipAttributes.AA, 0.15F * lv);
                 handled = true;
             }
             // asm - respiration
             else if (e == Enchantments.RESPIRATION) {
-                ench[ID.Attrs.ASM] += 0.15F * lv;
+                ench.add(CoreShipAttributes.ASM, 0.15F * lv);
                 handled = true;
             }
             // xp gain - looting, fortune, luck_of_the_sea
             else if (e == Enchantments.MOB_LOOTING || e == Enchantments.BLOCK_FORTUNE
                     || e == Enchantments.FISHING_LUCK) {
-                ench[ID.Attrs.XP] += 0.25F * lv;
+                ench.add(CoreShipAttributes.XP, 0.25F * lv);
                 handled = true;
             }
             // grudge gain - silk_touch
             else if (e == Enchantments.SILK_TOUCH) {
-                ench[ID.Attrs.GRUDGE] += 0.25F * lv;
+                ench.add(CoreShipAttributes.GRUDGE, 0.25F * lv);
                 handled = true;
             }
             // ammo gain - infinity
             else if (e == Enchantments.INFINITY_ARROWS) {
-                ench[ID.Attrs.AMMO] += 0.25F * lv;
+                ench.add(CoreShipAttributes.AMMO, 0.25F * lv);
                 handled = true;
             }
             // hp restore - mending
             else if (e == Enchantments.MENDING) {
-                ench[ID.Attrs.HPRES] += 0.5F * lv;
+                ench.add(CoreShipAttributes.HPRES, 0.5F * lv);
                 handled = true;
             }
 
             // for non vanilla enchantment, increase all effect by 1%
             if (!handled) {
-                for (int j = 0; j < ench.length; j++) {
-                    ench[j] += 0.01F * lv;
+                for (net.minecraft.resources.ResourceLocation id : CoreShipAttributes.LEGACY_ORDER) {
+                    ench.add(id, 0.01F * lv);
                 }
             }
         }
 
-        return ench;
+        return ench.build();
     }
 
     /**

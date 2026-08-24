@@ -1,9 +1,15 @@
 package com.lulan.shincolle.reference.unitclass;
 
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.attribute.ShipAttributeLayerState;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.FormationHelper;
 
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * ship basic attributes + equip, potion, formation and morale buffs
@@ -62,6 +68,7 @@ public class AttrsAdv extends Attrs {
         newattrs.setAttrsMorale(Arrays.copyOf(attrs.getAttrsMorale(), attrs.getAttrsMorale().length));
         newattrs.setAttrsFormation(Arrays.copyOf(attrs.getAttrsFormation(), attrs.getAttrsFormation().length));
         newattrs.setMinMOV(attrs.getMinMOV());
+        newattrs.copyDynamicLayersFrom(attrs);
 
         return newattrs;
     }
@@ -77,10 +84,12 @@ public class AttrsAdv extends Attrs {
     public void resetAttrsFormation() {
         this.AttrsFormation = getResetFormationValue();
         this.MinMOV = 0F;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.FORMATION, this.AttrsFormation);
     }
 
     public void resetAttrsMorale() {
         this.AttrsMorale = getResetMoraleValue();
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.MORALE, this.AttrsMorale);
     }
 
     /**
@@ -95,6 +104,7 @@ public class AttrsAdv extends Attrs {
      */
     public void setAttrsFormation(float[] data) {
         this.AttrsFormation = data;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.FORMATION, data);
     }
 
     public float getAttrsFormation(int id) {
@@ -115,6 +125,7 @@ public class AttrsAdv extends Attrs {
 
     public void setAttrsMorale(float[] data) {
         this.AttrsMorale = data;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.MORALE, data);
     }
 
     public float getAttrsMorale(int id) {
@@ -127,7 +138,65 @@ public class AttrsAdv extends Attrs {
 
     /* set formation buff by formation id and slot */
     public void setAttrsFormation(int formatID, int formatSlot) {
-        this.AttrsFormation = FormationHelper.getFormationBuffValue(formatID, formatSlot);
+        this.setAttrsFormation(FormationHelper.getFormationBuffValue(formatID, formatSlot));
+    }
+
+    /** Validates and atomically installs one decoded client synchronization snapshot. */
+    public boolean applySyncedShipAttributes(long revision, byte[] bonus,
+                                             Map<ShipAttributeLayer, ShipAttributeValues> layers,
+                                             Float minMOV) {
+        if (revision <= this.lastAppliedAttributeSyncRevision()) {
+            return false;
+        }
+        if (revision < 0) {
+            throw new IllegalArgumentException("Ship attribute sync revision must be non-negative");
+        }
+        if (bonus != null && bonus.length != this.AttrsBonus.length) {
+            throw new IllegalArgumentException("Ship attribute bonus length does not match");
+        }
+        if (minMOV != null && !Float.isFinite(minMOV)) {
+            throw new IllegalArgumentException("MinMOV must be finite");
+        }
+
+        ShipAttributeLayerState candidate = this.ensureDynamicLayers().copy();
+        EnumMap<ShipAttributeLayer, float[]> legacy = new EnumMap<>(ShipAttributeLayer.class);
+        for (Map.Entry<ShipAttributeLayer, ShipAttributeValues> entry : layers.entrySet()) {
+            candidate.set(entry.getKey(), entry.getValue());
+            float[] values = new float[AttrsLength];
+            for (int i = 0; i < CoreShipAttributes.LEGACY_ORDER.size(); i++) {
+                values[i] = entry.getValue().get(CoreShipAttributes.LEGACY_ORDER.get(i));
+            }
+            legacy.put(entry.getKey(), values);
+        }
+
+        if (bonus != null) {
+            this.AttrsBonus = bonus.clone();
+        }
+        legacy.forEach(this::replaceLegacyLayer);
+        if (minMOV != null) {
+            this.MinMOV = minMOV;
+        }
+        this.installDynamicLayers(candidate);
+        this.markAttributeSyncRevisionApplied(revision);
+        return true;
+    }
+
+    @Override
+    protected float[] legacyLayer(ShipAttributeLayer layer) {
+        return switch (layer) {
+            case MORALE -> this.AttrsMorale;
+            case FORMATION -> this.AttrsFormation;
+            default -> super.legacyLayer(layer);
+        };
+    }
+
+    @Override
+    protected void replaceLegacyLayer(ShipAttributeLayer layer, float[] values) {
+        switch (layer) {
+            case MORALE -> this.AttrsMorale = values;
+            case FORMATION -> this.AttrsFormation = values;
+            default -> super.replaceLegacyLayer(layer, values);
+        }
     }
 
 }

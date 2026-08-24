@@ -1,6 +1,11 @@
 package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.*;
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import com.lulan.shincolle.attribute.LegacyShipAttributeBridge;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
@@ -2485,8 +2490,10 @@ public final class ShinColleEntityRegistryGameTests {
         enchant[ID.Attrs.XP] = 0.25F;
         enchant[ID.Attrs.GRUDGE] = 0.25F;
 
-        float[] weapon = EquipCalc.calcEquipStatWithEnchant(1, raw, enchant);
-        float[] armor = EquipCalc.calcEquipStatWithEnchant(2, raw, enchant);
+        float[] weapon = LegacyShipAttributeBridge.toLegacyArray(EquipCalc.calcEquipStatWithEnchant(1,
+                LegacyShipAttributeBridge.fromLegacyArray(raw), LegacyShipAttributeBridge.fromLegacyArray(enchant)));
+        float[] armor = LegacyShipAttributeBridge.toLegacyArray(EquipCalc.calcEquipStatWithEnchant(2,
+                LegacyShipAttributeBridge.fromLegacyArray(raw), LegacyShipAttributeBridge.fromLegacyArray(enchant)));
         assertFloatEquals(15F, weapon[ID.Attrs.ATK_L], "Weapon enchant did not modify attack.");
         assertFloatEquals(0.5F, weapon[ID.Attrs.DEF], "Weapon enchant incorrectly modified defense.");
         assertFloatEquals(1.25F, weapon[ID.Attrs.XP], "Weapon enchant did not modify XP gain.");
@@ -2532,10 +2539,73 @@ public final class ShinColleEntityRegistryGameTests {
         EquipDefinition definition = new EquipDefinition(
                 new ResourceLocation(Reference.MOD_ID, "missing_item_test"),
                 new ResourceLocation(Reference.MOD_ID, "missing_equipment_item"),
-                7, ID.EquipType.CANNON_SI, null, new float[Attrs.AttrsLength], List.of("cannon"),
+                7, ID.EquipType.CANNON_SI, null, ShipAttributeValues.zero(ShipAttributeLayout.current()),
+                List.of("cannon"),
                 1, "ammo", 0, 0, ID.EquipType.CANNON_SI);
         if (!EquipCalc.createItemStack(definition, 0).isEmpty()) {
             throw new AssertionError("An unregistered equipment item produced a non-empty ItemStack.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentDefinitionCopiesMutableConstructorInputs(GameTestHelper helper) {
+        ResourceLocation item = ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "equip_cannon");
+        ShipAttributeValues.Builder stats = ShipAttributeValues.builder(ShipAttributeLayout.current());
+        stats.set(CoreShipAttributes.HP, 12.5F);
+        List<String> compatible = new ArrayList<>(List.of("cannon"));
+        EquipDefinition definition = new EquipDefinition(
+                ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "immutable_constructor"),
+                item, 4, ID.EquipType.CANNON_TW_LO, 204, stats.build(), compatible,
+                1, "ammo", 8, 11, ID.EquipType.CANNON_TW_LO);
+
+        stats.set(CoreShipAttributes.HP, 99F);
+        compatible.clear();
+        if (definition.stats().get(CoreShipAttributes.HP) != 12.5F || !definition.isCompatibleWith("cannon")) {
+            throw new AssertionError("Equipment definition retained mutable constructor input references.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSnapshotDoesNotExposeMutableDefinitionState(GameTestHelper helper) {
+        ResourceLocation item = ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "equip_cannon");
+        EquipDefinition definition = createSyncTestDefinition("immutable_snapshot", item, 5,
+                ID.EquipType.CANNON_TW_LO, 305, 6F);
+        Map<ResourceLocation, EquipDefinition> definitions = new HashMap<>();
+        definitions.put(definition.id(), definition);
+        Map<Integer, EquipDefinition> variants = new HashMap<>();
+        variants.put(definition.variant(), definition);
+        Map<ResourceLocation, Map<Integer, EquipDefinition>> itemVariants = new HashMap<>();
+        itemVariants.put(item, variants);
+        Map<Integer, EquipDefinition> legacyDefinitions = new HashMap<>();
+        legacyDefinitions.put(definition.legacyEquipId(), definition);
+        EquipDataSnapshot snapshot = new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
+
+        float originalHp = snapshot.get(definition.id()).stats().get(CoreShipAttributes.HP);
+        ShipAttributeValues modifiedStats = snapshot.get(definition.id()).stats().toBuilder()
+                .set(CoreShipAttributes.HP, originalHp + 100F).build();
+        if (snapshot.get(definition.id()).stats().get(CoreShipAttributes.HP) != originalHp
+                || modifiedStats.get(CoreShipAttributes.HP) == originalHp) {
+            throw new AssertionError("Equipment definition did not preserve immutable attribute values.");
+        }
+
+        assertUnsupportedMutation(() -> snapshot.get(definition.id()).compatible().add("mutable"),
+                "Equipment definition exposed a mutable compatibility list.");
+        assertUnsupportedMutation(() -> snapshot.byId().clear(),
+                "Equipment snapshot exposed a mutable definition index.");
+        assertUnsupportedMutation(() -> snapshot.byItemVariant().get(item).clear(),
+                "Equipment snapshot exposed a mutable nested item/variant index.");
+        assertUnsupportedMutation(() -> snapshot.byLegacyId().clear(),
+                "Equipment snapshot exposed a mutable legacy index.");
+
+        definitions.clear();
+        variants.clear();
+        itemVariants.clear();
+        legacyDefinitions.clear();
+        if (snapshot.get(definition.id()) == null || snapshot.byItemVariant(item, definition.variant()) == null
+                || snapshot.byLegacyId(definition.legacyEquipId()) == null) {
+            throw new AssertionError("Equipment snapshot retained mutable source map references.");
         }
         helper.succeed();
     }
@@ -2655,14 +2725,19 @@ public final class ShinColleEntityRegistryGameTests {
             FriendlyByteBuf invalidStats = new FriendlyByteBuf(Unpooled.buffer());
             invalidStats.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
             invalidStats.writeVarInt(1);
-            writeSyncTestDefinition(invalidStats, retained, Attrs.AttrsLength - 1);
+            writeSyncTestResourceLocation(invalidStats, retained.id());
+            writeSyncTestResourceLocation(invalidStats, retained.item());
+            invalidStats.writeVarInt(retained.variant());
+            invalidStats.writeVarInt(retained.equipType());
+            invalidStats.writeBoolean(false);
+            invalidStats.writeVarInt(257);
             assertInvalidSyncKeepsSnapshot(decodeEquipDataPacket(invalidStats), retainedSnapshot,
-                    "invalid stats length");
+                    "invalid stats count");
 
             FriendlyByteBuf missingReference = new FriendlyByteBuf(Unpooled.buffer());
             missingReference.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
             missingReference.writeVarInt(1);
-            writeSyncTestDefinition(missingReference, retained, Attrs.AttrsLength);
+            writeSyncTestDefinition(missingReference, retained);
             missingReference.writeVarInt(1);
             writeSyncTestResourceLocation(missingReference, item);
             missingReference.writeVarInt(3);
@@ -3525,6 +3600,15 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
+    private static void assertUnsupportedMutation(Runnable mutation, String message) {
+        try {
+            mutation.run();
+        } catch (UnsupportedOperationException expected) {
+            return;
+        }
+        throw new AssertionError(message);
+    }
+
     private static EquipDefinition createSyncTestDefinition(String path, ResourceLocation item, int variant,
                                                               int equipType, Integer legacyId, float seed) {
         float[] stats = new float[Attrs.AttrsLength];
@@ -3532,7 +3616,8 @@ public final class ShinColleEntityRegistryGameTests {
             stats[i] = seed + i * 0.125F;
         }
         return new EquipDefinition(new ResourceLocation(Reference.MOD_ID, path), item, variant, equipType,
-                legacyId, stats, List.of("cannon", "aircraft"), 3, "polymetal", 17, 29, equipType);
+                legacyId, LegacyShipAttributeBridge.fromLegacyArray(stats), List.of("cannon", "aircraft"),
+                3, "polymetal", 17, 29, equipType);
     }
 
     private static int[] getShipResourceValue(ItemStack stack) {
@@ -3602,8 +3687,7 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
-    private static void writeSyncTestDefinition(FriendlyByteBuf buffer, EquipDefinition definition,
-                                                 int statsLength) {
+    private static void writeSyncTestDefinition(FriendlyByteBuf buffer, EquipDefinition definition) {
         writeSyncTestResourceLocation(buffer, definition.id());
         writeSyncTestResourceLocation(buffer, definition.item());
         buffer.writeVarInt(definition.variant());
@@ -3612,9 +3696,25 @@ public final class ShinColleEntityRegistryGameTests {
         if (definition.legacyEquipId() != null) {
             buffer.writeVarInt(definition.legacyEquipId());
         }
-        buffer.writeVarInt(statsLength);
-        for (int i = 0; i < statsLength; i++) {
-            buffer.writeFloat(definition.stats()[i]);
+        List<Map.Entry<ResourceLocation, Float>> stats = definition.stats().asMap().entrySet().stream()
+                .filter(entry -> entry.getValue() != 0F)
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)))
+                .toList();
+        buffer.writeVarInt(stats.size());
+        for (Map.Entry<ResourceLocation, Float> stat : stats) {
+            writeSyncTestResourceLocation(buffer, stat.getKey());
+            buffer.writeFloat(stat.getValue());
+        }
+        List<Map.Entry<ResourceLocation, ShipAttackEffect>> attackEffects = definition.attackEffects().entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)))
+                .toList();
+        buffer.writeVarInt(attackEffects.size());
+        for (Map.Entry<ResourceLocation, ShipAttackEffect> entry : attackEffects) {
+            writeSyncTestResourceLocation(buffer, entry.getKey());
+            buffer.writeVarInt(entry.getValue().amplifier());
+            buffer.writeVarInt(entry.getValue().durationTicks());
+            buffer.writeVarInt(entry.getValue().chancePercent());
         }
         buffer.writeVarInt(definition.compatible().size());
         for (String compatible : definition.compatible()) {
@@ -3635,7 +3735,8 @@ public final class ShinColleEntityRegistryGameTests {
         if (actual == null || !expected.id().equals(actual.id()) || !expected.item().equals(actual.item())
                 || expected.variant() != actual.variant() || expected.equipType() != actual.equipType()
                 || !Objects.equals(expected.legacyEquipId(), actual.legacyEquipId())
-                || !Arrays.equals(expected.stats(), actual.stats())
+                || !expected.stats().asMap().equals(actual.stats().asMap())
+                || !expected.attackEffects().equals(actual.attackEffects())
                 || !expected.compatible().equals(actual.compatible())
                 || expected.enchantType() != actual.enchantType()
                 || !expected.developMaterial().equals(actual.developMaterial())

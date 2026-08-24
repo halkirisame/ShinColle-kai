@@ -1,5 +1,11 @@
 package com.lulan.shincolle.reference.unitclass;
 
+import com.lulan.shincolle.api.attribute.CoreShipAttributes;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
+import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.attribute.ShipAttributeLayerState;
+import com.lulan.shincolle.attribute.LegacyShipAttributeBridge;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
@@ -10,7 +16,7 @@ import java.util.Random;
 /**
  * ship basic attributes + equip and potion buffs
  * <p>
- * 若要新增新屬性, 需修改ID.Attrs, Attrs.AttrsLength, ConfigHandler.limitShipAttrs
+ * The original 21-slot arrays are retained as an internal compatibility bridge.
  */
 public class Attrs {
 
@@ -42,6 +48,9 @@ public class Attrs {
      * equip attrs, index: {@link ID.Attrs}
      */
     protected float[] AttrsPotion;
+    private ShipAttributeLayerState dynamicLayers;
+    private long nextAttributeSyncRevision;
+    private long lastAppliedAttributeSyncRevision = -1L;
 
     public Attrs() {
         this.initValue();
@@ -57,8 +66,10 @@ public class Attrs {
         /* check max */
         // HP limit
         for (int i = 0; i < Attrs.AttrsLength; i++) {
-            if (ConfigHandler.limitShipAttrs[i] >= 0D && data[i] > ConfigHandler.limitShipAttrs[i]) {
-                data[i] = (float) ConfigHandler.limitShipAttrs[i];
+            double maximum = ConfigHandler.shipAttributeMaximum(
+                    LegacyShipAttributeBridge.idFromLegacyIndex(i));
+            if (maximum >= 0D && data[i] > maximum) {
+                data[i] = (float) maximum;
             }
         }
 
@@ -108,6 +119,7 @@ public class Attrs {
         newattrs.setAttrsEquip(Arrays.copyOf(attrs.getAttrsEquip(), attrs.getAttrsEquip().length));
         newattrs.setAttrsPotion(Arrays.copyOf(attrs.getAttrsPotion(), attrs.getAttrsPotion().length));
         newattrs.setAttrsBuffed(Arrays.copyOf(attrs.getAttrsBuffed(), attrs.getAttrsBuffed().length));
+        newattrs.copyDynamicLayersFrom(attrs);
 
         return newattrs;
     }
@@ -154,18 +166,48 @@ public class Attrs {
 
     public void resetAttrsRaw() {
         this.AttrsRaw = getResetRawValue();
+        this.resetDynamicLayer(ShipAttributeLayer.RAW);
     }
 
     public void resetAttrsBuffed() {
         this.AttrsBuffed = getResetRawValue();
+        this.resetDynamicLayer(ShipAttributeLayer.BUFFED);
     }
 
     public void resetAttrsEquip() {
         this.AttrsEquip = new float[AttrsLength];
+        this.resetDynamicLayer(ShipAttributeLayer.EQUIPMENT);
     }
 
     public void resetAttrsPotion() {
         this.AttrsPotion = new float[AttrsLength];
+        this.resetDynamicLayer(ShipAttributeLayer.POTION);
+    }
+
+    /** Returns an immutable snapshot containing core and addon-defined values. */
+    public ShipAttributeValues shipAttributes(ShipAttributeLayer layer) {
+        ShipAttributeLayerState state = this.ensureDynamicLayers();
+        ShipAttributeValues.Builder result = state.get(layer).toBuilder();
+        float[] legacy = this.legacyLayer(layer);
+        if (legacy != null) {
+            int limit = Math.min(legacy.length, CoreShipAttributes.LEGACY_ORDER.size());
+            for (int i = 0; i < limit; i++) {
+                result.set(CoreShipAttributes.LEGACY_ORDER.get(i), legacy[i]);
+            }
+        }
+        return result.build();
+    }
+
+    /** Atomically replaces one complete dynamic layer and mirrors core 21 values to legacy storage. */
+    public void setShipAttributes(ShipAttributeLayer layer, ShipAttributeValues values) {
+        ShipAttributeLayerState state = this.ensureDynamicLayers();
+        state.set(layer, values);
+        ShipAttributeValues canonical = state.get(layer);
+        float[] legacy = new float[AttrsLength];
+        for (int i = 0; i < CoreShipAttributes.LEGACY_ORDER.size(); i++) {
+            legacy[i] = canonical.get(CoreShipAttributes.LEGACY_ORDER.get(i));
+        }
+        this.replaceLegacyLayer(layer, legacy);
     }
 
     /**
@@ -180,6 +222,7 @@ public class Attrs {
      */
     public void setAttrsRaw(float[] data) {
         this.AttrsRaw = data;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.RAW, data);
     }
 
     public float getAttrsRaw(int id) {
@@ -192,6 +235,7 @@ public class Attrs {
 
     public void setAttrsBuffed(float[] data) {
         this.AttrsBuffed = data;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.BUFFED, data);
     }
 
     public float getAttrsBuffed(int id) {
@@ -228,6 +272,7 @@ public class Attrs {
 
     public void setAttrsEquip(float[] data) {
         this.AttrsEquip = data;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.EQUIPMENT, data);
     }
 
     public float getAttrsEquip(int id) {
@@ -240,6 +285,7 @@ public class Attrs {
 
     public void setAttrsPotion(float[] data) {
         this.AttrsPotion = data;
+        this.replaceDynamicLayerFromLegacy(ShipAttributeLayer.POTION, data);
     }
 
     public float getAttrsPotion(int id) {
@@ -348,6 +394,78 @@ public class Attrs {
 
     public void setAttrsPotion(int id, float data) {
         this.AttrsPotion[id] = data;
+    }
+
+    protected void copyDynamicLayersFrom(Attrs source) {
+        this.dynamicLayers = source.dynamicLayers == null ? null : source.dynamicLayers.copy();
+    }
+
+    protected float[] legacyLayer(ShipAttributeLayer layer) {
+        return switch (layer) {
+            case RAW -> this.AttrsRaw;
+            case EQUIPMENT -> this.AttrsEquip;
+            case POTION -> this.AttrsPotion;
+            case BUFFED -> this.AttrsBuffed;
+            case MORALE, FORMATION -> null;
+        };
+    }
+
+    protected void replaceLegacyLayer(ShipAttributeLayer layer, float[] values) {
+        switch (layer) {
+            case RAW -> this.AttrsRaw = values;
+            case EQUIPMENT -> this.AttrsEquip = values;
+            case POTION -> this.AttrsPotion = values;
+            case BUFFED -> this.AttrsBuffed = values;
+            case MORALE, FORMATION -> throw new IllegalArgumentException("Layer requires AttrsAdv: " + layer);
+        }
+    }
+
+    protected void replaceDynamicLayerFromLegacy(ShipAttributeLayer layer, float[] legacy) {
+        if (this.dynamicLayers == null) {
+            return;
+        }
+        ShipAttributeValues base = layer == ShipAttributeLayer.BUFFED
+                ? ShipAttributeValues.defaults(this.dynamicLayers.layout(), ShipAttributeLayer.RAW)
+                : ShipAttributeValues.defaults(this.dynamicLayers.layout(), layer);
+        ShipAttributeValues.Builder replacement = base.toBuilder();
+        int limit = Math.min(legacy.length, CoreShipAttributes.LEGACY_ORDER.size());
+        for (int i = 0; i < limit; i++) {
+            replacement.set(CoreShipAttributes.LEGACY_ORDER.get(i), legacy[i]);
+        }
+        this.dynamicLayers.set(layer, replacement.build());
+    }
+
+    protected ShipAttributeLayerState ensureDynamicLayers() {
+        if (this.dynamicLayers == null) {
+            this.dynamicLayers = new ShipAttributeLayerState(ShipAttributeLayout.current());
+        }
+        return this.dynamicLayers;
+    }
+
+    /** Allocates a monotonically increasing runtime-only server sync revision. */
+    public long nextAttributeSyncRevision() {
+        if (this.nextAttributeSyncRevision == Long.MAX_VALUE) {
+            throw new IllegalStateException("Ship attribute sync revision exhausted");
+        }
+        return this.nextAttributeSyncRevision++;
+    }
+
+    public long lastAppliedAttributeSyncRevision() {
+        return this.lastAppliedAttributeSyncRevision;
+    }
+
+    protected void markAttributeSyncRevisionApplied(long revision) {
+        this.lastAppliedAttributeSyncRevision = revision;
+    }
+
+    protected void installDynamicLayers(ShipAttributeLayerState state) {
+        this.dynamicLayers = state;
+    }
+
+    private void resetDynamicLayer(ShipAttributeLayer layer) {
+        if (this.dynamicLayers != null) {
+            this.dynamicLayers.reset(layer);
+        }
     }
 
     public void addAttrsBonus(int id, int data) {

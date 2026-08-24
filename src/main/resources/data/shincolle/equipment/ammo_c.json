@@ -15,10 +15,10 @@
   },
   "roll_type": 29,
   "stats": {
-    "atk_h": 16.0,
-    "atk_ah": 16.0,
-    "spd": -0.3,
-    "mov": -0.01,
-    "hit": -2.0
+    "shincolle:atk_h": 16.0,
+    "shincolle:atk_ah": 16.0,
+    "shincolle:spd": -0.3,
+    "shincolle:mov": -0.01,
+    "shincolle:hit": -2.0
   }
 }

@@ -1,11 +1,12 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.entity.other.EntityAirplane;
 import com.lulan.shincolle.entity.other.EntityAirplaneTakoyaki;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
-import com.lulan.shincolle.item.EquipAirplane;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.entity.Entity;
@@ -161,7 +162,10 @@ public abstract class BasicEntityShipCV extends BasicEntityShip implements IShip
 
         for (int i = 0; i < ContainerShipInventory.EQUIP_SLOTS; i++) {
             ItemStack stack = this.itemHandler.getStackInSlot(i);
-            if (!stack.isEmpty() && stack.getItem() instanceof EquipAirplane) {
+            ResolvedShipEquipment equipment = ShipEquipmentResolver.resolveServer(stack).orElse(null);
+            if (equipment != null
+                    && equipment.isCompatibleWith(ResolvedShipEquipment.AIRCRAFT_COMPATIBILITY)
+                    && !equipment.isCompatibleWith(ResolvedShipEquipment.CANNON_COMPATIBILITY)) {
                 airNum++;
             }
         }

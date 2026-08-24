@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.reference.ID;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -43,6 +44,14 @@ public class EntityBattleshipRe extends BasicEntityShipCV {
     @Override
     public int getEquipType() {
         return 2;
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int level = this.getLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.MINING_FATIGUE,
+                level / 100, 100 + level, level);
     }
 
     @Override

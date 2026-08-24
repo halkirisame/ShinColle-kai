@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.carrier;
 
 import com.lulan.shincolle.entity.BasicEntityShipHostileCV;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.BossEvent;
@@ -39,6 +40,14 @@ public class EntityCarrierKagaMob extends BasicEntityShipHostileCV {
         this.setStateEmotion(ID.S.State, this.random.nextInt(128), false);
 
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int scale = this.getScaleLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.HUNGER,
+                scale / 3, 100 + scale * 50, 25 + scale * 25);
     }
 
     @Override

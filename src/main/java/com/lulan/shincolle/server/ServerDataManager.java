@@ -230,7 +230,7 @@ public class ServerDataManager {
             return false;
 
         if (capa.getTeamCooldown() > 0) {
-            LogHelper.info("DIAG: team create rejected player=" + player.getGameProfile().getName()
+            LogHelper.diag("DIAG: team create rejected player=" + player.getGameProfile().getName()
                     + " cooldown=" + capa.getTeamCooldown());
             return false;
         }
@@ -263,7 +263,7 @@ public class ServerDataManager {
         CapaTeitoku capa = getTeitokuCapability(player);
         if (capa == null || capa.getTeamCooldown() > 0) {
             if (capa != null) {
-                LogHelper.info("DIAG: team disband rejected player=" + player.getGameProfile().getName()
+                LogHelper.diag("DIAG: team disband rejected player=" + player.getGameProfile().getName()
                         + " cooldown=" + capa.getTeamCooldown());
             }
             return false;

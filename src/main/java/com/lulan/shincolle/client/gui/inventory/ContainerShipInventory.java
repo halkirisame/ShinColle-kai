@@ -1,10 +1,10 @@
 package com.lulan.shincolle.client.gui.inventory;
 
 import com.lulan.shincolle.capability.CapaShipInventory;
+import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.init.ModMenuTypes;
-import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
@@ -18,7 +18,7 @@ import net.minecraftforge.fml.ModList;
 
 /**
  * Container/Menu for ship entity inventory.
- * 6 equipment slots (BasicEquip only) + 18 inventory slots per page (visible).
+ * 6 canonical equipment slots + 18 inventory slots per page (visible).
  * Supports 3 inventory pages via paging offset in the wrapper.
  */
 public class ContainerShipInventory extends AbstractContainerMenu {
@@ -63,17 +63,18 @@ public class ContainerShipInventory extends AbstractContainerMenu {
         this.shipInv = (ship != null)
                 ? new PagedShipContainerWrapper(ship.getCapaShipInventory())
                 : new PagedShipContainerWrapper(new CapaShipInventory(TOTAL_SHIP_SLOTS, null));
+        boolean clientSide = playerInv.player.level().isClientSide;
 
         // Equipment slots (0-5): right column
         for (int i = 0; i < EQUIP_SLOTS; i++) {
-            addSlot(new SlotShipInventory(shipInv, i, 144, 18 + i * 18, true));
+            addSlot(new SlotShipInventory(shipInv, i, 144, 18 + i * 18, true, clientSide));
         }
 
         // Inventory slots page 0 (6-23): 6 rows x 3 columns (matching original layout)
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 3; col++) {
                 addSlot(new SlotShipInventory(shipInv, EQUIP_SLOTS + col + row * 3,
-                        8 + col * 18, 18 + row * 18, false));
+                        8 + col * 18, 18 + row * 18, false, clientSide));
             }
         }
 
@@ -140,7 +141,7 @@ public class ContainerShipInventory extends AbstractContainerMenu {
                 }
             } else if (index < VISIBLE_SHIP_SLOTS) {
                 // From ship inventory slots
-                if (slotStack.getItem() instanceof BasicEquip) {
+                if (isNativeEquipment(slotStack, player.level().isClientSide)) {
                     // equip items: try equip slots first, then player
                     if (!this.moveItemStackTo(slotStack, 0, EQUIP_SLOTS, false)) {
                         if (!this.moveItemStackTo(slotStack, VISIBLE_SHIP_SLOTS, VISIBLE_SHIP_SLOTS + 36, true)) {
@@ -155,7 +156,7 @@ public class ContainerShipInventory extends AbstractContainerMenu {
                 }
             } else {
                 // From player inventory to ship
-                if (slotStack.getItem() instanceof BasicEquip) {
+                if (isNativeEquipment(slotStack, player.level().isClientSide)) {
                     // equip items: try equip slots first, then ship inventory
                     if (!this.moveItemStackTo(slotStack, 0, EQUIP_SLOTS, false)) {
                         if (!this.moveItemStackTo(slotStack, EQUIP_SLOTS, VISIBLE_SHIP_SLOTS, false)) {
@@ -178,6 +179,12 @@ public class ContainerShipInventory extends AbstractContainerMenu {
         }
 
         return result;
+    }
+
+    /** Shared native-slot/shift-click candidate check with explicit logical side. */
+    public static boolean isNativeEquipment(ItemStack stack, boolean clientSide) {
+        return clientSide ? ShipEquipmentResolver.canResolveClient(stack)
+                : ShipEquipmentResolver.canResolveServer(stack);
     }
 
     public int getInventoryPage() {

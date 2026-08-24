@@ -1,9 +1,11 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.ai.*;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
+import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
@@ -22,6 +24,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -98,7 +101,7 @@ public abstract class BasicEntityShipHostile extends Mob
      * attack attributes
      */
     protected HashMap<Integer, Integer> BuffMap;
-    protected HashMap<Integer, int[]> AttackEffectMap;
+    protected HashMap<ResourceLocation, ShipAttackEffect> AttackEffectMap;
     protected MissileData[] MissileData;
     // model render
     protected float[] rotateAngle;
@@ -649,10 +652,27 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void calcShipAttributesAddEquip() {
+        if (this.shipAttrs == null) {
+            return;
+        }
+
+        // Curios contributions are reapplied on every equipment recalculation.
+        // Reset all equipment-owned state first, matching BasicEntityShip, so
+        // a periodic recalculation cannot accumulate values or retain effects
+        // from a removed Curio.
+        this.shipAttrs.resetAttrsEquip();
+        this.AttackEffectMap = new HashMap<>();
+        this.resetMissileData();
+        this.calcShipAttributesAddEffect();
+
         // fold in equipment worn in the Curios-backed slot, if Curios is present
         if (ModList.get().isLoaded("curios")) {
             ShipCuriosIntegration.applyEquipStats(this, this);
         }
+    }
+
+    /** Rebuild intrinsic attack effects before equipment contributions are applied. */
+    public void calcShipAttributesAddEffect() {
     }
 
     // ========== Combat Methods ==========
@@ -708,9 +728,7 @@ public abstract class BasicEntityShipHostile extends Mob
                 DebugProfiler.count(profiler, "shincolle.hostile.attack.light.hit_success");
                 applyEmotesReaction(3);
 
-                if (ModList.get().isLoaded("curios")) {
-                    ShipCuriosIntegration.runOnHitHooks(this, target, atk);
-                }
+                ShipOnHitEffects.dispatch(this, target, atk);
             } else {
                 DebugProfiler.count(profiler, "shincolle.hostile.attack.light.hit_fail");
             }
@@ -1364,11 +1382,11 @@ public abstract class BasicEntityShipHostile extends Mob
         this.BuffMap = map;
     }
 
-    public HashMap<Integer, int[]> getAttackEffectMap() {
+    public HashMap<ResourceLocation, ShipAttackEffect> getAttackEffectMap() {
         return this.AttackEffectMap;
     }
 
-    public void setAttackEffectMap(HashMap<Integer, int[]> map) {
+    public void setAttackEffectMap(HashMap<ResourceLocation, ShipAttackEffect> map) {
         this.AttackEffectMap = map;
     }
 

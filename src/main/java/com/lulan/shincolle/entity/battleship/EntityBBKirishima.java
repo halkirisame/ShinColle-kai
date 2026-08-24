@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -44,6 +45,14 @@ public class EntityBBKirishima extends BasicEntityShipSmall {
     @Override
     public int getEquipType() {
         return 1;
+    }
+
+    @Override
+    public void calcShipAttributesAddEffect() {
+        super.calcShipAttributesAddEffect();
+        int level = this.getLevel();
+        ShipInnateAttackEffects.put(this, ShipInnateAttackEffects.BLINDNESS,
+                0, 50 + level, level);
     }
 
     @Override
