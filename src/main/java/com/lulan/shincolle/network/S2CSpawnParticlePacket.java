@@ -88,6 +88,23 @@ public class S2CSpawnParticlePacket {
 
         double x, y, z, lookX = 0, lookY = 1, lookZ = 0;
 
+        // Healing sparkle (type 23). The original spawns this through
+        // spawnAttackParticleAtEntity, so it needs the entity rather than a
+        // position and cannot go through the position-based switch below.
+        if (type == 23) {
+            Entity healed = mc.level.getEntity(entityId);
+            if (healed == null) {
+                return;
+            }
+            // Original 1.10.2 arguments: type 2, scale 0.075, radius width*1.5,
+            // two unused slots, RGBA, height*0.4. The heal packet carries no
+            // colour payload, so the original's green heal tint is used.
+            ParticleHelper.spawnSparkleParticle(healed, 2,
+                    0.075F, healed.getBbWidth() * 1.5F, 0F, 0F,
+                    0.3F, 1F, 0.3F, 1F, healed.getBbHeight() * 0.4F);
+            return;
+        }
+
         // Special handling for emotion particles (type 36)
         if (type == 36) {
             Entity entity = mc.level.getEntity(entityId);
