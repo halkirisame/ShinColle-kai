@@ -1,0 +1,29 @@
+{
+  "$schema": "../../../../../docs/schemas/shincolle-equipment.schema.json",
+  "item": "minecraft:spyglass",
+  "variant": 0,
+  "equip_type": "radar_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "grudge",
+    "amount": 100,
+    "rare_mean": 100
+  },
+  "roll_type": 14,
+  "stats": {
+    "shincolle:hit": 1.0,
+    "shincolle:dodge": 0.05
+  },
+  "attack_effects": [
+    {
+      "effect": "minecraft:glowing",
+      "amplifier": 0,
+      "duration": 100,
+      "chance": 25
+    }
+  ]
+}

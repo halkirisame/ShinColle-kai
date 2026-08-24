@@ -1,0 +1,14 @@
+{
+  "item": "shincolle_example:sonar_module",
+  "variant": 0,
+  "equip_type": "radar_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "stats": {
+    "shincolle:hit": 1.0,
+    "shincolle_example:sonar_precision": 0.15
+  }
+}
