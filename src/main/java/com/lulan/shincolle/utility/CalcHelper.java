@@ -61,13 +61,19 @@ public class CalcHelper {
     /**
      * Rotate point (z, x) around origin by angle rad.
      * Returns float[2] = {newZ, newX}.
+     *
+     * <p>Matches the 1.10.2 helper exactly. For a Minecraft yaw in radians this
+     * turns a local forward offset into the entity's facing direction, because
+     * the engine's forward vector is {@code (-sin(yaw), cos(yaw))} in (X, Z).
+     * The port originally negated the sine terms, which mirrored every result
+     * across the Z axis; see docs/porting_reference.md.</p>
      */
     public static float[] rotateXZByAxis(float z, float x, float rad, float scale) {
         float cosD = Mth.cos(rad);
         float sinD = Mth.sin(rad);
         float[] newPos = new float[2];
-        newPos[0] = (z * cosD - x * sinD) * scale;
-        newPos[1] = (z * sinD + x * cosD) * scale;
+        newPos[0] = (z * cosD + x * sinD) * scale;
+        newPos[1] = (x * cosD - z * sinD) * scale;
         return newPos;
     }
 

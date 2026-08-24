@@ -799,10 +799,9 @@ public abstract class BasicEntityMount extends TamableAnimal
 
     private void applyMovement(float pitch, float yaw) {
         final float moveSpeed = this.getMoveSpeed();
-        // The ported helper rotates opposite to the 1.10.2 helper. Negating yaw
-        // restores the original mount movement vectors without changing other callers.
-        final float[] moveZ = CalcHelper.rotateXZByAxis(moveSpeed, 0F, -yaw, 1F);
-        final float[] moveX = CalcHelper.rotateXZByAxis(0F, moveSpeed, -yaw, 1F);
+        // Original 1.10.2 argument order: forward first, then strafe.
+        final float[] moveZ = CalcHelper.rotateXZByAxis(moveSpeed, 0F, yaw, 1F);
+        final float[] moveX = CalcHelper.rotateXZByAxis(0F, moveSpeed, yaw, 1F);
         Vec3 motion = this.getDeltaMovement();
         double motionX = motion.x;
         double motionY = motion.y;
