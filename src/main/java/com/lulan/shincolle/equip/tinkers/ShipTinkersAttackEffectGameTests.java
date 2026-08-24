@@ -5,6 +5,7 @@ import com.lulan.shincolle.reference.Reference;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -21,6 +22,15 @@ public final class ShipTinkersAttackEffectGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void modifierMappingReturnsPublicValuesAndKeepsStrongest(GameTestHelper helper) {
+        // Tinkers is an optional dependency, so this suite also runs with
+        // -PshincolleMinimalRuntime=true to prove the mod works without it.
+        // Loading Tinkers types there would fail, which is the expected state,
+        // not a regression.
+        if (!ModList.get().isLoaded("tconstruct")) {
+            helper.succeed();
+            return;
+        }
+
         Map<ResourceLocation, ShipAttackEffect> effects = new LinkedHashMap<>();
         ShipTinkersIntegration.mergeModifierEffect(effects, id("tconstruct", "venom"), 1);
         ShipTinkersIntegration.mergeModifierEffect(effects, id("tconstruct", "venom"), 3);
