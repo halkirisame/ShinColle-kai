@@ -1,29 +1,47 @@
 # ShinColle-kai
 
-このmodは、PinkaLulan氏作のShinColleをkousakirai氏がForge1.20.1に移植したもの(ShinColle-Reforge)の派生版(fork)です。
-移植版で残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を進めています。
+PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したもの(ShinColle-Reforge)の
+派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
+進めています。
 
-**MOD IDは `shincolle_kai` です。v1.20.1-1.0.0 で `shincolle` から変更しました。**
-本家および移植版(ShinColle-Reforge)とは別IDなので同時に導入できますが、互換性はありません。
+## ⚠ v1.20.1-1.0.0 の破壊的変更
 
 **旧版で作成したワールドは引き継げません。新規ワールドが必要です。**
-`shincolle` 名前空間で保存された艦娘・アイテム・ブロックは読み込めなくなります。
-Minecraftはワールド内のアイテムとエンティティをバニラのレジストリ経由で解決しており、
-Forgeの移行機構(`MissingMappingsEvent`)が張るエイリアスがそこへ届かないためです。
-1.20.1では回避手段がありません。
 
-旧ワールドを開くこと自体はできます。起動時の警告画面で止まらないようにしてありますが、
-深海棲艦MODの要素は失われた状態になります。
+MOD IDを `shincolle` から **`shincolle_kai`** へ変更したため、旧IDで保存された
+艦娘・アイテム・ブロックは読み込めなくなります。1.20.1では移行する手段がありません。
 
-Javaアドオンも非互換です。旧`net.shincolleapi`は廃止し、本体JAR同梱の
-`com.lulan.shincolle.api`へ置き換えました。設定ファイルも新規生成されます。
+- 旧ワールドを**開くことはできます**。起動時の警告画面で止まらないようにしてありますが、
+  本MODの要素は失われた状態になります
+- **設定ファイルは新規生成されます**(`shincolle_kai-common.toml` / `shincolle_kai-mining.cfg`)。
+  旧設定は引き継がれません
+- **Javaアドオンは非互換です。**旧 `net.shincolleapi` は廃止し、本体JAR同梱の
+  `com.lulan.shincolle.api` へ置き換えました
+- KubeJSスクリプトやdatapackで `shincolle:` を参照している箇所は `shincolle_kai:` へ
+  書き換えが必要です
 
-変更内容は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
+本家および移植版とはIDが別になったため技術的には共存できますが、内容が重複するため
+**同時導入は想定していません。**置き換えてご利用ください。
 
-KubeJSから独自の艦属性と装備を追加できます。導入方法と完全なサンプルは
-[docs/kubejs_integration.md](docs/kubejs_integration.md)をご覧ください。
-Javaアドオン向けPublic APIの境界と例は
-[docs/java_addon_api.md](docs/java_addon_api.md)をご覧ください。
+## 動作環境
+
+- Minecraft 1.20.1 / Forge 47系(`[47,)`)。開発・検証は 47.4.0 で行っています
+
+任意で連携するMOD(無くても動作します):
+
+| MOD | 連携内容 |
+|---|---|
+| Curios | 艦娘の装備スロット |
+| Tinkers' Construct | 修飾子を艦の攻撃効果へ変換 |
+| KubeJS | 独自の艦属性・装備をスクリプトから追加 |
+| JEI | レシピ表示 |
+
+## ドキュメント
+
+- [CHANGELOG.md](CHANGELOG.md) — 変更履歴
+- [docs/kubejs_integration.md](docs/kubejs_integration.md) — KubeJSから艦属性・装備を追加する
+- [docs/java_addon_api.md](docs/java_addon_api.md) — Javaアドオン向けPublic APIの境界と例
+- [examples/](examples/) — 装備datapackとJavaアドオンの動くサンプル
 
 ## 連絡先
 
@@ -44,31 +62,49 @@ MITライセンスのもとで公開されています。詳細は [LICENSE](LIC
 ---
 
 ShinColle-kai is a derivative of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of
-PinkaLulan's ShinColle. It carries on from that port, fixing bugs left in it and
-restoring behaviour that was lost in the move from 1.10.2.
+PinkaLulan's ShinColle. It carries on from that port, fixing bugs left in it and restoring
+behaviour that was lost in the move from 1.10.2.
 
-**The mod id is `shincolle_kai`, changed from `shincolle` in v1.20.1-1.0.0.**
-It no longer shares an id with the original or with ShinColle-Reforge, and it is not
-compatible with either.
+## ⚠ Breaking change in v1.20.1-1.0.0
 
 **Worlds created with earlier versions cannot be carried over. A new world is required.**
-Ships, items and blocks saved under the `shincolle` namespace will not load. Minecraft
-resolves saved items and entities through the vanilla registries, which never consult the
-alias table that Forge's `MissingMappingsEvent` writes to, so there is no workaround on
-1.20.1.
 
-An old world still opens -- the startup prompt is suppressed -- but its ShinColle content
-is gone.
+The mod id changed from `shincolle` to **`shincolle_kai`**, so ships, items and blocks
+saved under the old id will not load. There is no way to migrate them on 1.20.1.
 
-Java addons are incompatible as well: the old `net.shincolleapi` is gone, replaced by
-`com.lulan.shincolle.api` bundled in the main jar. Config files are regenerated too.
+- An old world **still opens** -- the startup prompt is suppressed -- but this mod's
+  content is gone from it
+- **Config files are regenerated** (`shincolle_kai-common.toml` /
+  `shincolle_kai-mining.cfg`). Old settings are not carried over
+- **Java addons are incompatible.** The old `net.shincolleapi` is gone, replaced by
+  `com.lulan.shincolle.api` bundled in the main jar
+- KubeJS scripts and datapacks referring to `shincolle:` must be updated to
+  `shincolle_kai:`
 
-See [CHANGELOG.md](CHANGELOG.md) for what has changed.
+The id is now distinct from the original and from ShinColle-Reforge, so they can
+technically coexist, but the content would be duplicated and **running them together is
+not supported.** Use this as a replacement.
 
-KubeJS can register custom ship attributes and turn scripted items into ship equipment.
-See [docs/kubejs_integration.md](docs/kubejs_integration.md) for setup and complete examples.
-Java addon boundaries and examples are documented in
-[docs/java_addon_api.md](docs/java_addon_api.md).
+## Requirements
+
+- Minecraft 1.20.1 / Forge 47.x (`[47,)`); developed and tested against 47.4.0
+
+Optional integrations (all work fine when absent):
+
+| Mod | What it adds |
+|---|---|
+| Curios | Equipment slots for ship girls |
+| Tinkers' Construct | Modifiers converted into ship attack effects |
+| KubeJS | Custom ship attributes and equipment from scripts |
+| JEI | Recipe display |
+
+## Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) -- what has changed
+- [docs/kubejs_integration.md](docs/kubejs_integration.md) -- adding ship attributes and
+  equipment from KubeJS
+- [docs/java_addon_api.md](docs/java_addon_api.md) -- public API boundaries and examples
+- [examples/](examples/) -- working samples: an equipment datapack and a Java addon
 
 ## Contact
 

@@ -1,6 +1,11 @@
 # 変更履歴 / Changelog
 
-## 2026-08-25 — MOD IDを `shincolle_kai` へ変更（互換切り）
+## v1.20.1-1.0.0 (2026-08-25)
+
+> **⚠ 破壊的変更: 旧版で作成したワールドは引き継げません。新規ワールドが必要です。**
+> 詳細は下の「MOD IDを `shincolle_kai` へ変更」を参照してください。
+
+### MOD IDを `shincolle_kai` へ変更（互換切り）
 
 - **MOD IDを `shincolle` から `shincolle_kai` へ変更しました。** MOD名は ShinColle-kai に統一しています。
 - **旧版で作成したワールドは引き継げません。新規ワールドが必要です。** `shincolle` 名前空間で保存された艦娘・アイテム・ブロックは読み込めなくなります。Forge 1.20.1の制約で回避手段がありません。
@@ -10,20 +15,20 @@
 - **2026-08-09の「MOD IDは `shincolle` のままなので、既存のアドオンとワールドはそのまま利用できます」という記述は、この変更で無効になりました。**
 - 内部ロガー名が旧称 `Shinkeiseikan Collection` のままだったのを ShinColle-kai へ修正しました。
 
-## 2026-08-25 — 攻撃AIの再起動ループを修正
+### 攻撃AIの再起動ループを修正
 
 - 遮蔽物などで視線が切れるたび攻撃AIが完全に再起動し、砲撃間隔が最短照準時間へ巻き戻る問題を修正しました。
 - 視線復帰時は同じ攻撃AIを継続し、砲撃・航空攻撃の待ち時間と標的追跡を維持するようにしました。
 - 再起動に伴って装備属性の再計算と経路再発行が過剰に行われていた問題も解消しました。
 
-## 2026-08-25 — 宝箱の深これ戦利品を復元
+### 宝箱の深これ戦利品を復元
 
 - 存在していた戦利品JSONがどの宝箱にも接続されず、スポーン卵・武装・婚約指輪などが一切出現しなかった問題を修正しました。
 - ボーナスチェスト、イグルー、ダンジョン、村の武器鍛冶屋、廃坑、砂漠の寺院、ジャングルの寺院、ネザー要塞、要塞、エンドシティへ原典相当の戦利品を追加しました。
 - スポーン卵の建造区分・艦種と、武装のランダムvariantを正しいNBTで生成するようにしました。
 - 原典の抽選回数、幸運による追加抽選、重み、確率、個数を復元しました。
 
-## 2026-08-25 — 艦の標的保持と反撃を修正
+### 艦の標的保持と反撃を修正
 
 - 反撃対象を得た直後に反撃AIが終了し、照準が毎回やり直しになって攻撃できなかった問題を修正しました。
 - 複数の敵から攻撃されても照準中の標的を保持し、照準時間を正常に進めるようにしました。
@@ -220,6 +225,21 @@
 
 ---
 
+## v1.20.1-1.0.0 (2026-08-25)
+
+> **⚠ Breaking: worlds from earlier versions cannot be carried over. A new world is required.**
+> See "Mod id changed to `shincolle_kai`" below for details.
+
+### Mod id changed to `shincolle_kai` (compatibility break)
+
+- **The mod id changed from `shincolle` to `shincolle_kai`.** The mod name is now consistently ShinColle-kai.
+- **Worlds from earlier versions cannot be carried over; a new world is required.** Ships, items and blocks saved under the `shincolle` namespace will not load. This is a Forge 1.20.1 limitation with no workaround.
+- Old worlds still open — the "missing registry entries" prompt is suppressed — but their ShinColle content is gone.
+- Config files are regenerated as `shincolle_kai-common.toml` / `shincolle_kai-mining.cfg`. Old settings are not carried over.
+- Java addon and equipment JSON namespaces moved to `shincolle_kai:` as well.
+- **This supersedes the 2026-08-09 note that said "the mod id stays `shincolle`, so existing addons and worlds keep working".**
+- The internal logger name still said `Shinkeiseikan Collection`; it now says ShinColle-kai.
+
 ## 2026-08-10 — Seeing what a ship carries
 
 ### Added
@@ -229,16 +249,6 @@
   information on a shared world.
 - The ship egg dropped by a sunk ship now lists the equipment and cargo stored
   inside it, with equipment shown separately from cargo.
-
-## 2026-08-25 — Mod id changed to `shincolle_kai` (compatibility break)
-
-- **The mod id changed from `shincolle` to `shincolle_kai`.** The mod name is now consistently ShinColle-kai.
-- **Worlds from earlier versions cannot be carried over; a new world is required.** Ships, items and blocks saved under the `shincolle` namespace will not load. This is a Forge 1.20.1 limitation with no workaround.
-- Old worlds still open — the "missing registry entries" prompt is suppressed — but their ShinColle content is gone.
-- Config files are regenerated as `shincolle_kai-common.toml` / `shincolle_kai-mining.cfg`. Old settings are not carried over.
-- Java addon and equipment JSON namespaces moved to `shincolle_kai:` as well.
-- **This supersedes the 2026-08-09 note that said "the mod id stays `shincolle`, so existing addons and worlds keep working".**
-- The internal logger name still said `Shinkeiseikan Collection`; it now says ShinColle-kai.
 
 ## 2026-08-09 — First round of ShinColle-kai changes
 
