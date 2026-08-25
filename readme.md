@@ -1,37 +1,18 @@
 # ShinColle-kai
 
+艦娘(ship girl)を建造し、育て、一緒に戦うMinecraft MODです。
+味方の艦娘と敵の深海棲艦、装備システム、レベリングを追加します。
+
 PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したもの(ShinColle-Reforge)の
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
-## v1.20.1-1.0.0 の主な変更
+## 特徴
 
-### 追加
-
-- **KubeJSから艦属性・装備を追加できるようになりました。**スクリプトで独自の属性を
-  登録し、任意のアイテムを艦の装備として扱えます
-- **装備をdatapackから追加できるようになりました。**JSON 1枚で新しい装備を定義できます
-- **Javaアドオン向けのPublic APIを追加しました**(本体JAR同梱の
-  `com.lulan.shincolle.api`)。別MODの `shincolle_api`(`net.shincolleapi`)とは
-  互換性がありません
-
-いずれもこのリリースが初出です。
-
-### MOD IDの変更
-
-MOD IDを `shincolle` から `shincolle_kai` へ変更しました。上流(本家・移植版)との
-互換はありません。
-
-- 旧IDで保存された艦娘やアイテムは引き継げません。ワールド自体は開けます
-- 設定ファイルは新規生成されます。旧設定は引き継がれません
-- KubeJSスクリプトやdatapackの `shincolle:` は `shincolle_kai:` へ書き換えが必要です
-
-旧版のjarを残しておけば、旧ワールドは旧版で開けます。
-
-### 修正
-
-艦が攻撃・反撃しない、宝箱から戦利品が出ない、艦固有の命中時効果が失われている、
-などの不具合を修正しました。詳細は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
+- **艦娘** — 駆逐・軽巡・重巡・戦艦・空母・潜水艦、および敵側の姫級・水鬼
+- **建造と育成** — 小型/大型建造、レベリング、婚約
+- **装備** — 主砲・魚雷・艦載機など。艦の性能を変化させます
+- **拡張** — KubeJSスクリプト、datapack、Javaアドオンから独自の艦属性と装備を追加できます
 
 ## 動作環境
 
@@ -45,6 +26,21 @@ MOD IDを `shincolle` から `shincolle_kai` へ変更しました。上流(本�
 | Tinkers' Construct | 修飾子を艦の攻撃効果へ変換 |
 | KubeJS | 独自の艦属性・装備をスクリプトから追加 |
 | JEI | レシピ表示 |
+
+## v1.20.1-1.0.0 の変更点
+
+KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリリースが初出です。
+艦が攻撃・反撃しない不具合なども修正しました。
+
+**MOD IDを `shincolle` から `shincolle_kai` へ変更しました。**上流(本家・移植版)との
+互換はありません。
+
+- 旧IDで保存された艦娘やアイテムは引き継げません。ワールド自体は開けます
+- 設定ファイルは新規生成されます。旧設定は引き継がれません
+- KubeJSスクリプトやdatapackの `shincolle:` は `shincolle_kai:` へ書き換えが必要です
+
+旧版のjarを残しておけば、旧ワールドは旧版で開けます。
+全ての変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
 ## ドキュメント
 
@@ -71,37 +67,22 @@ MITライセンスのもとで公開されています。詳細は [LICENSE](LIC
 
 ---
 
-ShinColle-kai is a derivative of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of
-PinkaLulan's ShinColle. It carries on from that port, fixing bugs left in it and restoring
-behaviour that was lost in the move from 1.10.2.
+ShinColle-kai is a Minecraft mod about building, raising and fighting alongside ship
+girls. It adds friendly ship girls, hostile abyssal ships, an equipment system and
+leveling.
 
-## Highlights of v1.20.1-1.0.0
+It is a fork of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of PinkaLulan's
+ShinColle, fixing bugs left in that port and restoring behaviour lost in the move from
+1.10.2.
 
-### Added
+## Features
 
-- **KubeJS can now register ship attributes and equipment.** Scripts can define custom
-  attributes and turn any item into ship equipment
-- **Equipment can now be added from a datapack** -- one JSON file defines a new piece
-- **A public Java addon API** is bundled in the main jar (`com.lulan.shincolle.api`). It is
-  not compatible with the separate `shincolle_api` mod (`net.shincolleapi`)
-
-All three appear here for the first time.
-
-### Mod id change
-
-The mod id changed from `shincolle` to `shincolle_kai`. This is not compatible with the
-original mod or with ShinColle-Reforge.
-
-- Ships and items saved under the old id are not carried over. The world itself still opens
-- Config files are regenerated; old settings are not carried over
-- KubeJS scripts and datapacks referring to `shincolle:` need updating to `shincolle_kai:`
-
-Keeping the old jar around lets you still open old worlds with it.
-
-### Fixed
-
-Ships not attacking or retaliating, chest loot never generating, and per-ship on-hit
-effects going missing, among others. See [CHANGELOG.md](CHANGELOG.md) for the full list.
+- **Ship girls** -- destroyers, cruisers, battleships, carriers and submarines, plus
+  hostile princesses and demons
+- **Construction and growth** -- small and large construction, leveling, marriage
+- **Equipment** -- cannons, torpedoes, aircraft and more, changing a ship's stats
+- **Extensible** -- custom ship attributes and equipment from KubeJS scripts, datapacks
+  or a Java addon
 
 ## Requirements
 
@@ -115,6 +96,21 @@ Optional integrations (all work fine when absent):
 | Tinkers' Construct | Modifiers converted into ship attack effects |
 | KubeJS | Custom ship attributes and equipment from scripts |
 | JEI | Recipe display |
+
+## Changes in v1.20.1-1.0.0
+
+KubeJS integration, datapack equipment and the public Java addon API all appear here for
+the first time, along with fixes for ships not attacking or retaliating.
+
+**The mod id changed from `shincolle` to `shincolle_kai`.** This is not compatible with
+the original mod or with ShinColle-Reforge.
+
+- Ships and items saved under the old id are not carried over. The world itself still opens
+- Config files are regenerated; old settings are not carried over
+- KubeJS scripts and datapacks referring to `shincolle:` need updating to `shincolle_kai:`
+
+Keeping the old jar around lets you still open old worlds with it.
+See [CHANGELOG.md](CHANGELOG.md) for everything else.
 
 ## Documentation
 
