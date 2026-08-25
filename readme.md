@@ -29,17 +29,14 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 
 ## v1.20.1-1.0.0 の変更点
 
-KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリリースが初出です。
+KubeJS連携・装備datapack・Javaアドオン向けPublic APIを実装しました。
 艦が攻撃・反撃しない不具合なども修正しました。
 
-**MOD IDを `shincolle` から `shincolle_kai` へ変更しました。**上流(本家・移植版)との
-互換はありません。
+**MOD IDを `shincolle` から `shincolle_kai` へ変更しました。** *Reforge* との互換はありません。
 
 - 旧IDで保存された艦娘やアイテムは引き継げません。ワールド自体は開けます
 - 設定ファイルは新規生成されます。旧設定は引き継がれません
-- KubeJSスクリプトやdatapackの `shincolle:` は `shincolle_kai:` へ書き換えが必要です
 
-旧版のjarを残しておけば、旧ワールドは旧版で開けます。
 全ての変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
 ## ドキュメント
@@ -77,11 +74,11 @@ ShinColle, fixing bugs left in that port and restoring behaviour lost in the mov
 
 ## Features
 
-- **Ship girls** -- destroyers, cruisers, battleships, carriers and submarines, plus
-  hostile princesses and demons
-- **Construction and growth** -- small and large construction, leveling, marriage
-- **Equipment** -- cannons, torpedoes, aircraft and more, changing a ship's stats
-- **Extensible** -- custom ship attributes and equipment from KubeJS scripts, datapacks
+- **Ship girls** — destroyers, light and heavy cruisers, battleships, carriers and
+  submarines, plus hostile princesses and demons
+- **Construction and growth** — small and large construction, leveling, marriage
+- **Equipment** — cannons, torpedoes, aircraft and more, changing a ship's stats
+- **Extensible** — custom ship attributes and equipment from KubeJS scripts, datapacks
   or a Java addon
 
 ## Requirements
@@ -99,36 +96,34 @@ Optional integrations (all work fine when absent):
 
 ## Changes in v1.20.1-1.0.0
 
-KubeJS integration, datapack equipment and the public Java addon API all appear here for
-the first time, along with fixes for ships not attacking or retaliating.
+KubeJS integration, datapack equipment and a public Java addon API are now implemented.
+Ships not attacking or retaliating, among other bugs, have been fixed.
 
-**The mod id changed from `shincolle` to `shincolle_kai`.** This is not compatible with
-the original mod or with ShinColle-Reforge.
+**The mod id changed from `shincolle` to `shincolle_kai`.** It is not compatible with
+*Reforge*.
 
 - Ships and items saved under the old id are not carried over. The world itself still opens
 - Config files are regenerated; old settings are not carried over
-- KubeJS scripts and datapacks referring to `shincolle:` need updating to `shincolle_kai:`
 
-Keeping the old jar around lets you still open old worlds with it.
-See [CHANGELOG.md](CHANGELOG.md) for everything else.
+See [CHANGELOG.md](CHANGELOG.md) for the full list of changes.
 
 ## Documentation
 
-- [CHANGELOG.md](CHANGELOG.md) -- what has changed
-- [docs/kubejs_integration.md](docs/kubejs_integration.md) -- adding ship attributes and
+- [CHANGELOG.md](CHANGELOG.md) — what has changed
+- [docs/kubejs_integration.md](docs/kubejs_integration.md) — adding ship attributes and
   equipment from KubeJS
-- [docs/java_addon_api.md](docs/java_addon_api.md) -- public API boundaries and examples
-- [examples/](examples/) -- working samples: an equipment datapack and a Java addon
+- [docs/java_addon_api.md](docs/java_addon_api.md) — public API boundaries and examples
+- [examples/](examples/) — working samples: an equipment datapack and a Java addon
 
 ## Contact
 
-For anything about this fork, please use:
+For requests and bug reports about this fork, please use:
 
 - Issues: https://github.com/halkirisame/ShinColle-kai/issues
 - X: https://x.com/hal_kirisame
 
-**Please do not contact the authors of the original mod or of the 1.20.1 port about
-this fork.** It is maintained independently of both.
+**Please do not contact the authors of the original mod or of the 1.20.1 port about this
+fork.** It is maintained independently of both.
 
 ## Lineage
 
