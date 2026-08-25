@@ -65,7 +65,7 @@ StartupEvents.registry('shincolle_kai:ship_attribute', event => {
 - `additive()` — 全layerを加算
 - `scaledAdditive(includeFormation)` — morale/potionと、指定時はformationへ既存倍率を適用して加算
 - `multiplicative(potionMultiplier)` — raw/equipment/potionを加算後、moraleとformationを乗算
-- `defense()` — 深これの防御属性用の合成式
+- `defense()` — 防御属性用の合成式
 
 JavaScript関数を独自合成式として渡すことはできません。戦闘中にscriptを呼ばず、
 client/serverで同じ計算を再現できるよう、Java側の名前付き方式だけを選びます。
