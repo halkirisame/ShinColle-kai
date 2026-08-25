@@ -56,8 +56,8 @@ public final class LegacyNamespaceMappings {
 
         if (ignored > 0) {
             LogHelper.info("Dropped " + ignored + " legacy '" + LEGACY_NAMESPACE + "' entries from "
-                    + key.location() + ". Content saved under the old namespace is not recoverable;"
-                    + " a new world is required.");
+                    + key.location() + ". Content saved under the old namespace is not recoverable."
+                    + " The world itself stays playable.");
         }
     }
 }

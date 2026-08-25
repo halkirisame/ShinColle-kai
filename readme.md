@@ -4,24 +4,18 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
-## ⚠ v1.20.1-1.0.0 の破壊的変更
+## v1.20.1-1.0.0 の変更点
 
-**旧版で作成したワールドは引き継げません。新規ワールドが必要です。**
+MOD IDを `shincolle` から `shincolle_kai` へ変更しました。上流(本家・移植版)との
+互換はありません。
 
-MOD IDを `shincolle` から **`shincolle_kai`** へ変更したため、旧IDで保存された
-艦娘・アイテム・ブロックは読み込めなくなります。1.20.1では移行する手段がありません。
-
-- 旧ワールドを**開くことはできます**。起動時の警告画面で止まらないようにしてありますが、
-  本MODの要素は失われた状態になります
-- **設定ファイルは新規生成されます**(`shincolle_kai-common.toml` / `shincolle_kai-mining.cfg`)。
-  旧設定は引き継がれません
-- **Javaアドオンは非互換です。**旧 `net.shincolleapi` は廃止し、本体JAR同梱の
+- 旧IDで保存された艦娘やアイテムは引き継げません。ワールド自体は開けます
+- 設定ファイルは新規生成されます。旧設定は引き継がれません
+- KubeJSスクリプトやdatapackの `shincolle:` は `shincolle_kai:` へ書き換えが必要です
+- Javaアドオンは非互換です。旧 `net.shincolleapi` は廃止し、本体JAR同梱の
   `com.lulan.shincolle.api` へ置き換えました
-- KubeJSスクリプトやdatapackで `shincolle:` を参照している箇所は `shincolle_kai:` へ
-  書き換えが必要です
 
-本家および移植版とはIDが別になったため技術的には共存できますが、内容が重複するため
-**同時導入は想定していません。**置き換えてご利用ください。
+旧版のjarを残しておけば、旧ワールドは旧版で開けます。
 
 ## 動作環境
 
@@ -65,25 +59,18 @@ ShinColle-kai is a derivative of ShinColle-Reforge, kousakirai's Forge 1.20.1 po
 PinkaLulan's ShinColle. It carries on from that port, fixing bugs left in it and restoring
 behaviour that was lost in the move from 1.10.2.
 
-## ⚠ Breaking change in v1.20.1-1.0.0
+## Changes in v1.20.1-1.0.0
 
-**Worlds created with earlier versions cannot be carried over. A new world is required.**
+The mod id changed from `shincolle` to `shincolle_kai`. This is not compatible with the
+original mod or with ShinColle-Reforge.
 
-The mod id changed from `shincolle` to **`shincolle_kai`**, so ships, items and blocks
-saved under the old id will not load. There is no way to migrate them on 1.20.1.
-
-- An old world **still opens** -- the startup prompt is suppressed -- but this mod's
-  content is gone from it
-- **Config files are regenerated** (`shincolle_kai-common.toml` /
-  `shincolle_kai-mining.cfg`). Old settings are not carried over
-- **Java addons are incompatible.** The old `net.shincolleapi` is gone, replaced by
+- Ships and items saved under the old id are not carried over. The world itself still opens
+- Config files are regenerated; old settings are not carried over
+- KubeJS scripts and datapacks referring to `shincolle:` need updating to `shincolle_kai:`
+- Java addons are incompatible. The old `net.shincolleapi` is gone, replaced by
   `com.lulan.shincolle.api` bundled in the main jar
-- KubeJS scripts and datapacks referring to `shincolle:` must be updated to
-  `shincolle_kai:`
 
-The id is now distinct from the original and from ShinColle-Reforge, so they can
-technically coexist, but the content would be duplicated and **running them together is
-not supported.** Use this as a replacement.
+Keeping the old jar around lets you still open old worlds with it.
 
 ## Requirements
 

@@ -2,17 +2,13 @@
 
 ## v1.20.1-1.0.0 (2026-08-25)
 
-> **⚠ 破壊的変更: 旧版で作成したワールドは引き継げません。新規ワールドが必要です。**
-> 詳細は下の「MOD IDを `shincolle_kai` へ変更」を参照してください。
-
 ### MOD IDを `shincolle_kai` へ変更（互換切り）
 
-- **MOD IDを `shincolle` から `shincolle_kai` へ変更しました。** MOD名は ShinColle-kai に統一しています。
-- **旧版で作成したワールドは引き継げません。新規ワールドが必要です。** `shincolle` 名前空間で保存された艦娘・アイテム・ブロックは読み込めなくなります。Forge 1.20.1の制約で回避手段がありません。
-- 旧ワールドを開くこと自体はできます。起動時の「missing registry entries」で止まらないようにしてありますが、深海棲艦MODの要素は失われた状態になります。
+- MOD IDを `shincolle` から `shincolle_kai` へ変更しました。MOD名は ShinColle-kai に統一しています。
+- 旧IDで保存された艦娘やアイテムは引き継げません。1.20.1では移行する手段がありません。ワールド自体は開けます(起動時の「missing registry entries」で止まらないようにしてあります)。旧版のjarを残しておけば、旧ワールドは旧版で開けます。
 - 設定ファイルは `shincolle_kai-common.toml` / `shincolle_kai-mining.cfg` として新規生成されます。旧設定は引き継がれません。
 - Javaアドオンおよび装備JSONの名前空間も `shincolle_kai:` へ変わりました。
-- **2026-08-09の「MOD IDは `shincolle` のままなので、既存のアドオンとワールドはそのまま利用できます」という記述は、この変更で無効になりました。**
+- 2026-08-09の「MOD IDは `shincolle` のままなので、既存のアドオンとワールドはそのまま利用できます」という記述は、この変更で無効になりました。
 - 内部ロガー名が旧称 `Shinkeiseikan Collection` のままだったのを ShinColle-kai へ修正しました。
 
 ### 攻撃AIの再起動ループを修正
@@ -227,14 +223,10 @@
 
 ## v1.20.1-1.0.0 (2026-08-25)
 
-> **⚠ Breaking: worlds from earlier versions cannot be carried over. A new world is required.**
-> See "Mod id changed to `shincolle_kai`" below for details.
-
 ### Mod id changed to `shincolle_kai` (compatibility break)
 
-- **The mod id changed from `shincolle` to `shincolle_kai`.** The mod name is now consistently ShinColle-kai.
-- **Worlds from earlier versions cannot be carried over; a new world is required.** Ships, items and blocks saved under the `shincolle` namespace will not load. This is a Forge 1.20.1 limitation with no workaround.
-- Old worlds still open — the "missing registry entries" prompt is suppressed — but their ShinColle content is gone.
+- The mod id changed from `shincolle` to `shincolle_kai`. The mod name is now consistently ShinColle-kai.
+- Ships and items saved under the old id are not carried over; there is no way to migrate them on 1.20.1. The world itself still opens (the "missing registry entries" prompt is suppressed). Keeping the old jar around lets you still open old worlds with it.
 - Config files are regenerated as `shincolle_kai-common.toml` / `shincolle_kai-mining.cfg`. Old settings are not carried over.
 - Java addon and equipment JSON namespaces moved to `shincolle_kai:` as well.
 - **This supersedes the 2026-08-09 note that said "the mod id stays `shincolle`, so existing addons and worlds keep working".**
