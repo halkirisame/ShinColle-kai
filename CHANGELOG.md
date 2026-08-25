@@ -2,6 +2,9 @@
 
 ## v1.20.1-1.0.0 (2026-08-25)
 
+前回の公開版 `v1.20.1.0.8.2`(2026-08-23)からの変更です。
+KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリリースが初出です。
+
 ### MOD IDを `shincolle_kai` へ変更（互換切り）
 
 - MOD IDを `shincolle` から `shincolle_kai` へ変更しました。MOD名は ShinColle-kai に統一しています。
@@ -31,14 +34,14 @@
 - 索敵後に地形などで視線が一瞬切れても標的を即座に捨てず、視線復帰後に攻撃を継続できるようにしました。
 - 標的の死亡、射程外、無敵化では従来どおり標的を解除します。
 
-## 2026-08-24 — 艦固有の命中時効果を復元
+### 艦固有の命中時効果を復元
 
 - 原典1.10.2に存在した23艦class・24定義の固有MobEffectを、効果種類・強度・時間・確率を維持して復元しました。
 - 味方艦のlevelと敵艦のscaleに応じて効果を再構築し、装備の着脱や定期再計算後も固有效果だけが正しく残るようにしました。
 - 近接、軽攻撃、艦載機、ミサイル、ビーム、連装砲、浮遊要塞の命中処理を共通化し、艦固有・装備・Java addon由来の効果を成功命中時に一度だけ適用します。
 - ミサイルは発射時の効果snapshotを維持し、マウントはhost艦への委譲による二重適用を防ぎます。
 
-## 2026-08-24 — 装備攻撃効果のResourceLocation化
+### 装備攻撃効果のResourceLocation化
 
 - 装備の命中時MobEffectを数値IDと可変配列から、ResourceLocationで識別する不変Public API値へ移行しました。
 - equipment JSONへ`attack_effects`を追加し、Java addon・KubeJS Item・Tinkers・既存弾薬を同じ装備resolverと戦闘経路へ統一しました。
@@ -46,7 +49,7 @@
 - 不明効果、重複、範囲外値、過大件数、破損通信を状態変更前に拒否し、未解決効果は戦闘中に安全に無視します。
 - 既存worldの附魔弾`PList`数値NBTは維持し、読込境界だけでResourceLocationへ変換します。
 
-## 2026-08-24 — 装備datapack・Javaアドオン公開用成果物
+### 装備datapack・Javaアドオン公開用成果物
 
 - equipment JSONの完全なJSON Schemaと、追加MODなしで試せるJSON-only datapack例を追加しました。
 - 独自艦属性、独自Item、動的NBT値をPublic APIへ接続するJava addon例を追加し、本体buildで毎回コンパイル検証するようにしました。
@@ -54,7 +57,7 @@
 - 不明なJSON field、compatibility、enchant、開発材料、fractional/negative整数を曖昧に読み替えず、該当definitionだけ拒否するようにしました。
 - Java addon資料の受理不能だった`equip_type: radar`例を`radar_lo`へ修正しました。
 
-## 2026-08-24 — Javaアドオン向けPublic API境界
+### Javaアドオン向けPublic API境界
 
 - 艦属性registryの正式なResourceLocationとregistry keyをPublic APIへ移し、JavaアドオンとKubeJSが同じ正本を参照するようにしました。
 - 友軍艦の内部classや所有UIDへ依存せず、プレイヤーの所有艦かを問い合わせられるread-only APIを追加しました。
@@ -62,7 +65,7 @@
 - Javaアドオン向けに属性登録、動的装備、equipment JSON、所有関係、client/server lifecycleの利用例を追加しました。
 - 旧版向けJavaアドオンが無変更で動くというREADMEの誤った記述を訂正しました。
 
-## 2026-08-24 — KubeJS装備・艦属性連携
+### KubeJS装備・艦属性連携
 
 - KubeJSのstartup scriptからResourceLocation付きの独自艦属性を登録できるRegistry DSLを追加しました。
 - KubeJSで作成したItemを既存の装備JSONへ指定し、Javaアドオンと同じ装備解決・集計・同期経路で利用できるようにしました。
@@ -70,7 +73,7 @@
 - KubeJSは任意依存のまま維持し、未導入環境では連携classを読み込まず、release JARにもKubeJS本体を同梱しません。
 - client/server配置、再起動と`/reload`の違いを含む完全な導入例を追加しました。
 
-## 2026-08-24 — 艦属性の動的レイヤー化
+### 艦属性の動的レイヤー化
 
 - 艦の基礎値・装備・士気・ポーション・陣形・最終値を、アドオン独自属性も失わず保持できる動的レイヤーへ移行しました。
 - 属性ごとの計算規則・倍率・上下限を登録定義から処理する共通計算エンジンを追加し、既存21属性の原典準拠式と数値を維持しました。

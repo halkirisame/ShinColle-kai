@@ -4,7 +4,20 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
-## v1.20.1-1.0.0 の変更点
+## v1.20.1-1.0.0 の主な変更
+
+### 追加
+
+- **KubeJSから艦属性・装備を追加できるようになりました。**スクリプトで独自の属性を
+  登録し、任意のアイテムを艦の装備として扱えます
+- **装備をdatapackから追加できるようになりました。**JSON 1枚で新しい装備を定義できます
+- **Javaアドオン向けのPublic APIを追加しました**(本体JAR同梱の
+  `com.lulan.shincolle.api`)。別MODの `shincolle_api`(`net.shincolleapi`)とは
+  互換性がありません
+
+いずれもこのリリースが初出です。
+
+### MOD IDの変更
 
 MOD IDを `shincolle` から `shincolle_kai` へ変更しました。上流(本家・移植版)との
 互換はありません。
@@ -12,10 +25,13 @@ MOD IDを `shincolle` から `shincolle_kai` へ変更しました。上流(本�
 - 旧IDで保存された艦娘やアイテムは引き継げません。ワールド自体は開けます
 - 設定ファイルは新規生成されます。旧設定は引き継がれません
 - KubeJSスクリプトやdatapackの `shincolle:` は `shincolle_kai:` へ書き換えが必要です
-- Javaアドオンは非互換です。旧 `net.shincolleapi` は廃止し、本体JAR同梱の
-  `com.lulan.shincolle.api` へ置き換えました
 
 旧版のjarを残しておけば、旧ワールドは旧版で開けます。
+
+### 修正
+
+艦が攻撃・反撃しない、宝箱から戦利品が出ない、艦固有の命中時効果が失われている、
+などの不具合を修正しました。詳細は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
 ## 動作環境
 
@@ -59,7 +75,19 @@ ShinColle-kai is a derivative of ShinColle-Reforge, kousakirai's Forge 1.20.1 po
 PinkaLulan's ShinColle. It carries on from that port, fixing bugs left in it and restoring
 behaviour that was lost in the move from 1.10.2.
 
-## Changes in v1.20.1-1.0.0
+## Highlights of v1.20.1-1.0.0
+
+### Added
+
+- **KubeJS can now register ship attributes and equipment.** Scripts can define custom
+  attributes and turn any item into ship equipment
+- **Equipment can now be added from a datapack** -- one JSON file defines a new piece
+- **A public Java addon API** is bundled in the main jar (`com.lulan.shincolle.api`). It is
+  not compatible with the separate `shincolle_api` mod (`net.shincolleapi`)
+
+All three appear here for the first time.
+
+### Mod id change
 
 The mod id changed from `shincolle` to `shincolle_kai`. This is not compatible with the
 original mod or with ShinColle-Reforge.
@@ -67,10 +95,13 @@ original mod or with ShinColle-Reforge.
 - Ships and items saved under the old id are not carried over. The world itself still opens
 - Config files are regenerated; old settings are not carried over
 - KubeJS scripts and datapacks referring to `shincolle:` need updating to `shincolle_kai:`
-- Java addons are incompatible. The old `net.shincolleapi` is gone, replaced by
-  `com.lulan.shincolle.api` bundled in the main jar
 
 Keeping the old jar around lets you still open old worlds with it.
+
+### Fixed
+
+Ships not attacking or retaliating, chest loot never generating, and per-ship on-hit
+effects going missing, among others. See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
 ## Requirements
 

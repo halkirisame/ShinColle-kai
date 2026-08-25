@@ -5,7 +5,8 @@
 ## 配布形態
 
 Public APIはShinColle-kai本体JARの`com.lulan.shincolle.api`に同梱されています。
-別MODの`shincolle_api`は不要で、旧`net.shincolleapi` APIやMixinとは互換ではありません。
+このAPIはShinColle-kaiで新規に追加したものです。別MODの`shincolle_api`
+(`net.shincolleapi`)とその Mixin とは互換性がなく、併用も想定していません。
 
 addonの開発環境では、利用する配布元またはローカルMavenからShinColle-kai本体を
 ForgeGradleの`compileOnly fg.deobf(...)`へ指定し、実行環境にも同じ本体JARを入れます。
