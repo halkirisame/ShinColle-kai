@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:shincolle-kai:schema:equipment:2",
+  "title": "ShinColle-kai ship equipment definition",
+  "description": "One data/<namespace>/equipment/<path>.json definition. The definition ID is derived from its file path.",
+  "type": "object",
+  "required": [
+    "item",
+    "variant",
+    "equip_type"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional editor hint. It is not used by the game loader."
+    },
+    "equip_id": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647,
+      "description": "Optional legacy numeric ID for old worlds. New addon equipment should omit it."
+    },
+    "item": {
+      "$ref": "#/$defs/resourceLocation",
+      "description": "Registered Item ID used by this equipment definition."
+    },
+    "variant": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647,
+      "description": "EquipMeta value. The item and variant pair must be unique across loaded definitions."
+    },
+    "equip_type": {
+      "type": "string",
+      "enum": [
+        "air_b_hi",
+        "air_b_lo",
+        "air_f_hi",
+        "air_f_lo",
+        "air_r_hi",
+        "air_r_lo",
+        "air_t_hi",
+        "air_t_lo",
+        "ammo_hi",
+        "ammo_lo",
+        "armor_hi",
+        "armor_lo",
+        "cannon_si",
+        "cannon_tr",
+        "cannon_tw_hi",
+        "cannon_tw_lo",
+        "catapult_hi",
+        "catapult_lo",
+        "compass_lo",
+        "drum_lo",
+        "flare_lo",
+        "gun_hi",
+        "gun_lo",
+        "radar_hi",
+        "radar_lo",
+        "searchlight_lo",
+        "torpedo_hi",
+        "torpedo_lo",
+        "turbine_hi",
+        "turbine_lo"
+      ],
+      "description": "Fixed legacy behavior/roll category. This category is not a dynamic registry."
+    },
+    "compatible": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "aircraft",
+          "cannon"
+        ]
+      },
+      "description": "Ship equipment-slot families. Omitted or empty means compatible with neither family."
+    },
+    "enchant_type": {
+      "type": "string",
+      "enum": [
+        "armor",
+        "misc",
+        "none",
+        "weapon"
+      ],
+      "default": "none"
+    },
+    "develop": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "material": {
+          "type": "string",
+          "enum": [
+            "abyss_metal",
+            "abyss_metal_1",
+            "ammo",
+            "grudge"
+          ],
+          "default": "grudge"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647,
+          "default": 0
+        },
+        "rare_mean": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647,
+          "default": 0
+        }
+      }
+    },
+    "roll_type": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647,
+      "description": "Optional legacy construction roll category. Defaults to the numeric value of equip_type."
+    },
+    "stats": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": {
+        "maxLength": 256,
+        "pattern": "^(?:[a-z0-9_.-]+:)?[a-z0-9/._-]+$"
+      },
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "Registered ship attribute ID to finite float value. Unqualified keys are legacy aliases for shincolle_kai:<key>."
+    },
+    "attack_effects": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": [
+          "effect",
+          "amplifier",
+          "duration",
+          "chance"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "effect": {
+            "$ref": "#/$defs/resourceLocation",
+            "description": "Registered MobEffect ID. Duplicate effect IDs in one definition are rejected at runtime."
+          },
+          "amplifier": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "duration": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000,
+            "description": "Duration in game ticks."
+          },
+          "chance": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Application chance in percent."
+          }
+        }
+      },
+      "description": "Optional declarative MobEffects applied after a successful ship attack."
+    }
+  },
+  "$defs": {
+    "resourceLocation": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9/._-]+$"
+    }
+  }
+}

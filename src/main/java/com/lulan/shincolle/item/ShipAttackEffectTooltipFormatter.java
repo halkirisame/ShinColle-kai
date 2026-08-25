@@ -28,7 +28,7 @@ public final class ShipAttackEffectTooltipFormatter {
         String effectName = effect == null
                 ? effectId.toString()
                 : Component.translatable(effect.getDescriptionId()).getString().trim();
-        return Component.translatable("gui.shincolle.equip.enchantshell",
+        return Component.translatable("gui.shincolle_kai.equip.enchantshell",
                 attackEffect.chancePercent(), effectName, attackEffect.amplifier() + 1,
                 attackEffect.durationTicks() / 20);
     }

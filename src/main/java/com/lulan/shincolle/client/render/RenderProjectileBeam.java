@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.render;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.entity.other.EntityProjectileBeam;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -13,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 /** Renders the synchronized Yamato beam as a visible cyan line. */
 public class RenderProjectileBeam extends EntityRenderer<EntityProjectileBeam> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle", "textures/entity/placeholder.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID, "textures/entity/placeholder.png");
 
     public RenderProjectileBeam(EntityRendererProvider.Context context) {
         super(context);

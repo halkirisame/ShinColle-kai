@@ -63,7 +63,7 @@ public class ShipSpawnEgg extends BasicItem {
     private static final String TAG_CUSTOM_NAME_LEGACY = "customname";
     private static final String TAG_OWNER_NAME = "OwnerName";
     private static final String TAG_OWNER_NAME_LEGACY = "ownername";
-    private static final String CHAT_LEVEL_FAIL_KEY = "chat.shincolle.levelfail";
+    private static final String CHAT_LEVEL_FAIL_KEY = "chat.shincolle_kai.levelfail";
     private static Map<Integer, RegistryObject<? extends EntityType<?>>> ENTITY_MAP;
 
     public ShipSpawnEgg() {
@@ -680,7 +680,7 @@ public class ShipSpawnEgg extends BasicItem {
             if (hasSpecificShipClassTag(nbt)) {
                 int shipClass = getShipClass(stack);
                 if (shipClass >= 0) {
-                    return "item.shincolle.ship_egg_" + (shipClass + 2);
+                    return "item.shincolle_kai.ship_egg_" + (shipClass + 2);
                 }
             }
 
@@ -688,13 +688,13 @@ public class ShipSpawnEgg extends BasicItem {
             if (nbt.contains("BuildType")) {
                 int buildType = nbt.getByte("BuildType");
                 if (buildType == 0) {
-                    return "item.shincolle.small_egg";
+                    return "item.shincolle_kai.small_egg";
                 } else {
-                    return "item.shincolle.large_egg";
+                    return "item.shincolle_kai.large_egg";
                 }
             }
         }
-        return "item.shincolle.ship_spawn_egg";
+        return "item.shincolle_kai.ship_spawn_egg";
     }
 
     @Override
@@ -765,7 +765,7 @@ public class ShipSpawnEgg extends BasicItem {
     private static void appendStoredInventory(ItemStack stack, List<Component> tooltip) {
         int count = readStoredInventory(stack).itemCount();
         if (count > 0) {
-            tooltip.add(Component.translatable("gui.shincolle.egg.contents", count)
+            tooltip.add(Component.translatable("gui.shincolle_kai.egg.contents", count)
                     .withStyle(ChatFormatting.GRAY));
         }
     }
@@ -784,7 +784,7 @@ public class ShipSpawnEgg extends BasicItem {
                 if (stateMinor.length > 0) {
                     int shipLevel = stateMinor[0]; // StateMinor[0] = ShipLevel (raw level)
                     tooltip.add(Component
-                            .literal(ChatFormatting.AQUA + Component.translatable("gui.shincolle.eggText").getString()
+                            .literal(ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.eggText").getString()
                                     + " " + shipLevel));
                 }
                 Component customName = resolveEggCustomName(nbt);
@@ -805,16 +805,16 @@ public class ShipSpawnEgg extends BasicItem {
 
                 tooltip.add(Component
                         .literal(ChatFormatting.WHITE + "" + grudge + " "
-                                + Component.translatable("item.shincolle.grudge").getString()));
+                                + Component.translatable("item.shincolle_kai.grudge").getString()));
                 tooltip.add(Component
                         .literal(ChatFormatting.RED + "" + abyssium + " "
-                                + Component.translatable("item.shincolle.abyss_metal").getString()));
+                                + Component.translatable("item.shincolle_kai.abyss_metal").getString()));
                 tooltip.add(
                         Component.literal(ChatFormatting.GREEN + "" + ammo + " "
-                                + Component.translatable("item.shincolle.ammo").getString()));
+                                + Component.translatable("item.shincolle_kai.ammo").getString()));
                 tooltip.add(Component.literal(
                         ChatFormatting.AQUA + "" + polymetal + " "
-                                + Component.translatable("item.shincolle.abyss_metal_1").getString()));
+                                + Component.translatable("item.shincolle_kai.abyss_metal_1").getString()));
             }
 
             // Show ship class in advanced tooltip mode

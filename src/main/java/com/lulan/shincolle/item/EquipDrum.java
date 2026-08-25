@@ -65,21 +65,21 @@ public class EquipDrum extends BasicEquip {
 
         switch (meta) {
             case 1: {
-                tooltip.add(Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle.drum1").getString()));
+                tooltip.add(Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle_kai.drum1").getString()));
                 int num = EnchantHelper.calcEnchantNumber(stack) * ConfigHandler.drumLiquid[1]
                         + ConfigHandler.drumLiquid[0];
                 if (num > 0)
                     tooltip.add(Component.literal(
-                            ChatFormatting.AQUA + Component.translatable("gui.shincolle.equip.rateliq").getString() + " " + num + " mB/t"));
+                            ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.equip.rateliq").getString() + " " + num + " mB/t"));
                 break;
             }
             case 2: {
                 // EU transport is NYI (IC2 not available on 1.20.1)
-                tooltip.add(Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle.drum2b").getString()));
+                tooltip.add(Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle_kai.drum2b").getString()));
                 break;
             }
             default:
-                tooltip.add(Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle.drum").getString()));
+                tooltip.add(Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle_kai.drum").getString()));
                 break;
         }
 

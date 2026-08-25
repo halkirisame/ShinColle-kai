@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.client.gui.inventory.ContainerRecipePaper;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,7 +16,7 @@ import net.minecraft.world.item.ItemStack;
  */
 public class GuiRecipePaper extends AbstractContainerScreen<ContainerRecipePaper> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guirecipepaper.png");
 
     public GuiRecipePaper(ContainerRecipePaper menu, Inventory playerInv, Component title) {

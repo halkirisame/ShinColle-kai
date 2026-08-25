@@ -146,7 +146,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.shincolle.crane");
+        return Component.translatable("container.shincolle_kai.crane");
     }
 
     @Override

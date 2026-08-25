@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.particle;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.utility.CalcHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -33,7 +34,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 @OnlyIn(Dist.CLIENT)
 public class ParticleSphereLight extends Particle {
 
-    private static final ResourceLocation TEXTURE1 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE1 = new ResourceLocation(Reference.MOD_ID,
             "textures/particles/particlegradientline.png");
     private static int NumBeam = 30;
     private final int particleType;

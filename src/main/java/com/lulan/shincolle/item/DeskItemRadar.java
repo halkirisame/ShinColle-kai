@@ -32,7 +32,7 @@ public class DeskItemRadar extends BasicItem {
             NetworkHooks.openScreen(serverPlayer, new MenuProvider() {
                 @Override
                 public Component getDisplayName() {
-                    return Component.translatable("container.shincolle.desk");
+                    return Component.translatable("container.shincolle_kai.desk");
                 }
 
                 @Override

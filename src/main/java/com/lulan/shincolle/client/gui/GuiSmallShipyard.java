@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.client.gui.inventory.ContainerSmallShipyard;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
@@ -27,7 +28,7 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
     private static final int MATERIAL_CONTROL_Y = 99;
     private static final int[] MATERIAL_DELTAS = {-10, -1, 1, 10};
     private static final String[] MATERIAL_LABELS = {"G", "A", "M", "P"};
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guismallshipyard.png");
 
     public GuiSmallShipyard(ContainerSmallShipyard menu, Inventory playerInv, Component title) {
@@ -92,7 +93,7 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         // Draw block name centered at top
-        String blockName = Component.translatable("container.shincolle.small_shipyard").getString();
+        String blockName = Component.translatable("container.shincolle_kai.small_shipyard").getString();
         graphics.drawString(this.font, blockName,
                 this.imageWidth / 2 - this.font.width(blockName) / 2, 6, 0x404040, false);
 
@@ -106,8 +107,8 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
                     71 - this.font.width(timeStr) / 2, 51, 0x404040, false);
         } else if (buildType > 0) {
             // Build type set but no materials/fuel yet
-            String noMat = Component.translatable("gui.shincolle.nomaterial").getString();
-            if (noMat.equals("gui.shincolle.nomaterial"))
+            String noMat = Component.translatable("gui.shincolle_kai.nomaterial").getString();
+            if (noMat.equals("gui.shincolle_kai.nomaterial"))
                 noMat = "No material";
             graphics.drawString(this.font, noMat,
                     80 - this.font.width(noMat) / 2, 67, 0xFF4433, false);

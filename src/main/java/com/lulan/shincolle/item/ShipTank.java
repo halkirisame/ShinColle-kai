@@ -130,7 +130,7 @@ public class ShipTank extends BasicItem {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.shiptank").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gui.shincolle_kai.shiptank").withStyle(ChatFormatting.GRAY));
 
         // Show fluid contents and capacity
         String name = "";

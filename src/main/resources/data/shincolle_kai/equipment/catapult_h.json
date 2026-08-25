@@ -1,0 +1,22 @@
+{
+  "equip_id": 122,
+  "item": "shincolle_kai:equip_catapult",
+  "variant": 1,
+  "equip_type": "catapult_lo",
+  "compatible": [
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "abyss_metal_1",
+    "amount": 2800,
+    "rare_mean": 2000
+  },
+  "roll_type": 22,
+  "stats": {
+    "shincolle_kai:spd": 0.8,
+    "shincolle_kai:mov": -0.22,
+    "shincolle_kai:hit": 4.0,
+    "shincolle_kai:kb": 0.1
+  }
+}

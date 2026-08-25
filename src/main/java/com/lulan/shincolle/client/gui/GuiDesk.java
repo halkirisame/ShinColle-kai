@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerDesk;
@@ -42,20 +43,20 @@ import java.util.Objects;
  */
 public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
-    private static final ResourceLocation TEX_MAIN = new ResourceLocation("shincolle", "textures/gui/guidesk.png");
-    private static final ResourceLocation TEX_RADAR = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEX_MAIN = new ResourceLocation(Reference.MOD_ID, "textures/gui/guidesk.png");
+    private static final ResourceLocation TEX_RADAR = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guideskradar.png");
-    private static final ResourceLocation TEX_BOOK = new ResourceLocation("shincolle", "textures/gui/guideskbook.png");
-    private static final ResourceLocation TEX_TEAM = new ResourceLocation("shincolle", "textures/gui/guideskteam.png");
-    private static final ResourceLocation TEX_TARGET = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEX_BOOK = new ResourceLocation(Reference.MOD_ID, "textures/gui/guideskbook.png");
+    private static final ResourceLocation TEX_TEAM = new ResourceLocation(Reference.MOD_ID, "textures/gui/guideskteam.png");
+    private static final ResourceLocation TEX_TARGET = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guidesktarget.png");
-    private static final ResourceLocation TEX_ICON0 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEX_ICON0 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon0.png");
-    private static final ResourceLocation TEX_BOOK2 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEX_BOOK2 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guideskbook2.png");
-    private static final ResourceLocation TEX_ICON1 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEX_ICON1 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon1.png");
-    private static final ResourceLocation TEX_ICON2 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEX_ICON2 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon2.png");
 
     private static final int CLICKCD = 60;
@@ -152,25 +153,25 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         }
 
         // Cache localized strings
-        strPos = Component.translatable("gui.shincolle.radar.position").getString();
-        strHeight = Component.translatable("gui.shincolle.radar.height").getString();
-        strTeamID = Component.translatable("gui.shincolle.team.teamid").getString();
-        strBreak = Component.translatable("gui.shincolle.team.break").getString();
-        strAlly = Component.translatable("gui.shincolle.team.ally").getString();
-        strOK = Component.translatable("gui.shincolle.general.ok").getString();
-        strUnban = Component.translatable("gui.shincolle.team.unban").getString();
-        strBan = Component.translatable("gui.shincolle.team.ban").getString();
-        strCancel = Component.translatable("gui.shincolle.general.cancel").getString();
-        strAllyList = Component.translatable("gui.shincolle.team.allylist").getString();
-        strBanList = Component.translatable("gui.shincolle.team.banlist").getString();
-        strRename = Component.translatable("gui.shincolle.team.rename").getString();
-        strDisband = Component.translatable("gui.shincolle.team.disband").getString();
-        strCreate = Component.translatable("gui.shincolle.team.create").getString();
-        strNeutral = Component.translatable("gui.shincolle.team.neutral").getString();
-        strBelong = Component.translatable("gui.shincolle.team.belong").getString();
-        strAllied = Component.translatable("gui.shincolle.team.allied").getString();
-        strHostile = Component.translatable("gui.shincolle.team.hostile").getString();
-        strRemove = Component.translatable("gui.shincolle.target.remove").getString();
+        strPos = Component.translatable("gui.shincolle_kai.radar.position").getString();
+        strHeight = Component.translatable("gui.shincolle_kai.radar.height").getString();
+        strTeamID = Component.translatable("gui.shincolle_kai.team.teamid").getString();
+        strBreak = Component.translatable("gui.shincolle_kai.team.break").getString();
+        strAlly = Component.translatable("gui.shincolle_kai.team.ally").getString();
+        strOK = Component.translatable("gui.shincolle_kai.general.ok").getString();
+        strUnban = Component.translatable("gui.shincolle_kai.team.unban").getString();
+        strBan = Component.translatable("gui.shincolle_kai.team.ban").getString();
+        strCancel = Component.translatable("gui.shincolle_kai.general.cancel").getString();
+        strAllyList = Component.translatable("gui.shincolle_kai.team.allylist").getString();
+        strBanList = Component.translatable("gui.shincolle_kai.team.banlist").getString();
+        strRename = Component.translatable("gui.shincolle_kai.team.rename").getString();
+        strDisband = Component.translatable("gui.shincolle_kai.team.disband").getString();
+        strCreate = Component.translatable("gui.shincolle_kai.team.create").getString();
+        strNeutral = Component.translatable("gui.shincolle_kai.team.neutral").getString();
+        strBelong = Component.translatable("gui.shincolle_kai.team.belong").getString();
+        strAllied = Component.translatable("gui.shincolle_kai.team.allied").getString();
+        strHostile = Component.translatable("gui.shincolle_kai.team.hostile").getString();
+        strRemove = Component.translatable("gui.shincolle_kai.target.remove").getString();
 
         // Build target list
         updateTargetClassList();
@@ -387,7 +388,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                         tabY2 = 121;
                     }
                     if (localY >= tabY1 && localY <= tabY2) {
-                        String chapTitle = Component.translatable("gui.shincolle.book.chap" + i + ".title").getString();
+                        String chapTitle = Component.translatable("gui.shincolle_kai.book.chap" + i + ".title").getString();
                         g.renderTooltip(this.font, Component.literal(chapTitle), mouseX, mouseY);
                         break;
                     }
@@ -541,7 +542,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
     private void drawBookText(GuiGraphics g) {
         // Draw chapter/page indicator
-        String str = Component.translatable("gui.shincolle.book.chap" + bookChapNum + ".title").getString();
+        String str = Component.translatable("gui.shincolle_kai.book.chap" + bookChapNum + ".title").getString();
         g.drawString(this.font, str, 10, 27, Enums.EnumColors.WHITE.getValue(), true);
 
         // Chapters 4/5 page>0: entity gallery mode
@@ -617,7 +618,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         drawShipNameIcon(g);
 
         // Draw right page text (description)
-        String key = "gui.shincolle.book.chap" + bookChapNum + ".text" + bookPageNum + "d1";
+        String key = "gui.shincolle_kai.book.chap" + bookChapNum + ".text" + bookPageNum + "d1";
         String text = Component.translatable(key).getString();
         if (!text.equals(key)) {
             var pose = g.pose();

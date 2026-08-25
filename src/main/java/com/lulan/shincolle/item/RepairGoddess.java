@@ -24,6 +24,6 @@ public class RepairGoddess extends BasicItem {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.repairgoddess").withStyle(ChatFormatting.RED));
+        tooltip.add(Component.translatable("gui.shincolle_kai.repairgoddess").withStyle(ChatFormatting.RED));
     }
 }

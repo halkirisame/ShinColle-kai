@@ -532,7 +532,7 @@ public class EntityHelper {
 
 
             Component text = Component.translatable(
-                            rng.nextBoolean() ? "chat.shincolle.bossspawn1" : "chat.shincolle.bossspawn2")
+                            rng.nextBoolean() ? "chat.shincolle_kai.bossspawn1" : "chat.shincolle_kai.bossspawn2")
                     .withStyle(ChatFormatting.YELLOW)
                     .append(Component.literal(" " + spawnX + " " + spawnY + " " + spawnZ)
                             .withStyle(ChatFormatting.AQUA));

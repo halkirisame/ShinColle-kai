@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "HGH",
+    "GDG",
+    "HGH"
+  ],
+  "key": {
+    "H": {
+      "item": "shincolle_kai:grudge_heavy"
+    },
+    "G": {
+      "item": "shincolle_kai:grudge_block"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:repair_goddess",
+    "count": 1
+  }
+}

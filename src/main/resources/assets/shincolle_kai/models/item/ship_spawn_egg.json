@@ -1,0 +1,74 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "shincolle_kai:item/ship_spawn_egg_primary"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 0
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_s"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 1
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_l"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 2
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_dd"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 3
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_cl"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 4
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_ca"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 5
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_bb"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 6
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_ap"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 7
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_ss"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 8
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_wd"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 9
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_hime"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:egg_icon": 10
+      },
+      "model": "shincolle_kai:item/ship_spawn_egg_cv"
+    }
+  ]
+}

@@ -101,7 +101,7 @@ public class EquipTorpedo extends BasicEquip implements IShipEffectItem {
         int meta = getEquipMeta(stack);
         int speedLevel = getMissileSpeedLevel(meta);
         if (speedLevel != 0) {
-            tooltip.add(Component.translatable("gui.shincolle.equip.torpedospeed", speedLevel)
+            tooltip.add(Component.translatable("gui.shincolle_kai.equip.torpedospeed", speedLevel)
                     .withStyle(ChatFormatting.YELLOW));
         }
     }

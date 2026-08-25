@@ -40,7 +40,7 @@ public class EquipSearchlight extends BasicEquip {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.searchlight").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gui.shincolle_kai.searchlight").withStyle(ChatFormatting.GRAY));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 }

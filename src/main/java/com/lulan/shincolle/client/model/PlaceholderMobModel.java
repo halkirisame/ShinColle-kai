@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.model;
 
+import com.lulan.shincolle.reference.Reference;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
@@ -16,7 +17,7 @@ import net.minecraft.world.entity.Mob;
 public class PlaceholderMobModel<T extends Mob> extends HumanoidModel<T> {
 
     public static final ModelLayerLocation LAYER_LOCATION =
-            new ModelLayerLocation(new ResourceLocation("shincolle", "placeholder_mob"), "main");
+            new ModelLayerLocation(new ResourceLocation(Reference.MOD_ID, "placeholder_mob"), "main");
 
     public PlaceholderMobModel(ModelPart root) {
         super(root);

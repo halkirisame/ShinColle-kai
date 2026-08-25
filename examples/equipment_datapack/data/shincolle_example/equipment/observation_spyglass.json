@@ -1,5 +1,5 @@
 {
-  "$schema": "../../../../../docs/schemas/shincolle-equipment.schema.json",
+  "$schema": "../../../../../docs/schemas/shincolle_kai-equipment.schema.json",
   "item": "minecraft:spyglass",
   "variant": 0,
   "equip_type": "radar_lo",
@@ -15,8 +15,8 @@
   },
   "roll_type": 14,
   "stats": {
-    "shincolle:hit": 1.0,
-    "shincolle:dodge": 0.05
+    "shincolle_kai:hit": 1.0,
+    "shincolle_kai:dodge": 0.05
   },
   "attack_effects": [
     {

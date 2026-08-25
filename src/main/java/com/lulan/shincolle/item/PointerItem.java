@@ -290,7 +290,7 @@ public class PointerItem extends BasicItem {
                 // Other entity: register target class
                 String tarName = hitEntity.getClass().getSimpleName();
                 player.sendSystemMessage(
-                        Component.translatable("chat.shincolle.pointer.settargetclass", "  " + tarName));
+                        Component.translatable("chat.shincolle_kai.pointer.settargetclass", "  " + tarName));
                 ModNetworking.sendToServer(new C2SGUIInputPacket(
                         C2SGUIInputPacket.SetTarClass,
                         new int[]{player.getId(), 0, hitEntity.getId()},
@@ -481,8 +481,8 @@ public class PointerItem extends BasicItem {
         int fid = (capa.getFormatID(teamId) + PointerItem.formatAddID) % 6;
 
         player.sendSystemMessage(Component.literal(
-                Component.translatable("chat.shincolle.pointer.changeformation").getString() + " " +
-                        Component.translatable("gui.shincolle.formation.format" + fid).getString()));
+                Component.translatable("chat.shincolle_kai.pointer.changeformation").getString() + " " +
+                        Component.translatable("gui.shincolle_kai.formation.format" + fid).getString()));
 
         ModNetworking.sendToServer(new C2SGUIInputPacket(
                 C2SGUIInputPacket.SetFormation,
@@ -516,7 +516,7 @@ public class PointerItem extends BasicItem {
         String formationName = "";
         if (fid >= 0) {
             formationName = ChatFormatting.GOLD
-                    + Component.translatable("gui.shincolle.formation.format" + fid).getString();
+                    + Component.translatable("gui.shincolle_kai.formation.format" + fid).getString();
         }
 
         // Show mode and formation name
@@ -524,26 +524,26 @@ public class PointerItem extends BasicItem {
         ChatFormatting modeColor;
         switch (mode) {
             case MODE_GROUP:
-                modeKey = "gui.shincolle.pointer1";
+                modeKey = "gui.shincolle_kai.pointer1";
                 modeColor = ChatFormatting.RED;
                 break;
             case MODE_FORMATION:
-                modeKey = "gui.shincolle.pointer2";
+                modeKey = "gui.shincolle_kai.pointer2";
                 modeColor = ChatFormatting.GOLD;
                 break;
             default:
-                modeKey = "gui.shincolle.pointer0";
+                modeKey = "gui.shincolle_kai.pointer0";
                 modeColor = ChatFormatting.AQUA;
                 break;
         }
 
         tooltip.add(Component.literal(modeColor + Component.translatable(modeKey).getString() + " : " + formationName));
         tooltip.add(
-                Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle.pointer3").getString()));
+                Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle_kai.pointer3").getString()));
 
         // Current team ID
         tooltip.add(Component.literal(ChatFormatting.YELLOW + "" + ChatFormatting.UNDERLINE +
-                String.format("%s %d", Component.translatable("gui.shincolle.pointer4").getString(), teamId + 1)));
+                String.format("%s %d", Component.translatable("gui.shincolle_kai.pointer4").getString(), teamId + 1)));
 
         // Team members
         int j = 1;
@@ -558,7 +558,7 @@ public class PointerItem extends BasicItem {
                 } else {
                     tooltip.add(Component.literal(
                             ChatFormatting.DARK_RED + "" + ChatFormatting.OBFUSCATED +
-                                    Component.translatable("gui.shincolle.formation.nosignal").getString()));
+                                    Component.translatable("gui.shincolle_kai.formation.nosignal").getString()));
                 }
                 j++;
             }

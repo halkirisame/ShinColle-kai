@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.model;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.entity.BasicEntityShip;
 
 import net.minecraft.client.model.HumanoidModel;
@@ -17,7 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 public class ShipEntityModel<T extends BasicEntityShip> extends HumanoidModel<T> {
 
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
-            new ResourceLocation("shincolle", "ship_entity"), "main");
+            new ResourceLocation(Reference.MOD_ID, "ship_entity"), "main");
 
     public ShipEntityModel(ModelPart root) {
         super(root);

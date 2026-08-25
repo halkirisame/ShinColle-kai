@@ -74,11 +74,11 @@ public final class BasicEquipTooltipGameTests {
             ShipAttributeTooltipFormatter.append(values, displayLayout, formatterTooltip);
 
             List<String> expected = List.of(
-                    colored(ChatFormatting.RED, "2.0", "gui.shincolle.hp", false),
-                    colored(ChatFormatting.RED, "4.5", "gui.shincolle.firepower1", false),
-                    colored(ChatFormatting.WHITE, "20.0%", "gui.shincolle.armor", false),
-                    colored(ChatFormatting.WHITE, "1.23", "gui.shincolle.attackspeed", false),
-                    colored(ChatFormatting.GREEN, "50%", "gui.shincolle.equip.xp", true),
+                    colored(ChatFormatting.RED, "2.0", "gui.shincolle_kai.hp", false),
+                    colored(ChatFormatting.RED, "4.5", "gui.shincolle_kai.firepower1", false),
+                    colored(ChatFormatting.WHITE, "20.0%", "gui.shincolle_kai.armor", false),
+                    colored(ChatFormatting.WHITE, "1.23", "gui.shincolle_kai.attackspeed", false),
+                    colored(ChatFormatting.GREEN, "50%", "gui.shincolle_kai.equip.xp", true),
                     ChatFormatting.GRAY + CUSTOM_ALPHA.toString() + " 3",
                     ChatFormatting.GRAY + OPAQUE.toString() + " 0.13",
                     ChatFormatting.GRAY + CUSTOM_ZETA.toString() + " 13%"
@@ -99,7 +99,7 @@ public final class BasicEquipTooltipGameTests {
             ResourceLocation attributeId = id("final_tooltip_test", String.format("attr_%02d", i));
             ShipAttributeType.Builder type = ShipAttributeType.builder();
             if (i == 0) {
-                type.translationKey("gui.shincolle.hp")
+                type.translationKey("gui.shincolle_kai.hp")
                         .scaleGroup(ShipAttributeScaleGroup.ATK)
                         .displayFormat(ShipAttributeDisplayFormat.INTEGER);
             } else if (i == 1) {
@@ -120,7 +120,7 @@ public final class BasicEquipTooltipGameTests {
         if (tooltip.size() != ShipAttributeTooltipFormatter.MAX_FINAL_CUSTOM_ATTRIBUTES + 1) {
             throw new AssertionError("Final custom tooltip did not enforce its line bound: " + tooltip.size());
         }
-        String translatedHp = Component.translatable("gui.shincolle.hp").getString();
+        String translatedHp = Component.translatable("gui.shincolle_kai.hp").getString();
         if (!tooltip.get(0).getString().equals(ChatFormatting.GRAY + translatedHp + " 2")) {
             throw new AssertionError("Final custom value was rescaled or mistranslated: " + tooltip.get(0));
         }
@@ -128,7 +128,7 @@ public final class BasicEquipTooltipGameTests {
             throw new AssertionError("Missing translation did not fall back to ID or percent format changed: "
                     + tooltip.get(1));
         }
-        String more = Component.translatable("gui.shincolle.additional_attributes.more", 3).getString();
+        String more = Component.translatable("gui.shincolle_kai.additional_attributes.more", 3).getString();
         if (!tooltip.get(tooltip.size() - 1).getString().equals(more)) {
             throw new AssertionError("Final custom tooltip omitted-count line differs: " + tooltip);
         }
@@ -184,11 +184,11 @@ public final class BasicEquipTooltipGameTests {
             throw new AssertionError("Invalid stats must skip only attribute lines and retain three metadata lines; got "
                     + tooltip.size() + " lines: " + tooltip);
         }
-        assertContains(tooltip.get(0), Component.translatable("gui.shincolle.equip.enchtype").getString(),
+        assertContains(tooltip.get(0), Component.translatable("gui.shincolle_kai.equip.enchtype").getString(),
                 "enchant metadata");
-        assertContains(tooltip.get(1), Component.translatable("block.shincolle.block_small_shipyard").getString(),
+        assertContains(tooltip.get(1), Component.translatable("block.shincolle_kai.block_small_shipyard").getString(),
                 "shipyard metadata");
-        assertContains(tooltip.get(2), Component.translatable("gui.shincolle.equip.matstype").getString(),
+        assertContains(tooltip.get(2), Component.translatable("gui.shincolle_kai.equip.matstype").getString(),
                 "material metadata");
         helper.succeed();
     }

@@ -15,7 +15,7 @@ addonの`mods.toml`には本体への必須依存を記載します。
 
 ```toml
 [[dependencies.your_addon]]
-modId = "shincolle"
+modId = "shincolle_kai"
 mandatory = true
 versionRange = "[1.20.1-1.0.0,)"
 ordering = "AFTER"
@@ -101,7 +101,7 @@ entity、元のItemStackを変更してはいけません。攻撃命中後の�
   "compatible": ["cannon", "aircraft"],
   "enchant_type": "misc",
   "stats": {
-    "shincolle:hit": 0.1,
+    "shincolle_kai:hit": 0.1,
     "your_addon:sonar_precision": 0.25
   },
   "attack_effects": [
@@ -119,7 +119,7 @@ JSONのbase値とItem API/providerのdynamic値は加算されます。同じ値
 ください。JSONはserver authoritativeで、login時と`/reload`後にclientへ同期されます。
 表示用データを独自packetで複製する必要はありません。
 
-完全なフィールド定義は[JSON Schema](schemas/shincolle-equipment.schema.json)、追加Java MODなしの
+完全なフィールド定義は[JSON Schema](schemas/shincolle_kai-equipment.schema.json)、追加Java MODなしの
 導入例は[JSON-only datapack](../examples/equipment_datapack/README.md)、独自属性・Itemを登録する
 一式は[compile-checked Java addon例](../examples/java_addon/README.md)を参照してください。
 Schemaで検査できないItem/属性の実登録状態と、全定義横断の`item + variant`重複はserverが
@@ -142,7 +142,7 @@ clientからの判定結果をserverのゲームロジックで信用しては�
 ## Java addonとKubeJSの関係
 
 Java addonとKubeJSは別の装備システムではありません。どちらも
-`shincolle:ship_attribute` registry、equipment JSON、同じloader/sync/resolverを通ります。
+`shincolle_kai:ship_attribute` registry、equipment JSON、同じloader/sync/resolverを通ります。
 KubeJSを使う場合のstartup scriptと完全例は[こちら](kubejs_integration.md)を参照してください。
 
 汎用Events、Conditions、Effects、Services、Script Effectsは未確定です。実在する利用例と

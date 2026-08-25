@@ -1,0 +1,22 @@
+{
+  "equip_id": 16,
+  "item": "shincolle_kai:equip_turbine",
+  "variant": 0,
+  "equip_type": "turbine_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "grudge",
+    "amount": 1400,
+    "rare_mean": 1000
+  },
+  "roll_type": 16,
+  "stats": {
+    "shincolle_kai:mov": 0.12,
+    "shincolle_kai:dodge": 0.06,
+    "shincolle_kai:grudge": 0.2
+  }
+}

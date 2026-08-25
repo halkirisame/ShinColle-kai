@@ -8,7 +8,7 @@
   ],
   "enchant_type": "misc",
   "stats": {
-    "shincolle:hit": 1.0,
+    "shincolle_kai:hit": 1.0,
     "shincolle_example:sonar_precision": 0.15
   }
 }

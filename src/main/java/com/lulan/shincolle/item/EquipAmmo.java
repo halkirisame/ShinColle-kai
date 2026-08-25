@@ -133,7 +133,7 @@ public class EquipAmmo extends BasicEquip implements IShipEffectItem {
 
         switch (meta) {
             case 5: // gravity
-                tooltip.add(Component.literal(ChatFormatting.YELLOW + Component.translatable("gui.shincolle.equip.gravity").getString()));
+                tooltip.add(Component.literal(ChatFormatting.YELLOW + Component.translatable("gui.shincolle_kai.equip.gravity").getString()));
                 break;
             case 7: // enchant shell
                 if (stack.hasTag()) {
@@ -151,14 +151,14 @@ public class EquipAmmo extends BasicEquip implements IShipEffectItem {
                             int plv = nbtX.getInt(PLEVEL) + 1;
                             int ptime = nbtX.getInt(PTIME) / 20;
                             int pchance = nbtX.getInt(PCHANCE);
-                            tooltip.add(Component.translatable("gui.shincolle.equip.enchantshell",
+                            tooltip.add(Component.translatable("gui.shincolle_kai.equip.enchantshell",
                                     pchance, s1, plv, ptime));
                         }
                     }
                 }
                 break;
             case 8: // cluster
-                tooltip.add(Component.literal(ChatFormatting.YELLOW + Component.translatable("gui.shincolle.equip.cluster").getString()));
+                tooltip.add(Component.literal(ChatFormatting.YELLOW + Component.translatable("gui.shincolle_kai.equip.cluster").getString()));
                 break;
         }
 
@@ -169,7 +169,7 @@ public class EquipAmmo extends BasicEquip implements IShipEffectItem {
                 MobEffect effect = net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(effectId);
                 if (effect != null) {
                     String s1 = Component.translatable(effect.getDescriptionId()).getString().trim();
-                    tooltip.add(Component.translatable("gui.shincolle.equip.enchantshell",
+                    tooltip.add(Component.translatable("gui.shincolle_kai.equip.enchantshell",
                             attackEffect.chancePercent(), s1, attackEffect.amplifier() + 1,
                             attackEffect.durationTicks() / 20));
                 }

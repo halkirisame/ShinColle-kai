@@ -5,7 +5,7 @@ package com.lulan.shincolle.api;
  */
 public final class ShinColleApi {
 
-    public static final String MOD_ID = "shincolle";
+    public static final String MOD_ID = "shincolle_kai";
 
     private ShinColleApi() {
     }

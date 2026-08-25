@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerFormation;
@@ -25,7 +26,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle", "textures/gui/guiformation.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID, "textures/gui/guiformation.png");
 
     /**
      * Formation type names

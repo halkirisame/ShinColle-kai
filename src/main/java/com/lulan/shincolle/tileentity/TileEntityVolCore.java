@@ -82,7 +82,7 @@ public class TileEntityVolCore extends BasicTileInventory implements MenuProvide
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.shincolle.vol_core");
+        return Component.translatable("container.shincolle_kai.vol_core");
     }
 
     // ==================== ITileFurnace ====================

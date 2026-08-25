@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.client.gui.inventory.ContainerLargeShipyard;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
@@ -26,7 +27,7 @@ import net.minecraft.world.entity.player.Inventory;
  */
 public class GuiLargeShipyard extends AbstractContainerScreen<ContainerLargeShipyard> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guilargeshipyard.png");
 
     private final String errorMsg1;
@@ -38,8 +39,8 @@ public class GuiLargeShipyard extends AbstractContainerScreen<ContainerLargeShip
         this.imageWidth = 208;
         this.imageHeight = 223;
         this.tickGUI = 0F;
-        this.errorMsg1 = Component.translatable("gui.shincolle.nomaterial").getString();
-        this.errorMsg2 = Component.translatable("gui.shincolle.nofuel").getString();
+        this.errorMsg1 = Component.translatable("gui.shincolle_kai.nomaterial").getString();
+        this.errorMsg2 = Component.translatable("gui.shincolle_kai.nofuel").getString();
     }
 
     @Override

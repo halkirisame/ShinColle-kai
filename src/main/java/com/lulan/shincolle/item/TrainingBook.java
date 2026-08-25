@@ -19,6 +19,6 @@ public class TrainingBook extends BasicItem {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.trainingbook").withStyle(ChatFormatting.GOLD));
+        tooltip.add(Component.translatable("gui.shincolle_kai.trainingbook").withStyle(ChatFormatting.GOLD));
     }
 }

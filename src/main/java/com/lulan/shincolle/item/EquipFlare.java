@@ -40,7 +40,7 @@ public class EquipFlare extends BasicEquip {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.flare").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gui.shincolle_kai.flare").withStyle(ChatFormatting.GRAY));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 }

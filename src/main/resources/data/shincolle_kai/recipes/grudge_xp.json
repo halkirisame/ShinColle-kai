@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "EEE",
+    "EGE",
+    "EEE"
+  ],
+  "key": {
+    "E": {
+      "item": "minecraft:experience_bottle"
+    },
+    "G": {
+      "item": "shincolle_kai:grudge"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:grudge_xp",
+    "count": 1
+  }
+}

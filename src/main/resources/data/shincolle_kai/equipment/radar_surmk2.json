@@ -1,0 +1,29 @@
+{
+  "equip_id": 314,
+  "item": "shincolle_kai:equip_radar",
+  "variant": 3,
+  "equip_type": "radar_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "grudge",
+    "amount": 200,
+    "rare_mean": 3400
+  },
+  "roll_type": 14,
+  "stats": {
+    "shincolle_kai:atk_l": 3.0,
+    "shincolle_kai:atk_h": 4.0,
+    "shincolle_kai:atk_al": 4.0,
+    "shincolle_kai:atk_ah": 5.0,
+    "shincolle_kai:def": 0.06,
+    "shincolle_kai:mov": -0.1,
+    "shincolle_kai:hit": 2.0,
+    "shincolle_kai:cri": 0.02,
+    "shincolle_kai:miss": 0.1,
+    "shincolle_kai:dodge": 0.02
+  }
+}

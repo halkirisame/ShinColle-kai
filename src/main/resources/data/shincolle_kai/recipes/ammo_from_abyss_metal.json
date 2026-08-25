@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "IGI",
+    "IPI"
+  ],
+  "key": {
+    "I": {
+      "item": "shincolle_kai:abyss_metal"
+    },
+    "G": {
+      "item": "shincolle_kai:grudge"
+    },
+    "P": {
+      "item": "minecraft:gunpowder"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:ammo",
+    "count": 32
+  }
+}

@@ -42,12 +42,12 @@ public class RecipePaper extends BasicItem {
                 // Show result stack
                 if (stacks[9] != null && !stacks[9].isEmpty()) {
                     tooltip.add(Component.literal(ChatFormatting.YELLOW
-                            + Component.translatable("gui.shincolle.recipepaper.result").getString()
+                            + Component.translatable("gui.shincolle_kai.recipepaper.result").getString()
                             + " " + ChatFormatting.WHITE + stacks[9].getHoverName().getString()));
                 }
 
                 tooltip.add(Component.literal(ChatFormatting.AQUA
-                        + Component.translatable("gui.shincolle.recipepaper.material").getString()));
+                        + Component.translatable("gui.shincolle_kai.recipepaper.material").getString()));
 
                 // Show material stacks
                 for (int i = 0; i < 9; i++) {

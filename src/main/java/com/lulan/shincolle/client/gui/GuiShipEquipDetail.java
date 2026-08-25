@@ -54,7 +54,7 @@ public class GuiShipEquipDetail extends Screen {
     private int listBottom;
 
     public GuiShipEquipDetail(Screen parent, BasicEntityShip ship) {
-        super(Component.literal(tr("gui.shincolle.equip.detailtitle", "Equipment Traits")));
+        super(Component.literal(tr("gui.shincolle_kai.equip.detailtitle", "Equipment Traits")));
         this.parent = parent;
         this.ship = ship;
     }
@@ -77,7 +77,7 @@ public class GuiShipEquipDetail extends Screen {
     private List<LineEntry> collectLines() {
         List<LineEntry> result = new ArrayList<>();
         if (!ModList.get().isLoaded("curios")) {
-            result.add(LineEntry.plain(Component.literal(tr("gui.shincolle.equip.nocurios", "Curios not installed"))));
+            result.add(LineEntry.plain(Component.literal(tr("gui.shincolle_kai.equip.nocurios", "Curios not installed"))));
             return result;
         }
 
@@ -89,14 +89,14 @@ public class GuiShipEquipDetail extends Screen {
             var resolved = ShipEquipmentResolver.resolveClient(stack);
             if (resolved.isEmpty()) {
                 result.add(LineEntry.plain(Component.literal("  "
-                        + tr("gui.shincolle.equip.unresolved", "No resolved equipment data"))
+                        + tr("gui.shincolle_kai.equip.unresolved", "No resolved equipment data"))
                         .withStyle(ChatFormatting.DARK_GRAY)));
                 continue;
             }
             appendResolvedLines(result, resolved.get());
         }
         if (!any) {
-            result.add(LineEntry.plain(Component.literal(tr("gui.shincolle.equip.none", "No traits"))));
+            result.add(LineEntry.plain(Component.literal(tr("gui.shincolle_kai.equip.none", "No traits"))));
         }
         return result;
     }
@@ -114,7 +114,7 @@ public class GuiShipEquipDetail extends Screen {
         }
         if (attributes.isEmpty()) {
             result.add(LineEntry.plain(Component.literal("  "
-                    + tr("gui.shincolle.equip.noattributes", "No attributes"))
+                    + tr("gui.shincolle_kai.equip.noattributes", "No attributes"))
                     .withStyle(ChatFormatting.DARK_GRAY)));
         }
         resolved.definitionId().ifPresent(id -> result.add(LineEntry.plain(Component.literal("  JSON: " + id)

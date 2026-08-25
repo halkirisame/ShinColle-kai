@@ -1,5 +1,6 @@
 package com.lulan.shincolle.config;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.LogHelper;
 
 import java.io.*;
@@ -19,7 +20,7 @@ import java.util.Map;
  * dimension: "*" for all dimensions, or "overworld", "the_nether", "the_end"
  * biome: "*" for all biomes, or specific biome path like "ocean", "plains"
  * item_name: resource location like "minecraft:cobblestone",
- * "shincolle:abyss_metal"
+ * "shincolle_kai:abyss_metal"
  * weight: drop probability weight (normalized by total weight)
  * min_stack / max_stack: stack size range (>= 1)
  * ship_level: minimum ship level for this item
@@ -230,22 +231,26 @@ public class ConfigMining {
         lines.add("overworld,*,minecraft:coal,500,1,3,1,100,1,150" + nl);
         lines.add("overworld,*,minecraft:redstone,500,1,3,20,15,2,150" + nl);
         lines.add("overworld,*,minecraft:raw_iron,350,1,2,1,64,2,100" + nl);
-        lines.add("overworld,*,shincolle:abyss_metal,350,1,3,1,64,2,100" + nl);
+        lines.add("overworld,*,"
+                + Reference.MOD_ID + ":abyss_metal,350,1,3,1,64,2,100" + nl);
         lines.add("overworld,*,minecraft:raw_copper,300,1,3,1,96,1,100" + nl);
         lines.add("overworld,*,minecraft:raw_gold,100,1,1,30,32,2,100" + nl);
         lines.add("overworld,*,minecraft:lapis_lazuli,200,1,3,30,30,2,150" + nl);
         lines.add("overworld,*,minecraft:diamond,50,1,1,60,16,3,100" + nl);
         lines.add("overworld,*,minecraft:emerald,80,1,1,40,32,3,100" + nl);
-        lines.add("overworld,*,shincolle:marriage_ring,25,1,1,1,16,3,0" + nl);
+        lines.add("overworld,*,"
+                + Reference.MOD_ID + ":marriage_ring,25,1,1,1,16,3,0" + nl);
 
         // overworld ocean biomes
         lines.add("overworld,ocean,minecraft:prismarine_shard,500,1,4,30,128,0,0" + nl);
         lines.add("overworld,ocean,minecraft:prismarine_crystals,200,1,3,60,128,2,100" + nl);
-        lines.add("overworld,ocean,shincolle:abyss_metal,500,1,3,1,64,2,100" + nl);
+        lines.add("overworld,ocean,"
+                + Reference.MOD_ID + ":abyss_metal,500,1,3,1,64,2,100" + nl);
         lines.add("overworld,ocean,minecraft:sponge,200,1,1,80,128,0,100" + nl);
         lines.add("overworld,deep_ocean,minecraft:prismarine_shard,500,1,4,30,128,0,0" + nl);
         lines.add("overworld,deep_ocean,minecraft:prismarine_crystals,200,1,3,60,128,2,100" + nl);
-        lines.add("overworld,deep_ocean,shincolle:abyss_metal,500,1,3,1,64,2,100" + nl);
+        lines.add("overworld,deep_ocean,"
+                + Reference.MOD_ID + ":abyss_metal,500,1,3,1,64,2,100" + nl);
         lines.add("overworld,deep_ocean,minecraft:sponge,200,1,1,80,128,0,100" + nl);
 
         // overworld cold/snowy biomes
@@ -269,7 +274,8 @@ public class ConfigMining {
         lines.add("the_nether,*,minecraft:gravel,1000,1,1,1,256,0,0" + nl);
         lines.add("the_nether,*,minecraft:magma_block,500,1,1,40,256,3,0" + nl);
         lines.add("the_nether,*,minecraft:flint,500,1,1,1,256,0,0" + nl);
-        lines.add("the_nether,*,shincolle:marriage_ring,50,1,1,1,256,3,0" + nl);
+        lines.add("the_nether,*,"
+                + Reference.MOD_ID + ":marriage_ring,50,1,1,1,256,3,0" + nl);
 
         // nether ores
         lines.add("the_nether,*,minecraft:quartz,1000,1,3,1,256,2,150" + nl);
@@ -282,7 +288,8 @@ public class ConfigMining {
         lines.add("the_end,*,minecraft:end_stone,4000,1,4,1,256,0,0" + nl);
         lines.add("the_end,*,minecraft:ender_pearl,200,1,1,40,256,3,100" + nl);
         lines.add("the_end,*,minecraft:chorus_fruit,200,1,3,60,256,3,100" + nl);
-        lines.add("the_end,*,shincolle:marriage_ring,25,1,1,1,256,3,0" + nl);
+        lines.add("the_end,*,"
+                + Reference.MOD_ID + ":marriage_ring,25,1,1,1,256,3,0" + nl);
 
         return lines;
     }

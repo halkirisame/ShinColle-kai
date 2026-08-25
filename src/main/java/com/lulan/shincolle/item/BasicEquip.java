@@ -171,8 +171,8 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
 
     /**
      * Override description ID to provide variant-specific translation keys.
-     * meta 0 -> "item.shincolle.equip_cannon" (base key, no suffix)
-     * meta N -> "item.shincolle.equip_cannon_N"
+     * meta 0 -> "item.shincolle_kai.equip_cannon" (base key, no suffix)
+     * meta N -> "item.shincolle_kai.equip_cannon_N"
      */
     @Override
     public String getDescriptionId(ItemStack stack) {
@@ -216,21 +216,21 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
             }
 
             // Enchant type and equip type
-            String drawstr = Component.translatable("gui.shincolle.equip.enchtype").getString() + " ";
+            String drawstr = Component.translatable("gui.shincolle_kai.equip.enchtype").getString() + " ";
             drawstr += def.enchantType() == 1
-                    ? ChatFormatting.RED + Component.translatable("gui.shincolle.equip.enchtype1").getString()
+                    ? ChatFormatting.RED + Component.translatable("gui.shincolle_kai.equip.enchtype1").getString()
                     : def.enchantType() == 2
-                      ? ChatFormatting.AQUA + Component.translatable("gui.shincolle.equip.enchtype0").getString()
+                      ? ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.equip.enchtype0").getString()
                       : def.enchantType() == 3
                         ? ChatFormatting.GRAY
-                          + Component.translatable("gui.shincolle.equip.enchtype2").getString()
+                          + Component.translatable("gui.shincolle_kai.equip.enchtype2").getString()
                         : "";
             int legacyEquipType = def.legacyEquipTypeValue();
             drawstr += legacyEquipType == 1
-                    ? "  " + ChatFormatting.DARK_RED + Component.translatable("gui.shincolle.notforcarrier").getString()
+                    ? "  " + ChatFormatting.DARK_RED + Component.translatable("gui.shincolle_kai.notforcarrier").getString()
                     : legacyEquipType == 3
                       ? "  " + ChatFormatting.DARK_AQUA
-                        + Component.translatable("gui.shincolle.carrieronly").getString()
+                        + Component.translatable("gui.shincolle_kai.carrieronly").getString()
                       : "";
             tooltip.add(Component.literal(drawstr));
 
@@ -238,25 +238,25 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
             if (def.developAmount() > 400) {
                 tooltip.add(
                         Component.literal(ChatFormatting.DARK_RED
-                                + Component.translatable("block.shincolle.block_large_shipyard").getString()));
+                                + Component.translatable("block.shincolle_kai.block_large_shipyard").getString()));
             } else {
                 tooltip.add(
                         Component.literal(ChatFormatting.DARK_RED
-                                + Component.translatable("block.shincolle.block_small_shipyard").getString()));
+                                + Component.translatable("block.shincolle_kai.block_small_shipyard").getString()));
             }
 
             // Material info
             String matname = switch (def.developMaterial()) {
-                case "abyss_metal" -> Component.translatable("item.shincolle.abyss_metal").getString();
-                case "ammo" -> Component.translatable("item.shincolle.ammo").getString();
-                case "abyss_metal_1" -> Component.translatable("item.shincolle.abyss_metal_1").getString();
-                default -> Component.translatable("item.shincolle.grudge").getString();
+                case "abyss_metal" -> Component.translatable("item.shincolle_kai.abyss_metal").getString();
+                case "ammo" -> Component.translatable("item.shincolle_kai.ammo").getString();
+                case "abyss_metal_1" -> Component.translatable("item.shincolle_kai.abyss_metal_1").getString();
+                default -> Component.translatable("item.shincolle_kai.grudge").getString();
             };
 
-            drawstr = ChatFormatting.DARK_PURPLE + Component.translatable("gui.shincolle.equip.matstype").getString() +
+            drawstr = ChatFormatting.DARK_PURPLE + Component.translatable("gui.shincolle_kai.equip.matstype").getString() +
                     ChatFormatting.GRAY + " (" + matname + ") " +
                     String.format("%.0f", (float) def.developAmount()) + "  " +
-                    ChatFormatting.DARK_PURPLE + Component.translatable("gui.shincolle.equip.matsrarelevel").getString()
+                    ChatFormatting.DARK_PURPLE + Component.translatable("gui.shincolle_kai.equip.matsrarelevel").getString()
                     +
                     ChatFormatting.GRAY + " " + String.format("%.0f", (float) def.rareMean());
             tooltip.add(Component.literal(drawstr));

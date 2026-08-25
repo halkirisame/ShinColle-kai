@@ -1,0 +1,23 @@
+{
+  "equip_id": 25,
+  "item": "shincolle_kai:equip_compass",
+  "variant": 0,
+  "equip_type": "compass_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "grudge",
+    "amount": 90,
+    "rare_mean": 2000
+  },
+  "roll_type": 25,
+  "stats": {
+    "shincolle_kai:mov": -0.01,
+    "shincolle_kai:hit": 2.0,
+    "shincolle_kai:miss": 0.05,
+    "shincolle_kai:xp": 0.5
+  }
+}

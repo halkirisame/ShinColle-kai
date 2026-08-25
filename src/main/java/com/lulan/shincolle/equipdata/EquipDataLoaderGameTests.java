@@ -37,7 +37,7 @@ public final class EquipDataLoaderGameTests {
     public static void parseStatsAcceptsAliasesCanonicalIdsAndDetachedCustomIds(GameTestHelper helper) {
         JsonObject stats = new JsonObject();
         stats.addProperty("atk_l", 5.5F);
-        stats.addProperty("shincolle:hp", 12F);
+        stats.addProperty("shincolle_kai:hp", 12F);
         stats.addProperty(CUSTOM_ATTRIBUTE.toString(), 0.25F);
 
         ShipAttributeValues parsed = EquipDataLoader.parseStats(stats, layoutWithCustom());
@@ -51,7 +51,7 @@ public final class EquipDataLoaderGameTests {
     public static void parseStatsRejectsNormalizedDuplicateAndUnknownOrInvalidIds(GameTestHelper helper) {
         JsonObject normalizedDuplicate = new JsonObject();
         normalizedDuplicate.addProperty("atk_l", 1F);
-        normalizedDuplicate.addProperty("shincolle:atk_l", 2F);
+        normalizedDuplicate.addProperty("shincolle_kai:atk_l", 2F);
         assertRejected(normalizedDuplicate, ShipAttributeLayout.current(), "normalized duplicate");
 
         JsonObject unknown = new JsonObject();

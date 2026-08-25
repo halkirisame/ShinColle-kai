@@ -24,7 +24,7 @@ public class OPTool extends BasicItem {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.optool1").withStyle(ChatFormatting.RED));
-        tooltip.add(Component.translatable("gui.shincolle.optool2").withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable("gui.shincolle_kai.optool1").withStyle(ChatFormatting.RED));
+        tooltip.add(Component.translatable("gui.shincolle_kai.optool2").withStyle(ChatFormatting.AQUA));
     }
 }

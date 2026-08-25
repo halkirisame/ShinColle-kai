@@ -1,5 +1,6 @@
 package com.lulan.shincolle.config;
 
+import com.lulan.shincolle.reference.Reference;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
@@ -48,12 +49,12 @@ public class MiningLootTable {
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:coal", 500, 1, 3, 1, 100, 1, 1.5F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:redstone", 500, 1, 3, 20, 15, 2, 1.5F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:raw_iron", 350, 1, 2, 1, 64, 2, 1.0F));
-        OVERWORLD_GENERAL.add(new MiningEntry("shincolle:abyss_metal", 350, 1, 3, 1, 64, 2, 1.0F));
+        OVERWORLD_GENERAL.add(new MiningEntry(Reference.MOD_ID + ":abyss_metal", 350, 1, 3, 1, 64, 2, 1.0F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:raw_gold", 100, 1, 1, 30, 32, 2, 1.0F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:lapis_lazuli", 200, 1, 3, 30, 30, 2, 1.5F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:diamond", 50, 1, 1, 60, 16, 3, 1.0F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:emerald", 80, 1, 1, 40, 32, 3, 1.0F));
-        OVERWORLD_GENERAL.add(new MiningEntry("shincolle:marriage_ring", 25, 1, 1, 1, 16, 3, 0F));
+        OVERWORLD_GENERAL.add(new MiningEntry(Reference.MOD_ID + ":marriage_ring", 25, 1, 1, 1, 16, 3, 0F));
         // Overworld water-themed
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:prismarine_shard", 300, 1, 4, 30, 128, 0, 0F));
         OVERWORLD_GENERAL.add(new MiningEntry("minecraft:prismarine_crystals", 100, 1, 3, 60, 128, 2, 1.0F));
@@ -67,7 +68,7 @@ public class MiningLootTable {
         NETHER_GENERAL.add(new MiningEntry("minecraft:gravel", 1000, 1, 1, 1, 256, 0, 0F));
         NETHER_GENERAL.add(new MiningEntry("minecraft:magma_block", 500, 1, 1, 40, 256, 3, 0F));
         NETHER_GENERAL.add(new MiningEntry("minecraft:flint", 500, 1, 1, 1, 256, 0, 0F));
-        NETHER_GENERAL.add(new MiningEntry("shincolle:marriage_ring", 50, 1, 1, 1, 256, 3, 0F));
+        NETHER_GENERAL.add(new MiningEntry(Reference.MOD_ID + ":marriage_ring", 50, 1, 1, 1, 256, 3, 0F));
         // Nether ores
         NETHER_GENERAL.add(new MiningEntry("minecraft:quartz", 1000, 1, 3, 1, 256, 2, 1.5F));
         NETHER_GENERAL.add(new MiningEntry("minecraft:glowstone_dust", 500, 1, 2, 1, 256, 0, 1.0F));
@@ -78,7 +79,7 @@ public class MiningLootTable {
         END_GENERAL.add(new MiningEntry("minecraft:end_stone", 4000, 1, 4, 1, 256, 0, 0F));
         END_GENERAL.add(new MiningEntry("minecraft:ender_pearl", 200, 1, 1, 40, 256, 3, 1.0F));
         END_GENERAL.add(new MiningEntry("minecraft:chorus_fruit", 200, 1, 3, 60, 256, 3, 1.0F));
-        END_GENERAL.add(new MiningEntry("shincolle:marriage_ring", 25, 1, 1, 1, 256, 3, 0F));
+        END_GENERAL.add(new MiningEntry(Reference.MOD_ID + ":marriage_ring", 25, 1, 1, 1, 256, 3, 0F));
     }
 
     /**

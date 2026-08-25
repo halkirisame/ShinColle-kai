@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.render;
 
+import com.lulan.shincolle.reference.Reference;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.resources.ResourceLocation;
@@ -12,7 +13,7 @@ import net.minecraft.world.entity.Entity;
 public class NoopEntityRenderer<T extends Entity> extends EntityRenderer<T> {
 
     private static final ResourceLocation TEXTURE =
-            new ResourceLocation("shincolle", "textures/entity/placeholder.png");
+            new ResourceLocation(Reference.MOD_ID, "textures/entity/placeholder.png");
 
     public NoopEntityRenderer(EntityRendererProvider.Context context) {
         super(context);

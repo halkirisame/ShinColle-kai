@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "XHX",
+    " M ",
+    "XBX"
+  ],
+  "key": {
+    "X": {
+      "item": "shincolle_kai:grudge_xp"
+    },
+    "H": {
+      "item": "shincolle_kai:kaitai_hammer"
+    },
+    "M": {
+      "item": "shincolle_kai:modern_kit"
+    },
+    "B": {
+      "item": "minecraft:writable_book"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:training_book",
+    "count": 1
+  }
+}

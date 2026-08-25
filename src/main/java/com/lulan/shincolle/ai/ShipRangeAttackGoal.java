@@ -129,30 +129,10 @@ public class ShipRangeAttackGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        if (this.target == null || !this.target.isAlive() || this.entity.getTarget() != this.target
-                || this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0
-                || (this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount)) {
-            if (this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0) {
-                this.logDiagnosticState("stopped:sit_or_crane");
-            } else if (this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount) {
-                this.logDiagnosticState("stopped:mount_controls_attack");
-            } else {
-                this.logDiagnosticState("stopped:target_invalid_or_replaced");
-            }
-            return false;
+        if (this.target != null && this.target.isAlive() && !this.entity.getNavigation().isDone()) {
+            return true;
         }
-        boolean canContinue = (this.host.getAttackType(ID.F.AtkType_Light)
-                    && this.host.getStateFlag(ID.F.UseAmmoLight) && this.host.hasAmmoLight())
-                || (this.host.getAttackType(ID.F.AtkType_Heavy)
-                    && this.host.getStateFlag(ID.F.UseAmmoHeavy) && this.host.hasAmmoHeavy());
-        if (canContinue) {
-            this.logDiagnosticState("ready");
-        } else if (this.host.getStateFlag(ID.F.NoFuel)) {
-            this.logDiagnosticState("stopped:no_fuel");
-        } else {
-            this.logDiagnosticState("stopped:no_valid_ammo");
-        }
-        return canContinue;
+        return this.canUse();
     }
 
     @Override

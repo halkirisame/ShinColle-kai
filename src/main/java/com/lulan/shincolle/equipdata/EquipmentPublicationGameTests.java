@@ -28,7 +28,7 @@ public final class EquipmentPublicationGameTests {
 
     private static final Path PUBLICATION_ROOT = Path.of(
             System.getProperty("shincolle.publicationRoot", ".")).toAbsolutePath().normalize();
-    private static final Path SCHEMA = projectPath("docs", "schemas", "shincolle-equipment.schema.json");
+    private static final Path SCHEMA = projectPath("docs", "schemas", "shincolle_kai-equipment.schema.json");
     private static final Path DATAPACK_EXAMPLE = projectPath("examples", "equipment_datapack", "data",
             "shincolle_example", "equipment", "observation_spyglass.json");
     private static final Path ADDON_EXAMPLE = projectPath("examples", "java_addon", "src", "main", "resources",

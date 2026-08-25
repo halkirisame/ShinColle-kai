@@ -1,5 +1,6 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.ai.*;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
@@ -968,6 +969,26 @@ public abstract class BasicEntityShip extends TamableAnimal
             if (this.getAttribute(Attributes.KNOCKBACK_RESISTANCE) != null) {
                 Objects.requireNonNull(this.getAttribute(Attributes.KNOCKBACK_RESISTANCE)).setBaseValue(
                         this.shipAttrs.getAttrsBuffed(ID.Attrs.KB));
+            }
+
+            // DIAG: final attribute verification. Enabled by the debugMode config.
+            // Logged here rather than in calcShipAttributesAddEquip because the
+            // buffed layer - the one the configured limits clamp - is only
+            // finalized after applyBuffOnAttrs above.
+            if (LogHelper.diagEnabled()) {
+                LogHelper.diag("DIAG: final attrs ship=" + this.getClass().getSimpleName()
+                        + " id=" + this.getId()
+                        + " level=" + this.getLevel()
+                        + " HIT=" + this.shipAttrs.getAttrsBuffed(ID.Attrs.HIT)
+                        + " ATK_L=" + this.shipAttrs.getAttrsBuffed(ID.Attrs.ATK_L)
+                        + " DEF=" + this.shipAttrs.getAttrsBuffed(ID.Attrs.DEF)
+                        + " DODGE=" + this.shipAttrs.getAttrsBuffed(ID.Attrs.DODGE)
+                        + " MOV=" + this.shipAttrs.getAttrsBuffed(ID.Attrs.MOV)
+                        + " HP=" + this.shipAttrs.getAttrsBuffed(ID.Attrs.HP)
+                        // Ranged attacks abort as blocked:no_valid_ammo when these
+                        // run out, which looks like a broken AI in the logs.
+                        + " ammoLight=" + getStateMinor(ID.M.NumAmmoLight)
+                        + " grudge=" + getStateMinor(ID.M.NumGrudge));
             }
 
             // sync to client if requested
@@ -3685,7 +3706,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             int chunkX = Mth.floor(this.getX()) >> 4;
             int chunkZ = Mth.floor(this.getZ()) >> 4;
             ForgeChunkManager.forceChunk(
-                    serverLevel, "shincolle", this.getUUID(), chunkX, chunkZ, false, true);
+                    serverLevel, Reference.MOD_ID, this.getUUID(), chunkX, chunkZ, false, true);
         }
     }
 
@@ -3711,7 +3732,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             int chunkX = Mth.floor(this.getX()) >> 4;
             int chunkZ = Mth.floor(this.getZ()) >> 4;
             ForgeChunkManager.forceChunk(
-                    serverLevel, "shincolle", this.getUUID(), chunkX, chunkZ, enable, true);
+                    serverLevel, Reference.MOD_ID, this.getUUID(), chunkX, chunkZ, enable, true);
         }
     }
 
@@ -3727,7 +3748,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     ForgeChunkManager.forceChunk(
-                            serverLevel, "shincolle", this.getUUID(),
+                            serverLevel, Reference.MOD_ID, this.getUUID(),
                             chunkX + dx, chunkZ + dz, true, true);
                 }
             }

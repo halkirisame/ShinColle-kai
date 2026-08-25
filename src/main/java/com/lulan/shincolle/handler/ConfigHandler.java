@@ -805,7 +805,7 @@ public class ConfigHandler {
             limitShipAttributesByIdConfig = builder
                     .comment("Ship attribute max limits by stable ID. Entries use namespace:path=value.",
                             "These override limitShipAttrs for core attributes. -1 means no config limit.",
-                            "Example: [\"addon:sonar_precision=0.75\", \"shincolle:dodge=0.6\"]")
+                            "Example: [\"addon:sonar_precision=0.75\", \"shincolle_kai:dodge=0.6\"]")
                     .defineList("limitShipAttributesById", List.of(), e -> e instanceof String);
 
             scaleBossSmallConfig = builder

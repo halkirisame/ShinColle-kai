@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.client.gui.inventory.ContainerVolCore;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
@@ -21,7 +22,7 @@ import net.minecraft.world.entity.player.Inventory;
  */
 public class GuiVolCore extends AbstractContainerScreen<ContainerVolCore> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle", "textures/gui/guivolcore.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID, "textures/gui/guivolcore.png");
 
     public GuiVolCore(ContainerVolCore menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -73,7 +74,7 @@ public class GuiVolCore extends AbstractContainerScreen<ContainerVolCore> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         // Draw block name centered at top
-        String blockName = Component.translatable("container.shincolle.vol_core").getString();
+        String blockName = Component.translatable("container.shincolle_kai.vol_core").getString();
         graphics.drawString(this.font, blockName,
                 this.imageWidth / 2 - this.font.width(blockName) / 2, 6, 0x404040, false);
 

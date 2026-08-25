@@ -100,7 +100,7 @@ public class TargetWrench extends BasicItem {
                 } else {
                     // wrong tile entity
                     player.displayClientMessage(
-                            Component.translatable("chat.shincolle.wrench.wrongtile"), false);
+                            Component.translatable("chat.shincolle_kai.wrench.wrongtile"), false);
                     resetPos(stack);
                 }
             }
@@ -111,7 +111,7 @@ public class TargetWrench extends BasicItem {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.wrench3").withStyle(ChatFormatting.YELLOW));
+        tooltip.add(Component.translatable("gui.shincolle_kai.wrench3").withStyle(ChatFormatting.YELLOW));
     }
 
     private void switchPoint(ItemStack stack) {
@@ -152,7 +152,7 @@ public class TargetWrench extends BasicItem {
         // same point check
         if (point0.equals(point1)) {
             player.displayClientMessage(
-                    Component.translatable("chat.shincolle.wrench.samepoint"), false);
+                    Component.translatable("chat.shincolle_kai.wrench.samepoint"), false);
             resetPos(stack);
             return false;
         }
@@ -198,7 +198,7 @@ public class TargetWrench extends BasicItem {
             return true;
         } else {
             player.displayClientMessage(
-                    Component.translatable("chat.shincolle.wrench.wrongtile")
+                    Component.translatable("chat.shincolle_kai.wrench.wrongtile")
                             .withStyle(ChatFormatting.YELLOW),
                     false);
             resetPos(stack);

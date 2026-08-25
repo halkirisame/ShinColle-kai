@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PPP",
+    "PPP",
+    "PPP"
+  ],
+  "key": {
+    "P": {
+      "item": "shincolle_kai:polymetal_nodule"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:polymetal",
+    "count": 1
+  }
+}

@@ -6,6 +6,7 @@ import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -30,6 +31,14 @@ public final class EquipmentDefinitionGoldenGameTests {
             "33997abbfdd917c2328063742f3a54d18304dfb69a8cb5ebea2dc33645922586";
     private static final String EXPECTED_METADATA_DIGEST =
             "0478088f1d3784d07131ff5de2d47a5cdb8ce304ae831e1c99290c974ace3026";
+
+    /**
+     * Namespace the goldens above were computed under, before the 2026-08-25 rename to
+     * {@code shincolle_kai}. Ids are normalised back to it so these digests keep locking
+     * equipment <em>values and metadata</em> instead of the mod identity — otherwise every
+     * future rename would silently invalidate the guard and force a blind golden update.
+     */
+    private static final String GOLDEN_NAMESPACE = "shincolle";
 
     private EquipmentDefinitionGoldenGameTests() {
     }
@@ -63,7 +72,7 @@ public final class EquipmentDefinitionGoldenGameTests {
                     + " stats; expected " + Attrs.AttrsLength);
         }
 
-        StringBuilder row = new StringBuilder(definition.id().toString()).append('=');
+        StringBuilder row = new StringBuilder(canonicalId(definition.id())).append('=');
         for (int index = 0; index < Attrs.AttrsLength; index++) {
             if (index > 0) {
                 row.append(',');
@@ -82,11 +91,18 @@ public final class EquipmentDefinitionGoldenGameTests {
     private static String canonicalMetadata(EquipDefinition definition) {
         String compatible = definition.compatible().stream().sorted().collect(java.util.stream.Collectors.joining(","));
         String legacyId = definition.legacyEquipId() == null ? "-" : definition.legacyEquipId().toString();
-        return String.join("|", definition.id().toString(), definition.item().toString(),
+        return String.join("|", canonicalId(definition.id()), canonicalId(definition.item()),
                 Integer.toString(definition.variant()), Integer.toString(definition.equipType()), legacyId, compatible,
                 Integer.toString(definition.enchantType()), definition.developMaterial(),
                 Integer.toString(definition.developAmount()), Integer.toString(definition.rareMean()),
                 Integer.toString(definition.rollType()));
+    }
+
+    /** Maps the mod's own namespace onto the historical one; other namespaces pass through. */
+    private static String canonicalId(ResourceLocation id) {
+        return Reference.MOD_ID.equals(id.getNamespace())
+                ? GOLDEN_NAMESPACE + ':' + id.getPath()
+                : id.toString();
     }
 
     private static void assertDigest(String expected, String canonical, String subject) {

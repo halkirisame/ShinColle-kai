@@ -197,13 +197,13 @@ public class MarriageRing extends BasicItem {
             CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
 
             tooltip.add(Component.literal(
-                    ChatFormatting.AQUA + Component.translatable("gui.shincolle.ringText").getString() + " "
+                    ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.ringText").getString() + " "
                             + capa.getMarriageNum()));
             return;
         }
 
 
         tooltip.add(Component.literal(
-                ChatFormatting.AQUA + Component.translatable("gui.shincolle.ringText").getString()));
+                ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.ringText").getString()));
     }
 }

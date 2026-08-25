@@ -1196,7 +1196,7 @@ public class C2SGUIInputPacket {
             // point.
             NetworkHooks.openScreen(player, new SimpleMenuProvider(
                     (containerId, playerInv, p) -> new ContainerFormation(containerId, playerInv),
-                    Component.translatable("gui.shincolle.formation.formation")));
+                    Component.translatable("gui.shincolle_kai.formation.formation")));
         } else {
             LogHelper.debug("C2SGUIInputPacket: unknown OpenItemGUI type=" + values[2]);
         }

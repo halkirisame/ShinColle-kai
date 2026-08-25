@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.particle;
 
+import com.lulan.shincolle.reference.Reference;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Camera;
@@ -32,7 +33,7 @@ import org.jetbrains.annotations.NotNull;
 @OnlyIn(Dist.CLIENT)
 public class ParticleTeam extends Particle {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/particles/particleteam.png");
     private final int particleType; // 0:green 1:cyan 2:red 3:yellow
     private final double height;

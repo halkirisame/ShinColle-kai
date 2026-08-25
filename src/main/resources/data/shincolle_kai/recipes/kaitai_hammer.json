@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "AA",
+    "AA",
+    "AS"
+  ],
+  "key": {
+    "A": {
+      "item": "shincolle_kai:abyss_metal"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:kaitai_hammer",
+    "count": 1
+  }
+}

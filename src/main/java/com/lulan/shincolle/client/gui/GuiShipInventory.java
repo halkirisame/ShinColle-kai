@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.api.attribute.CoreShipAttributes;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
@@ -44,13 +45,13 @@ import java.util.Objects;
  */
 public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInventory> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guishipinventory.png");
-    private static final ResourceLocation TEXTURE_ICON0 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE_ICON0 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon0.png");
-    private static final ResourceLocation TEXTURE_ICON1 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE_ICON1 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon1.png");
-    private static final ResourceLocation TEXTURE_ICON2 = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE_ICON2 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon2.png");
 
     // ========== State ==========
@@ -75,18 +76,18 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
     private static String getMoraleDisplayName(int morale) {
         if (morale > ID.Morale.L_Excited) {
-            return tr("gui.shincolle.morale0", "Excited");
+            return tr("gui.shincolle_kai.morale0", "Excited");
         }
         if (morale > ID.Morale.L_Happy) {
-            return tr("gui.shincolle.morale1", "Happy");
+            return tr("gui.shincolle_kai.morale1", "Happy");
         }
         if (morale > ID.Morale.L_Normal) {
-            return tr("gui.shincolle.morale2", "Normal");
+            return tr("gui.shincolle_kai.morale2", "Normal");
         }
         if (morale > ID.Morale.L_Tired) {
-            return tr("gui.shincolle.morale3", "Tired");
+            return tr("gui.shincolle_kai.morale3", "Tired");
         }
-        return tr("gui.shincolle.morale4", "Exhausted");
+        return tr("gui.shincolle_kai.morale4", "Exhausted");
     }
 
     private static int getMoraleDisplayColor(int morale) {
@@ -110,12 +111,12 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      */
     private static String getFormationName(int formatType) {
         return switch (formatType) {
-            case 1 -> tr("gui.shincolle.formation.format1", "Line Ahead");
-            case 2 -> tr("gui.shincolle.formation.format2", "Double Line");
-            case 3 -> tr("gui.shincolle.formation.format3", "Diamond");
-            case 4 -> tr("gui.shincolle.formation.format4", "Echelon");
-            case 5 -> tr("gui.shincolle.formation.format5", "Line Abreast");
-            default -> tr("gui.shincolle.formation.format0", "None");
+            case 1 -> tr("gui.shincolle_kai.formation.format1", "Line Ahead");
+            case 2 -> tr("gui.shincolle_kai.formation.format2", "Double Line");
+            case 3 -> tr("gui.shincolle_kai.formation.format3", "Diamond");
+            case 4 -> tr("gui.shincolle_kai.formation.format4", "Echelon");
+            case 5 -> tr("gui.shincolle_kai.formation.format5", "Line Abreast");
+            default -> tr("gui.shincolle_kai.formation.format0", "None");
         };
     }
 
@@ -166,7 +167,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
     // ========== Third-Party Equipment Panel Rendering ==========
 
-    private static final ResourceLocation EQUIP_PANEL_TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation EQUIP_PANEL_TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/ship_equip_panel.png");
     private static final int EQUIP_PANEL_SHEET = 26;
     private static final int EQUIP_PANEL_CAP = 4;
@@ -264,7 +265,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         graphics.fill(x + 1, y + 1, x + b[2] - 1, y + b[3] - 1, 0xFFA6A6A6);
         // Not drawCenteredString: that always draws a shadow, which on dark
         // text over a light button reads as doubled, smeared glyphs.
-        String label = tr("gui.shincolle.aisettings.title", "Settings");
+        String label = tr("gui.shincolle_kai.aisettings.title", "Settings");
         graphics.drawString(this.font, label,
                 x + (b[2] - this.font.width(label)) / 2, y + 4, 0x404040, false);
     }
@@ -470,19 +471,19 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int lc = 0x404040;
         int vc = 0xFFFFFF;
 
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.kills", "Kills") + ":",
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.kills", "Kills") + ":",
                 String.valueOf(ship.getStateMinor(ID.M.Kills)), lc, vc);
         textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.exp", "EXP") + ":",
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.exp", "EXP") + ":",
                 ship.getStateMinor(ID.M.ExpCurrent) + "/" + ship.getStateMinor(ID.M.ExpNext), lc, vc);
         textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.ammolight", "Ammo(L)") + ":",
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.ammolight", "Ammo(L)") + ":",
                 String.valueOf(ship.getStateMinor(ID.M.NumAmmoLight)), lc, vc);
         textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.ammoheavy", "Ammo(H)") + ":",
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.ammoheavy", "Ammo(H)") + ":",
                 String.valueOf(ship.getStateMinor(ID.M.NumAmmoHeavy)), lc, vc);
         textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.grudge", "Grudge") + ":",
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.grudge", "Grudge") + ":",
                 String.valueOf(ship.getStateMinor(ID.M.NumGrudge)), lc, vc);
     }
 
@@ -500,7 +501,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int lc = 0x404040;
         int vc = 0xFFFFFF;
 
-        String atkKey = showAirAttack ? "gui.shincolle.firepower2" : "gui.shincolle.firepower1";
+        String atkKey = showAirAttack ? "gui.shincolle_kai.firepower2" : "gui.shincolle_kai.firepower1";
         float atkVal = showAirAttack ? buffed.get(CoreShipAttributes.ATK_AL)
                 : buffed.get(CoreShipAttributes.ATK_L);
         float torpedoVal = showAirAttack ? buffed.get(CoreShipAttributes.ATK_AH)
@@ -511,19 +512,19 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
                 atkText, lc, GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.ATK)),
                 VALUE_ROW_OFFSET);
         textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.armor"),
+        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.armor"),
                 String.format("%.1f%%", buffed.get(CoreShipAttributes.DEF) * 100F), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.DEF)));
         textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.attackspeed"),
+        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.attackspeed"),
                 String.format("%.2f", buffed.get(CoreShipAttributes.SPD)), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.SPD)));
         textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.movespeed"),
+        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.movespeed"),
                 String.format("%.2f", buffed.get(CoreShipAttributes.MOV)), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.MOV)));
         textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle.range"),
+        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.range"),
                 String.format("%.1f", buffed.get(CoreShipAttributes.HIT)), lc,
                 GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.HIT)));
     }
@@ -538,19 +539,19 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int vc = 0xFFFFFF;
 
         boolean isMarried = ship.getStateFlag(ID.F.IsMarried);
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.marriage", "Marriage") + ":",
-                isMarried ? tr("gui.shincolle.married", "Married") : tr("gui.shincolle.unmarried", "Unmarried"),
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.marriage", "Marriage") + ":",
+                isMarried ? tr("gui.shincolle_kai.married", "Married") : tr("gui.shincolle_kai.unmarried", "Unmarried"),
                 lc, 0xFFFF00);
         textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle.formation.formation", "Formation") + ":",
+        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.formation.formation", "Formation") + ":",
                 getFormationName(ship.getStateMinor(ID.M.FormatType)), lc, vc);
 
         if (ship instanceof BasicEntityShipCV cvShip) {
             textY += 42;
-            drawStatLine(graphics, textX, textY, tr("gui.shincolle.airplanelight", "Light Aircraft") + ":",
+            drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.airplanelight", "Light Aircraft") + ":",
                     String.valueOf(cvShip.getNumAircraftLight()), lc, 0xFFFF00);
             textY += 21;
-            drawStatLine(graphics, textX, textY, tr("gui.shincolle.airplaneheavy", "Heavy Aircraft") + ":",
+            drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.airplaneheavy", "Heavy Aircraft") + ":",
                     String.valueOf(cvShip.getNumAircraftHeavy()), lc, 0xFFFF00);
         }
     }
@@ -708,7 +709,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         if (lines.isEmpty()) {
             return;
         }
-        lines.add(0, Component.translatable("gui.shincolle.additional_attributes"));
+        lines.add(0, Component.translatable("gui.shincolle_kai.additional_attributes"));
         graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);
     }
 
@@ -733,45 +734,45 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         Attrs attrs = ship.getAttrs();
         if (attrs instanceof AttrsAdv adv) {
             ShipAttributeValues moraleValues = adv.shipAttributes(ShipAttributeLayer.MORALE);
-            lines.add(Component.literal(tr("gui.shincolle.firepower1", "Firepower") + ": x "
+            lines.add(Component.literal(tr("gui.shincolle_kai.firepower1", "Firepower") + ": x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_L) * 100F)
                     + "% / "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_H) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.airfirepower", "Air Firepower") + ": x "
+            lines.add(Component.literal(tr("gui.shincolle_kai.airfirepower", "Air Firepower") + ": x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_AL) * 100F)
                     + "% / "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.ATK_AH) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.attackspeed", "Attack Speed") + ": x "
+            lines.add(Component.literal(tr("gui.shincolle_kai.attackspeed", "Attack Speed") + ": x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.SPD) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.range", "Range") + ": + "
+            lines.add(Component.literal(tr("gui.shincolle_kai.range", "Range") + ": + "
                     + String.format("%.1f", moraleValues.get(CoreShipAttributes.HIT))));
-            lines.add(Component.literal(tr("gui.shincolle.critical", "Critical") + ": x "
+            lines.add(Component.literal(tr("gui.shincolle_kai.critical", "Critical") + ": x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.CRI) * 100F) + "%"));
             lines.add(Component.literal("DHIT: x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.DHIT) * 100F) + "%"));
             lines.add(Component.literal("THIT: x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.THIT) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.missrate", "Miss") + ": x "
+            lines.add(Component.literal(tr("gui.shincolle_kai.missrate", "Miss") + ": x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.MISS) * 100F) + "%"));
             lines.add(Component.literal("AA: x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.AA) * 100F) + "%"));
             lines.add(Component.literal("ASM: x "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.ASM) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.armor", "Armor") + ": + "
+            lines.add(Component.literal(tr("gui.shincolle_kai.armor", "Armor") + ": + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.DEF) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.dodge", "Dodge") + ": + "
+            lines.add(Component.literal(tr("gui.shincolle_kai.dodge", "Dodge") + ": + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.DODGE) * 100F) + "%"));
             lines.add(Component.literal("XP: + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.XP) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.grudge", "Grudge") + ": + "
+            lines.add(Component.literal(tr("gui.shincolle_kai.grudge", "Grudge") + ": + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.GRUDGE) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.ammo", "Ammo") + ": + "
+            lines.add(Component.literal(tr("gui.shincolle_kai.ammo", "Ammo") + ": + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.AMMO) * 100F) + "%"));
             lines.add(Component.literal("HPRES: + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.HPRES) * 100F) + "%"));
             lines.add(Component.literal("KB: + "
                     + String.format("%.0f", moraleValues.get(CoreShipAttributes.KB) * 100F) + "%"));
-            lines.add(Component.literal(tr("gui.shincolle.movespeed", "Move Speed") + ": + "
+            lines.add(Component.literal(tr("gui.shincolle_kai.movespeed", "Move Speed") + ": + "
                     + String.format("%.2f", moraleValues.get(CoreShipAttributes.MOV))));
         }
 

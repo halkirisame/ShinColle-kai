@@ -1,6 +1,18 @@
 {
   "entries": [
-    "shincolle:add_drop"
+    "shincolle_kai:inject_stronghold_crossing",
+    "shincolle_kai:add_drop",
+    "shincolle_kai:inject_jungle_temple",
+    "shincolle_kai:inject_igloo",
+    "shincolle_kai:inject_nether_bridge",
+    "shincolle_kai:inject_village_weaponsmith",
+    "shincolle_kai:inject_pyramid",
+    "shincolle_kai:inject_end_city",
+    "shincolle_kai:inject_stronghold_corridor",
+    "shincolle_kai:inject_dungeon",
+    "shincolle_kai:inject_spawn_bonus",
+    "shincolle_kai:inject_mineshaft",
+    "shincolle_kai:inject_stronghold_library"
   ],
   "replace": false
 }

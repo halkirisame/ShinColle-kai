@@ -136,7 +136,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.shincolle.small_shipyard");
+        return Component.translatable("container.shincolle_kai.small_shipyard");
     }
 
     // ==================== ITileFurnace ====================

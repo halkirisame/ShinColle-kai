@@ -55,7 +55,7 @@ public class ShinColle {
 
         // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ConfigHandler.COMMON_SPEC,
-                "shincolle-common.toml");
+                Reference.MOD_ID + "-common.toml");
 
         // Register lifecycle event listeners
         modEventBus.addListener(this::commonSetup);
@@ -103,7 +103,8 @@ public class ShinColle {
         });
 
         // Load mining loot table config (CSV file)
-        ConfigMining.load(FMLPaths.CONFIGDIR.get().resolve("shincolle-mining.cfg").toFile());
+        ConfigMining.load(FMLPaths.CONFIGDIR.get()
+                .resolve(Reference.MOD_ID + "-mining.cfg").toFile());
     }
 
     /** Freezes addon equipment-provider registration after every mod has constructed. */

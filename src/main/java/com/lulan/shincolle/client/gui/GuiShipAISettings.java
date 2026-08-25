@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
 
@@ -32,7 +33,7 @@ import java.util.List;
  */
 public class GuiShipAISettings extends Screen {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guishipinventory.png");
 
     private static final int PANEL_WIDTH = 230;
@@ -132,114 +133,114 @@ public class GuiShipAISettings extends Screen {
     private static final String[] SIDE_NAMES = {"Down", "Up", "North", "South", "West", "East"};
 
     private static final List<Row> ROWS = List.of(
-            new Section("gui.shincolle.aisec.attack", "Attack"),
+            new Section("gui.shincolle_kai.aisec.attack", "Attack"),
             new Toggle(ID.F.UseMelee, ID.B.ShipInv_Melee, -1,
-                    "gui.shincolle.canmelee", "Melee Attack",
-                    "gui.shincolle.aidesc.melee", "Attack by ramming the target. Costs no ammo.",
+                    "gui.shincolle_kai.canmelee", "Melee Attack",
+                    "gui.shincolle_kai.aidesc.melee", "Attack by ramming the target. Costs no ammo.",
                     "", ""),
             new Toggle(ID.F.UseAmmoLight, ID.B.ShipInv_AmmoLight, ID.F.AtkType_Light,
-                    "gui.shincolle.canlightattack", "Light Ammo",
-                    "gui.shincolle.aidesc.atklight", "Cannon fire using Grudge Ammo.",
-                    "gui.shincolle.ailock.atklight", "This ship has no light cannon."),
+                    "gui.shincolle_kai.canlightattack", "Light Ammo",
+                    "gui.shincolle_kai.aidesc.atklight", "Cannon fire using Grudge Ammo.",
+                    "gui.shincolle_kai.ailock.atklight", "This ship has no light cannon."),
             new Toggle(ID.F.UseAmmoHeavy, ID.B.ShipInv_AmmoHeavy, ID.F.AtkType_Heavy,
-                    "gui.shincolle.canheavyattack", "Heavy Ammo",
-                    "gui.shincolle.aidesc.atkheavy", "Missile attack using Heavy Grudge Ammo.",
-                    "gui.shincolle.ailock.atkheavy", "This ship has no heavy cannon."),
+                    "gui.shincolle_kai.canheavyattack", "Heavy Ammo",
+                    "gui.shincolle_kai.aidesc.atkheavy", "Missile attack using Heavy Grudge Ammo.",
+                    "gui.shincolle_kai.ailock.atkheavy", "This ship has no heavy cannon."),
             new Toggle(ID.F.UseAirLight, ID.B.ShipInv_AirLight, ID.F.AtkType_AirLight,
-                    "gui.shincolle.canairlightattack", "Light Aircraft",
-                    "gui.shincolle.aidesc.atkairlight", "Launch light aircraft, spending Grudge Ammo.",
-                    "gui.shincolle.ailock.aircraft", "This ship cannot carry aircraft."),
+                    "gui.shincolle_kai.canairlightattack", "Light Aircraft",
+                    "gui.shincolle_kai.aidesc.atkairlight", "Launch light aircraft, spending Grudge Ammo.",
+                    "gui.shincolle_kai.ailock.aircraft", "This ship cannot carry aircraft."),
             new Toggle(ID.F.UseAirHeavy, ID.B.ShipInv_AirHeavy, ID.F.AtkType_AirHeavy,
-                    "gui.shincolle.canairheavyattack", "Heavy Aircraft",
-                    "gui.shincolle.aidesc.atkairheavy", "Launch heavy aircraft, spending Heavy Grudge Ammo.",
-                    "gui.shincolle.ailock.aircraft", "This ship cannot carry aircraft."),
+                    "gui.shincolle_kai.canairheavyattack", "Heavy Aircraft",
+                    "gui.shincolle_kai.aidesc.atkairheavy", "Launch heavy aircraft, spending Heavy Grudge Ammo.",
+                    "gui.shincolle_kai.ailock.aircraft", "This ship cannot carry aircraft."),
             new Toggle(ID.F.UseRingEffect, ID.B.ShipInv_AuraEffect, ID.F.HaveRingEffect,
-                    "gui.shincolle.auraeffect", "Special Ability",
-                    "gui.shincolle.aidesc.aura", "Use this ship's class ability and its wedding ring aura.",
-                    "gui.shincolle.ailock.aura", "Requires a wedding ring."),
+                    "gui.shincolle_kai.auraeffect", "Special Ability",
+                    "gui.shincolle_kai.aidesc.aura", "Use this ship's class ability and its wedding ring aura.",
+                    "gui.shincolle_kai.ailock.aura", "Requires a wedding ring."),
 
-            new Section("gui.shincolle.aisec.target", "Targeting"),
+            new Section("gui.shincolle_kai.aisec.target", "Targeting"),
             new Toggle(ID.F.PassiveAI, ID.B.ShipInv_TarAI, -1,
-                    "gui.shincolle.targetAI", "Passive",
-                    "gui.shincolle.aidesc.passive",
+                    "gui.shincolle_kai.targetAI", "Passive",
+                    "gui.shincolle_kai.aidesc.passive",
                     "Only strike back after being attacked, instead of seeking targets out.",
                     "", ""),
             new Toggle(ID.F.OnSightChase, ID.B.ShipInv_OnSightAI, -1,
-                    "gui.shincolle.onsightAI", "Line of Sight Only",
-                    "gui.shincolle.aidesc.onsight",
+                    "gui.shincolle_kai.onsightAI", "Line of Sight Only",
+                    "gui.shincolle_kai.aidesc.onsight",
                     "Drop the target the moment line of sight breaks, rather than chasing it.",
                     "", ""),
             new Toggle(ID.F.PVPFirst, ID.B.ShipInv_PVPAI, -1,
-                    "gui.shincolle.ai.pvp", "PVP Mode",
-                    "gui.shincolle.aidesc.pvp", "Prefer other players' ships as targets.",
+                    "gui.shincolle_kai.ai.pvp", "PVP Mode",
+                    "gui.shincolle_kai.aidesc.pvp", "Prefer other players' ships as targets.",
                     "", ""),
             new Toggle(ID.F.AntiAir, ID.B.ShipInv_AAAI, -1,
-                    "gui.shincolle.ai.aa", "Anti-Air",
-                    "gui.shincolle.aidesc.aa", "Prioritise aircraft and flying mobs.",
+                    "gui.shincolle_kai.ai.aa", "Anti-Air",
+                    "gui.shincolle_kai.aidesc.aa", "Prioritise aircraft and flying mobs.",
                     "", ""),
             new Toggle(ID.F.AntiSS, ID.B.ShipInv_ASMAI, -1,
-                    "gui.shincolle.ai.asm", "Anti-Submarine",
-                    "gui.shincolle.aidesc.asm", "Prioritise submarines and other invisible targets.",
+                    "gui.shincolle_kai.ai.asm", "Anti-Submarine",
+                    "gui.shincolle_kai.aidesc.asm", "Prioritise submarines and other invisible targets.",
                     "", ""),
             new Toggle(ID.F.TimeKeeper, ID.B.ShipInv_TIMEKEEPAI, -1,
-                    "gui.shincolle.ai.timekeeper", "Timekeeper",
-                    "gui.shincolle.aidesc.timekeeper", "Announce the time on the hour.",
+                    "gui.shincolle_kai.ai.timekeeper", "Timekeeper",
+                    "gui.shincolle_kai.aidesc.timekeeper", "Announce the time on the hour.",
                     "", ""),
 
-            new Section("gui.shincolle.aisec.move", "Movement"),
-            new Slider(0, "gui.shincolle.followmin", "Follow (Min)",
-                    "gui.shincolle.aidesc.followmin",
+            new Section("gui.shincolle_kai.aisec.move", "Movement"),
+            new Slider(0, "gui.shincolle_kai.followmin", "Follow (Min)",
+                    "gui.shincolle_kai.aidesc.followmin",
                     "Stop following once the ship is closer to you than this."),
-            new Slider(1, "gui.shincolle.followmax", "Follow (Max)",
-                    "gui.shincolle.aidesc.followmax",
+            new Slider(1, "gui.shincolle_kai.followmax", "Follow (Max)",
+                    "gui.shincolle_kai.aidesc.followmax",
                     "Start following once the ship is further from you than this."),
-            new Slider(2, "gui.shincolle.fleehp", "Flee HP%",
-                    "gui.shincolle.aidesc.fleehp",
+            new Slider(2, "gui.shincolle_kai.fleehp", "Flee HP%",
+                    "gui.shincolle_kai.aidesc.fleehp",
                     "Below this share of max HP the ship breaks off and runs back to you."),
-            new Slider(3, "gui.shincolle.ai.wpstay", "Waypoint Stay",
-                    "gui.shincolle.aidesc.wpstay", "How long to wait at each waypoint."),
+            new Slider(3, "gui.shincolle_kai.ai.wpstay", "Waypoint Stay",
+                    "gui.shincolle_kai.aidesc.wpstay", "How long to wait at each waypoint."),
 
-            new Section("gui.shincolle.aisec.supply", "Supply"),
+            new Section("gui.shincolle_kai.aisec.supply", "Supply"),
             new Toggle(ID.F.PickItem, ID.B.ShipInv_PickitemAI, ID.F.CanPickItem,
-                    "gui.shincolle.ai.pickitem", "Pick Up Items",
-                    "gui.shincolle.aidesc.pickitem",
+                    "gui.shincolle_kai.ai.pickitem", "Pick Up Items",
+                    "gui.shincolle_kai.aidesc.pickitem",
                     "Collect nearby dropped items. Also loosens the follow distance while hunting.",
-                    "gui.shincolle.ailock.pickitem", "This ship cannot pick up items."),
+                    "gui.shincolle_kai.ailock.pickitem", "This ship cannot pick up items."),
             new Toggle(ID.F.AutoPump, ID.B.ShipInv_AutoPump, -1,
-                    "gui.shincolle.autopump", "Auto Pump",
-                    "gui.shincolle.aidesc.autopump", "Automatically move fluids into the ship's tank.",
+                    "gui.shincolle_kai.autopump", "Auto Pump",
+                    "gui.shincolle_kai.aidesc.autopump", "Automatically move fluids into the ship's tank.",
                     "", ""),
-            new Slider(4, "gui.shincolle.autocombatration", "Auto Combat Ration",
-                    "gui.shincolle.aidesc.autocr",
+            new Slider(4, "gui.shincolle_kai.autocombatration", "Auto Combat Ration",
+                    "gui.shincolle_kai.aidesc.autocr",
                     "Eat a combat ration once morale drops to this level. Off disables it."),
 
-            new Section("gui.shincolle.aisec.look", "Appearance"),
+            new Section("gui.shincolle_kai.aisec.look", "Appearance"),
             new Toggle(ID.F.ShowHeldItem, ID.B.ShipInv_ShowHeld, -1,
-                    "gui.shincolle.showhelditem", "Show Held Item",
-                    "gui.shincolle.aidesc.showheld", "Render the item the ship is holding.",
+                    "gui.shincolle_kai.showhelditem", "Show Held Item",
+                    "gui.shincolle_kai.aidesc.showheld", "Render the item the ship is holding.",
                     "", ""),
-            new AppearGrid("gui.shincolle.appearance", "Appearance",
-                    "gui.shincolle.aidesc.appearance",
+            new AppearGrid("gui.shincolle_kai.appearance", "Appearance",
+                    "gui.shincolle_kai.aidesc.appearance",
                     "Toggle this ship's individual model parts."),
 
-            new Section("gui.shincolle.aisec.task", "Work Task"),
-            new TaskPick("gui.shincolle.aisec.taskpick", "Task",
-                    "gui.shincolle.aidesc.taskpick",
+            new Section("gui.shincolle_kai.aisec.task", "Work Task"),
+            new TaskPick("gui.shincolle_kai.aisec.taskpick", "Task",
+                    "gui.shincolle_kai.aidesc.taskpick",
                     "Pick a job for this ship. Clicking the active job again clears it."),
-            new MaskBit(18, "gui.shincolle.crane.usemeta", "Match Metadata",
-                    "gui.shincolle.aidesc.usemeta",
+            new MaskBit(18, "gui.shincolle_kai.crane.usemeta", "Match Metadata",
+                    "gui.shincolle_kai.aidesc.usemeta",
                     "When crafting, require item metadata to match as well."),
-            new MaskBit(20, "gui.shincolle.crane.usenbt", "Match NBT",
-                    "gui.shincolle.aidesc.usenbt",
+            new MaskBit(20, "gui.shincolle_kai.crane.usenbt", "Match NBT",
+                    "gui.shincolle_kai.aidesc.usenbt",
                     "When crafting, require NBT tags to match as well."),
-            new SideGrid(0, "gui.shincolle.ai.inputside", "Input Sides",
-                    "gui.shincolle.aidesc.inputside",
+            new SideGrid(0, "gui.shincolle_kai.ai.inputside", "Input Sides",
+                    "gui.shincolle_kai.aidesc.inputside",
                     "Which faces of the target block the ship inserts into."),
-            new SideGrid(1, "gui.shincolle.ai.outputside", "Output Sides",
-                    "gui.shincolle.aidesc.outputside",
+            new SideGrid(1, "gui.shincolle_kai.ai.outputside", "Output Sides",
+                    "gui.shincolle_kai.aidesc.outputside",
                     "Which faces of the target block the ship pulls results from."),
-            new SideGrid(2, "gui.shincolle.ai.fuelside", "Fuel Sides",
-                    "gui.shincolle.aidesc.fuelside",
+            new SideGrid(2, "gui.shincolle_kai.ai.fuelside", "Fuel Sides",
+                    "gui.shincolle_kai.aidesc.fuelside",
                     "Which faces of the target block the ship refuels through.")
     );
 
@@ -258,7 +259,7 @@ public class GuiShipAISettings extends Screen {
     private int dragPos = 0;
 
     public GuiShipAISettings(Screen parent, BasicEntityShip ship) {
-        super(Component.literal(tr("gui.shincolle.aisettings.title", "Settings")));
+        super(Component.literal(tr("gui.shincolle_kai.aisettings.title", "Settings")));
         this.parent = parent;
         this.ship = ship;
     }
@@ -692,11 +693,11 @@ public class GuiShipAISettings extends Screen {
 
     private static String getMoraleLevelName(int level) {
         return switch (level) {
-            case 1 -> tr("gui.shincolle.morale4", "Exhausted");
-            case 2 -> tr("gui.shincolle.morale3", "Tired");
-            case 3 -> tr("gui.shincolle.morale2", "Normal");
-            case 4 -> tr("gui.shincolle.morale1", "Happy");
-            default -> tr("gui.shincolle.general.off", "Off");
+            case 1 -> tr("gui.shincolle_kai.morale4", "Exhausted");
+            case 2 -> tr("gui.shincolle_kai.morale3", "Tired");
+            case 3 -> tr("gui.shincolle_kai.morale2", "Normal");
+            case 4 -> tr("gui.shincolle_kai.morale1", "Happy");
+            default -> tr("gui.shincolle_kai.general.off", "Off");
         };
     }
 }

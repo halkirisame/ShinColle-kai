@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.particle;
 
+import com.lulan.shincolle.reference.Reference;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Camera;
@@ -23,7 +24,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 @OnlyIn(Dist.CLIENT)
 public class ParticleTexts extends Particle {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/particles/particletexts.png");
     private final int particleType; // 0:miss 1:critical 2:double hit 3:triple hit 4:dodge
     private final float pScale;

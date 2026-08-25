@@ -179,7 +179,7 @@ public class ShipItemPeekHandler {
 
         int y = top + Padding + titleHeight;
         if (allEmpty) {
-            graphics.drawString(mc.font, Component.translatable("gui.shincolle.peek.empty"),
+            graphics.drawString(mc.font, Component.translatable("gui.shincolle_kai.peek.empty"),
                     left + Padding, y, 0xA0A0A0, true);
             return;
         }

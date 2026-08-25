@@ -40,7 +40,7 @@ public class EquipCompass extends BasicEquip {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.compass").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gui.shincolle_kai.compass").withStyle(ChatFormatting.GRAY));
         super.appendHoverText(stack, level, tooltip, flag);
     }
 }

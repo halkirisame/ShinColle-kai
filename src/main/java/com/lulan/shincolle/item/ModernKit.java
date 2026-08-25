@@ -19,6 +19,6 @@ public class ModernKit extends BasicItem {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("gui.shincolle.modernkit").withStyle(ChatFormatting.GOLD));
+        tooltip.add(Component.translatable("gui.shincolle_kai.modernkit").withStyle(ChatFormatting.GOLD));
     }
 }

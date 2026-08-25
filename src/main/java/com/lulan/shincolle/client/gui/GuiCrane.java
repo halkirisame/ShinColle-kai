@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.client.gui.inventory.ContainerCrane;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
@@ -25,7 +26,7 @@ import java.util.List;
  */
 public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
 
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle", "textures/gui/guicrane.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID, "textures/gui/guicrane.png");
 
     public GuiCrane(ContainerCrane menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -106,10 +107,10 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
         graphics.drawString(this.font, modeStr, 57 - modeLen, 9, 0xFFFF00, true);
 
         // Draw section labels (original positions)
-        String loadLabel = tr("gui.shincolle.crane.toship", "To Ship");
+        String loadLabel = tr("gui.shincolle_kai.crane.toship", "To Ship");
         graphics.drawString(this.font, loadLabel, 21, 54, 0xFF5555, false);
 
-        String unloadLabel = tr("gui.shincolle.crane.tochest", "To Chest");
+        String unloadLabel = tr("gui.shincolle_kai.crane.tochest", "To Chest");
         graphics.drawString(this.font, unloadLabel, 21, 85, 0x000000, false);
 
         // TODO: draw ship name when crane is paired (requires TileEntityCrane.getShip())
@@ -194,33 +195,33 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
 
         if (my > 21 && my < 34) {
             if (mx > 22 && mx < 35) {
-                lines.add(Component.literal(tr("gui.shincolle.crane.usemeta", "Check Metadata")));
+                lines.add(Component.literal(tr("gui.shincolle_kai.crane.usemeta", "Check Metadata")));
             } else if (mx > 36 && mx < 49) {
-                lines.add(Component.literal(tr("gui.shincolle.crane.useoredict", "Lookup Ore Dictionary")));
+                lines.add(Component.literal(tr("gui.shincolle_kai.crane.useoredict", "Lookup Ore Dictionary")));
             } else if (mx > 50 && mx < 63) {
-                lines.add(Component.literal(tr("gui.shincolle.crane.usenbt", "Check NBT tags")));
+                lines.add(Component.literal(tr("gui.shincolle_kai.crane.usenbt", "Check NBT tags")));
             } else if (mx > 64 && mx < 77) {
                 int mode = this.menu.getRedSignalMode();
                 lines.add(Component.literal(switch (mode) {
-                    case 1 -> tr("gui.shincolle.crane.red1", "Emit continuous redstone signal");
-                    case 2 -> tr("gui.shincolle.crane.red2", "Emit a pulse signal");
-                    default -> tr("gui.shincolle.crane.red0", "No redstone signal");
+                    case 1 -> tr("gui.shincolle_kai.crane.red1", "Emit continuous redstone signal");
+                    case 2 -> tr("gui.shincolle_kai.crane.red2", "Emit a pulse signal");
+                    default -> tr("gui.shincolle_kai.crane.red0", "No redstone signal");
                 }));
             }
         } else if (my > 35 && my < 50) {
             if (mx > 22 && mx < 37) {
                 int mode = this.menu.getLiquidMode();
                 lines.add(Component.literal(switch (mode) {
-                    case 1 -> tr("gui.shincolle.crane.liquid1", "Loading liquid to ship");
-                    case 2 -> tr("gui.shincolle.crane.liquid2", "Unloading liquid to crane");
-                    default -> tr("gui.shincolle.crane.liquid0", "Liquid transport disabled");
+                    case 1 -> tr("gui.shincolle_kai.crane.liquid1", "Loading liquid to ship");
+                    case 2 -> tr("gui.shincolle_kai.crane.liquid2", "Unloading liquid to crane");
+                    default -> tr("gui.shincolle_kai.crane.liquid0", "Liquid transport disabled");
                 }));
             } else if (mx > 39 && mx < 52) {
                 int mode = this.menu.getEnergyMode();
                 lines.add(Component.literal(switch (mode) {
-                    case 1 -> tr("gui.shincolle.crane.energy1", "Transferring energy to ship");
-                    case 2 -> tr("gui.shincolle.crane.energy2", "Transferring energy to crane");
-                    default -> tr("gui.shincolle.crane.energy0", "Energy transport disabled");
+                    case 1 -> tr("gui.shincolle_kai.crane.energy1", "Transferring energy to ship");
+                    case 2 -> tr("gui.shincolle_kai.crane.energy2", "Transferring energy to crane");
+                    default -> tr("gui.shincolle_kai.crane.energy0", "Energy transport disabled");
                 }));
             }
         }
@@ -228,26 +229,26 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
         if (mx > 22 && mx < 91 && my > 5 && my < 20) {
             int mode = this.menu.getCraneMode();
             switch (mode) {
-                case 0 -> lines.add(Component.literal(tr("gui.shincolle.crane.nowait1",
+                case 0 -> lines.add(Component.literal(tr("gui.shincolle_kai.crane.nowait1",
                         "Stop craning immediately if no item can load/unload")));
                 case 1 -> {
-                    lines.add(Component.literal(tr("gui.shincolle.crane.untilfull1", "LOADING: until ship full")));
-                    lines.add(Component.literal(tr("gui.shincolle.crane.untilfull2", "UNLOADING: until chest full")));
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.untilfull1", "LOADING: until ship full")));
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.untilfull2", "UNLOADING: until chest full")));
                 }
                 case 2 -> {
-                    lines.add(Component.literal(tr("gui.shincolle.crane.untilempty1", "LOADING: until chest empty")));
-                    lines.add(Component.literal(tr("gui.shincolle.crane.untilempty2", "UNLOADING: until ship empty")));
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.untilempty1", "LOADING: until chest empty")));
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.untilempty2", "UNLOADING: until ship empty")));
                 }
                 case 3 -> {
-                    lines.add(Component.literal(tr("gui.shincolle.crane.excess1",
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.excess1",
                             "LOADING: exceed specified stack amount in ship")));
-                    lines.add(Component.literal(tr("gui.shincolle.crane.excess2",
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.excess2",
                             "UNLOADING: exceed specified stack amount in chest")));
                 }
                 case 4 -> {
-                    lines.add(Component.literal(tr("gui.shincolle.crane.remain1",
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.remain1",
                             "LOADING: keep specified stack amount in chest")));
-                    lines.add(Component.literal(tr("gui.shincolle.crane.remain2",
+                    lines.add(Component.literal(tr("gui.shincolle_kai.crane.remain2",
                             "UNLOADING: keep specified stack amount in ship")));
                 }
                 default -> {

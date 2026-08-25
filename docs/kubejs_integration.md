@@ -18,16 +18,16 @@ KubeJS、startup scripts、KubeJSで登録するItemはclientとserverの両方�
 装備JSONはserver datapackが正です。装備定義はShinColle-kaiの既存同期処理によって
 login時と`/reload`時にclientへ送られます。
 
-equipment JSONの完全な語彙は[JSON Schema](schemas/shincolle-equipment.schema.json)を参照して
+equipment JSONの完全な語彙は[JSON Schema](schemas/shincolle_kai-equipment.schema.json)を参照して
 ください。KubeJSが不要な既存Itemの固定値装備なら、より小さい
 [JSON-only datapack例](../examples/equipment_datapack/README.md)から始められます。
 
 ## 1. 艦属性を登録する
 
-`kubejs/startup_scripts/shincolle_attributes.js`:
+`kubejs/startup_scripts/shincolle_kai_attributes.js`:
 
 ```javascript
-StartupEvents.registry('shincolle:ship_attribute', event => {
+StartupEvents.registry('shincolle_kai:ship_attribute', event => {
   event.create('kubejs:sonar_precision')
     .displayName('Sonar Precision')
     .raw(0)
@@ -84,7 +84,7 @@ client/serverで同じ計算を再現できるよう、Java側の名前付き方
 
 ## 2. KubeJS Itemを登録する
 
-`kubejs/startup_scripts/shincolle_items.js`:
+`kubejs/startup_scripts/shincolle_kai_items.js`:
 
 ```javascript
 StartupEvents.registry('item', event => {
@@ -115,7 +115,7 @@ StartupEvents.registry('item', event => {
   },
   "roll_type": 14,
   "stats": {
-    "shincolle:hit": 2.0,
+    "shincolle_kai:hit": 2.0,
     "kubejs:sonar_precision": 0.15
   },
   "attack_effects": [

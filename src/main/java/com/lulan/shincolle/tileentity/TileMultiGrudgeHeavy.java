@@ -146,7 +146,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.shincolle.large_shipyard");
+        return Component.translatable("container.shincolle_kai.large_shipyard");
     }
 
     // ==================== ITileFurnace ====================

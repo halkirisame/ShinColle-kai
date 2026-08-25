@@ -41,7 +41,7 @@ public class CombatRation extends BasicItem implements IShipCombatRation {
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         // Description per type (may contain newlines)
-        String str = Component.translatable("gui.shincolle.combatration" + this.type).getString();
+        String str = Component.translatable("gui.shincolle_kai.combatration" + this.type).getString();
         String[] lines = str.split("\n");
         for (String line : lines) {
             tooltip.add(Component.literal(line));
@@ -49,12 +49,12 @@ public class CombatRation extends BasicItem implements IShipCombatRation {
 
         // Morale bonus
         tooltip.add(Component.literal(ChatFormatting.LIGHT_PURPLE + "+" + getMoraleValue(0) + " " +
-                Component.translatable("gui.shincolle.combatration").getString()));
+                Component.translatable("gui.shincolle_kai.combatration").getString()));
 
         // Food bonus
         int food = (int) getFoodValue(0);
         tooltip.add(Component.literal(ChatFormatting.RED + "+" + food + "~" + food * 2 + " " +
-                Component.translatable("item.shincolle.grudge").getString()));
+                Component.translatable("item.shincolle_kai.grudge").getString()));
     }
 
     public int getType() {

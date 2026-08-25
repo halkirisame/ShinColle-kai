@@ -49,7 +49,7 @@ public final class ShipAttributeLimitGameTests {
         ShipAttributeLayout layout = testLayout();
         ShipAttributeLimits limits = ShipAttributeLimits.resolve(
                 List.of(80D),
-                List.of("shincolle:hp=0.5", "shincolle:def=-1", CUSTOM + "=3"),
+                List.of("shincolle_kai:hp=0.5", "shincolle_kai:def=-1", CUSTOM + "=3"),
                 layout, message -> {
                     throw new AssertionError("Valid named limits produced warning: " + message);
                 });

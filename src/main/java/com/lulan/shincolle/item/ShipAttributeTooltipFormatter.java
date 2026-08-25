@@ -32,27 +32,27 @@ public final class ShipAttributeTooltipFormatter {
     }
 
     private static final List<StatDisplay> STAT_DISPLAYS = List.of(
-            new StatDisplay(ID.Attrs.HP, ChatFormatting.RED, "gui.shincolle.hp", "%.1f", ID.AttrsBase.HP, false, false),
-            new StatDisplay(ID.Attrs.ATK_L, ChatFormatting.RED, "gui.shincolle.firepower1", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.ATK_H, ChatFormatting.GREEN, "gui.shincolle.torpedo", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.ATK_AL, ChatFormatting.RED, "gui.shincolle.airfirepower", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.ATK_AH, ChatFormatting.GREEN, "gui.shincolle.airtorpedo", "%.1f", ID.AttrsBase.ATK, false, false),
-            new StatDisplay(ID.Attrs.DEF, ChatFormatting.WHITE, "gui.shincolle.armor", "%.1f", ID.AttrsBase.DEF, true, false),
-            new StatDisplay(ID.Attrs.SPD, ChatFormatting.WHITE, "gui.shincolle.attackspeed", "%.2f", ID.AttrsBase.SPD, false, false),
-            new StatDisplay(ID.Attrs.MOV, ChatFormatting.GRAY, "gui.shincolle.movespeed", "%.2f", ID.AttrsBase.MOV, false, false),
-            new StatDisplay(ID.Attrs.HIT, ChatFormatting.LIGHT_PURPLE, "gui.shincolle.range", "%.1f", ID.AttrsBase.HIT, false, false),
-            new StatDisplay(ID.Attrs.CRI, ChatFormatting.AQUA, "gui.shincolle.critical", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.DHIT, ChatFormatting.YELLOW, "gui.shincolle.doublehit", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.THIT, ChatFormatting.GOLD, "gui.shincolle.triplehit", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.MISS, ChatFormatting.RED, "gui.shincolle.missreduce", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.DODGE, ChatFormatting.GOLD, "gui.shincolle.dodge", "%.0f", -1, true, false),
-            new StatDisplay(ID.Attrs.AA, ChatFormatting.YELLOW, "gui.shincolle.antiair", "%.1f", -1, false, false),
-            new StatDisplay(ID.Attrs.ASM, ChatFormatting.AQUA, "gui.shincolle.antiss", "%.1f", -1, false, false),
-            new StatDisplay(ID.Attrs.XP, ChatFormatting.GREEN, "gui.shincolle.equip.xp", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.GRUDGE, ChatFormatting.DARK_PURPLE, "gui.shincolle.equip.grudge", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.AMMO, ChatFormatting.DARK_AQUA, "gui.shincolle.equip.ammo", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.HPRES, ChatFormatting.DARK_GREEN, "gui.shincolle.equip.hpres", "%.0f", -1, true, true),
-            new StatDisplay(ID.Attrs.KB, ChatFormatting.DARK_RED, "gui.shincolle.equip.kb", "%.0f", -1, true, true)
+            new StatDisplay(ID.Attrs.HP, ChatFormatting.RED, "gui.shincolle_kai.hp", "%.1f", ID.AttrsBase.HP, false, false),
+            new StatDisplay(ID.Attrs.ATK_L, ChatFormatting.RED, "gui.shincolle_kai.firepower1", "%.1f", ID.AttrsBase.ATK, false, false),
+            new StatDisplay(ID.Attrs.ATK_H, ChatFormatting.GREEN, "gui.shincolle_kai.torpedo", "%.1f", ID.AttrsBase.ATK, false, false),
+            new StatDisplay(ID.Attrs.ATK_AL, ChatFormatting.RED, "gui.shincolle_kai.airfirepower", "%.1f", ID.AttrsBase.ATK, false, false),
+            new StatDisplay(ID.Attrs.ATK_AH, ChatFormatting.GREEN, "gui.shincolle_kai.airtorpedo", "%.1f", ID.AttrsBase.ATK, false, false),
+            new StatDisplay(ID.Attrs.DEF, ChatFormatting.WHITE, "gui.shincolle_kai.armor", "%.1f", ID.AttrsBase.DEF, true, false),
+            new StatDisplay(ID.Attrs.SPD, ChatFormatting.WHITE, "gui.shincolle_kai.attackspeed", "%.2f", ID.AttrsBase.SPD, false, false),
+            new StatDisplay(ID.Attrs.MOV, ChatFormatting.GRAY, "gui.shincolle_kai.movespeed", "%.2f", ID.AttrsBase.MOV, false, false),
+            new StatDisplay(ID.Attrs.HIT, ChatFormatting.LIGHT_PURPLE, "gui.shincolle_kai.range", "%.1f", ID.AttrsBase.HIT, false, false),
+            new StatDisplay(ID.Attrs.CRI, ChatFormatting.AQUA, "gui.shincolle_kai.critical", "%.0f", -1, true, false),
+            new StatDisplay(ID.Attrs.DHIT, ChatFormatting.YELLOW, "gui.shincolle_kai.doublehit", "%.0f", -1, true, false),
+            new StatDisplay(ID.Attrs.THIT, ChatFormatting.GOLD, "gui.shincolle_kai.triplehit", "%.0f", -1, true, false),
+            new StatDisplay(ID.Attrs.MISS, ChatFormatting.RED, "gui.shincolle_kai.missreduce", "%.0f", -1, true, false),
+            new StatDisplay(ID.Attrs.DODGE, ChatFormatting.GOLD, "gui.shincolle_kai.dodge", "%.0f", -1, true, false),
+            new StatDisplay(ID.Attrs.AA, ChatFormatting.YELLOW, "gui.shincolle_kai.antiair", "%.1f", -1, false, false),
+            new StatDisplay(ID.Attrs.ASM, ChatFormatting.AQUA, "gui.shincolle_kai.antiss", "%.1f", -1, false, false),
+            new StatDisplay(ID.Attrs.XP, ChatFormatting.GREEN, "gui.shincolle_kai.equip.xp", "%.0f", -1, true, true),
+            new StatDisplay(ID.Attrs.GRUDGE, ChatFormatting.DARK_PURPLE, "gui.shincolle_kai.equip.grudge", "%.0f", -1, true, true),
+            new StatDisplay(ID.Attrs.AMMO, ChatFormatting.DARK_AQUA, "gui.shincolle_kai.equip.ammo", "%.0f", -1, true, true),
+            new StatDisplay(ID.Attrs.HPRES, ChatFormatting.DARK_GREEN, "gui.shincolle_kai.equip.hpres", "%.0f", -1, true, true),
+            new StatDisplay(ID.Attrs.KB, ChatFormatting.DARK_RED, "gui.shincolle_kai.equip.kb", "%.0f", -1, true, true)
     );
 
     private ShipAttributeTooltipFormatter() {
@@ -91,7 +91,7 @@ public final class ShipAttributeTooltipFormatter {
                                          List<Component> tooltip) {
         int omitted = appendCustom(values, displayLayout, tooltip, false, MAX_FINAL_CUSTOM_ATTRIBUTES);
         if (omitted > 0) {
-            tooltip.add(Component.translatable("gui.shincolle.additional_attributes.more", omitted)
+            tooltip.add(Component.translatable("gui.shincolle_kai.additional_attributes.more", omitted)
                     .withStyle(ChatFormatting.DARK_GRAY));
         }
     }

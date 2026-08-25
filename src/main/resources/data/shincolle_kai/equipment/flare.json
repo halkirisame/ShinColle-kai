@@ -1,0 +1,25 @@
+{
+  "equip_id": 26,
+  "item": "shincolle_kai:equip_flare",
+  "variant": 0,
+  "equip_type": "flare_lo",
+  "compatible": [
+    "cannon"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "ammo",
+    "amount": 80,
+    "rare_mean": 2000
+  },
+  "roll_type": 26,
+  "stats": {
+    "shincolle_kai:atk_l": 1.0,
+    "shincolle_kai:atk_al": 2.0,
+    "shincolle_kai:mov": -0.02,
+    "shincolle_kai:hit": 2.0,
+    "shincolle_kai:cri": 0.04,
+    "shincolle_kai:miss": 0.05,
+    "shincolle_kai:asm": 5.0
+  }
+}

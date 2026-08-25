@@ -1,0 +1,20 @@
+{
+  "equip_id": 517,
+  "item": "shincolle_kai:equip_turbine",
+  "variant": 5,
+  "equip_type": "turbine_hi",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "grudge",
+    "amount": 1,
+    "rare_mean": 1
+  },
+  "roll_type": 17,
+  "stats": {
+    "shincolle_kai:hp": 99999
+  }
+}

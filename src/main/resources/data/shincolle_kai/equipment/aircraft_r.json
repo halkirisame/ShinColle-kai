@@ -1,0 +1,32 @@
+{
+  "equip_id": 1312,
+  "item": "shincolle_kai:equip_airplane",
+  "variant": 13,
+  "equip_type": "air_r_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "abyss_metal_1",
+    "amount": 256,
+    "rare_mean": 200
+  },
+  "roll_type": 12,
+  "stats": {
+    "shincolle_kai:atk_l": 1.0,
+    "shincolle_kai:atk_h": 1.0,
+    "shincolle_kai:atk_al": 1.0,
+    "shincolle_kai:atk_ah": 1.0,
+    "shincolle_kai:def": 0.03,
+    "shincolle_kai:spd": 0.02,
+    "shincolle_kai:mov": -0.1,
+    "shincolle_kai:hit": 3.5,
+    "shincolle_kai:cri": 0.03,
+    "shincolle_kai:miss": 0.1,
+    "shincolle_kai:aa": 8.0,
+    "shincolle_kai:asm": 4.0,
+    "shincolle_kai:dodge": 0.08
+  }
+}

@@ -145,9 +145,9 @@ public class GuiBook {
     private static void drawTitleText() {
         String str;
         if (numChap == 0) {
-            str = Component.translatable("gui.shincolle.book.chap" + numChap + ".title").getString();
+            str = Component.translatable("gui.shincolle_kai.book.chap" + numChap + ".title").getString();
         } else {
-            str = Component.translatable("gui.shincolle.book.chap" + numChap + ".title" + numPage).getString();
+            str = Component.translatable("gui.shincolle_kai.book.chap" + numChap + ".title" + numPage).getString();
         }
 
         int strlen = (int) (font.width(str) * 0.5F);
@@ -173,7 +173,7 @@ public class GuiBook {
             picX = PageTRX;
         picX += offX;
 
-        String key = "gui.shincolle.book.chap" + numChap + ".text" + numPage + "d" + pageSide;
+        String key = "gui.shincolle_kai.book.chap" + numChap + ".text" + numPage + "d" + pageSide;
         String str = Component.translatable(key).getString();
 
         // Skip if translation key doesn't exist (getString returns the key itself)

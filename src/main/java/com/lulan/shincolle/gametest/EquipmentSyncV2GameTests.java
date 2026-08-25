@@ -32,8 +32,8 @@ import java.util.Map;
 @PrefixGameTestTemplate(false)
 public final class EquipmentSyncV2GameTests {
 
-    private static final ResourceLocation ITEM = id("shincolle", "equip_cannon");
-    private static final ResourceLocation CORE_HP = id("shincolle", "hp");
+    private static final ResourceLocation ITEM = id(Reference.MOD_ID, "equip_cannon");
+    private static final ResourceLocation CORE_HP = id(Reference.MOD_ID, "hp");
     private static final ResourceLocation OPAQUE = id("sync_test", "opaque_precision");
     private static final ResourceLocation POISON = id("minecraft", "poison");
 

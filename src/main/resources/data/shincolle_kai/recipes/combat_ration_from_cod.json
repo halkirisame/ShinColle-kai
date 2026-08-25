@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:cooked_cod"
+    },
+    {
+      "item": "minecraft:golden_carrot"
+    },
+    {
+      "item": "shincolle_kai:grudge"
+    },
+    {
+      "item": "minecraft:wheat"
+    }
+  ],
+  "result": {
+    "item": "shincolle_kai:combat_ration",
+    "count": 1
+  }
+}

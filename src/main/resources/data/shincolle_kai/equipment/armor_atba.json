@@ -1,0 +1,24 @@
+{
+  "equip_id": 518,
+  "item": "shincolle_kai:equip_armor",
+  "variant": 5,
+  "equip_type": "armor_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "armor",
+  "develop": {
+    "material": "abyss_metal",
+    "amount": 80,
+    "rare_mean": 4000
+  },
+  "roll_type": 18,
+  "stats": {
+    "shincolle_kai:hp": 100.0,
+    "shincolle_kai:def": 0.16,
+    "shincolle_kai:mov": -0.22,
+    "shincolle_kai:hpres": 0.1,
+    "shincolle_kai:kb": 0.2
+  }
+}

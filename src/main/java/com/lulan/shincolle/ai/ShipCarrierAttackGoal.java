@@ -86,17 +86,10 @@ public class ShipCarrierAttackGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return this.target != null
-                && this.target.isAlive()
-                && !this.host.getIsSitting()
-                && this.host.getStateMinor(ID.M.CraneState) <= 0
-                && !(this.host.getIsRiding() && this.entity.getVehicle() instanceof BasicEntityMount)
-                && ((this.host.getAttackType(ID.F.AtkType_AirLight)
-                        && this.host.getStateFlag(ID.F.UseAirLight)
-                        && this.host.hasAmmoLight() && this.host.hasAirLight())
-                    || (this.host.getAttackType(ID.F.AtkType_AirHeavy)
-                        && this.host.getStateFlag(ID.F.UseAirHeavy)
-                        && this.host.hasAmmoHeavy() && this.host.hasAirHeavy()));
+        if (this.target != null && this.target.isAlive() && !this.entity.getNavigation().isDone()) {
+            return true;
+        }
+        return this.canUse();
     }
 
     @Override

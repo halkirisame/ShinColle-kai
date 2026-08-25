@@ -53,7 +53,7 @@ public class TileEntityDesk extends BasicTileInventory implements MenuProvider {
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.shincolle.desk");
+        return Component.translatable("container.shincolle_kai.desk");
     }
 
     @Override

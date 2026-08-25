@@ -1485,17 +1485,17 @@ public final class ShinColleEntityRegistryGameTests {
     public static void shipSpawnEggModelLayerAssignmentsMatchLegacy(GameTestHelper helper) {
         // [PORT] 1.10.2 -> 1.20.1: lock legacy icon->texture assignment to avoid silent
         // model drift in spawn eggs.
-        assertModelLayer0("ship_spawn_egg.json", "shincolle:item/ship_spawn_egg_primary");
-        assertModelLayer0("ship_spawn_egg_l.json", "shincolle:item/ship_spawn_egg_l");
-        assertModelLayer0("ship_spawn_egg_dd.json", "shincolle:item/ship_spawn_egg_0");
-        assertModelLayer0("ship_spawn_egg_cl.json", "shincolle:item/ship_spawn_egg_1");
-        assertModelLayer0("ship_spawn_egg_ca.json", "shincolle:item/ship_spawn_egg_2");
-        assertModelLayer0("ship_spawn_egg_bb.json", "shincolle:item/ship_spawn_egg_3");
-        assertModelLayer0("ship_spawn_egg_ap.json", "shincolle:item/ship_spawn_egg_4");
-        assertModelLayer0("ship_spawn_egg_ss.json", "shincolle:item/ship_spawn_egg_5");
-        assertModelLayer0("ship_spawn_egg_wd.json", "shincolle:item/ship_spawn_egg_6");
-        assertModelLayer0("ship_spawn_egg_hime.json", "shincolle:item/ship_spawn_egg_7");
-        assertModelLayer0("ship_spawn_egg_cv.json", "shincolle:item/ship_spawn_egg_8");
+        assertModelLayer0("ship_spawn_egg.json", "shincolle_kai:item/ship_spawn_egg_primary");
+        assertModelLayer0("ship_spawn_egg_l.json", "shincolle_kai:item/ship_spawn_egg_l");
+        assertModelLayer0("ship_spawn_egg_dd.json", "shincolle_kai:item/ship_spawn_egg_0");
+        assertModelLayer0("ship_spawn_egg_cl.json", "shincolle_kai:item/ship_spawn_egg_1");
+        assertModelLayer0("ship_spawn_egg_ca.json", "shincolle_kai:item/ship_spawn_egg_2");
+        assertModelLayer0("ship_spawn_egg_bb.json", "shincolle_kai:item/ship_spawn_egg_3");
+        assertModelLayer0("ship_spawn_egg_ap.json", "shincolle_kai:item/ship_spawn_egg_4");
+        assertModelLayer0("ship_spawn_egg_ss.json", "shincolle_kai:item/ship_spawn_egg_5");
+        assertModelLayer0("ship_spawn_egg_wd.json", "shincolle_kai:item/ship_spawn_egg_6");
+        assertModelLayer0("ship_spawn_egg_hime.json", "shincolle_kai:item/ship_spawn_egg_7");
+        assertModelLayer0("ship_spawn_egg_cv.json", "shincolle_kai:item/ship_spawn_egg_8");
 
         helper.succeed();
     }
@@ -2003,7 +2003,7 @@ public final class ShinColleEntityRegistryGameTests {
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "resource_amount_config")
     public static void shipyardResourcePolicyUsesEasyModeExactlyOnce(GameTestHelper helper) {
         boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
-        Path configPath = FMLPaths.CONFIGDIR.get().resolve("shincolle-common.toml");
+        Path configPath = FMLPaths.CONFIGDIR.get().resolve(Reference.MOD_ID + "-common.toml");
         boolean originalConfigExists = Files.exists(configPath);
         byte[] originalConfigBytes = readOptionalFile(configPath);
 
@@ -3766,7 +3766,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     private static void assertModelLayer0(String modelFileName, String expectedTexture) {
-        Path modelPath = Path.of("src", "main", "resources", "assets", "shincolle", "models", "item", modelFileName);
+        Path modelPath = Path.of("src", "main", "resources", "assets", Reference.MOD_ID, "models", "item", modelFileName);
         try {
             String content = Files.readString(modelPath);
             String expectedLine = "\"layer0\": \"" + expectedTexture + "\"";

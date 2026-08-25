@@ -1,0 +1,26 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "shincolle_kai:item/equip_airplane"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "shincolle_kai:equip_icon": 1
+      },
+      "model": "shincolle_kai:item/equip_airplane_fighter"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:equip_icon": 2
+      },
+      "model": "shincolle_kai:item/equip_airplane_bomber"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:equip_icon": 3
+      },
+      "model": "shincolle_kai:item/equip_airplane_recon"
+    }
+  ]
+}

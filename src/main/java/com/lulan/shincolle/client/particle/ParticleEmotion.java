@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.particle;
 
+import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.utility.CalcHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -26,7 +27,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 public class ParticleEmotion extends Particle {
 
     public static final int EMO_NUMBER = 30;
-    private static final ResourceLocation TEXTURE = new ResourceLocation("shincolle",
+    private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/particles/particleemotion.png");
     private final Entity host;
     private final int particleType;

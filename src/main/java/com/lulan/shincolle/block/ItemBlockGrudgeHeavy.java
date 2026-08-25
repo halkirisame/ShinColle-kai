@@ -32,13 +32,13 @@ public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem
                 int[] mats = nbt.getIntArray("mats");
                 if (mats.length >= 4) {
                     tooltip.add(Component.literal(
-                            ChatFormatting.WHITE + "" + mats[0] + " " + Component.translatable("item.shincolle.grudge").getString()));
+                            ChatFormatting.WHITE + "" + mats[0] + " " + Component.translatable("item.shincolle_kai.grudge").getString()));
                     tooltip.add(Component.literal(
-                            ChatFormatting.RED + "" + mats[1] + " " + Component.translatable("item.shincolle.abyss_metal").getString()));
+                            ChatFormatting.RED + "" + mats[1] + " " + Component.translatable("item.shincolle_kai.abyss_metal").getString()));
                     tooltip.add(Component.literal(
-                            ChatFormatting.GREEN + "" + mats[2] + " " + Component.translatable("item.shincolle.ammo").getString()));
+                            ChatFormatting.GREEN + "" + mats[2] + " " + Component.translatable("item.shincolle_kai.ammo").getString()));
                     tooltip.add(Component.literal(
-                            ChatFormatting.AQUA + "" + mats[3] + " " + Component.translatable("item.shincolle.abyss_metal_1").getString()));
+                            ChatFormatting.AQUA + "" + mats[3] + " " + Component.translatable("item.shincolle_kai.abyss_metal_1").getString()));
                 }
             }
         }

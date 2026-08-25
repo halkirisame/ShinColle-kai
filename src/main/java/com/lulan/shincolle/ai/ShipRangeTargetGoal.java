@@ -222,7 +222,7 @@ public class ShipRangeTargetGoal extends Goal {
     public boolean canContinueToUse() {
         Entity target = this.entity.getTarget();
 
-        if (!(target instanceof LivingEntity livingTarget) || !target.isAlive()) {
+        if (!(target instanceof LivingEntity) || !target.isAlive()) {
             LogHelper.debug("DEBUG: range target AI: " + this.entity
                     + " lost target: target null or dead");
             return false;
@@ -238,15 +238,6 @@ public class ShipRangeTargetGoal extends Goal {
             LogHelper.debug("DEBUG: range target AI: " + this.entity
                     + " lost target=" + target + ": out of range ("
                     + Math.sqrt(this.entity.distanceToSqr(target)) + " > " + this.range + ")");
-            return false;
-        }
-
-        if (!isValidTarget(livingTarget)) {
-            return false;
-        }
-
-        if (this.entity instanceof com.lulan.shincolle.entity.BasicEntityShip
-                && TargetHelper.checkIsAlly(this.entity, target)) {
             return false;
         }
 
