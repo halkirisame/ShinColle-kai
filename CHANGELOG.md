@@ -61,7 +61,7 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 - 艦属性registryの正式なResourceLocationとregistry keyをPublic APIへ移し、JavaアドオンとKubeJSが同じ正本を参照するようにしました。
 - 友軍艦の内部classや所有UIDへ依存せず、プレイヤーの所有艦かを問い合わせられるread-only APIを追加しました。
-- Public APIはShinColle-kai本体JARへ同梱し、別の`shincolle_api` MODを並存させない配布方針を明文化しました。
+- Public APIはShinColle-kai本体JARへ同梱する配布方針を明文化しました。別途APIのMODを導入する必要はありません。
 - Javaアドオン向けに属性登録、動的装備、equipment JSON、所有関係、client/server lifecycleの利用例を追加しました。
 - 旧版向けJavaアドオンが無変更で動くというREADMEの誤った記述を訂正しました。
 

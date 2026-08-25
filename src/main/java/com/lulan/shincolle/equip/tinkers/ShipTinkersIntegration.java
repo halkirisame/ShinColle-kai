@@ -33,9 +33,9 @@ import java.util.Map;
  * instance below with the canonical ship-equipment provider registry only
  * when Tinkers' is actually present.
  *
- * <p>Unlike {@code shincolle_crossmod}'s {@code AbyssalShipEquipItem} (a
- * purpose-built item class an addon registers), this reads *any* Tinkers'
- * tool already in the world - a sword or pickaxe a player forged themselves
+ * <p>Rather than requiring a purpose-built item class registered by an
+ * addon, this reads *any* Tinkers' tool already in the world - a sword or
+ * pickaxe a player forged themselves
  * works as ship equipment the moment it's dropped in the Curios slot, no
  * addon or special item required. Base stats come from the tool's own
  * material-derived {@link ToolStats}; modifiers (including material-derived
