@@ -346,4 +346,15 @@ apply plugin: 'checkstyle'
 checkstyle {
     toolVersion = '10.18.1'
     configFile = file('config/checkstyle/checkstyle.xml')
+
+    // Cap warnings at what is already there so the count can fall but not rise.
+    // Errors still fail on the first one; this only governs the "warning" severity
+    // rules, which today means AvoidStarImport and nothing else.
+    //
+    // Measured 2026-08-26: main 66, addonExample 0, test 0. Lower the number when
+    // you clear some -- leaving it high lets the debt creep back silently.
+    maxWarnings = 66
 }
+
+tasks.named('checkstyleAddonExample', Checkstyle).configure { maxWarnings = 0 }
+tasks.named('checkstyleTest', Checkstyle).configure { maxWarnings = 0 }

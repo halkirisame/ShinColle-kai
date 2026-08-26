@@ -1,5 +1,7 @@
 # ShinColle-kai
 
+[![CI](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml/badge.svg)](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml)
+
 艦娘(ship girl)を建造し、育て、一緒に戦うMinecraft MODです。
 味方の艦娘と敵の深海棲艦、装備システム、レベリングを追加します。
 

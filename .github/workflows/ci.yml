@@ -77,6 +77,36 @@ jobs:
           grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)" \
             build/ci/gametest-kubejs.log
 
+      - name: Run GameTests without Curios
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -rf world logs
+          mkdir -p build/ci
+          ./gradlew runGameTestServer -PshincolleCuriosRuntime=false             --no-daemon --console=plain 2>&1             | tee build/ci/gametest-no-curios.log
+          grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)"             build/ci/gametest-no-curios.log
+
+      - name: Run GameTests without Tinkers
+        shell: bash
+        run: |
+          set -o pipefail
+          rm -rf world logs
+          mkdir -p build/ci
+          ./gradlew runGameTestServer -PshincolleTinkersRuntime=false             --no-daemon --console=plain 2>&1             | tee build/ci/gametest-no-tinkers.log
+          grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)"             build/ci/gametest-no-tinkers.log
+
+      - name: Upload the built mod jar
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          # check already runs jar, addMixinsToJar and reobfJar, so the distributable
+          # is built on every run and was simply being thrown away. Keeping it lets a
+          # reviewer install the jar from a PR without building it themselves.
+          name: shincolle-kai-${{ github.run_id }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload reports and GameTest logs
         if: always()
         uses: actions/upload-artifact@v7
