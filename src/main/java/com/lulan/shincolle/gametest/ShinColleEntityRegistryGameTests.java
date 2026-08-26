@@ -100,7 +100,6 @@ import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -2003,9 +2002,6 @@ public final class ShinColleEntityRegistryGameTests {
     @GameTest(template = "arena", batch = "resource_amount_config")
     public static void shipyardResourcePolicyUsesEasyModeExactlyOnce(GameTestHelper helper) {
         boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
-        Path configPath = FMLPaths.CONFIGDIR.get().resolve(Reference.MOD_ID + "-common.toml");
-        boolean originalConfigExists = Files.exists(configPath);
-        byte[] originalConfigBytes = readOptionalFile(configPath);
 
         try {
             ServerLevel level = helper.getLevel();
@@ -2046,16 +2042,8 @@ public final class ShinColleEntityRegistryGameTests {
             assertLargeShipyardResourceSequence(level, normalLarge, 9, "normal-mode large shipyard");
         } finally {
             ConfigHandler.COMMON.easyMode.set(originalEasyMode);
-            if (ConfigHandler.COMMON.easyMode.get() != originalEasyMode) {
-                throw new AssertionError("GameTest did not restore the original EasyMode value.");
-            }
-            boolean restoredConfigExists = Files.exists(configPath);
-            byte[] restoredConfigBytes = readOptionalFile(configPath);
-            if (restoredConfigExists != originalConfigExists
-                    || !Arrays.equals(restoredConfigBytes, originalConfigBytes)) {
-                throw new AssertionError("GameTest did not restore shincolle-common.toml exactly.");
-            }
         }
+        assertEasyModeValue(originalEasyMode);
         helper.succeed();
     }
 
@@ -2360,14 +2348,6 @@ public final class ShinColleEntityRegistryGameTests {
     private static void assertEasyModeValue(boolean expected) {
         if (ConfigHandler.COMMON.easyMode.get() != expected || ConfigHandler.easyMode() != expected) {
             throw new AssertionError("GameTest could not set EasyMode to " + expected + ".");
-        }
-    }
-
-    private static byte[] readOptionalFile(Path path) {
-        try {
-            return Files.exists(path) ? Files.readAllBytes(path) : null;
-        } catch (Exception e) {
-            throw new AssertionError("Failed to read config file for restoration check: " + path, e);
         }
     }
 

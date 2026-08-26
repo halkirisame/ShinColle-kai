@@ -1948,18 +1948,52 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     /**
-     * apply emotes reaction. type: 0=normal,1=stranger,2=damaged,3=attack,4=idle
+     * Apply emotes reaction.
+     * type: 0=normal, 1=stranger, 2=damaged, 3=attack, 4=idle, 5=command, 6=shock
      */
     public void applyEmotesReaction(int type) {
-        if (this.getEmotesTick() <= 0) {
-            switch (type) {
-                case 0 -> this.setStateEmotion(ID.S.Emotion, ID.Emotion.NORMAL, true);
-                case 1 -> this.setStateEmotion(ID.S.Emotion, ID.Emotion.O_O, true);
-                case 2 -> this.setStateEmotion(ID.S.Emotion, ID.Emotion.T_T, true);
-                case 3 -> this.setStateEmotion(ID.S.Emotion, ID.Emotion.ANGRY, true);
-                case 4 -> this.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, true);
+        // Original 1.10.2 BasicEntityShip#applyEmotesReaction includes these distinct guards:
+        // if (ran.nextInt(9) == 0 && this.getEmotesTick() <= 0)
+        // if (this.getEmotesTick() <= 10)
+        // reactionShock();
+        switch (type) {
+            case 1 -> {
+                if (this.random.nextInt(9) == 0 && this.getEmotesTick() <= 0) {
+                    this.setEmotesTick(60);
+                    this.reactionStranger();
+                }
             }
-            this.setEmotesTick(20);
+            case 2 -> {
+                if (this.getEmotesTick() <= 10) {
+                    this.setEmotesTick(40);
+                    this.reactionDamaged();
+                }
+            }
+            case 3 -> {
+                if (this.random.nextInt(6) == 0 && this.getEmotesTick() <= 0) {
+                    this.setEmotesTick(60);
+                    this.reactionAttack();
+                }
+            }
+            case 4 -> {
+                if (this.random.nextInt(3) == 0 && this.getEmotesTick() <= 0) {
+                    this.setEmotesTick(20);
+                    this.reactionIdle();
+                }
+            }
+            case 5 -> {
+                if (this.random.nextInt(3) == 0 && this.getEmotesTick() <= 0) {
+                    this.setEmotesTick(25);
+                    this.reactionCommand();
+                }
+            }
+            case 6 -> this.reactionShock();
+            default -> {
+                if (this.random.nextInt(7) == 0 && this.getEmotesTick() <= 0) {
+                    this.setEmotesTick(50);
+                    this.reactionNormal();
+                }
+            }
         }
     }
 

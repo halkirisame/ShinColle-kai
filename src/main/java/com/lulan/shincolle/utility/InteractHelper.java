@@ -302,7 +302,12 @@ public class InteractHelper {
         if (ship.getFoodSaturation() >= ship.getFoodSaturationMax()) {
             if (ship.getEmotesTick() <= 0) {
                 ship.setEmotesTick(40);
-                ship.applyEmotesReaction(4); // bored
+                switch (ship.getRandom().nextInt(4)) {
+                    case 1 -> ship.applyParticleEmotion(2); // panic
+                    case 2 -> ship.applyParticleEmotion(32); // hmm
+                    case 3 -> ship.applyParticleEmotion(0); // drop
+                    default -> ship.applyParticleEmotion(11); // ??
+                }
             }
 
             return false;
@@ -458,7 +463,11 @@ public class InteractHelper {
             // show eat emotion
             if (ship.getEmotesTick() <= 0) {
                 ship.setEmotesTick(40);
-                ship.applyEmotesReaction(0); // normal/happy
+                switch (ship.getRandom().nextInt(3)) {
+                    case 1 -> ship.applyParticleEmotion(9); // hungry
+                    case 2 -> ship.applyParticleEmotion(30); // pif
+                    default -> ship.applyParticleEmotion(1); // heart
+                }
             }
 
             return true;
