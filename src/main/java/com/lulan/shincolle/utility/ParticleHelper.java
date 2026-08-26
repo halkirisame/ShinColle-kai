@@ -78,8 +78,9 @@ public class ParticleHelper {
                 case 5 -> level.addParticle(ParticleTypes.FLAME, x, y, z, 0, 0, 0);
                 case 6 -> level.addParticle(ParticleTypes.CRIT, x, y, z, lookX, lookY, lookZ);
                 case 25 -> {
-                    int teamId = (int) lookY;
-                    spawnTeamCircleAtClient((net.minecraft.client.multiplayer.ClientLevel) level, x, y, z, teamId);
+                    int indicatorType = (int) lookY;
+                    spawnTeamCircleAtClient((net.minecraft.client.multiplayer.ClientLevel) level, x, y, z,
+                            indicatorType);
                 }
                 case 7 -> level.addParticle(ParticleTypes.ENCHANTED_HIT, x, y, z, lookX, lookY, lookZ);
                 case 8 -> level.addParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 0, 0, 0);
@@ -208,11 +209,11 @@ public class ParticleHelper {
      * ParticleTeam.
      *
      * @param entity the entity to show the team circle for
-     * @param teamId the team ID (determines color)
+     * @param indicatorType the visual subtype (determines color and marker behavior)
      */
-    public static void spawnTeamCircle(Entity entity, int teamId) {
+    public static void spawnTeamCircle(Entity entity, int indicatorType) {
         if (entity.level().isClientSide()) {
-            spawnTeamCircleClient(entity, teamId);
+            spawnTeamCircleClient(entity, indicatorType);
         }
     }
 
@@ -220,13 +221,34 @@ public class ParticleHelper {
      * Spawn team circle indicator particle at a world position.
      * Used for pointer block/waypoint target visualization.
      */
-    public static void spawnTeamCircleAt(Level level, double x, double y, double z, int teamId) {
+    public static void spawnTeamCircleAt(Level level, double x, double y, double z, int indicatorType) {
         if (level.isClientSide()) {
-            spawnTeamCircleAtClient((ClientLevel) level, x, y, z, teamId);
+            spawnTeamCircleAtClient((ClientLevel) level, x, y, z, indicatorType);
         }
     }
 
-    public static void spawnTeamCircleAtPlayer(net.minecraft.server.level.ServerPlayer player, double x, double y, double z, int teamId) {
+    /** Spawn the legacy green marker that identifies an entity as a movement target. */
+    public static void spawnMovingTargetMarker(Entity entity) {
+        spawnTeamCircle(entity, 4);
+    }
+
+    /** Spawn the legacy red marker that identifies an entity as an attack target. */
+    public static void spawnAttackTargetMarker(Entity entity) {
+        spawnTeamCircle(entity, 5);
+    }
+
+    /** Spawn the legacy green marker at a commanded movement destination. */
+    public static void spawnMovingTargetMarkerAt(Level level, double x, double y, double z) {
+        spawnTeamCircleAt(level, x, y, z, 4);
+    }
+
+    /** Spawn the rising waypoint marker used for a destination that is refreshed over time. */
+    public static void spawnWaypointMarkerAt(Level level, double x, double y, double z) {
+        spawnTeamCircleAt(level, x, y, z, 9);
+    }
+
+    public static void spawnTeamCircleAtPlayer(net.minecraft.server.level.ServerPlayer player, double x, double y, double z,
+                                               int indicatorType) {
         if (player == null) return;
         io.netty.buffer.ByteBuf rawBuf = io.netty.buffer.Unpooled.buffer(48);
         net.minecraft.network.FriendlyByteBuf buf = new net.minecraft.network.FriendlyByteBuf(rawBuf);
@@ -235,7 +257,7 @@ public class ParticleHelper {
             buf.writeDouble(y);
             buf.writeDouble(z);
             buf.writeDouble(0.3); // scale (lookX)
-            buf.writeDouble(teamId); // team indicator type (lookY)
+            buf.writeDouble(indicatorType); // team indicator type (lookY)
             buf.writeDouble(0.0); // unused (lookZ)
             byte[] payload = new byte[48];
             buf.getBytes(0, payload);
@@ -443,16 +465,16 @@ public class ParticleHelper {
     }
 
     @OnlyIn(Dist.CLIENT)
-    private static void spawnTeamCircleClient(Entity entity, int teamId) {
+    private static void spawnTeamCircleClient(Entity entity, int indicatorType) {
         ClientLevel level = (ClientLevel) entity.level();
         Minecraft.getInstance().particleEngine.add(
-                new ParticleTeam(level, entity, TEAM_CIRCLE_ENTITY_SCALE, teamId));
+                new ParticleTeam(level, entity, TEAM_CIRCLE_ENTITY_SCALE, indicatorType));
     }
 
     @OnlyIn(Dist.CLIENT)
-    private static void spawnTeamCircleAtClient(ClientLevel level, double x, double y, double z, int teamId) {
+    private static void spawnTeamCircleAtClient(ClientLevel level, double x, double y, double z, int indicatorType) {
         Minecraft.getInstance().particleEngine.add(
-                new ParticleTeam(level, TEAM_CIRCLE_ENTITY_SCALE, teamId, x, y, z));
+                new ParticleTeam(level, TEAM_CIRCLE_ENTITY_SCALE, indicatorType, x, y, z));
     }
 
     @OnlyIn(Dist.CLIENT)

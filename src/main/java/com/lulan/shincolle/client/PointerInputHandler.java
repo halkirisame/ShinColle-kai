@@ -257,7 +257,7 @@ public class PointerInputHandler {
             double destZ = ship.getStateMinor(ID.M.GuardZ) + 0.5D;
 
             if (drawMarker) {
-                ParticleHelper.spawnAttackParticleAt(mc.level, destX, destY + 0.5D, destZ, 0D, 1D, 0D, 2);
+                ParticleHelper.spawnWaypointMarkerAt(mc.level, destX, destY + 0.5D, destZ);
             }
             if (drawTrail) {
                 drawTrail(mc, ship, destX, destY + 0.5D, destZ);
