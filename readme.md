@@ -62,26 +62,32 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 現在把握している、遊ぶうえで影響のある問題です。
 
-- **大型建造が利用できません。** 大型造船所を構成するブロック（多金属ブロック・
-  深海重怨念ブロック）が右クリックで設置できず、造船所を組み立てられません。
-  修正作業中です
-- **艦娘タスク（採掘・釣りなど）とクレーンは未検証です。** 1.20.1移植時の欠落が
-  未調査のため、動作しない可能性があります
-- **艦の感情・反応が発生しません。** 撫でる・被弾する・攻撃する・待機する・命令する
-  のいずれでも、感情の表示、音声、士気の変動、押し返し、反撃が起きません
-- 指揮棒の単艦モードが機能せず、選択した艦が全て反応します
-- 撫でモードで右クリックしても反応しません
-- 大型造船所の渦が建造中も停止時と同じ表示のままです（見た目のみ）
-- 1.10.2にあったパーティクル49種のうち24種が未移植です（見た目のみ）
+**検証中**は、修正を実装して自動テストは通ったものの、実際のゲーム内での確認が
+まだ終わっていないものです。直っているかどうかは未確定として扱ってください。
+
+- **未修正: 指揮棒の単艦モードが機能せず、選択した艦が全て反応します**
+- **未修正: 艦娘タスク（採掘・釣りなど）とクレーンは未検証です。** 1.20.1移植時の
+  欠落が未調査のため、動作しない可能性があります
+- **未修正: 1.10.2にあったパーティクル49種のうち24種が未移植です**（見た目のみ）
+- **検証中: 大型建造。** 大型造船所を構成するブロック（多金属ブロック・深海重怨念
+  ブロック）を右クリックで設置できず造船所を組み立てられない問題を修正しました。
+  実際に建造できるかは未確認です
+- **検証中: 艦の感情・反応。** 撫でる・被弾する・攻撃する・待機する・命令する・
+  艦娘タスクのいずれでも感情の表示、音声、士気の変動、押し返し、反撃が起きない
+  問題を修正しました。表情やパーティクルの表示は未確認です
+- **検証中: 大型造船所の渦**が建造中も停止時と同じ表示のままだった問題を
+  修正しました（見た目のみ）。表示は未確認です
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## v1.20.1-1.0.0 の変更点
+## 次のリリース v1.20.1-1.0.0 について
 
-KubeJS連携・装備datapack・Javaアドオン向けPublic APIを実装しました。
+**まだリリースしていません。**配布されている最新版は `v1.20.1.0.8.2`(α版)です。
+
+1.0.0 では KubeJS連携・装備datapack・Javaアドオン向けPublic APIが初出になります。
 艦が攻撃・反撃しない不具合なども修正しました。
 
-全ての変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
+変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
 ## ドキュメント
 
@@ -171,29 +177,37 @@ A Reforge world will open, but **nothing is migrated automatically.**
 
 Problems currently known to affect play.
 
-- **Large construction is unavailable.** The blocks that make up the large shipyard
-  (polymetal block, heavy grudge block) cannot be placed by right-clicking, so the
-  shipyard cannot be assembled. A fix is in progress
-- **Ship tasks (mining, fishing) and the crane are unverified.** Gaps from the 1.20.1
-  port have not been investigated, so they may not work
-- **Ships do not react emotionally.** Petting, taking damage, attacking, idling and
-  being commanded all produce no emotion display, voice, morale change, pushback or
-  retaliation
-- The pointer's single-ship mode does not work; every selected ship responds
-- Right-clicking in caress mode does nothing
-- The large shipyard's vortex stays in its idle appearance even while building
-  (cosmetic only)
-- 24 of the 49 particle types from 1.10.2 are not ported (cosmetic only)
+**In verification** means a fix is implemented and the automated tests pass, but it
+has not yet been confirmed in an actual game session. Treat whether it is fixed as
+undetermined.
+
+- **Not fixed: the pointer's single-ship mode does not work; every selected ship
+  responds**
+- **Not fixed: ship tasks (mining, fishing) and the crane are unverified.** Gaps from
+  the 1.20.1 port have not been investigated, so they may not work
+- **Not fixed: 24 of the 49 particle types from 1.10.2 are not ported** (cosmetic only)
+- **In verification: large construction.** The blocks that make up the large shipyard
+  (polymetal block, heavy grudge block) could not be placed by right-clicking, so the
+  shipyard could not be assembled. This is fixed; whether construction actually works
+  is unconfirmed
+- **In verification: ship emotional reactions.** Petting, taking damage, attacking,
+  idling, being commanded and ship tasks produced no emotion display, voice, morale
+  change, pushback or retaliation. This is fixed; the on-screen expressions and
+  particles are unconfirmed
+- **In verification: the large shipyard's vortex** stayed in its idle appearance even
+  while building. This is fixed (cosmetic only); the appearance is unconfirmed
 
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## Changes in v1.20.1-1.0.0
+## About the next release, v1.20.1-1.0.0
 
-KubeJS integration, datapack equipment and a public Java addon API are now implemented.
-Ships not attacking or retaliating, among other bugs, have been fixed.
+**It has not been released yet.** The latest distributed build is `v1.20.1.0.8.2` (alpha).
 
-See [CHANGELOG.md](CHANGELOG.md) for the full list of changes.
+1.0.0 will be the debut of KubeJS integration, datapack equipment and the public Java
+addon API. Ships not attacking or retaliating, among other bugs, have been fixed.
+
+See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
 ## Documentation
 

@@ -1,8 +1,11 @@
 # 変更履歴 / Changelog
 
-## v1.20.1-1.0.0 (2026-08-25)
+## v1.20.1-1.0.0 (未リリース)
 
-前回の公開版 `v1.20.1.0.8.2`(2026-08-23)からの変更です。
+**このバージョンはまだリリースしていません。**配布されている最新版は
+`v1.20.1.0.8.2`(2026-08-23、α版)です。以下はそこからの変更で、
+1.0.0 をリリースするまで追記が続きます。
+
 KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリリースが初出です。
 
 ### MOD IDを `shincolle_kai` へ変更
@@ -245,7 +248,14 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 ---
 
-## v1.20.1-1.0.0 (2026-08-25)
+## v1.20.1-1.0.0 (Unreleased)
+
+**This version has not been released yet.** The latest distributed build is
+`v1.20.1.0.8.2` (2026-08-23, alpha). The entries below are the changes since then,
+and more will be added until 1.0.0 ships.
+
+KubeJS integration, datapack equipment and the public Java addon API all debut in
+this release.
 
 ### Mod id changed to `shincolle_kai` (compatibility break)
 
