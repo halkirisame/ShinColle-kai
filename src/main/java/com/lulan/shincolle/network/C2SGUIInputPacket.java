@@ -33,8 +33,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkHooks;
 
+import io.netty.buffer.Unpooled;
+
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -395,6 +398,53 @@ public class C2SGUIInputPacket {
         }
         capa.setTeamSID(teamId, slot, -1);
         return null;
+    }
+
+    /** Particle type for the red "this ship could not take the order" mark. */
+    private static final byte OutOfFuelParticle = 30;
+
+    /**
+     * Mark ships that were dropped from an order because they are out of fuel, and mark the
+     * destination they could not take.
+     * <p>
+     * The NoFuel gate is not in 1.10.2 -- FormationHelper.applyTeamAttack and applyTeamMove
+     * never look at fuel. It stays (user decision, 2026-08-26) because a ship with no fuel
+     * genuinely cannot act, but silently dropping the order reads as "the pointer is
+     * broken". Only fuel is marked; the other exclusions (out of range, wrong level,
+     * formation not satisfied) are left alone so the mark keeps one meaning.
+     */
+    private static void markOutOfFuel(ServerPlayer player, List<BasicEntityShip> outOfFuel,
+                                      double destX, double destY, double destZ) {
+        if (outOfFuel.isEmpty()) {
+            return;
+        }
+
+        for (BasicEntityShip ship : outOfFuel) {
+            ModNetworking.sendToAllTracking(
+                    new S2CSpawnParticlePacket(OutOfFuelParticle, ship.getId(),
+                            positionPayload(ship.getX(), ship.getY() + ship.getBbHeight() * 0.5D,
+                                    ship.getZ())),
+                    ship);
+        }
+
+        ModNetworking.sendToPlayer(
+                new S2CSpawnParticlePacket(OutOfFuelParticle, player.getId(),
+                        positionPayload(destX, destY, destZ)),
+                player);
+    }
+
+    private static byte[] positionPayload(double x, double y, double z) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer(24));
+        try {
+            buf.writeDouble(x);
+            buf.writeDouble(y);
+            buf.writeDouble(z);
+            byte[] payload = new byte[buf.readableBytes()];
+            buf.readBytes(payload);
+            return payload;
+        } finally {
+            buf.release();
+        }
     }
 
     private static boolean includesSlot(CapaTeitoku capa, int teamId, int slot, int mode) {
@@ -792,19 +842,26 @@ public class C2SGUIInputPacket {
         }
 
         int teamId = capa.getSelectTeam();
+        List<BasicEntityShip> outOfFuel = new ArrayList<>();
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             if (!includesSlot(capa, teamId, i, mode)) {
                 continue;
             }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (ship != null && ship.level() == level
-                    && player.distanceToSqr(ship) < POINTER_RANGE_SQR
-                    && !ship.getStateFlag(ID.F.NoFuel)) {
-                ship.setEntitySit(false);
-                ship.setEntityTarget(livingTarget);
-                ship.applyEmotesReaction(5);
+            if (ship == null || ship.level() != level
+                    || player.distanceToSqr(ship) >= POINTER_RANGE_SQR) {
+                continue;
             }
+            if (ship.getStateFlag(ID.F.NoFuel)) {
+                outOfFuel.add(ship);
+                continue;
+            }
+            ship.setEntitySit(false);
+            ship.setEntityTarget(livingTarget);
+            ship.applyEmotesReaction(5);
         }
+        markOutOfFuel(player, outOfFuel, target.getX(),
+                target.getY() + target.getBbHeight() * 0.5D, target.getZ());
     }
 
     /**
@@ -921,6 +978,7 @@ public class C2SGUIInputPacket {
         boolean formationMove = mode == 2 && formatId > 0;
 
         ArrayList<BasicEntityShip> ships = new ArrayList<>();
+        List<BasicEntityShip> outOfFuel = new ArrayList<>();
         boolean formationMemberMissing = false;
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             if (!includesSlot(capa, teamId, i, mode)) {
@@ -936,10 +994,15 @@ public class C2SGUIInputPacket {
                     formationMemberMissing = true;
                 }
             }
-            if (ship != null && !ship.getStateFlag(ID.F.NoFuel)) {
-                ships.add(ship);
+            if (ship != null) {
+                if (ship.getStateFlag(ID.F.NoFuel)) {
+                    outOfFuel.add(ship);
+                } else {
+                    ships.add(ship);
+                }
             }
         }
+        markOutOfFuel(player, outOfFuel, gx + 0.5D, gy + 0.5D, gz + 0.5D);
 
         if (formationMove && formationMemberMissing) {
             return;

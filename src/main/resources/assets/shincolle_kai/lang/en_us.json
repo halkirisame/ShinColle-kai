@@ -840,7 +840,7 @@
   "gui.shincolle_kai.pointer0": "Single Mode",
   "gui.shincolle_kai.pointer1": "Group Mode",
   "gui.shincolle_kai.pointer2": "Formation Mode",
-  "gui.shincolle_kai.pointer3": "(Sneaking Left Click to Change Mode)",
+  "gui.shincolle_kai.pointer3": "(Shift + Mouse Wheel to Change Mode)",
   "gui.shincolle_kai.pointer4": "Team",
   "gui.shincolle_kai.range": "Range",
   "gui.shincolle_kai.recipepaper.material": "Materials:",

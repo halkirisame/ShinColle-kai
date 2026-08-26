@@ -778,7 +778,7 @@
   "gui.shincolle_kai.pointer0": "シングルモード",
   "gui.shincolle_kai.pointer1": "グループモード",
   "gui.shincolle_kai.pointer2": "フォーメーションモード",
-  "gui.shincolle_kai.pointer3": "(スニーク左クリック デ モード切替)",
+  "gui.shincolle_kai.pointer3": "(Shift＋ホイール → モード切替)",
   "gui.shincolle_kai.pointer4": "チーム",
   "gui.shincolle_kai.range": "射程",
   "gui.shincolle_kai.repairgoddess": "致命的ナ攻撃カラノ撃沈ヲ防グ.",

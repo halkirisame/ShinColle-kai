@@ -733,7 +733,7 @@
   "gui.shincolle_kai.pointer0": "个别模式",
   "gui.shincolle_kai.pointer1": "团体模式",
   "gui.shincolle_kai.pointer2": "阵型模式",
-  "gui.shincolle_kai.pointer3": "（蹲下左键以切换模式）",
+  "gui.shincolle_kai.pointer3": "(Shift + 滚轮 切换模式)",
   "gui.shincolle_kai.pointer4": "队伍",
   "gui.shincolle_kai.range": "射程",
   "gui.shincolle_kai.repairgoddess": "深海女神的怨念使栖舰不会被击沉。",

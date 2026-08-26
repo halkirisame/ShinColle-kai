@@ -35,7 +35,7 @@ public final class AttackGoalContinuationGameTests {
     private AttackGoalContinuationGameTests() {
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyCannonGoalRetainsCooldownAcrossSightLoss(GameTestHelper helper) {
         Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
         if (!(entity instanceof IShipCannonAttack host)) {
@@ -44,7 +44,7 @@ public final class AttackGoalContinuationGameTests {
         verifyCannonContinuation(helper, host);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileCannonGoalRetainsCooldownAcrossSightLoss(GameTestHelper helper) {
         Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
         if (!(entity instanceof IShipCannonAttack host)) {
@@ -53,7 +53,7 @@ public final class AttackGoalContinuationGameTests {
         verifyCannonContinuation(helper, host);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyCarrierGoalContinuesAcrossSightLoss(GameTestHelper helper) {
         Entity entity = ModEntities.CV_WO.get().create(helper.getLevel());
         if (!(entity instanceof IShipAircraftAttack host)) {
@@ -62,7 +62,7 @@ public final class AttackGoalContinuationGameTests {
         verifyCarrierContinuation(helper, host);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileCarrierGoalContinuesAcrossSightLoss(GameTestHelper helper) {
         Entity entity = ModEntities.CV_AKAGI_MOB.get().create(helper.getLevel());
         if (!(entity instanceof IShipAircraftAttack host)) {

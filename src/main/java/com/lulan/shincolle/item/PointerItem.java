@@ -64,6 +64,41 @@ public class PointerItem extends BasicItem {
         super(new Properties().stacksTo(1));
     }
 
+    /** Number of pointer modes: single, group, formation. */
+    public static final int MODE_COUNT = 3;
+
+    /** Offset added to a mode to put it in the caress band (3-5). */
+    private static final int CARESS_OFFSET = 3;
+
+    /**
+     * Step the pointer mode by one, wrapping at both ends.
+     * <p>
+     * The caress band (3-5) is preserved: stepping from a caress mode lands on another
+     * caress mode. {@code direction} is -1 for the previous mode and +1 for the next one.
+     * An out-of-range mode falls back to {@link #MODE_SINGLE}.
+     */
+    public static int cycleMode(int currentMode, int direction) {
+        int band = 0;
+        int index = currentMode;
+
+        if (currentMode >= CARESS_OFFSET && currentMode < CARESS_OFFSET + MODE_COUNT) {
+            band = CARESS_OFFSET;
+            index = currentMode - CARESS_OFFSET;
+        } else if (currentMode < 0 || currentMode >= MODE_COUNT) {
+            return MODE_SINGLE;
+        }
+
+        return band + Math.floorMod(index + direction, MODE_COUNT);
+    }
+
+    /** Strip the caress band so the result is always 0-2, for display and lookups. */
+    public static int baseMode(int mode) {
+        if (mode >= CARESS_OFFSET && mode < CARESS_OFFSET + MODE_COUNT) {
+            return mode - CARESS_OFFSET;
+        }
+        return (mode >= 0 && mode < MODE_COUNT) ? mode : MODE_SINGLE;
+    }
+
     public static int toggleCaressMode(int currentMode) {
         if (currentMode >= 0 && currentMode <= 2) {
             return currentMode + 3;
@@ -306,25 +341,11 @@ public class PointerItem extends BasicItem {
                 ModNetworking.sendToServer(new C2SGUIInputPacket(
                         C2SGUIInputPacket.ClearTeam,
                         new int[]{player.getId(), 0}));
-
-            } else {
-                // Sneak only: cycle pointer mode
-                switch (mode) {
-                    case MODE_SINGLE:
-                        mode = MODE_GROUP;
-                        break;
-                    case MODE_GROUP:
-                        mode = MODE_FORMATION;
-                        break;
-                    default:
-                        mode = MODE_SINGLE;
-                        break;
-                }
-                setMode(stack, mode);
-                ModNetworking.sendToServer(new C2SGUIInputPacket(
-                        C2SGUIInputPacket.SyncPlayerItem,
-                        new int[]{player.getId(), 0, mode}));
             }
+            // Sneak alone no longer cycles the mode; that moved to shift + mouse wheel
+            // (PointerInputHandler) so it can run in both directions and show which mode
+            // is selected. Sneak+sprint stayed here, and used to be easy to trigger by
+            // accident while aiming for a mode change.
             return true;
         }
 

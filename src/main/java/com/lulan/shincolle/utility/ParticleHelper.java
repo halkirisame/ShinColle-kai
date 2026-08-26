@@ -127,6 +127,12 @@ public class ParticleHelper {
                 // 2026/04/07：GitHub Copilotによって確認済み
                 case 29 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 9);
 
+                // Red spray. Marks a ship that could not take an order, and the destination
+                // it could not take. ParticleSpray variant 4 is already pure red, so this
+                // reuses it rather than adding a particle type of its own -- 24 upstream
+                // types are still unported and the numbering is not settled.
+                case 30 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 4);
+
                 // Death smoke particles (types 40-49)
                 case 43 -> {
                     // death smoke - spawns multiple large smoke columns

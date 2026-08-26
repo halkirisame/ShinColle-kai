@@ -38,24 +38,24 @@ public final class TargetGoalLifecycleGameTests {
     private TargetGoalLifecycleGameTests() {
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyRevengeTargetSurvivesMultipleAttackers(GameTestHelper helper) {
         verifyRevengeRetention(helper, createFriendlyShip(helper, new Vec3(1.5D, 2D, 1.5D)));
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileRevengeTargetSurvivesMultipleAttackers(GameTestHelper helper) {
         verifyRevengeRetention(helper, createHostileShip(helper, new Vec3(1.5D, 2D, 1.5D)));
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
         BasicEntityShip ship = createFriendlyShip(helper, new Vec3(1.5D, 2D, 1.5D));
         Zombie target = createZombie(helper, new Vec3(7.5D, 2D, 1.5D), true);
         verifySightLossRetention(helper, ship, target);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
         BasicEntityShipHostile ship = createHostileShip(helper, new Vec3(1.5D, 2D, 1.5D));
         BasicEntityShip target = createFriendlyShip(helper, new Vec3(7.5D, 2D, 1.5D));
@@ -66,13 +66,13 @@ public final class TargetGoalLifecycleGameTests {
         verifySightLossRetention(helper, ship, target);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyRevengeTargetReleasesInvalidTargets(GameTestHelper helper) {
         verifyInvalidTargetRelease(helper, createFriendlyShip(helper, new Vec3(1.5D, 2D, 1.5D)),
                 UUID.fromString("00000000-0000-0000-0000-000000000021"));
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileRevengeTargetReleasesInvalidTargets(GameTestHelper helper) {
         verifyInvalidTargetRelease(helper, createHostileShip(helper, new Vec3(1.5D, 2D, 1.5D)),
                 UUID.fromString("00000000-0000-0000-0000-000000000022"));

@@ -41,7 +41,7 @@ public final class ShipAttributeDatapackReloadGameTests {
     private ShipAttributeDatapackReloadGameTests() {
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "equipment_reload_config")
+    @GameTest(template = "arena", batch = "equipment_reload_config")
     public static void reloadRecalculatesLoadedShipBeforeNextTick(GameTestHelper helper) {
         EquipDataSnapshot originalSnapshot = EquipDataRegistry.server();
         BasicEntityShip ship = createLoadedShip(helper);

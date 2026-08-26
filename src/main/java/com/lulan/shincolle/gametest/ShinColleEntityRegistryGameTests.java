@@ -121,7 +121,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void criticalEntityTypesCreate(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -134,7 +134,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void criticalItemsServerSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         TooltipFlag tooltipFlag = TooltipFlag.Default.NORMAL;
@@ -147,7 +147,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void allRegisteredItemsTooltipServerSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         TooltipFlag tooltipFlag = TooltipFlag.Default.NORMAL;
@@ -162,7 +162,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void allRegisteredEntityTypesCreate(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -176,7 +176,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void pointerAndRingServerInteractionSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer fakePlayer = FakePlayerFactory.get(level,
@@ -209,7 +209,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void pointerModeNbtAndInvalidModeGuard(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer fakePlayer = FakePlayerFactory.get(level,
@@ -233,7 +233,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void pointerOpenItemGuiOpensFormationMenu(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = createFollowTestOwner(helper, level,
@@ -255,7 +255,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void formationSetUnitNamePacketUpdatesTeamName(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = createFollowTestOwner(helper, level,
@@ -283,7 +283,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void formationSwapShipPacketSwapsSelectedTeamSlots(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = createFollowTestOwner(helper, level,
@@ -323,7 +323,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/12：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void deskBreakPacketSupportsTeamIdPayload(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = createFollowTestOwner(helper, level,
@@ -359,7 +359,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/12：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void deskUnbanPacketSupportsTeamIdPayload(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = createFollowTestOwner(helper, level,
@@ -398,7 +398,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/12：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void syncTeamDataPacketIncludesKnownTeamIds(GameTestHelper helper) {
         CapaTeitoku capa = new CapaTeitoku();
         capa.setPlayerUID(8201);
@@ -440,7 +440,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/12：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void craneTileBtnAppliesExplicitValues(GameTestHelper helper) {
         TileEntityCrane tile = new TileEntityCrane(BlockPos.ZERO, Blocks.AIR.defaultBlockState());
 
@@ -503,7 +503,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/12：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipInvPagePacketUpdatesOpenedContainerPage(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = FakePlayerFactory.get(level, new GameProfile(
@@ -573,7 +573,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void teamRuntimeEntityIdsAreNotPersisted(GameTestHelper helper) {
         CapaTeitoku source = new CapaTeitoku();
         source.setTeamMember(2, 3, 12345);
@@ -594,7 +594,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void pointerSelectionAndModeAreAppliedServerSide(GameTestHelper helper) {
         ServerPlayer player = createFollowTestOwner(helper, helper.getLevel(),
                 UUID.fromString("00000000-0000-0000-0000-000000000011"),
@@ -629,7 +629,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileShipsParticipateInVanillaEnemyClassification(GameTestHelper helper) {
         Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
         if (!(entity instanceof BasicEntityShipHostile) || !(entity instanceof Enemy)) {
@@ -638,7 +638,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileBossBarSurvivesNbtReload(GameTestHelper helper) {
         Entity sourceEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
         Entity loadedEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
@@ -683,7 +683,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipAiSettingsClampUntrustedPacketValues(GameTestHelper helper) {
         Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
         if (!(entity instanceof BasicEntityShip ship)) {
@@ -709,7 +709,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyTargetSelectorRejectsPassiveMobsAndUsesCustomList(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity entity = ModEntities.BB_KONGOU.get().create(level);
@@ -743,7 +743,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void clientRuntimeHelperServerGuardSafe(GameTestHelper helper) {
         if (ClientRuntimeHelper.getClientPlayer() != null) {
             throw new AssertionError("ClientRuntimeHelper#getClientPlayer must be null on dedicated server.");
@@ -756,7 +756,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void tooltipFallbackAndHideFlagsServerBehavior(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -806,7 +806,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void criticalEntitySpawnAndTickServerSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -819,7 +819,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void blackHoleSpecialEffectSpawnsStaticProjectile(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -853,7 +853,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void floatingFortHeavyAttackDetonatesAndDespawns(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -896,7 +896,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileSearchlightPlacesLightOnlyAtNight(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -931,7 +931,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileSearchlightSkipsWhenNoFuel(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -961,7 +961,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileSearchlightSkipsWhenNotAlive(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -990,7 +990,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileSearchlightNightWindowBoundaries(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1040,7 +1040,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipPickItemGoalRespectsFuelAndPickFlag(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1109,7 +1109,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void yamatoBeamTravelsAfterInitialization(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
@@ -1132,7 +1132,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void goalThrottlesFireOnBothTickParities(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1213,7 +1213,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipFollowOwnerGoalRespectsCoreGuards(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1285,7 +1285,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/15：GitHub Copilotによって追加
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void lightCruiserSkillAttackGoalUsesLegacyPriority(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1296,7 +1296,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/15：GitHub Copilotによって追加
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void mountFollowHostTeleportsWhenFarAndUnridden(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1347,7 +1347,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/15：GitHub Copilotによって追加
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void mountFollowHostBlockedWhenRidden(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1404,7 +1404,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipSpawnEggSpecificClassPriorityAndLegacyTypeConversion(GameTestHelper helper) {
         ItemStack classOnly = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
         ShipSpawnEgg.setShipClass(classOnly, ID.ShipClass.DDShimakaze);
@@ -1448,7 +1448,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipSpawnEggIconMappingMatchesLegacyCategories(GameTestHelper helper) {
         ItemStack smallBuild = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
         smallBuild.getOrCreateTag().putByte("BuildType", (byte) 0);
@@ -1481,7 +1481,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipSpawnEggModelLayerAssignmentsMatchLegacy(GameTestHelper helper) {
         // [PORT] 1.10.2 -> 1.20.1: lock legacy icon->texture assignment to avoid silent
         // model drift in spawn eggs.
@@ -1501,7 +1501,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileGoalListContainsWanderAndOpenDoor(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1542,7 +1542,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/15：GitHub Copilotによって追加
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileTargetGoalPrioritiesMatchLegacy(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1574,7 +1574,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileShipEggDropRatesMatchScaleLevels(GameTestHelper helper) {
         Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
         if (!(entity instanceof BasicEntityShipHostile hostile)) {
@@ -1610,7 +1610,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/20：GitHub Copilotによって追加
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileRangeTargetGoalAcquiresFriendlyShip(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1667,7 +1667,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/20：GitHub Copilotによって追加
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void friendlyRangeTargetGoalAcquiresHostileShip(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1745,7 +1745,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipCalcRollTablesExcludeRemovedKanmusuClasses(GameTestHelper helper) {
         Set<Integer> forbiddenSmall = new HashSet<>();
         forbiddenSmall.add((int) ID.ShipClass.DDAkatsuki);
@@ -1800,7 +1800,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/12：GitHub Copilotによって確認済み
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void largeShipyardMultiblockReformsAfterStaleCoreCleanup(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1865,7 +1865,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipyardsRejectInvalidBuildsAndAllowInstantConstruction(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1914,7 +1914,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void smallShipyardProcessesUnifiedMaterialAndFuelInputs(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
@@ -1942,7 +1942,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipyardsAcceptLavaThroughFluidCapability(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -1971,7 +1971,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void largeShipyardRecyclesShipSpawnEggs(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
@@ -2000,7 +2000,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "resource_amount_config")
+    @GameTest(template = "arena", batch = "resource_amount_config")
     public static void shipyardResourcePolicyUsesEasyModeExactlyOnce(GameTestHelper helper) {
         boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
         Path configPath = FMLPaths.CONFIGDIR.get().resolve(Reference.MOD_ID + "-common.toml");
@@ -2059,7 +2059,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipyardStockNbtKeepsLegacyIntArray(GameTestHelper helper) {
         int[] expected = {32768, 65535, 500000, 1000000};
 
@@ -2086,7 +2086,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void largeShipyardOldFuelSlotAcceptsMaterial(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
@@ -2108,7 +2108,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipyardStockPacketPreservesFullIntegerValues(GameTestHelper helper) {
         int[] expected = {32768, 65535, 500000, 1000000};
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
@@ -2126,7 +2126,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipyardItemHandlersRestrictAutomationDirections(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
 
@@ -2402,7 +2402,7 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void serverboundPacketsRejectOversizedAndTruncatedArrays(GameTestHelper helper) {
         FriendlyByteBuf exact = new FriendlyByteBuf(Unpooled.buffer());
         exact.writeByte(C2SInputPacket.MountMove);
@@ -2441,7 +2441,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipInventoryInsertionIsAtomicAndCargoOnly(GameTestHelper helper) {
         CapaShipInventory inventory = new CapaShipInventory(CapaShipInventory.EquipSlots + 2, null);
         inventory.setStackInSlot(CapaShipInventory.EquipSlots, new ItemStack(Items.IRON_INGOT, 63));
@@ -2477,7 +2477,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentEnchantTypeControlsWeaponAndArmorStats(GameTestHelper helper) {
         float[] raw = new float[Attrs.AttrsLength];
         float[] enchant = new float[Attrs.AttrsLength];
@@ -2506,7 +2506,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentIndexesResolveTheSameDefinition(GameTestHelper helper) {
         EquipDefinition byItemVariant = EquipDataRegistry.server().byItemVariant(
                 new ResourceLocation(Reference.MOD_ID, "equip_cannon"), 0);
@@ -2520,7 +2520,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentDefinitionCreatesMatchingVariant(GameTestHelper helper) {
         EquipDefinition definition = EquipDataRegistry.server().get(
                 new ResourceLocation(Reference.MOD_ID, "aircraft_fhellcatb"));
@@ -2534,7 +2534,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentDefinitionWithUnknownItemFailsSafely(GameTestHelper helper) {
         EquipDefinition definition = new EquipDefinition(
                 new ResourceLocation(Reference.MOD_ID, "missing_item_test"),
@@ -2548,7 +2548,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentDefinitionCopiesMutableConstructorInputs(GameTestHelper helper) {
         ResourceLocation item = ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "equip_cannon");
         ShipAttributeValues.Builder stats = ShipAttributeValues.builder(ShipAttributeLayout.current());
@@ -2567,7 +2567,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentSnapshotDoesNotExposeMutableDefinitionState(GameTestHelper helper) {
         ResourceLocation item = ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "equip_cannon");
         EquipDefinition definition = createSyncTestDefinition("immutable_snapshot", item, 5,
@@ -2610,7 +2610,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentSyncRoundTripPreservesEveryField(GameTestHelper helper) {
         ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
         EquipDefinition withLegacy = createSyncTestDefinition("sync_round_trip_legacy", item, 4,
@@ -2630,7 +2630,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentSyncIndexesShareDefinitionInstances(GameTestHelper helper) {
         ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_airplane");
         EquipDefinition definition = createSyncTestDefinition("sync_shared_instance", item, 7,
@@ -2646,7 +2646,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentResyncRemovesStaleDefinitions(GameTestHelper helper) {
         EquipDataSnapshot original = ClientEquipData.current();
         try {
@@ -2671,7 +2671,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentSyncPreservesItemVariantCollisionWinner(GameTestHelper helper) {
         ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
         EquipDefinition loser = createSyncTestDefinition("sync_item_loser", item, 6,
@@ -2689,7 +2689,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentSyncPreservesLegacyCollisionWinner(GameTestHelper helper) {
         ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
         EquipDefinition loser = createSyncTestDefinition("sync_legacy_loser", item, 8,
@@ -2705,7 +2705,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentSyncRejectsPartialSnapshotsAtomically(GameTestHelper helper) {
         EquipDataSnapshot original = ClientEquipData.current();
         ResourceLocation item = new ResourceLocation(Reference.MOD_ID, "equip_cannon");
@@ -2751,7 +2751,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentServerAndClientSnapshotsAreSeparate(GameTestHelper helper) {
         EquipDataSnapshot original = ClientEquipData.current();
         try {
@@ -2766,7 +2766,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentEmptyClientSnapshotUsesSafeDefaults(GameTestHelper helper) {
         EquipDataSnapshot empty = EquipDataSnapshot.EMPTY;
         ResourceLocation missing = new ResourceLocation(Reference.MOD_ID, "sync_missing");
@@ -2777,7 +2777,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void resourceAmountConversionsAreDefensiveAndExact(GameTestHelper helper) {
         int[] source = new int[]{1, 2, 3, 4};
         ResourceAmount amount = ResourceAmount.fromArray(source);
@@ -2822,7 +2822,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void resourceYieldPolicyAppliesMultiplierWithoutMutation(GameTestHelper helper) {
         ResourceAmount base = new ResourceAmount(1, 2, 3, 4);
         ResourceAmount multiplied = ResourceYieldPolicy.applyMultiplier(base,
@@ -2846,7 +2846,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentResourceValuesFollowEquipVariant(GameTestHelper helper) {
         ItemStack low = new ItemStack(ModItems.EQUIP_AIRPLANE.get());
         BasicEquip.setEquipMeta(low, 0);
@@ -2865,7 +2865,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void equipmentResourceValuesIgnoreDurabilityDamage(GameTestHelper helper) {
         ItemStack recon = new ItemStack(ModItems.EQUIP_AIRPLANE.get());
         BasicEquip.setEquipMeta(recon, 13);
@@ -2880,7 +2880,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void ordinaryResourceItemsKeepTheirValues(GameTestHelper helper) {
         assertResourceValue(new ItemStack(ModItems.GRUDGE.get()), new int[]{1, 0, 0, 0}, "grudge");
         assertResourceValue(new ItemStack(ModItems.GRUDGE_1.get()), new int[]{1, 0, 0, 0}, "grudge_1");
@@ -2912,7 +2912,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void rangeTargetStopClearsOnlyItsOwnTarget(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity friendlyEntity = ModEntities.BB_KONGOU.get().create(level);
@@ -2945,7 +2945,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void marriageRingScanChecksEveryInventoryAndOffhandStack(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer player = FakePlayerFactory.get(level,
@@ -2973,7 +2973,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void craneOwnerUuidPersistsAndRejectsAnotherPlayer(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer owner = FakePlayerFactory.get(level,
@@ -3038,7 +3038,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void teamCooldownRejectsCreateAndDisbandReplay(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer player = FakePlayerFactory.get(level,
@@ -3071,7 +3071,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipOwnerTransferUpdatesUuidAndNumericOwnerTogether(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity entity = ModEntities.BB_KONGOU.get().create(level);
@@ -3105,7 +3105,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity entity = ModEntities.BB_KONGOU.get().create(level);
@@ -3141,7 +3141,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void hostileShipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity entity = ModEntities.BB_YAMATO_MOB.get().create(level);
@@ -3177,7 +3177,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void shipMovementAboveFloorPreservesEquipMov(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Entity entity = ModEntities.BB_KONGOU.get().create(level);
@@ -3213,7 +3213,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void targetClassPacketRequiresObservedNearbyEntity(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer player = FakePlayerFactory.get(level,
@@ -3271,7 +3271,7 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
+    @GameTest(template = "arena")
     public static void waypointPairingRequiresActualWaypointOwner(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ServerPlayer owner = FakePlayerFactory.get(level,

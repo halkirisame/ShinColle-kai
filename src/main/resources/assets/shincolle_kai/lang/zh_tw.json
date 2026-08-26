@@ -800,7 +800,7 @@
   "gui.shincolle_kai.pointer0": "個別模式",
   "gui.shincolle_kai.pointer1": "團體模式",
   "gui.shincolle_kai.pointer2": "陣型模式",
-  "gui.shincolle_kai.pointer3": "(蹲下左鍵以切換模式)",
+  "gui.shincolle_kai.pointer3": "(Shift + 滾輪 切換模式)",
   "gui.shincolle_kai.pointer4": "隊伍",
   "gui.shincolle_kai.range": "射程",
   "gui.shincolle_kai.recipepaper.material": "材料：",
