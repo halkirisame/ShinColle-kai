@@ -1,5 +1,6 @@
 package com.lulan.shincolle.block;
 
+import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.tileentity.BasicTileMulti;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
 import com.lulan.shincolle.utility.LogHelper;
@@ -134,56 +135,71 @@ public abstract class BasicBlockMulti extends BasicBlockContainer {
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {
-        // Client side just returns success
-        if (level.isClientSide) {
-            return InteractionResult.SUCCESS;
+        if (player.isShiftKeyDown()) {
+            return InteractionResult.PASS;
         }
 
-        // Server side: check if structure can form or open GUI
-        if (!player.isShiftKeyDown()) {
-            BlockEntity te = level.getBlockEntity(pos);
+        BlockEntity te = level.getBlockEntity(pos);
 
-            if (te instanceof TileMultiGrudgeHeavy gh) {
-                // MBS already formed - open GUI at core
-                if (gh.hasCorePos()) {
-                    BlockEntity coreTile = level.getBlockEntity(gh.getCorePos());
+        // corePos is not synchronized to clients, so the block state is the
+        // client-visible source of truth for an already formed structure.
+        if (level.isClientSide) {
+            if (state.getValue(MBS) > 0) {
+                return InteractionResult.sidedSuccess(level.isClientSide);
+            }
 
-                    if (coreTile instanceof TileMultiGrudgeHeavy coreGH && player instanceof ServerPlayer sp) {
-                        LogHelper.debug("DEBUG : open multi block GUI");
-                        NetworkHooks.openScreen(sp, coreGH, gh.getCorePos());
-                        return InteractionResult.CONSUME;
-                    }
-
-                    // [PORT] 1.10.2 -> 1.20.1: stale core references can block structure
-                    // reforming forever after world edits/crashes.
-                    gh.resetCorePos();
-                    updateBlockState(0, level, pos);
-                }
-
-                // MBS not yet formed - check if it can form
+            if (state.is(ModBlocks.GRUDGE_HEAVY.get())) {
                 int type = MulitBlockHelper.checkMultiBlockForm(level,
                         pos.getX(), pos.getY(), pos.getZ());
-
                 if (type > 0) {
-                    MulitBlockHelper.setupStructure(level,
-                            pos.getX(), pos.getY(), pos.getZ(), type);
-                    LogHelper.debug("DEBUG: check multi block form: type " + type);
-                    return InteractionResult.CONSUME;
+                    return InteractionResult.sidedSuccess(level.isClientSide);
                 }
-            } else if (te instanceof BasicTileMulti tile) {
-                // MBS already formed - open GUI at core
-                if (tile.hasCorePos()) {
-                    BlockEntity coreTile = level.getBlockEntity(tile.getCorePos());
+            }
 
-                    if (coreTile instanceof TileMultiGrudgeHeavy coreGH && player instanceof ServerPlayer sp) {
-                        LogHelper.debug("DEBUG : open multi block GUI");
-                        NetworkHooks.openScreen(sp, coreGH, tile.getCorePos());
-                        return InteractionResult.CONSUME;
-                    }
+            return InteractionResult.PASS;
+        }
 
-                    tile.resetCorePos();
-                    updateBlockState(0, level, pos);
+        if (te instanceof TileMultiGrudgeHeavy gh) {
+            // MBS already formed - open GUI at core
+            if (gh.hasCorePos()) {
+                BlockEntity coreTile = level.getBlockEntity(gh.getCorePos());
+
+                if (coreTile instanceof TileMultiGrudgeHeavy coreGH && player instanceof ServerPlayer sp) {
+                    LogHelper.debug("DEBUG : open multi block GUI");
+                    NetworkHooks.openScreen(sp, coreGH, gh.getCorePos());
+                    return InteractionResult.sidedSuccess(level.isClientSide);
                 }
+
+                // [PORT] 1.10.2 -> 1.20.1: stale core references can block structure
+                // reforming forever after world edits/crashes.
+                gh.resetCorePos();
+                updateBlockState(0, level, pos);
+                return InteractionResult.PASS;
+            }
+
+            // MBS not yet formed - check if it can form
+            int type = MulitBlockHelper.checkMultiBlockForm(level,
+                    pos.getX(), pos.getY(), pos.getZ());
+
+            if (type > 0) {
+                MulitBlockHelper.setupStructure(level,
+                        pos.getX(), pos.getY(), pos.getZ(), type);
+                LogHelper.debug("DEBUG: check multi block form: type " + type);
+                return InteractionResult.sidedSuccess(level.isClientSide);
+            }
+        } else if (te instanceof BasicTileMulti tile) {
+            // MBS already formed - open GUI at core
+            if (tile.hasCorePos()) {
+                BlockEntity coreTile = level.getBlockEntity(tile.getCorePos());
+
+                if (coreTile instanceof TileMultiGrudgeHeavy coreGH && player instanceof ServerPlayer sp) {
+                    LogHelper.debug("DEBUG : open multi block GUI");
+                    NetworkHooks.openScreen(sp, coreGH, tile.getCorePos());
+                    return InteractionResult.sidedSuccess(level.isClientSide);
+                }
+
+                tile.resetCorePos();
+                updateBlockState(0, level, pos);
             }
         }
 

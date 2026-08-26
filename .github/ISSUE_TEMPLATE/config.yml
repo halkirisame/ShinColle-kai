@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 質問・相談 / Questions and Inquiries
-    url: https://github.com/kousakirai/ShinColle-Reforge/discussions
-    about: バグ報告や機能リクエスト以外の質問・相談はDiscussionsをご利用ください。 / Please use Discussions for questions and inquiries other than bug reports and feature requests.
+  - name: 本家 ShinColle / Original mod
+    url: https://github.com/PinkaLulan/ShinColle
+    about: 原作(PinkaLulan氏)についてのお問い合わせはこちら。本フォークの不具合報告には使わないでください。 / For the original mod by PinkaLulan. Please do not use this for issues with this fork.
+  - name: 移植版 ShinColle-Reforge / The 1.20.1 port
+    url: https://github.com/kousakirai/ShinColle-Reforge
+    about: Forge 1.20.1移植版(kousakirai氏)についてのお問い合わせはこちら。本フォークの不具合報告には使わないでください。 / For the Forge 1.20.1 port by kousakirai. Please do not use this for issues with this fork.
 
 # Issue作成時のテンプレート設定
 defaults:
@@ -12,3 +15,6 @@ defaults:
   - template: "feature_request.yml"
     name: "💡 機能リクエスト / Feature Request"
     about: "新機能のアイデアを提案する / Suggest Ideas for New Features"
+  - template: "docs_report.yml"
+    name: "📄 ドキュメントの誤り / Documentation Error"
+    about: "README等の記述の誤りを報告する / Report an incorrect statement in the docs"

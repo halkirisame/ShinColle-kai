@@ -12,7 +12,8 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 ## 特徴
 
 - **深海棲艦と艦娘** — 深海側の艦を建造・育成。野生の艦娘は敵として出現します
-- **建造と育成** — 小型/大型建造、レベリング、婚約
+- **建造と育成** — 小型建造、レベリング、婚約
+  （大型建造は現在利用できません。「既知の問題」を参照）
 - **装備** — 主砲・魚雷・艦載機など。艦の性能を変化させます
 - **拡張** — KubeJSスクリプト、datapack、Javaアドオンから独自の艦属性と装備を追加できます
 
@@ -27,17 +28,58 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 | Curios | 艦の装備スロット |
 | Tinkers' Construct | 修飾子を艦の攻撃効果へ変換 |
 | KubeJS | 独自の艦属性・装備をスクリプトから追加 |
-| JEI | レシピ表示 |
+| JEI | 艦GUIとアイテム一覧の表示競合を回避 |
+
+## 互換性
+
+**MOD IDを `shincolle` から `shincolle_kai` へ変更したため、*ShinColle-Reforge* との
+互換性はありません。**内容ごとに分けて説明します。
+
+| 種別 | 状態 |
+|---|---|
+| 起動互換性 | **可**。Reforgeで作ったワールドをクラッシュせず開けます |
+| データ互換性 | **不可**。旧IDで保存された艦娘・アイテム・装備は引き継げません |
+| セーブ互換性 | **不可**。Reforgeからの継続プレイはできません |
+| API互換性 | **不可**。旧IDを前提にしたaddon・KubeJSスクリプトは動きません |
+
+設定ファイルは新規生成されます。旧設定は引き継がれません。
+
+## Reforge からの移行
+
+Reforgeのワールドを開くこと自体はできますが、**自動移行は行われません。**
+
+1. Reforgeで作った艦娘・アイテムは、ワールドを開いた時点で失われます。
+   残したい場合はReforgeのまま遊び続けてください
+2. 設定は `config/shincolle_kai-*.cfg` として新規に作られます。
+   旧 `shincolle-*.cfg` の値を引き継ぎたい場合は手で書き写してください
+3. KubeJSスクリプトとdatapackは、`shincolle:` を `shincolle_kai:` へ書き換えてください
+4. Javaアドオンは再コンパイルが必要です。API境界は
+   [docs/java_addon_api.md](docs/java_addon_api.md) を参照してください
+
+**新規ワールドで始めることを推奨します。**
+
+## 既知の問題
+
+現在把握している、遊ぶうえで影響のある問題です。
+
+- **大型建造が利用できません。** 大型造船所を構成するブロック（多金属ブロック・
+  深海重怨念ブロック）が右クリックで設置できず、造船所を組み立てられません。
+  修正作業中です
+- **艦娘タスク（採掘・釣りなど）とクレーンは未検証です。** 1.20.1移植時の欠落が
+  未調査のため、動作しない可能性があります
+- **艦の感情・反応が発生しません。** 撫でる・被弾する・攻撃する・待機する・命令する
+  のいずれでも、感情の表示、音声、士気の変動、押し返し、反撃が起きません
+- 指揮棒の単艦モードが機能せず、選択した艦が全て反応します
+- 撫でモードで右クリックしても反応しません
+- 大型造船所の渦が建造中も停止時と同じ表示のままです（見た目のみ）
+- 1.10.2にあったパーティクル49種のうち24種が未移植です（見た目のみ）
+
+不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
 ## v1.20.1-1.0.0 の変更点
 
 KubeJS連携・装備datapack・Javaアドオン向けPublic APIを実装しました。
 艦が攻撃・反撃しない不具合なども修正しました。
-
-**MOD IDを `shincolle` から `shincolle_kai` へ変更しました。** *Reforge* との互換はありません。
-
-- 旧IDで保存された艦娘やアイテムは引き継げません。ワールド自体は開けます
-- 設定ファイルは新規生成されます。旧設定は引き継がれません
 
 全ての変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
@@ -78,7 +120,8 @@ ShinColle, fixing bugs left in that port and restoring behaviour lost in the mov
 
 - **Abyssal ships and ship girls** — build and raise abyssal ships; wild ship girls
   appear as enemies
-- **Construction and growth** — small and large construction, leveling, marriage
+- **Construction and growth** — small construction, leveling, marriage
+  (large construction is currently unavailable; see Known Issues)
 - **Equipment** — cannons, torpedoes, aircraft and more, changing a ship's stats
 - **Extensible** — custom ship attributes and equipment from KubeJS scripts, datapacks
   or a Java addon
@@ -94,18 +137,61 @@ Optional integrations (all work fine when absent):
 | Curios | Equipment slots for ships |
 | Tinkers' Construct | Modifiers converted into ship attack effects |
 | KubeJS | Custom ship attributes and equipment from scripts |
-| JEI | Recipe display |
+| JEI | Keeps its item list clear of the ship GUI |
+
+## Compatibility
+
+**The mod id changed from `shincolle` to `shincolle_kai`, so this is not compatible with
+*ShinColle-Reforge*.** Broken down by kind:
+
+| Kind | Status |
+|---|---|
+| World loading | **Works.** A world created with Reforge opens without crashing |
+| Data | **Broken.** Ships, items and equipment saved under the old id are not carried over |
+| Save continuity | **Broken.** You cannot continue a Reforge playthrough |
+| API | **Broken.** Addons and KubeJS scripts written against the old id will not work |
+
+Config files are regenerated; old settings are not carried over.
+
+## Migration from Reforge
+
+A Reforge world will open, but **nothing is migrated automatically.**
+
+1. Ships and items created in Reforge are lost the moment the world is opened.
+   Keep playing on Reforge if you want to keep them
+2. Config is recreated as `config/shincolle_kai-*.cfg`. Copy values across by hand from
+   the old `shincolle-*.cfg` if you want to keep them
+3. For KubeJS scripts and datapacks, replace `shincolle:` with `shincolle_kai:`
+4. Java addons must be recompiled. See
+   [docs/java_addon_api.md](docs/java_addon_api.md) for the API boundary
+
+**Starting a new world is recommended.**
+
+## Known Issues
+
+Problems currently known to affect play.
+
+- **Large construction is unavailable.** The blocks that make up the large shipyard
+  (polymetal block, heavy grudge block) cannot be placed by right-clicking, so the
+  shipyard cannot be assembled. A fix is in progress
+- **Ship tasks (mining, fishing) and the crane are unverified.** Gaps from the 1.20.1
+  port have not been investigated, so they may not work
+- **Ships do not react emotionally.** Petting, taking damage, attacking, idling and
+  being commanded all produce no emotion display, voice, morale change, pushback or
+  retaliation
+- The pointer's single-ship mode does not work; every selected ship responds
+- Right-clicking in caress mode does nothing
+- The large shipyard's vortex stays in its idle appearance even while building
+  (cosmetic only)
+- 24 of the 49 particle types from 1.10.2 are not ported (cosmetic only)
+
+Please report bugs at
+[Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
 ## Changes in v1.20.1-1.0.0
 
 KubeJS integration, datapack equipment and a public Java addon API are now implemented.
 Ships not attacking or retaliating, among other bugs, have been fixed.
-
-**The mod id changed from `shincolle` to `shincolle_kai`.** It is not compatible with
-*Reforge*.
-
-- Ships and items saved under the old id are not carried over. The world itself still opens
-- Config files are regenerated; old settings are not carried over
 
 See [CHANGELOG.md](CHANGELOG.md) for the full list of changes.
 

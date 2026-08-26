@@ -77,7 +77,11 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
         float angle = (-player.tickCount - partialTick) % 360F;
 
         // Check if the multiblock structure is formed and active
-        boolean active = tile.hasCorePos();
+        // [PORT] 1.10.2 parity: the original checks the blockstate (meta > 1), which the
+        // shipyard raises to 2 while building. hasCorePos() is never synced to the client
+        // (BasicTileMulti has no getUpdateTag), so reading it here made the active vortex
+        // unreachable.
+        boolean active = blockState.getValue(BasicBlockMulti.MBS) > 1;
 
         // Speed up rotation when the structure is active (formed)
         if (active) {

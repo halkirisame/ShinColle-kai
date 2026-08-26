@@ -1,0 +1,64 @@
+name: 📄 ドキュメントの誤り / Documentation Error
+description: README・Wiki・APIドキュメント等の記述の誤りを報告する / Report an incorrect statement in the docs.
+labels: ["documentation", "documentation-error"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        文章の誤りの報告に、バグ報告テンプレートを使う必要はありません。ここへどうぞ。 /
+        You do not need the bug report template for a documentation error. Use this instead.
+
+  - type: dropdown
+    id: document
+    attributes:
+      label: 対象ドキュメント / Document
+      options:
+        - README
+        - CHANGELOG
+        - Wiki
+        - API Documentation (docs/java_addon_api.md)
+        - KubeJS Documentation (docs/kubejs_integration.md)
+        - Datapack Documentation
+        - Example addon / datapack (examples/)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: incorrect
+    attributes:
+      label: 誤っている記述 / Incorrect statement
+      description: |
+        問題の記述をそのまま貼り付けてください。可能なら該当箇所へのリンクも。 /
+        Please paste the statement as written. A link to the location helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 正しいと思われる内容 / Expected information
+      description: |
+        「どこが変か分からないが動作と違う」でも構いません。 /
+        "I am not sure what is right, but it does not match what happens" is fine.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ShinColle-kai のバージョン / Version
+      placeholder: "v1.20.1-1.0.0"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: kind
+    attributes:
+      label: 種類 / Kind
+      options:
+        - label: 実装と食い違っている / Contradicts the actual behaviour
+        - label: 古い仕様が残っている / Outdated information
+        - label: 日本語版と英語版で内容が違う / Japanese and English versions differ
+        - label: リンク切れ / Broken link
+        - label: 案内されているが実際には使えない / Documented but not actually available

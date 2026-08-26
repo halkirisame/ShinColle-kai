@@ -112,9 +112,12 @@ public class TaskHelper {
             return;
 
         // check guard position
-        BlockPos pos = new BlockPos(host.getGuardedPos(0), host.getGuardedPos(1), host.getGuardedPos(2));
-        if (pos.getY() <= 0)
+        // [PORT] 1.10.2 -> 1.20.1: the original used Y <= 0 as an "unset" sentinel, safe
+        // when the world floor was Y=0. Y now reaches -64 and the whole deepslate layer
+        // is negative, so validity comes from the guard flags instead.
+        if (!host.hasGuardDestination())
             return;
+        BlockPos pos = new BlockPos(host.getGuardedPos(0), host.getGuardedPos(1), host.getGuardedPos(2));
 
         // check guard type
         if (host.getGuardedPos(4) != 1)
@@ -131,7 +134,7 @@ public class TaskHelper {
 
         // check waypoint has paired chest
         pos = waypoint.getPairedChest();
-        if (pos == null || pos.getY() <= 0)
+        if (pos == null)
             return;
 
         // check paired chest has inventory capability
@@ -414,9 +417,12 @@ public class TaskHelper {
             return;
 
         // check guard position
-        BlockPos pos = new BlockPos(host.getGuardedPos(0), host.getGuardedPos(1), host.getGuardedPos(2));
-        if (pos.getY() <= 0)
+        // [PORT] 1.10.2 -> 1.20.1: the original used Y <= 0 as an "unset" sentinel, safe
+        // when the world floor was Y=0. Y now reaches -64 and the whole deepslate layer
+        // is negative, so validity comes from the guard flags instead.
+        if (!host.hasGuardDestination())
             return;
+        BlockPos pos = new BlockPos(host.getGuardedPos(0), host.getGuardedPos(1), host.getGuardedPos(2));
         if (host.getGuardedPos(4) != 1)
             return;
 
@@ -523,9 +529,12 @@ public class TaskHelper {
             return;
 
         // check guard position
-        BlockPos pos = new BlockPos(host.getGuardedPos(0), host.getGuardedPos(1), host.getGuardedPos(2));
-        if (pos.getY() <= 0)
+        // [PORT] 1.10.2 -> 1.20.1: the original used Y <= 0 as an "unset" sentinel, safe
+        // when the world floor was Y=0. Y now reaches -64 and the whole deepslate layer
+        // is negative, so validity comes from the guard flags instead.
+        if (!host.hasGuardDestination())
             return;
+        BlockPos pos = new BlockPos(host.getGuardedPos(0), host.getGuardedPos(1), host.getGuardedPos(2));
         if (host.getGuardedPos(4) != 1)
             return;
 
@@ -540,7 +549,7 @@ public class TaskHelper {
 
         // check waypoint has paired chest
         pos = waypoint.getPairedChest();
-        if (pos == null || pos.getY() <= 0)
+        if (pos == null)
             return;
 
         // check paired chest is a furnace

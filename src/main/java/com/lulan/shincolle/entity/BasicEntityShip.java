@@ -1717,11 +1717,9 @@ public abstract class BasicEntityShip extends TamableAnimal
      * boundaries.
      *
      * @param target item to search for
-     * @param noMeta if true, match any item of same type (ignore NBT/damage); if
-     *               false, exact match
      * @return slot index or -1 if not found
      */
-    public int findItemInSlot(ItemStack target, boolean noMeta) {
+    public int findItemInSlot(ItemStack target) {
         int startSlot = ContainerShipInventory.EQUIP_SLOTS; // skip equipment slots (0-5)
         int maxSlot = this.itemHandler.getSlots();
 
@@ -1736,12 +1734,13 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         for (int i = startSlot; i < maxSlot; i++) {
             ItemStack stack = this.itemHandler.getStackInSlot(i);
+            // [PORT] 1.10.2 -> 1.20.1: the original compared getItemDamage() only and
+            // never looked at NBT. Metadata is gone in 1.20.1 and variants became
+            // separate items, so matching the item alone is the faithful equivalent.
+            // Comparing tags here is stricter than the original and hides renamed or
+            // NBT-tagged supplies from the ship.
             if (!stack.isEmpty() && stack.getItem() == target.getItem()) {
-                if (noMeta) {
-                    return i; // match any variant of this item type
-                } else if (ItemStack.isSameItemSameTags(stack, target)) {
-                    return i;
-                }
+                return i;
             }
         }
         return -1;
@@ -1788,7 +1787,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
 
         // search item in ship inventory
-        int slot = findItemInSlot(itemType, false);
+        int slot = findItemInSlot(itemType);
         if (slot == -1)
             return false;
 
@@ -1813,20 +1812,18 @@ public abstract class BasicEntityShip extends TamableAnimal
      * auto use combat ration from inventory when morale triggers
      */
     protected void useCombatRation() {
-        // search for ANY combat ration variant (noMeta=true matches any item of same
-        // type)
         // try all 6 variants (COMBAT_RATION through COMBAT_RATION_5)
-        int slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION.get()), true);
+        int slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION.get()));
         if (slot < 0)
-            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_1.get()), true);
+            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_1.get()));
         if (slot < 0)
-            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_2.get()), true);
+            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_2.get()));
         if (slot < 0)
-            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_3.get()), true);
+            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_3.get()));
         if (slot < 0)
-            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_4.get()), true);
+            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_4.get()));
         if (slot < 0)
-            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_5.get()), true);
+            slot = findItemInSlot(new ItemStack(ModItems.COMBAT_RATION_5.get()));
 
         if (slot >= 0) {
             ItemStack getItem = this.itemHandler.getStackInSlot(slot);

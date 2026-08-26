@@ -1,5 +1,6 @@
 package com.lulan.shincolle.tileentity;
 
+import com.lulan.shincolle.block.BasicBlockMulti;
 import com.lulan.shincolle.client.gui.inventory.ContainerLargeShipyard;
 import com.lulan.shincolle.crafting.LargeRecipes;
 import com.lulan.shincolle.crafting.ResourceYieldPolicy;
@@ -535,6 +536,11 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         if (isActive != nowActive) {
             isActive = nowActive;
             sendUpdate = true;
+            // [PORT] 1.10.2 parity: the original drives the vortex through the MBS
+            // blockstate (TileMultiGrudgeHeavy:476, updateBlockState(isBuilding() ? 2 : 1)).
+            // Without this the state never reaches 2 and the vortex stays in its idle
+            // appearance while the shipyard is building.
+            BasicBlockMulti.updateBlockState(nowActive ? 2 : 1, this.level, this.worldPosition);
         }
 
         if (sendUpdate || syncTime > 12000) {

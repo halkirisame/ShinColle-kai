@@ -68,6 +68,7 @@ public class MulitBlockHelper {
         int blockType;
         int patternTemp;
         int patternMatch = 1; // init match pattern = 0001 (bit)
+        boolean cleanedClientVisibleStaleReference = false;
 
         // [PORT] 1.10.2 -> 1.20.1: world min build height can be negative; the
         // original y<3 guard should map to "need 2 blocks below core" relative to
@@ -90,8 +91,10 @@ public class MulitBlockHelper {
                         blockType = 1;
                     if (block == ModBlocks.GRUDGE_HEAVY.get())
                         blockType = 2;
-                    LogHelper.debug("DEBUG: multi block check: pos " + pos.getX() + " " + pos.getY() + " "
-                            + pos.getZ() + " " + block + " " + blockType);
+                    if (!level.isClientSide) {
+                        LogHelper.debug("DEBUG: multi block check: pos " + pos.getX() + " " + pos.getY() + " "
+                                + pos.getZ() + " " + block + " " + blockType);
+                    }
 
                     // 2. match pattern
                     patternTemp = 0;
@@ -102,12 +105,20 @@ public class MulitBlockHelper {
                     }
                     patternMatch = (patternMatch & patternTemp);
 
-                    LogHelper.debug("DEBUG: check structure: type " + patternMatch + " " + patternTemp);
+                    if (!level.isClientSide) {
+                        LogHelper.debug("DEBUG: check structure: type " + patternMatch + " " + patternTemp);
+                    }
                     if (patternMatch == 0)
                         return -1;
 
                     // 3. check core block - only unowned blocks can join
                     if (blockType > 0) {
+                        if (level.isClientSide) {
+                            if (state.getValue(BasicBlockMulti.MBS) > 0) {
+                                return -1;
+                            }
+                            continue;
+                        }
                         BlockEntity t = level.getBlockEntity(pos);
                         if (t instanceof BasicTileMulti bm && bm.hasCorePos()) {
                             if (hasValidLargeShipyardCore(level, bm.getCorePos())) {
@@ -117,6 +128,7 @@ public class MulitBlockHelper {
                             // edits and block multiblock re-forming; auto-clean invalid references.
                             bm.resetCorePos();
                             BasicBlockMulti.updateBlockState(0, level, pos);
+                            cleanedClientVisibleStaleReference |= state.getValue(BasicBlockMulti.MBS) > 0;
                         }
                         if (t instanceof TileMultiGrudgeHeavy gh && gh.hasCorePos()) {
                             if (hasValidLargeShipyardCore(level, gh.getCorePos())) {
@@ -124,6 +136,7 @@ public class MulitBlockHelper {
                             }
                             gh.resetCorePos();
                             BasicBlockMulti.updateBlockState(0, level, pos);
+                            cleanedClientVisibleStaleReference |= state.getValue(BasicBlockMulti.MBS) > 0;
                         }
                     }
 
@@ -131,7 +144,15 @@ public class MulitBlockHelper {
             } // end y for
         } // end x for
 
-        LogHelper.debug("DEBUG: check structure: type " + patternMatch);
+        if (!level.isClientSide) {
+            LogHelper.debug("DEBUG: check structure: type " + patternMatch);
+        }
+        // A client that still sees the stale MBS state returns PASS. Do not form on the
+        // server during that same click; let the blockstate cleanup synchronize first so
+        // the next click reaches the same decision on both sides.
+        if (cleanedClientVisibleStaleReference) {
+            return -1;
+        }
         return patternMatch;
     }
 
