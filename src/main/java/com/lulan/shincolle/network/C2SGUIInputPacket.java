@@ -1035,7 +1035,7 @@ public class C2SGUIInputPacket {
                 gx, gz, flagship.getX(), flagship.getZ());
 
         int[] oldGuardPos = null;
-        if (formationMove && flagship.getGuardedPos(1) > 0 && flagship.getGuardedPos(4) >= 0) {
+        if (formationMove && flagship.hasGuardDestination()) {
             oldGuardPos = new int[]{flagship.getGuardedPos(0), flagship.getGuardedPos(1),
                     flagship.getGuardedPos(2)};
         }

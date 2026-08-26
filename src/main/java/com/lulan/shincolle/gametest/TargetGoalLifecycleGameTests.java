@@ -127,6 +127,7 @@ public final class TargetGoalLifecycleGameTests {
     private static void verifyInvalidTargetRelease(GameTestHelper helper, IShipAttackBase host,
                                                     UUID playerUuid) {
         Mob ship = (Mob) host;
+        host.getAttrs().getAttrsBuffed()[ID.Attrs.HIT] = 4F;
         GoalSelector selector = installOnlyTargetGoal(ship, new ShipRevengeTargetGoal(host));
         Zombie dead = createZombie(helper, new Vec3(3.5D, 2D, 1.5D), false);
         Zombie distant = createZombie(helper, new Vec3(1.5D, 2D, 3.5D), false);
@@ -145,7 +146,7 @@ public final class TargetGoalLifecycleGameTests {
         queueRevengeTarget(host, ship, distant, 2);
         selector.tick();
         assertTarget(helper, ship, distant, "Revenge goal did not acquire the range-check target.");
-        moveTo(helper, distant, new Vec3(80.5D, 2D, 1.5D));
+        moveTo(helper, distant, new Vec3(7.5D, 2D, 1.5D));
         selector.tick();
         assertStoppedAndUntargeted(helper, selector, ship,
                 "Revenge goal retained an out-of-range target.");

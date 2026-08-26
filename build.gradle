@@ -18,8 +18,8 @@ version = mod_version
 group = mod_group_id
 
 base {
-    // Output jar filename only; the Forge mod id itself (mod_id, used for
-    // registries/@Mod/mods.toml) stays "shincolle" for drop-in compatibility.
+    // Output jar filename. The Forge mod id is "shincolle_kai"; the historical
+    // Java package com.lulan.shincolle remains unchanged.
     archivesName = 'shincolle-kai'
 }
 

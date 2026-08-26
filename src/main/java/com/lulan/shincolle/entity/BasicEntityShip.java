@@ -134,6 +134,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected UUID guardedEntityUuid;
     @Nullable
     protected ResourceKey<Level> guardedDimension;
+    /** Client copy of whether the synchronized guard coordinates represent an active destination. */
+    private boolean clientGuardDestinationActive;
     protected Entity atkTarget;
     protected Entity rvgTarget;
     // AI calculation
@@ -2762,6 +2764,33 @@ public abstract class BasicEntityShip extends TamableAnimal
     public void setGuardedPos(int x, int y, int z, ResourceKey<Level> dimension, int type) {
         int legacyDimension = dimension.equals(Level.NETHER) ? -1 : dimension.equals(Level.END) ? 1 : 0;
         setGuardedPos(x, y, z, legacyDimension, type);
+        this.guardedDimension = dimension;
+    }
+
+    /**
+     * Whether the guard coordinates are an active block destination rather than cleared state or
+     * an entity-guard placeholder. The server derives this from authoritative flags; clients use
+     * the explicit value carried by guard synchronization packets.
+     */
+    public boolean hasGuardDestination() {
+        if (this.level().isClientSide()) {
+            return this.clientGuardDestinationActive;
+        }
+        return !getStateFlag(ID.F.CanFollow) && getStateMinor(ID.M.GuardType) != 2;
+    }
+
+    public void setClientGuardDestinationActive(boolean active) {
+        if (this.level().isClientSide()) {
+            this.clientGuardDestinationActive = active;
+        }
+    }
+
+    @Nullable
+    public ResourceKey<Level> getGuardedDimension() {
+        return this.guardedDimension;
+    }
+
+    public void setGuardedDimension(@Nullable ResourceKey<Level> dimension) {
         this.guardedDimension = dimension;
     }
 

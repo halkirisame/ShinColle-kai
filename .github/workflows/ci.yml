@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 120
 
     env:
-      EXPECTED_GAMETESTS: 179
+      EXPECTED_GAMETESTS: 180
 
     steps:
       - name: Check out repository
@@ -83,8 +83,11 @@ jobs:
           set -o pipefail
           rm -rf world logs
           mkdir -p build/ci
-          ./gradlew runGameTestServer -PshincolleCuriosRuntime=false             --no-daemon --console=plain 2>&1             | tee build/ci/gametest-no-curios.log
-          grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)"             build/ci/gametest-no-curios.log
+          ./gradlew runGameTestServer -PshincolleCuriosRuntime=false \
+            --no-daemon --console=plain 2>&1 \
+            | tee build/ci/gametest-no-curios.log
+          grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)" \
+            build/ci/gametest-no-curios.log
 
       - name: Run GameTests without Tinkers
         shell: bash
@@ -92,8 +95,11 @@ jobs:
           set -o pipefail
           rm -rf world logs
           mkdir -p build/ci
-          ./gradlew runGameTestServer -PshincolleTinkersRuntime=false             --no-daemon --console=plain 2>&1             | tee build/ci/gametest-no-tinkers.log
-          grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)"             build/ci/gametest-no-tinkers.log
+          ./gradlew runGameTestServer -PshincolleTinkersRuntime=false \
+            --no-daemon --console=plain 2>&1 \
+            | tee build/ci/gametest-no-tinkers.log
+          grep -Fq "All ${EXPECTED_GAMETESTS} required tests passed :)" \
+            build/ci/gametest-no-tinkers.log
 
       - name: Upload the built mod jar
         if: success()

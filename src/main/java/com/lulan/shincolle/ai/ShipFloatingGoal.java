@@ -82,7 +82,7 @@ public class ShipFloatingGoal extends Goal {
                 return distSq < fMinSq;
             }
             // guarding position
-            else if (host.getStateMinor(ID.M.GuardY) > 0) {
+            else if (host.getStateMinor(ID.M.GuardType) != 2) {
                 double dx = ent.getX() - host.getStateMinor(ID.M.GuardX);
                 double dy = ent.getY() - host.getStateMinor(ID.M.GuardY);
                 double dz = ent.getZ() - host.getStateMinor(ID.M.GuardZ);

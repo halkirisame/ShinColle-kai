@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml/badge.svg)](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml)
 
-艦娘(ship girl)を建造し、育て、一緒に戦うMinecraft MODです。
-味方の艦娘と敵の深海棲艦、装備システム、レベリングを追加します。
+深海棲艦を建造し、育て、敵として現れる艦娘と戦うMinecraft MODです。
+深海棲艦と、撃破後に味方へ迎えられる艦娘、装備システム、レベリングを追加します。
 
 PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したもの(ShinColle-Reforge)の
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
@@ -11,7 +11,7 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 
 ## 特徴
 
-- **艦娘** — 駆逐・軽巡・重巡・戦艦・空母・潜水艦、および敵側の姫級・水鬼
+- **深海棲艦と艦娘** — 深海側の艦を建造・育成。野生の艦娘は敵として出現します
 - **建造と育成** — 小型/大型建造、レベリング、婚約
 - **装備** — 主砲・魚雷・艦載機など。艦の性能を変化させます
 - **拡張** — KubeJSスクリプト、datapack、Javaアドオンから独自の艦属性と装備を追加できます
@@ -24,7 +24,7 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 
 | MOD | 連携内容 |
 |---|---|
-| Curios | 艦娘の装備スロット |
+| Curios | 艦の装備スロット |
 | Tinkers' Construct | 修飾子を艦の攻撃効果へ変換 |
 | KubeJS | 独自の艦属性・装備をスクリプトから追加 |
 | JEI | レシピ表示 |
@@ -66,9 +66,9 @@ MITライセンスのもとで公開されています。詳細は [LICENSE](LIC
 
 ---
 
-ShinColle-kai is a Minecraft mod about building, raising and fighting alongside ship
-girls. It adds friendly ship girls, hostile abyssal ships, an equipment system and
-leveling.
+ShinColle-kai is a Minecraft mod about building and raising abyssal ships to fight
+hostile ship girls. Defeated ship girls can also be recruited as allies. It adds an
+equipment system and leveling.
 
 It is a fork of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of PinkaLulan's
 ShinColle, fixing bugs left in that port and restoring behaviour lost in the move from
@@ -76,8 +76,8 @@ ShinColle, fixing bugs left in that port and restoring behaviour lost in the mov
 
 ## Features
 
-- **Ship girls** — destroyers, light and heavy cruisers, battleships, carriers and
-  submarines, plus hostile princesses and demons
+- **Abyssal ships and ship girls** — build and raise abyssal ships; wild ship girls
+  appear as enemies
 - **Construction and growth** — small and large construction, leveling, marriage
 - **Equipment** — cannons, torpedoes, aircraft and more, changing a ship's stats
 - **Extensible** — custom ship attributes and equipment from KubeJS scripts, datapacks
@@ -91,7 +91,7 @@ Optional integrations (all work fine when absent):
 
 | Mod | What it adds |
 |---|---|
-| Curios | Equipment slots for ship girls |
+| Curios | Equipment slots for ships |
 | Tinkers' Construct | Modifiers converted into ship attack effects |
 | KubeJS | Custom ship attributes and equipment from scripts |
 | JEI | Recipe display |

@@ -452,15 +452,6 @@ public class ShipGuardingGoal extends Goal {
             pos[2] = host.getStateMinor(ID.M.GuardZ) + 0.5D;
         }
 
-        // if guard Y <= 0, cancel guard mode
-        if (pos[1] <= 0) {
-            host.setGuardedPos(-1, -1, -1, 0, 0);
-            host.setGuardedEntity(null);
-            host.setStateFlag(ID.F.CanFollow, true);
-            this.stop();
-            return false;
-        }
-
         // calculate follow distances
         if (this.ship != null && this.ship.getStateMinor(ID.M.FormatType) > 0) {
             // formation mode: tighter follow distances

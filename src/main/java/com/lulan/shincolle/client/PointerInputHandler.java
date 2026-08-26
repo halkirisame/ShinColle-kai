@@ -82,6 +82,9 @@ public class PointerInputHandler {
         if (player == null) {
             return;
         }
+        if (mc.options.keySprint.isDown() || player.isSprinting()) {
+            return;
+        }
 
         int direction = delta > 0D ? -1 : 1;
         int mode = PointerItem.cycleMode(PointerItem.getMode(pointer), direction);
@@ -157,7 +160,7 @@ public class PointerInputHandler {
         if (player == null || mc.level == null || mc.screen != null) {
             return ItemStack.EMPTY;
         }
-        if (!player.isShiftKeyDown()) {
+        if (!player.isShiftKeyDown() || mc.options.keySprint.isDown() || player.isSprinting()) {
             return ItemStack.EMPTY;
         }
         return getPointerInUse(player);
@@ -245,13 +248,11 @@ public class PointerInputHandler {
                 continue;
             }
 
-            int destY = ship.getStateMinor(ID.M.GuardY);
-            // Upstream treats a non-positive Y as "no destination set"
-            // (TileEntityWaypoint.update checks nextPos.getY() > 0). Same convention here.
-            if (destY <= 0) {
+            if (!ship.hasGuardDestination() || !ship.isGuardedInCurrentDimension()) {
                 continue;
             }
 
+            int destY = ship.getStateMinor(ID.M.GuardY);
             double destX = ship.getStateMinor(ID.M.GuardX) + 0.5D;
             double destZ = ship.getStateMinor(ID.M.GuardZ) + 0.5D;
 

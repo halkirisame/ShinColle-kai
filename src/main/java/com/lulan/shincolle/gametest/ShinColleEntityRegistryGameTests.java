@@ -2019,18 +2019,18 @@ public final class ShinColleEntityRegistryGameTests {
             assertSmallShipyardResourceSequence(level, easySmall, 90, "EasyMode small shipyard");
             assertLargeShipyardResourceSequence(level, easyLarge, 90, "EasyMode large shipyard");
 
-            TileEntitySmallShipyard dismantleSmall = createSmallShipyard(helper, new BlockPos(2, 2, 6),
+            TileEntitySmallShipyard dismantleSmall = createSmallShipyard(helper, new BlockPos(10, 2, 2),
                     "EasyMode dismantling");
-            TileMultiGrudgeHeavy dismantleLarge = createLargeShipyard(helper, new BlockPos(6, 2, 6),
+            TileMultiGrudgeHeavy dismantleLarge = createLargeShipyard(helper, new BlockPos(2, 5, 2),
                     "EasyMode dismantling");
             assertSmallShipyardDismantling(level, dismantleSmall, "EasyMode small shipyard");
             assertLargeShipyardDismantling(level, dismantleLarge, "EasyMode large shipyard");
 
             ItemStack excessiveInput = new ItemStack(ModItems.EQUIP_CANNON.get());
             BasicEquip.setEquipMeta(excessiveInput, 0);
-            TileEntitySmallShipyard overflowSmall = createSmallShipyard(helper, new BlockPos(10, 2, 6),
+            TileEntitySmallShipyard overflowSmall = createSmallShipyard(helper, new BlockPos(6, 5, 2),
                     "overflow rejection");
-            TileMultiGrudgeHeavy overflowLarge = createLargeShipyard(helper, new BlockPos(14, 2, 6),
+            TileMultiGrudgeHeavy overflowLarge = createLargeShipyard(helper, new BlockPos(10, 5, 2),
                     "overflow rejection");
             assertSmallShipyardRejectsExcess(level, overflowSmall, excessiveInput);
             assertLargeShipyardRejectsExcess(level, overflowLarge, excessiveInput);
@@ -2038,9 +2038,9 @@ public final class ShinColleEntityRegistryGameTests {
 
             ConfigHandler.COMMON.easyMode.set(false);
             assertEasyModeValue(false);
-            TileEntitySmallShipyard normalSmall = createSmallShipyard(helper, new BlockPos(10, 2, 2),
+            TileEntitySmallShipyard normalSmall = createSmallShipyard(helper, new BlockPos(2, 8, 2),
                     "normal-mode resource input");
-            TileMultiGrudgeHeavy normalLarge = createLargeShipyard(helper, new BlockPos(14, 2, 2),
+            TileMultiGrudgeHeavy normalLarge = createLargeShipyard(helper, new BlockPos(6, 8, 2),
                     "normal-mode resource input");
             assertSmallShipyardResourceSequence(level, normalSmall, 9, "normal-mode small shipyard");
             assertLargeShipyardResourceSequence(level, normalLarge, 9, "normal-mode large shipyard");
@@ -2073,12 +2073,12 @@ public final class ShinColleEntityRegistryGameTests {
         loadedSmall.load(smallTag);
         assertShipyardStocks(loadedSmall, expected, "loaded small shipyard");
 
-        TileMultiGrudgeHeavy large = createLargeShipyard(helper, new BlockPos(2, 2, 6),
+        TileMultiGrudgeHeavy large = createLargeShipyard(helper, new BlockPos(2, 5, 2),
                 "stock NBT save");
         setShipyardStocks(large, expected);
         CompoundTag largeTag = large.saveWithFullMetadata();
         assertStockTag(largeTag, expected, "large shipyard");
-        TileMultiGrudgeHeavy loadedLarge = createLargeShipyard(helper, new BlockPos(6, 2, 6),
+        TileMultiGrudgeHeavy loadedLarge = createLargeShipyard(helper, new BlockPos(6, 5, 2),
                 "stock NBT load");
         loadedLarge.load(largeTag);
         assertShipyardStocks(loadedLarge, expected, "loaded large shipyard");

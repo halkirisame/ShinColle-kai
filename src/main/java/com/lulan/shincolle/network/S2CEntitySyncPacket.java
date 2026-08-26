@@ -7,9 +7,12 @@ import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.PacketHelper;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.network.NetworkEvent;
@@ -122,6 +125,23 @@ public class S2CEntitySyncPacket {
         }
     }
 
+    private static void writeGuardMetadata(FriendlyByteBuf buf, BasicEntityShip ship) {
+        buf.writeBoolean(ship.hasGuardDestination());
+        ResourceKey<Level> dimension = ship.getGuardedDimension();
+        buf.writeBoolean(dimension != null);
+        if (dimension != null) {
+            buf.writeResourceLocation(dimension.location());
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private static void readGuardMetadata(FriendlyByteBuf buf, BasicEntityShip ship) {
+        ship.setClientGuardDestinationActive(buf.readBoolean());
+        ship.setGuardedDimension(buf.readBoolean()
+                ? ResourceKey.create(Registries.DIMENSION, buf.readResourceLocation())
+                : null);
+    }
+
     // ========== Factory Methods ==========
 
     /**
@@ -146,6 +166,7 @@ public class S2CEntitySyncPacket {
             buf.writeInt(ship.getStateMinor(ID.M.GuardDim));
             buf.writeInt(ship.getStateMinor(ID.M.GuardID));
             buf.writeInt(ship.getStateMinor(ID.M.GuardType));
+            writeGuardMetadata(buf, ship);
             buf.writeInt(ship.getStateMinor(ID.M.PlayerUID));
             buf.writeInt(ship.getStateMinor(ID.M.ShipUID));
             buf.writeInt(ship.getStateMinor(ID.M.PlayerEID));
@@ -260,6 +281,7 @@ public class S2CEntitySyncPacket {
             buf.writeInt(ship.getStateMinor(ID.M.GuardDim));
             buf.writeInt(ship.getStateMinor(ID.M.GuardID));
             buf.writeInt(ship.getStateMinor(ID.M.GuardType));
+            writeGuardMetadata(buf, ship);
             buf.writeInt(ship.getStateMinor(ID.M.PlayerUID));
             buf.writeInt(ship.getStateMinor(ID.M.ShipUID));
             buf.writeInt(ship.getStateMinor(ID.M.PlayerEID));
@@ -287,6 +309,7 @@ public class S2CEntitySyncPacket {
             buf.writeInt(ship.getStateMinor(ID.M.GuardZ));
             buf.writeInt(ship.getStateMinor(ID.M.GuardDim));
             buf.writeInt(ship.getStateMinor(ID.M.GuardType));
+            writeGuardMetadata(buf, ship);
             buf.writeInt(ship.getStateMinor(ID.M.FormatType));
             buf.writeInt(ship.getStateMinor(ID.M.FormatPos));
             float minMOV = (ship.getAttrs() instanceof AttrsAdv adv) ? adv.getMinMOV() : 0F;
@@ -306,6 +329,7 @@ public class S2CEntitySyncPacket {
             buf.writeInt(ship.getStateMinor(ID.M.GuardDim));
             buf.writeInt(ship.getStateMinor(ID.M.GuardID));
             buf.writeInt(ship.getStateMinor(ID.M.GuardType));
+            writeGuardMetadata(buf, ship);
         });
         return new S2CEntitySyncPacket(SyncShip_Guard, ship.getId(), data);
     }
@@ -530,6 +554,7 @@ public class S2CEntitySyncPacket {
         ship.setStateMinor(ID.M.GuardDim, buf.readInt());
         ship.setStateMinor(ID.M.GuardID, buf.readInt());
         ship.setStateMinor(ID.M.GuardType, buf.readInt());
+        readGuardMetadata(buf, ship);
         ship.setStateMinor(ID.M.PlayerUID, buf.readInt());
         ship.setStateMinor(ID.M.ShipUID, buf.readInt());
         ship.setStateMinor(ID.M.PlayerEID, buf.readInt());
@@ -642,6 +667,7 @@ public class S2CEntitySyncPacket {
         ship.setStateMinor(ID.M.GuardDim, buf.readInt());
         ship.setStateMinor(ID.M.GuardID, buf.readInt());
         ship.setStateMinor(ID.M.GuardType, buf.readInt());
+        readGuardMetadata(buf, ship);
         ship.setStateMinor(ID.M.PlayerUID, buf.readInt());
         ship.setStateMinor(ID.M.ShipUID, buf.readInt());
         ship.setStateMinor(ID.M.PlayerEID, buf.readInt());
@@ -667,6 +693,7 @@ public class S2CEntitySyncPacket {
         ship.setStateMinor(ID.M.GuardZ, buf.readInt());
         ship.setStateMinor(ID.M.GuardDim, buf.readInt());
         ship.setStateMinor(ID.M.GuardType, buf.readInt());
+        readGuardMetadata(buf, ship);
         ship.setStateMinor(ID.M.FormatType, buf.readInt());
         ship.setStateMinor(ID.M.FormatPos, buf.readInt());
         float minMOV = buf.readFloat();
@@ -686,6 +713,7 @@ public class S2CEntitySyncPacket {
         ship.setStateMinor(ID.M.GuardDim, buf.readInt());
         ship.setStateMinor(ID.M.GuardID, buf.readInt());
         ship.setStateMinor(ID.M.GuardType, buf.readInt());
+        readGuardMetadata(buf, ship);
     }
 
     @OnlyIn(Dist.CLIENT)

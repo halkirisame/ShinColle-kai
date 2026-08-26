@@ -29,7 +29,7 @@ public class ModNetworking {
 
     // Dynamic entity attribute sync changes its wire schema. Reject mixed
     // client/server jars rather than decoding the wrong schema.
-    private static final String PROTOCOL_VERSION = "7";
+    private static final String PROTOCOL_VERSION = "8";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),
