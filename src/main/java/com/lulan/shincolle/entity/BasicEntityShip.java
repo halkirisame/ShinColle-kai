@@ -159,10 +159,6 @@ public abstract class BasicEntityShip extends TamableAnimal
      */
     protected final int[] StateTimer;
     /**
-     * EntityState, index by {@link ID.S}
-     */
-    protected final int[] StateEmotion;
-    /**
      * EntityFlag, index by {@link ID.F}
      */
     protected final boolean[] StateFlag;
@@ -216,7 +212,6 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.shipState = new ShipStateAggregate();
         this.StateMinor = this.shipState.legacyMinorStorage();
         this.StateTimer = this.shipState.legacyTimerStorage();
-        this.StateEmotion = this.shipState.legacyEmotionStorage();
         this.StateFlag = this.shipState.legacyFlagStorage();
         this.UpdateFlag = this.shipState.legacyUpdateFlagStorage();
         this.BodyHeightStand = new byte[]{92, 78, 73, 58, 47, 37};
@@ -885,10 +880,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             StateTimer[ID.T.CrandDelay]--;
         if (StateTimer[ID.T.SoundTime] > 0)
             StateTimer[ID.T.SoundTime]--;
-        if (StateTimer[ID.T.EmoteDelay] > 0)
-            StateTimer[ID.T.EmoteDelay]--;
-        if (StateTimer[ID.T.Emotion3Time] > 0)
-            StateTimer[ID.T.Emotion3Time]--;
+        this.shipState.emotion().tickReactionCooldown();
     }
 
     // ========== Attribute Calculation ==========
@@ -1866,37 +1858,8 @@ public abstract class BasicEntityShip extends TamableAnimal
             this.setStateEmotion(ID.S.HPState, ID.HPState.HEAVY, false);
         }
 
-        // [PORT] 1.10.2 -> 1.20.1: restore legacy emotion roll chain
-        // hungry > T_T > random bored/normal.
-        if (getStateFlag(ID.F.NoFuel)) {
-            if (this.getStateEmotion(ID.S.Emotion) != ID.Emotion.HUNGRY) {
-                this.setStateEmotion(ID.S.Emotion, ID.Emotion.HUNGRY, false);
-            }
-        } else if (hpRatio < 0.35F) {
-            if (this.getStateEmotion(ID.S.Emotion) != ID.Emotion.T_T) {
-                this.setStateEmotion(ID.S.Emotion, ID.Emotion.T_T, false);
-            }
-        } else {
-            if (this.getStateEmotion(ID.S.Emotion) == ID.Emotion.NORMAL) {
-                if (this.random.nextInt(3) == 0) {
-                    this.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
-                }
-            } else {
-                if (this.random.nextInt(4) == 0) {
-                    this.setStateEmotion(ID.S.Emotion, ID.Emotion.NORMAL, false);
-                }
-            }
-
-            if (this.getStateEmotion(ID.S.Emotion4) == ID.Emotion.NORMAL) {
-                if (this.random.nextInt(3) == 0) {
-                    this.setStateEmotion(ID.S.Emotion4, ID.Emotion.BORED, false);
-                }
-            } else {
-                if (this.random.nextInt(3) == 0) {
-                    this.setStateEmotion(ID.S.Emotion4, ID.Emotion.NORMAL, false);
-                }
-            }
-        }
+        this.shipState.emotion().updatePeriodic(ShipEmotionDecision.Policy.FRIENDLY,
+                getStateFlag(ID.F.NoFuel), hpRatio, this.random::nextInt);
 
         if (!this.level().isClientSide()) {
             this.sendSyncPacketEmotion();
@@ -1938,47 +1901,18 @@ public abstract class BasicEntityShip extends TamableAnimal
      * type: 0=normal, 1=stranger, 2=damaged, 3=attack, 4=idle, 5=command, 6=shock
      */
     public void applyEmotesReaction(int type) {
-        // Original 1.10.2 BasicEntityShip#applyEmotesReaction includes these distinct guards:
-        // if (ran.nextInt(9) == 0 && this.getEmotesTick() <= 0)
-        // if (this.getEmotesTick() <= 10)
-        // reactionShock();
-        switch (type) {
-            case 1 -> {
-                if (this.random.nextInt(9) == 0 && this.getEmotesTick() <= 0) {
-                    this.setEmotesTick(60);
-                    this.reactionStranger();
-                }
-            }
-            case 2 -> {
-                if (this.getEmotesTick() <= 10) {
-                    this.setEmotesTick(40);
-                    this.reactionDamaged();
-                }
-            }
-            case 3 -> {
-                if (this.random.nextInt(6) == 0 && this.getEmotesTick() <= 0) {
-                    this.setEmotesTick(60);
-                    this.reactionAttack();
-                }
-            }
-            case 4 -> {
-                if (this.random.nextInt(3) == 0 && this.getEmotesTick() <= 0) {
-                    this.setEmotesTick(20);
-                    this.reactionIdle();
-                }
-            }
-            case 5 -> {
-                if (this.random.nextInt(3) == 0 && this.getEmotesTick() <= 0) {
-                    this.setEmotesTick(25);
-                    this.reactionCommand();
-                }
-            }
-            case 6 -> this.reactionShock();
-            default -> {
-                if (this.random.nextInt(7) == 0 && this.getEmotesTick() <= 0) {
-                    this.setEmotesTick(50);
-                    this.reactionNormal();
-                }
+        ShipEmotionDecision.Reaction reaction = this.shipState.emotion().tryReaction(
+                ShipEmotionDecision.Policy.FRIENDLY, type, this.random::nextInt);
+        switch (reaction) {
+            case NORMAL -> this.reactionNormal();
+            case STRANGER -> this.reactionStranger();
+            case DAMAGED -> this.reactionDamaged();
+            case ATTACK -> this.reactionAttack();
+            case IDLE -> this.reactionIdle();
+            case COMMAND -> this.reactionCommand();
+            case SHOCK -> this.reactionShock();
+            case NONE -> {
+                // No reaction was selected by the pure trigger decision.
             }
         }
     }
@@ -2931,11 +2865,11 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     public int getEmotesTick() {
-        return this.StateTimer[ID.T.EmoteDelay];
+        return this.shipState.emotion().reactionCooldown();
     }
 
     public void setEmotesTick(int par1) {
-        this.StateTimer[ID.T.EmoteDelay] = par1;
+        this.shipState.emotion().setReactionCooldown(par1);
     }
 
     public int getCombatTick() {
@@ -3257,6 +3191,44 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     // ========== Player Interaction (Right-Click) ==========
 
+    /**
+     * Capture the actual pointer contact position before the normal entity interaction runs.
+     *
+     * <p>Original 1.10.2 sent {@code HitHeight} and {@code HitAngle} from the client immediately
+     * before its pointer interaction packet. In 1.20.1, vanilla already sends the relative hit
+     * vector through {@code interactAt} before {@code mobInteract}, so both logical sides can
+     * derive the same state without a second custom packet.</p>
+     */
+    @Override
+    public InteractionResult interactAt(Player player, Vec3 hitPos, InteractionHand hand) {
+        // Original 1.10.2:
+        // this.setHitHeight(CalcHelper.getEntityHitHeightByClientPlayer(this));
+        // this.setHitAngle(CalcHelper.getEntityHitSideByClientPlayer(this));
+        ItemStack stack = player.getItemInHand(hand);
+        if (hand == InteractionHand.MAIN_HAND
+                && !stack.isEmpty() && stack.getItem() == ModItems.POINTER.get()
+                && !player.isShiftKeyDown()
+                && PointerItem.getMode(stack) > PointerItem.MODE_FORMATION) {
+            double height = this.getBbHeight();
+            int hitHeight = height > 0D ? (int) (hitPos.y / height * 100D) : 50;
+            this.setHitHeight(Mth.clamp(hitHeight, 0, 100));
+
+            double dx = player.getX() - this.getX();
+            double dz = player.getZ() - this.getZ();
+            int hitAngle = (int) (Math.toDegrees(Math.atan2(dz, dx)) - this.getYRot()) % 360;
+            if (hitAngle < 0) {
+                hitAngle += 360;
+            }
+            this.setHitAngle(hitAngle);
+
+            if (this.level().isClientSide()) {
+                this.checkCaressed();
+            }
+        }
+
+        return super.interactAt(player, hitPos, hand);
+    }
+
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         // disable off-hand, dead entities don't respond
@@ -3370,33 +3342,6 @@ public abstract class BasicEntityShip extends TamableAnimal
                         this.setRiderAndMountSit();
                     }
                     return InteractionResult.SUCCESS;
-                }
-            }
-        }
-        // client side
-        else {
-            ItemStack stack = player.getItemInHand(hand);
-            if (!stack.isEmpty()) {
-                // use pointer item (caress head mode CLIENT side)
-                if (stack.getItem() == ModItems.POINTER.get() && !player.isShiftKeyDown()
-                        && PointerItem.getMode(stack) > PointerItem.MODE_FORMATION) {
-                    // calc hit height: ratio of player eye Y relative to entity bounding box
-                    double eyeY = player.getEyeY();
-                    double entBottom = this.getY();
-                    double entHeight = this.getBbHeight();
-                    int hitH = (entHeight > 0) ? (int) (((eyeY - entBottom) / entHeight) * 100.0) : 50;
-                    hitH = Mth.clamp(hitH, 0, 100);
-                    this.setHitHeight(hitH);
-
-                    // calc hit angle: angle from entity facing to player
-                    double dx = player.getX() - this.getX();
-                    double dz = player.getZ() - this.getZ();
-                    int hitA = (int) (Math.toDegrees(Math.atan2(dz, dx)) - this.getYRot()) % 360;
-                    if (hitA < 0)
-                        hitA += 360;
-                    this.setHitAngle(hitA);
-
-                    this.checkCaressed();
                 }
             }
         }
@@ -3807,22 +3752,34 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Check if player is caressing the ship's body.
      */
     public void checkCaressed() {
-        int sensBody = this.getSensitiveBody();
         int hitBody = this.getBodyIDFromHeight(this.getHitHeight());
-        int hitSide = this.getHitAngleID(this.getHitAngle());
 
-        // sensitive body matches hit location
-        if (hitBody == sensBody) {
+        // Original 1.10.2:
+        // if (hit == BodyHeight.TOP || hit == BodyHeight.HEAD ||
+        //     hit == BodyHeight.NECK || hit == BodyHeight.CHEST)
+        // The current height model splits the original upper/head band into Head and Face.
+        if (hitBody == ID.Body.Head || hitBody == ID.Body.Face
+                || hitBody == ID.Body.Neck || hitBody == ID.Body.Chest) {
             this.setStateEmotion(ID.S.Emotion3, ID.Emotion3.CARESS, false);
-            this.setStateTimer(ID.T.Emotion3Time, 10);
+            this.setStateTimer(ID.T.Emotion3Time, 80);
         }
     }
 
     /**
-     * Push AI target toward player for interaction.
+     * Push the current AI target in the ship's facing direction without replacing it.
      */
-    public void pushAITarget(Player player) {
-        this.setAITarget(player);
+    public void pushAITarget() {
+        // Original 1.10.2:
+        // this.aiTarget.addVelocity(-MathHelper.sin(rotationYaw * (float)Math.PI / 180.0F) * 0.5F,
+        //     0.5D, MathHelper.cos(rotationYaw * (float)Math.PI / 180.0F) * 0.5F);
+        if (this.aiTarget != null) {
+            this.swing(InteractionHand.MAIN_HAND);
+            float yaw = this.getYRot() * ((float) Math.PI / 180F);
+            this.aiTarget.push(-Mth.sin(yaw) * 0.5D, 0.5D, Mth.cos(yaw) * 0.5D);
+            if (!this.level().isClientSide) {
+                this.aiTarget.hurtMarked = true;
+            }
+        }
     }
 
     // ========== Misc Methods ==========
@@ -4110,7 +4067,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                         applyParticleEmotion(18); // sigh
                     this.addMorale(baseMorale + this.random.nextInt(baseMorale + 1));
                     if (this.random.nextInt(6) == 0) {
-                        this.pushAITarget(null);
+                        this.pushAITarget();
                         this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     }
                 } else {
@@ -4121,7 +4078,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                             else
                                 applyParticleEmotion(27); // -w-
                             if (this.random.nextInt(8) == 0) {
-                                this.pushAITarget(null);
+                                this.pushAITarget();
                                 this.playSound(this.getCustomSound(5, this), this.getSoundVolume(),
                                         this.getVoicePitch());
                             }
@@ -4144,7 +4101,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     applyParticleEmotion(32); // hmm
                     this.addMorale(this.random.nextInt(baseMorale + 1));
                     if (this.random.nextInt(2) == 0) {
-                        this.pushAITarget(null);
+                        this.pushAITarget();
                         this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     } else if (this.aiTarget != null && this.random.nextInt(8) == 0) {
                         switch (this.random.nextInt(3)) {
@@ -4159,7 +4116,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                             setStateEmotion(ID.S.Emotion, ID.Emotion.O_O, true);
                             applyParticleEmotion(32);
                             if (this.random.nextInt(4) == 0) {
-                                this.pushAITarget(null);
+                                this.pushAITarget();
                                 this.playSound(this.getCustomSound(5, this), this.getSoundVolume(),
                                         this.getVoicePitch());
                             }
@@ -4180,7 +4137,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     this.setStateEmotion(ID.S.Emotion, ID.Emotion.SHY, true);
                     applyParticleEmotion(6); // angry
                     this.addMorale((baseMorale * 10 + this.random.nextInt(baseMorale * 5 + 1)) * -1);
-                    this.pushAITarget(null);
+                    this.pushAITarget();
                     this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     if (this.aiTarget != null && this.random.nextInt(3) == 0) {
                         switch (this.random.nextInt(3)) {
@@ -4198,7 +4155,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                             else
                                 applyParticleEmotion(32);
                             if (this.random.nextInt(2) == 0) {
-                                this.pushAITarget(null);
+                                this.pushAITarget();
                                 this.playSound(this.getCustomSound(5, this), this.getSoundVolume(),
                                         this.getVoicePitch());
                             } else if (this.aiTarget != null && this.random.nextInt(5) == 0) {
@@ -4237,7 +4194,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             else
                 applyParticleEmotion(22); // x
             if (this.random.nextInt(2) == 0) {
-                this.pushAITarget(null);
+                this.pushAITarget();
                 this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
             } else if (this.aiTarget != null && this.random.nextInt(4) == 0) {
                 switch (this.random.nextInt(3)) {
@@ -4255,7 +4212,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     else
                         applyParticleEmotion(5); // ...
                     if (this.random.nextInt(4) == 0) {
-                        this.pushAITarget(null);
+                        this.pushAITarget();
                         this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     } else if (this.aiTarget != null && this.random.nextInt(8) == 0) {
                         switch (this.random.nextInt(3)) {

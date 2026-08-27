@@ -807,7 +807,7 @@ public class ID {
         public static final byte ImmuneTime = 2; // SERVER: immune time
         public static final byte CrandDelay = 3; // SERVER: crane state changing delay
         public static final byte WpStayTime = 4; // SERVER: waypoint stay timer
-        public static final byte Emotion3Time = 5; // SERVER: emotion 3 tick
+        public static final byte Emotion3Time = 5; // CLIENT: emotion 3 tick
         public static final byte SoundTime = 6; // SERVER: sound event cooldown
         public static final byte FaceTime = 7; // CLIENT: face emotion time
         public static final byte HeadTilt = 8; // CLIENT: head tilt time

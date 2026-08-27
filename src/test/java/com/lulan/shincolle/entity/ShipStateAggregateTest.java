@@ -1,5 +1,7 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.reference.ID;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -76,5 +78,31 @@ class ShipStateAggregateTest {
         assertTrue(state.getFlag(2));
         assertFalse(state.getFlag(3));
         assertTrue(state.getFlag(4));
+    }
+
+    @Test
+    void legacySnapshotsRouteTypedEmotionStateWithoutLeakingReferences() {
+        ShipStateAggregate state = new ShipStateAggregate();
+        state.setEmotion(ID.S.Emotion, ID.Emotion.SHY);
+        state.setEmotion(ID.S.Emotion4, ID.Emotion.BORED);
+        state.setTimer(ID.T.EmoteDelay, 25);
+
+        int[] emotions = state.copyEmotion();
+        int[] timers = state.copyTimer();
+        assertEquals(ID.Emotion.SHY, emotions[ID.S.Emotion]);
+        assertEquals(ID.Emotion.BORED, emotions[ID.S.Emotion4]);
+        assertEquals(25, timers[ID.T.EmoteDelay]);
+
+        emotions[ID.S.Emotion] = ID.Emotion.NORMAL;
+        timers[ID.T.EmoteDelay] = 0;
+        assertEquals(ID.Emotion.SHY, state.getEmotion(ID.S.Emotion));
+        assertEquals(25, state.getTimer(ID.T.EmoteDelay));
+
+        int[] loaded = new int[ShipStateAggregate.EMOTION_COUNT];
+        loaded[ID.S.Emotion] = ID.Emotion.XD;
+        loaded[ID.S.Emotion4] = ID.Emotion.ANGRY;
+        state.loadEmotion(loaded);
+        assertEquals(ID.Emotion.XD, state.emotion().primaryExpression());
+        assertEquals(ID.Emotion.ANGRY, state.emotion().secondaryExpression());
     }
 }

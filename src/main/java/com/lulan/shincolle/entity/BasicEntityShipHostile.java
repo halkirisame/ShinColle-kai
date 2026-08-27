@@ -84,10 +84,6 @@ public abstract class BasicEntityShipHostile extends Mob
      */
     protected final int[] StateTimer;
     /**
-     * EntityState, index by {@link ID.S}
-     */
-    protected final int[] StateEmotion;
-    /**
      * EntityFlag, index by {@link ID.F}
      */
     protected final boolean[] StateFlag;
@@ -118,7 +114,6 @@ public abstract class BasicEntityShipHostile extends Mob
     protected BossEvent.BossBarColor bossBarColor = BossEvent.BossBarColor.RED;
     // smoke particle positions (for client rendering)
     protected float smokeX, smokeY;
-    protected int emoteDelay;
     // initialization
     private boolean initAI;
     private int revengeTime;
@@ -133,7 +128,6 @@ public abstract class BasicEntityShipHostile extends Mob
         this.shipState = new ShipStateAggregate();
         this.StateMinor = this.shipState.legacyMinorStorage();
         this.StateTimer = this.shipState.legacyTimerStorage();
-        this.StateEmotion = this.shipState.legacyEmotionStorage();
         this.StateFlag = this.shipState.legacyFlagStorage();
         this.UpdateFlag = this.shipState.legacyUpdateFlagStorage();
         this.ModelPos = new float[]{0F, 0F, 0F, 50F};
@@ -507,9 +501,7 @@ public abstract class BasicEntityShipHostile extends Mob
             updateSearchlight();
         }
         updateSwingTime();
-        if (this.emoteDelay > 0) {
-            this.emoteDelay--;
-        }
+        this.shipState.emotion().tickReactionCooldown();
         if (this.tickCount == 5) {
             this.initAI = false;
         }
@@ -578,10 +570,6 @@ public abstract class BasicEntityShipHostile extends Mob
             StateTimer[ID.T.ImmuneTime]--;
         if (StateTimer[ID.T.SoundTime] > 0)
             StateTimer[ID.T.SoundTime]--;
-        if (StateTimer[ID.T.EmoteDelay] > 0)
-            StateTimer[ID.T.EmoteDelay]--;
-        if (StateTimer[ID.T.Emotion3Time] > 0)
-            StateTimer[ID.T.Emotion3Time]--;
     }
 
     // ========== Attribute Calculation ==========
@@ -861,36 +849,8 @@ public abstract class BasicEntityShipHostile extends Mob
             this.setStateEmotion(ID.S.HPState, ID.HPState.HEAVY, false);
         }
 
-        // [PORT] 1.10.2 -> 1.20.1: restore hostile legacy emotion roll chain.
-        if (getStateFlag(ID.F.NoFuel)) {
-            if (this.getStateEmotion(ID.S.Emotion) != ID.Emotion.HUNGRY) {
-                this.setStateEmotion(ID.S.Emotion, ID.Emotion.HUNGRY, false);
-            }
-        } else if (hpRatio < 0.35F) {
-            if (this.getStateEmotion(ID.S.Emotion) != ID.Emotion.T_T) {
-                this.setStateEmotion(ID.S.Emotion, ID.Emotion.T_T, false);
-            }
-        } else {
-            if (this.getStateEmotion(ID.S.Emotion) == ID.Emotion.NORMAL) {
-                if (this.random.nextInt(4) == 0) {
-                    this.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
-                }
-            } else {
-                if (this.random.nextInt(2) == 0) {
-                    this.setStateEmotion(ID.S.Emotion, ID.Emotion.NORMAL, false);
-                }
-            }
-
-            if (this.getStateEmotion(ID.S.Emotion4) == ID.Emotion.NORMAL) {
-                if (this.random.nextInt(3) == 0) {
-                    this.setStateEmotion(ID.S.Emotion4, ID.Emotion.BORED, false);
-                }
-            } else {
-                if (this.random.nextInt(2) == 0) {
-                    this.setStateEmotion(ID.S.Emotion4, ID.Emotion.NORMAL, false);
-                }
-            }
-        }
+        this.shipState.emotion().updatePeriodic(ShipEmotionDecision.Policy.HOSTILE,
+                getStateFlag(ID.F.NoFuel), hpRatio, this.random::nextInt);
 
         if (!this.level().isClientSide()) {
             this.sendSyncPacket(0);
@@ -898,28 +858,19 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void applyEmotesReaction(int type) {
-        switch (type) {
-            case 2: // damaged
-                if (this.emoteDelay <= 0) {
-                    this.emoteDelay = 40;
-                    reactionDamaged();
-                }
-                break;
-            case 3: // attack
-                if (this.random.nextInt(7) == 0 && this.emoteDelay <= 0) {
-                    this.emoteDelay = 60;
-                    reactionAttack();
-                }
-                break;
-            case 6: // shock
-                reactionShock();
-                break;
-            default: // idle
-                if (this.random.nextInt(3) == 0 && this.emoteDelay <= 0) {
-                    this.emoteDelay = 20;
-                    reactionIdle();
-                }
-                break;
+        ShipEmotionDecision.Reaction reaction = this.shipState.emotion().tryReaction(
+                ShipEmotionDecision.Policy.HOSTILE, type, this.random::nextInt);
+        switch (reaction) {
+            case DAMAGED -> this.reactionDamaged();
+            case ATTACK -> this.reactionAttack();
+            case IDLE -> this.reactionIdle();
+            case SHOCK -> this.reactionShock();
+            case NONE -> {
+                // No reaction was selected by the pure trigger decision.
+            }
+            case NORMAL, STRANGER, COMMAND -> {
+                // These reactions are not selected by the hostile policy.
+            }
         }
     }
 

@@ -1,5 +1,7 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.reference.ID;
+
 /**
  * Owns the legacy indexed state storage shared by friendly and hostile ships.
  *
@@ -39,9 +41,10 @@ final class ShipStateAggregate {
 
     private final int[] minor = DEFAULT_MINOR.clone();
     private final int[] timer = new int[TIMER_COUNT];
-    private final int[] emotion = new int[EMOTION_COUNT];
+    private final int[] legacyEmotion = new int[EMOTION_COUNT];
     private final boolean[] flags = DEFAULT_FLAGS.clone();
     private final boolean[] updateFlags = new boolean[UPDATE_FLAG_COUNT];
+    private final ShipEmotionState emotion = new ShipEmotionState();
 
     int getMinor(int id) {
         return this.minor[id];
@@ -52,19 +55,31 @@ final class ShipStateAggregate {
     }
 
     int getTimer(int id) {
-        return this.timer[id];
+        return id == ID.T.EmoteDelay ? this.emotion.reactionCooldown() : this.timer[id];
     }
 
     void setTimer(int id, int value) {
-        this.timer[id] = value;
+        if (id == ID.T.EmoteDelay) {
+            this.emotion.setReactionCooldown(value);
+        } else {
+            this.timer[id] = value;
+        }
     }
 
     int getEmotion(int id) {
-        return this.emotion[id];
+        return switch (id) {
+            case ID.S.Emotion -> this.emotion.primaryExpression();
+            case ID.S.Emotion4 -> this.emotion.secondaryExpression();
+            default -> this.legacyEmotion[id];
+        };
     }
 
     void setEmotion(int id, int value) {
-        this.emotion[id] = value;
+        switch (id) {
+            case ID.S.Emotion -> this.emotion.setPrimaryExpression(value);
+            case ID.S.Emotion4 -> this.emotion.setSecondaryExpression(value);
+            default -> this.legacyEmotion[id] = value;
+        }
     }
 
     boolean getFlag(int id) {
@@ -88,11 +103,16 @@ final class ShipStateAggregate {
     }
 
     int[] copyEmotion() {
-        return this.emotion.clone();
+        int[] snapshot = this.legacyEmotion.clone();
+        snapshot[ID.S.Emotion] = this.emotion.primaryExpression();
+        snapshot[ID.S.Emotion4] = this.emotion.secondaryExpression();
+        return snapshot;
     }
 
     int[] copyTimer() {
-        return this.timer.clone();
+        int[] snapshot = this.timer.clone();
+        snapshot[ID.T.EmoteDelay] = this.emotion.reactionCooldown();
+        return snapshot;
     }
 
     boolean[] copyFlags() {
@@ -108,7 +128,10 @@ final class ShipStateAggregate {
     }
 
     void loadEmotion(int[] values) {
-        System.arraycopy(values, 0, this.emotion, 0, Math.min(values.length, this.emotion.length));
+        int length = Math.min(values.length, EMOTION_COUNT);
+        for (int i = 0; i < length; i++) {
+            this.setEmotion(i, values[i]);
+        }
     }
 
     void loadFlags(byte[] values) {
@@ -131,15 +154,15 @@ final class ShipStateAggregate {
         return this.timer;
     }
 
-    int[] legacyEmotionStorage() {
-        return this.emotion;
-    }
-
     boolean[] legacyFlagStorage() {
         return this.flags;
     }
 
     boolean[] legacyUpdateFlagStorage() {
         return this.updateFlags;
+    }
+
+    ShipEmotionState emotion() {
+        return this.emotion;
     }
 }
