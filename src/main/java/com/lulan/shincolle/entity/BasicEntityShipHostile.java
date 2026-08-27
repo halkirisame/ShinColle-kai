@@ -73,22 +73,24 @@ public abstract class BasicEntityShipHostile extends Mob
      * ship attributes
      */
     protected AttrsAdv shipAttrs;
+    /** Domain-owned state storage. Minecraft-facing methods delegate to it. */
+    private final ShipStateAggregate shipState;
     /**
      * minor states, index by {@link ID.M}
      */
-    protected int[] StateMinor;
+    protected final int[] StateMinor;
     /**
      * timer array, index by {@link ID.T}
      */
-    protected int[] StateTimer;
+    protected final int[] StateTimer;
     /**
      * EntityState, index by {@link ID.S}
      */
-    protected int[] StateEmotion;
+    protected final int[] StateEmotion;
     /**
      * EntityFlag, index by {@link ID.F}
      */
-    protected boolean[] StateFlag;
+    protected final boolean[] StateFlag;
     /**
      * ModelPos: posX, posY, posZ, scale
      */
@@ -96,7 +98,7 @@ public abstract class BasicEntityShipHostile extends Mob
     /**
      * Update Flag
      */
-    protected boolean[] UpdateFlag;
+    protected final boolean[] UpdateFlag;
     /**
      * attack attributes
      */
@@ -127,29 +129,13 @@ public abstract class BasicEntityShipHostile extends Mob
         this.noCulling = true;
         this.invulnerableTime = 2;
 
-        // init arrays
-        this.StateMinor = new int[]{
-                1, 0, 0, 40, 0,
-                0, 0, 0, 0, 3,
-                3, 12, 35, 1, -1,
-                -1, -1, 0, -1, 0,
-                0, -1, -1, -1, 0,
-                0, 0, 0, 0, 0,
-                60, 0, 10, 0, 0,
-                -1, 0, 0, 0, 0,
-                -1, -1, -1, 0, 0
-        };
-        this.StateTimer = new int[21];
-        this.StateEmotion = new int[8];
-        this.StateFlag = new boolean[]{
-                false, false, false, false, true,
-                true, true, true, false, true,
-                true, false, true, true, true,
-                true, true, true, true, false,
-                false, false, true, true, false,
-                true, false
-        };
-        this.UpdateFlag = new boolean[8];
+        // init arrays through the shared state ownership boundary
+        this.shipState = new ShipStateAggregate();
+        this.StateMinor = this.shipState.legacyMinorStorage();
+        this.StateTimer = this.shipState.legacyTimerStorage();
+        this.StateEmotion = this.shipState.legacyEmotionStorage();
+        this.StateFlag = this.shipState.legacyFlagStorage();
+        this.UpdateFlag = this.shipState.legacyUpdateFlagStorage();
         this.ModelPos = new float[]{0F, 0F, 0F, 50F};
         this.BuffMap = new HashMap<>();
         this.AttackEffectMap = new HashMap<>();
@@ -416,12 +402,13 @@ public abstract class BasicEntityShipHostile extends Mob
     public void addAdditionalSaveData(CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
         nbt.putInt("ScaleLevel", this.scaleLevel);
-        nbt.putIntArray("StateMinor", this.StateMinor);
-        nbt.putIntArray("StateEmotion", this.StateEmotion);
+        nbt.putIntArray("StateMinor", this.shipState.copyMinor());
+        nbt.putIntArray("StateEmotion", this.shipState.copyEmotion());
         // Save StateFlag as byte array (boolean[] -> byte[])
-        byte[] flagBytes = new byte[StateFlag.length];
-        for (int i = 0; i < StateFlag.length; i++)
-            flagBytes[i] = (byte) (StateFlag[i] ? 1 : 0);
+        boolean[] stateFlags = this.shipState.copyFlags();
+        byte[] flagBytes = new byte[stateFlags.length];
+        for (int i = 0; i < stateFlags.length; i++)
+            flagBytes[i] = (byte) (stateFlags[i] ? 1 : 0);
         nbt.putByteArray("StateFlag", flagBytes);
     }
 
@@ -433,21 +420,14 @@ public abstract class BasicEntityShipHostile extends Mob
             setSizeWithScaleLevel();
         }
         if (nbt.contains("StateMinor")) {
-            int[] minors = nbt.getIntArray("StateMinor");
-            int len = Math.min(minors.length, this.StateMinor.length);
-            System.arraycopy(minors, 0, this.StateMinor, 0, len);
+            this.shipState.loadMinor(nbt.getIntArray("StateMinor"));
         }
         if (nbt.contains("StateEmotion")) {
-            int[] emotions = nbt.getIntArray("StateEmotion");
-            int len = Math.min(emotions.length, this.StateEmotion.length);
-            System.arraycopy(emotions, 0, this.StateEmotion, 0, len);
+            this.shipState.loadEmotion(nbt.getIntArray("StateEmotion"));
         }
         // Load StateFlag from byte array (byte[] -> boolean[])
         if (nbt.contains("StateFlag")) {
-            byte[] flagBytes = nbt.getByteArray("StateFlag");
-            int len = Math.min(flagBytes.length, this.StateFlag.length);
-            for (int i = 0; i < len; i++)
-                this.StateFlag[i] = flagBytes[i] != 0;
+            this.shipState.loadFlags(nbt.getByteArray("StateFlag"));
         }
 
         // recalc attributes
@@ -1121,50 +1101,50 @@ public abstract class BasicEntityShipHostile extends Mob
     // ========== IShipFlags Implementation ==========
 
     public int getStateMinor(int id) {
-        return StateMinor[id];
+        return this.shipState.getMinor(id);
     }
 
     public void setStateMinor(int id, int par1) {
-        StateMinor[id] = par1;
+        this.shipState.setMinor(id, par1);
     }
 
     public boolean getStateFlag(int flag) {
         if (flag == ID.F.NoFuel && (this.isDeadOrDying() || this.deathTime > 0))
             return true;
-        return StateFlag[flag];
+        return this.shipState.getFlag(flag);
     }
 
     public void setStateFlag(int id, boolean par1) {
-        this.StateFlag[id] = par1;
+        this.shipState.setFlag(id, par1);
     }
 
     public void setUpdateFlag(int id, boolean par1) {
-        UpdateFlag[id] = par1;
+        this.shipState.setUpdateFlag(id, par1);
     }
 
     public boolean getUpdateFlag(int id) {
-        return UpdateFlag[id];
+        return this.shipState.getUpdateFlag(id);
     }
 
     // ========== IShipEmotion Implementation ==========
 
     public int getStateEmotion(int id) {
-        return StateEmotion[id];
+        return this.shipState.getEmotion(id);
     }
 
     public void setStateEmotion(int id, int value, boolean sync) {
-        StateEmotion[id] = value;
+        this.shipState.setEmotion(id, value);
         if (sync && !this.level().isClientSide()) {
             this.sendSyncPacket(0);
         }
     }
 
     public int getStateTimer(int id) {
-        return StateTimer[id];
+        return this.shipState.getTimer(id);
     }
 
     public void setStateTimer(int id, int value) {
-        StateTimer[id] = value;
+        this.shipState.setTimer(id, value);
     }
 
     public int getFaceTick() {

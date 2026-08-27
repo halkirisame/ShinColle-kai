@@ -148,22 +148,24 @@ public abstract class BasicEntityShip extends TamableAnimal
      * ship attributes: hp, def, atk, ...
      */
     protected AttrsAdv shipAttrs;
+    /** Domain-owned state storage. Minecraft-facing methods delegate to it. */
+    private final ShipStateAggregate shipState;
     /**
-     * minor states, index by {@link ID.M}
+     * Transitional alias for subclasses that still initialize legacy indexed state directly.
      */
-    protected int[] StateMinor;
+    protected final int[] StateMinor;
     /**
      * timer array, index by {@link ID.T}
      */
-    protected int[] StateTimer;
+    protected final int[] StateTimer;
     /**
      * EntityState, index by {@link ID.S}
      */
-    protected int[] StateEmotion;
+    protected final int[] StateEmotion;
     /**
      * EntityFlag, index by {@link ID.F}
      */
-    protected boolean[] StateFlag;
+    protected final boolean[] StateFlag;
     /**
      * BodyHeightRange
      */
@@ -176,7 +178,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     /**
      * Update Flag, index by {@link ID.FlagUpdate}
      */
-    protected boolean[] UpdateFlag;
+    protected final boolean[] UpdateFlag;
     /**
      * waypoints: 0:last wp
      */
@@ -211,28 +213,12 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // init value
         this.itemHandler = new CapaShipInventory(CapaShipInventory.SlotMax, this);
-        this.StateMinor = new int[]{
-                1, 0, 0, 40, 0,
-                0, 0, 0, 0, 3,
-                3, 12, 35, 1, -1,
-                -1, -1, 0, -1, 0,
-                0, -1, -1, -1, 0,
-                0, 0, 0, 0, 0,
-                60, 0, 10, 0, 0,
-                -1, 0, 0, 0, 0,
-                -1, -1, -1, 0, 0
-        };
-        this.StateTimer = new int[21];
-        this.StateEmotion = new int[8];
-        this.StateFlag = new boolean[]{
-                false, false, false, false, true,
-                true, true, true, false, true,
-                true, false, true, true, true,
-                true, true, true, true, false,
-                false, false, true, true, false,
-                true, false
-        };
-        this.UpdateFlag = new boolean[8];
+        this.shipState = new ShipStateAggregate();
+        this.StateMinor = this.shipState.legacyMinorStorage();
+        this.StateTimer = this.shipState.legacyTimerStorage();
+        this.StateEmotion = this.shipState.legacyEmotionStorage();
+        this.StateFlag = this.shipState.legacyFlagStorage();
+        this.UpdateFlag = this.shipState.legacyUpdateFlagStorage();
         this.BodyHeightStand = new byte[]{92, 78, 73, 58, 47, 37};
         this.BodyHeightSit = new byte[]{64, 49, 44, 29, 23, 12};
         this.ModelPos = new float[]{0F, 0F, 0F, 50F};
@@ -2298,7 +2284,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public int getStateMinor(int id) {
-        return StateMinor[id];
+        return this.shipState.getMinor(id);
     }
 
     @Override
@@ -2317,19 +2303,19 @@ public abstract class BasicEntityShip extends TamableAnimal
                 }
                 break;
         }
-        StateMinor[id] = par1;
+        this.shipState.setMinor(id, par1);
     }
 
     @Override
     public boolean getStateFlag(int flag) {
         if (flag == ID.F.NoFuel && (this.isDeadOrDying() || this.deathTime > 0))
             return true;
-        return StateFlag[flag];
+        return this.shipState.getFlag(flag);
     }
 
     @Override
     public void setStateFlag(int id, boolean par1) {
-        this.StateFlag[id] = par1;
+        this.shipState.setFlag(id, par1);
 
         if (!this.level().isClientSide()) {
             if (id == ID.F.UseMelee) {
@@ -2348,24 +2334,24 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void setUpdateFlag(int id, boolean par1) {
-        UpdateFlag[id] = par1;
+        this.shipState.setUpdateFlag(id, par1);
     }
 
     @Override
     public boolean getUpdateFlag(int id) {
-        return UpdateFlag[id];
+        return this.shipState.getUpdateFlag(id);
     }
 
     // ========== IShipEmotion Implementation ==========
 
     @Override
     public int getStateEmotion(int id) {
-        return StateEmotion[id];
+        return this.shipState.getEmotion(id);
     }
 
     @Override
     public void setStateEmotion(int id, int value, boolean sync) {
-        StateEmotion[id] = value;
+        this.shipState.setEmotion(id, value);
         if (sync && !this.level().isClientSide()) {
             this.sendSyncPacketEmotion();
         }
@@ -2373,12 +2359,12 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public int getStateTimer(int id) {
-        return StateTimer[id];
+        return this.shipState.getTimer(id);
     }
 
     @Override
     public void setStateTimer(int id, int value) {
-        StateTimer[id] = value;
+        this.shipState.setTimer(id, value);
     }
 
     @Override
@@ -3045,15 +3031,15 @@ public abstract class BasicEntityShip extends TamableAnimal
     // ========== Array Accessors (for NBT save/load) ==========
 
     public int[] getStateMinorArray() {
-        return this.StateMinor;
+        return this.shipState.copyMinor();
     }
 
     public boolean[] getStateFlagArray() {
-        return this.StateFlag;
+        return this.shipState.copyFlags();
     }
 
     public int[] getStateEmotionArray() {
-        return this.StateEmotion;
+        return this.shipState.copyEmotion();
     }
 
     // ========== Container Fields (for GUI sync) ==========
