@@ -447,8 +447,26 @@ public class C2SGUIInputPacket {
         }
     }
 
-    private static boolean includesSlot(CapaTeitoku capa, int teamId, int slot, int mode) {
-        return mode == PointerItem.MODE_FORMATION || capa.isShipSelected(teamId, slot);
+    private static boolean[] includedSlots(ServerLevel level, CapaTeitoku capa, int teamId, int mode) {
+        boolean[] included = new boolean[CapaTeitoku.SLOT_NUM];
+        for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+            if (mode == PointerItem.MODE_FORMATION) {
+                included[slot] = true;
+            } else if (mode != PointerItem.MODE_SINGLE) {
+                included[slot] = capa.isShipSelected(teamId, slot);
+            } else if (capa.isShipSelected(teamId, slot)
+                    && resolveTeamShip(level, capa, teamId, slot) != null) {
+                // Original 1.10.2 CapaTeitoku#getShipEntityByMode:
+                // if (this.getSelectStateCurrentTeam(i) && this.teamList[teamId][i] != null)
+                // {
+                // ships.add(this.teamList[teamId][i]);
+                // break;
+                // }
+                included[slot] = true;
+                break;
+            }
+        }
+        return included;
     }
 
     private static void selectFirstTeamMemberIfNeeded(CapaTeitoku capa, int teamId) {
@@ -728,8 +746,9 @@ public class C2SGUIInputPacket {
             // Formation mode includes the whole team. Single/group modes use the
             // persisted pointer selection restored from the legacy implementation.
             boolean newSit = !clickedShip.isOrderedToSit();
+            boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
             for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-                if (!includesSlot(capa, teamId, i, mode)) {
+                if (!targetSlots[i]) {
                     continue;
                 }
                 BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
@@ -843,8 +862,9 @@ public class C2SGUIInputPacket {
 
         int teamId = capa.getSelectTeam();
         List<BasicEntityShip> outOfFuel = new ArrayList<>();
+        boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (!includesSlot(capa, teamId, i, mode)) {
+            if (!targetSlots[i]) {
                 continue;
             }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
@@ -890,8 +910,9 @@ public class C2SGUIInputPacket {
             return;
         }
 
+        boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (!includesSlot(capa, teamId, i, mode)) {
+            if (!targetSlots[i]) {
                 continue;
             }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
@@ -980,8 +1001,9 @@ public class C2SGUIInputPacket {
         ArrayList<BasicEntityShip> ships = new ArrayList<>();
         List<BasicEntityShip> outOfFuel = new ArrayList<>();
         boolean formationMemberMissing = false;
+        boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (!includesSlot(capa, teamId, i, mode)) {
+            if (!targetSlots[i]) {
                 continue;
             }
             BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
