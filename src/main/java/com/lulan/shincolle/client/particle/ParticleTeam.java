@@ -251,7 +251,9 @@ public class ParticleTeam extends Particle {
 
         RenderSystem.enableCull();
         RenderSystem.disableBlend();
-        RenderSystem.depthMask(false);
+        // CUSTOM particles own their render state. Leaving depth writes disabled
+        // here darkens/corrupts entity models rendered after a pointer marker.
+        RenderSystem.depthMask(true);
     }
 
     @Override

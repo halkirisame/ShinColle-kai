@@ -8,6 +8,7 @@ import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.server.ServerDataManager;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -15,9 +16,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -126,6 +129,65 @@ public final class PointerSingleModeGameTests {
 
         helper.assertTrue(first.isOrderedToSit() && second.isOrderedToSit() && third.isOrderedToSit(),
                 "Formation mode did not affect the whole team when no ships were selected.");
+        helper.succeed();
+    }
+
+    @GameTest(template = "arena")
+    public static void singleModeOtherDimensionFirstShipDoesNotFallBack(GameTestHelper helper) {
+        TestContext context = createContext(helper, "single_dimension", 26);
+        ServerLevel otherLevel = context.level().getServer().getLevel(Level.NETHER);
+        if (otherLevel == null) {
+            throw new AssertionError("Nether level is unavailable for pointer dimension test.");
+        }
+
+        BasicEntityShip remote = ModEntities.BB_KONGOU.get().create(otherLevel);
+        if (remote == null) {
+            throw new AssertionError("Failed to create remote-dimension ship.");
+        }
+        remote.setNoAi(true);
+        remote.setPlayerUID(context.capa().getPlayerUID());
+        int remoteUid = 260000 + remote.getId();
+        remote.setShipUID(remoteUid);
+        remote.moveTo(0.5D, 64D, 0.5D, 0F, 0F);
+        if (!otherLevel.addFreshEntity(remote)) {
+            throw new AssertionError("Failed to add remote-dimension ship.");
+        }
+        ServerDataManager.updateShipID(remote);
+        context.capa().setTeamMember(TEAM_ID, 0, remoteUid);
+        context.capa().setTeamSID(TEAM_ID, 0, remote.getId());
+        context.capa().setShipSelected(TEAM_ID, 0, true);
+
+        BasicEntityShip local = addShip(context, 2, 2602, new Vec3(5.5D, 2D, 1.5D));
+        context.capa().setShipSelected(TEAM_ID, 2, true);
+        Zombie target = addTarget(context, new Vec3(2.5D, 2D, 4.5D));
+
+        invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.AttackTarget,
+                new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, target.getId()}),
+                "handleAttackTarget", context.player());
+
+        boolean localUntargeted = local.getTarget() == null;
+        remote.discard();
+        ServerDataManager.removeShipData(remoteUid);
+        helper.assertTrue(localUntargeted,
+                "Single mode fell back to a local ship after the first selected ship was in another dimension.");
+        helper.succeed();
+    }
+
+    @GameTest(template = "arena")
+    public static void marriageRingLivingEntityHookPerformsWedding(GameTestHelper helper) {
+        TestContext context = createContext(helper, "marriage_hook", 27);
+        BasicEntityShip ship = addShip(context, 0, 2700, new Vec3(4.5D, 2D, 1.5D));
+        ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get());
+        context.player().setItemInHand(InteractionHand.MAIN_HAND, ring);
+        context.player().setShiftKeyDown(true);
+
+        InteractionResult result = ring.interactLivingEntity(
+                context.player(), ship, InteractionHand.MAIN_HAND);
+
+        helper.assertTrue(result.consumesAction(),
+                "Marriage ring living-entity hook did not consume a valid wedding interaction.");
+        helper.assertTrue(ship.getStateFlag(com.lulan.shincolle.reference.ID.F.IsMarried),
+                "Marriage ring living-entity hook did not marry the owned ship.");
         helper.succeed();
     }
 

@@ -455,7 +455,7 @@ public class C2SGUIInputPacket {
             } else if (mode != PointerItem.MODE_SINGLE) {
                 included[slot] = capa.isShipSelected(teamId, slot);
             } else if (capa.isShipSelected(teamId, slot)
-                    && resolveTeamShip(level, capa, teamId, slot) != null) {
+                    && hasKnownTeamShip(level, capa, teamId, slot)) {
                 // Original 1.10.2 CapaTeitoku#getShipEntityByMode:
                 // if (this.getSelectStateCurrentTeam(i) && this.teamList[teamId][i] != null)
                 // {
@@ -467,6 +467,32 @@ public class C2SGUIInputPacket {
             }
         }
         return included;
+    }
+
+    /**
+     * Determine whether the selected slot has a real ship before command-local
+     * dimension/range filtering. A ship in another dimension still fixes the
+     * single-mode slot, matching 1.10.2; it must not make the next slot active.
+     */
+    private static boolean hasKnownTeamShip(ServerLevel level, CapaTeitoku capa, int teamId, int slot) {
+        int shipUid = capa.getTeamMember(teamId, slot);
+        if (shipUid <= 0) {
+            return false;
+        }
+
+        int entityId = capa.getTeamSID(teamId, slot);
+        Entity current = entityId > 0 ? level.getEntity(entityId) : null;
+        if (current instanceof BasicEntityShip ship
+                && ship.getStateMinor(ID.M.ShipUID) == shipUid
+                && ship.getPlayerUID() == capa.getPlayerUID()) {
+            return true;
+        }
+
+        // The saved ship entry is enough to establish that this slot represents
+        // a real ship. getShipByUID() only returns a currently loaded entity, so
+        // using it here made an unloaded or other-dimension first selection fall
+        // through to the next local ship.
+        return ServerDataManager.getShipWorldData(shipUid) != null;
     }
 
     private static void selectFirstTeamMemberIfNeeded(CapaTeitoku capa, int teamId) {

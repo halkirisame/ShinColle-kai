@@ -242,9 +242,16 @@ public class ParticleHelper {
         spawnTeamCircleAt(level, x, y, z, 4);
     }
 
-    /** Spawn the rising waypoint marker used for a destination that is refreshed over time. */
+    /** Spawn the legacy white guard marker used for a block destination. */
     public static void spawnWaypointMarkerAt(Level level, double x, double y, double z) {
-        spawnTeamCircleAt(level, x, y, z, 9);
+        spawnTeamCircleAt(level, x, y, z, 6);
+    }
+
+    /** Spawn the legacy short-lived guard line from a ship to a block destination. */
+    public static void spawnGuardLineTo(LivingEntity host, double x, double y, double z) {
+        if (host != null && host.level().isClientSide()) {
+            spawnGuardLineToClient(host, x, y, z);
+        }
     }
 
     public static void spawnTeamCircleAtPlayer(net.minecraft.server.level.ServerPlayer player, double x, double y, double z,
@@ -434,6 +441,12 @@ public class ParticleHelper {
                                                 float scale, int type) {
         Minecraft.getInstance().particleEngine.add(
                 new ParticleTexts(level, x, y, z, scale, type));
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private static void spawnGuardLineToClient(LivingEntity host, double x, double y, double z) {
+        Minecraft.getInstance().particleEngine.add(
+                new ParticleLaserNoTexture((ClientLevel) host.level(), host, x, y, z, 0.1F, 3));
     }
 
     @OnlyIn(Dist.CLIENT)

@@ -14,6 +14,7 @@ import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
@@ -23,6 +24,9 @@ import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Client-only pointer input bridge.
@@ -206,17 +210,13 @@ public class PointerInputHandler {
     }
 
 
-    /** Ticks between destination marker refreshes. Upstream drew its waypoint arrow every 8. */
-    private static final int MarkerIntervalTicks = 8;
-    /** Ticks between drawing the line from a ship to its destination. Upstream used 16. */
-    private static final int TrailIntervalTicks = 16;
+    /**
+     * Upstream's marker code sits inside nested 8/16/32 tick gates, so the
+     * effective refresh interval is 32 ticks rather than eight.
+     */
+    private static final int MarkerIntervalTicks = 32;
     /** How far from the player to look for owned ships, in blocks. */
     private static final double MarkerSearchRange = 64D;
-    /** Spacing of the trail particles, in blocks. */
-    private static final double TrailSpacing = 2D;
-    /** Cap on trail particles per ship, so a distant order does not flood the screen. */
-    private static final int TrailMaxSteps = 48;
-
     /** Own counter: goal/entity tick counts are parity-gated and would skip (2-3). */
     private static int markerTick;
 
@@ -236,13 +236,12 @@ public class PointerInputHandler {
         }
 
         markerTick++;
-        boolean drawMarker = markerTick % MarkerIntervalTicks == 0;
-        boolean drawTrail = markerTick % TrailIntervalTicks == 0;
-        if (!drawMarker && !drawTrail) {
+        if (markerTick % MarkerIntervalTicks != 0) {
             return;
         }
 
         AABB search = player.getBoundingBox().inflate(MarkerSearchRange);
+        Set<BlockPos> markedDestinations = new HashSet<>();
         for (BasicEntityShip ship : mc.level.getEntitiesOfClass(BasicEntityShip.class, search)) {
             if (!ship.isAlive() || !TeamHelper.checkSameOwner(player, ship)) {
                 continue;
@@ -256,33 +255,11 @@ public class PointerInputHandler {
             double destX = ship.getStateMinor(ID.M.GuardX) + 0.5D;
             double destZ = ship.getStateMinor(ID.M.GuardZ) + 0.5D;
 
-            if (drawMarker) {
+            BlockPos destination = new BlockPos((int) Math.floor(destX), destY, (int) Math.floor(destZ));
+            if (markedDestinations.add(destination)) {
                 ParticleHelper.spawnWaypointMarkerAt(mc.level, destX, destY + 0.5D, destZ);
             }
-            if (drawTrail) {
-                drawTrail(mc, ship, destX, destY + 0.5D, destZ);
-            }
-        }
-    }
-
-    private static void drawTrail(Minecraft mc, BasicEntityShip ship,
-                                  double destX, double destY, double destZ) {
-        double dx = destX - ship.getX();
-        double dy = destY - (ship.getY() + ship.getBbHeight() * 0.5D);
-        double dz = destZ - ship.getZ();
-        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (distance < TrailSpacing) {
-            return;
-        }
-
-        int steps = Math.min((int) (distance / TrailSpacing), TrailMaxSteps);
-        for (int i = 1; i <= steps; i++) {
-            double t = (double) i / (steps + 1);
-            ParticleHelper.spawnAttackParticleAt(mc.level,
-                    ship.getX() + dx * t,
-                    ship.getY() + ship.getBbHeight() * 0.5D + dy * t,
-                    ship.getZ() + dz * t,
-                    0D, 0D, 0D, 29);
+            ParticleHelper.spawnGuardLineTo(ship, destX, destY + 0.2D, destZ);
         }
     }
 

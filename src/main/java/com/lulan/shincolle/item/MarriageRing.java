@@ -8,13 +8,16 @@ import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CGUISyncPacket;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
+import com.lulan.shincolle.utility.InteractHelper;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -73,6 +76,27 @@ public class MarriageRing extends BasicItem {
 
 
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+    }
+
+    /**
+     * Forge 1.20.1 routes item-on-living-entity use through this hook. Consuming
+     * the client interaction prevents the ordinary ring toggle from winning over
+     * the ship's wedding interaction packet.
+     */
+    @Override
+    public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target,
+                                                   InteractionHand hand) {
+        if (!(target instanceof BasicEntityShip ship)
+                || !player.isShiftKeyDown()
+                || ship.getStateFlag(ID.F.IsMarried)
+                || !TeamHelper.checkSameOwner(player, ship)) {
+            return InteractionResult.PASS;
+        }
+
+        if (!player.level().isClientSide()) {
+            InteractHelper.interactWeddingRing(ship, player, stack);
+        }
+        return InteractionResult.sidedSuccess(player.level().isClientSide());
     }
 
     public static boolean hasAnyRing(Player player) {
