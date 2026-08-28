@@ -48,7 +48,25 @@ public class TargetWrench extends BasicItem {
      * Set a tile point position in the ItemStack's NBT
      */
     public static void setTilePoint(ItemStack stack, int index, BlockPos pos) {
-        stack.getOrCreateTag().putLong("TilePoint" + index, pos.asLong());
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putLong("TilePoint" + index, pos.asLong());
+        tag.putBoolean("TilePointSet" + index, true);
+    }
+
+    /**
+     * Whether a point was explicitly selected. Legacy stacks only treated non-origin positions as
+     * selected because the original used `this.tilePoint = new BlockPos[] {BlockPos.ORIGIN,
+     * BlockPos.ORIGIN};` as its reset state.
+     */
+    public static boolean hasTilePoint(ItemStack stack, int index) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains("TilePoint" + index)) {
+            return false;
+        }
+        if (tag.contains("TilePointSet" + index)) {
+            return tag.getBoolean("TilePointSet" + index);
+        }
+        return !BlockPos.of(tag.getLong("TilePoint" + index)).equals(BlockPos.ZERO);
     }
 
     /**
@@ -119,8 +137,11 @@ public class TargetWrench extends BasicItem {
     }
 
     private void resetPos(ItemStack stack) {
-        setTilePoint(stack, 0, BlockPos.ZERO);
-        setTilePoint(stack, 1, BlockPos.ZERO);
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.remove("TilePoint0");
+        tag.remove("TilePoint1");
+        tag.remove("TilePointSet0");
+        tag.remove("TilePointSet1");
         setPointID(stack, 0);
     }
 
@@ -133,7 +154,7 @@ public class TargetWrench extends BasicItem {
         BlockPos point1 = getTilePoint(stack, 1);
 
         // valid point positions (not unset)
-        if (point0.equals(BlockPos.ZERO) || point1.equals(BlockPos.ZERO))
+        if (!hasTilePoint(stack, 0) || !hasTilePoint(stack, 1))
             return false;
 
         // get player UID

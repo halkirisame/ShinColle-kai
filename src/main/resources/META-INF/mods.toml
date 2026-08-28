@@ -7,6 +7,7 @@ issueTrackerURL = "https://github.com/halkirisame/ShinColle-kai/issues"
 modId = "${mod_id}"
 version = "${mod_version}"
 displayName = "ShinColle-kai"
+displayURL = "https://github.com/halkirisame/ShinColle-kai"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
 

@@ -214,6 +214,13 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.StateTimer = this.shipState.legacyTimerStorage();
         this.StateFlag = this.shipState.legacyFlagStorage();
         this.UpdateFlag = this.shipState.legacyUpdateFlagStorage();
+        // Original 1.10.2 EntityAIShipGuarding#updateGuardPosition repaired the cleared
+        // coordinate sentinel before it could become a live guard command:
+        // if (pos[1] <= 0 || this.host2.dimension != this.host.getGuardedPos(3))
+        // host.setGuardedPos(-1, -1, -1, 0, 0);
+        // host.setStateFlag(ID.F.CanFollow, true);
+        // Negative Y is valid in 1.20.1, so initialize the equivalent state explicitly.
+        this.shipState.setFlag(ID.F.CanFollow, true);
         this.BodyHeightStand = new byte[]{92, 78, 73, 58, 47, 37};
         this.BodyHeightSit = new byte[]{64, 49, 44, 29, 23, 12};
         this.ModelPos = new float[]{0F, 0F, 0F, 50F};
@@ -522,6 +529,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
         // Entity IDs are runtime-only and must never be restored from NBT.
         setStateMinor(ID.M.GuardID, -1);
+        repairUnassignedGuardState();
 
         // Derived attributes depend on the equipment inventory. Recalculate only
         // after every persisted dependency has been restored; doing this from
@@ -2733,6 +2741,23 @@ public abstract class BasicEntityShip extends TamableAnimal
     public void setClientGuardDestinationActive(boolean active) {
         if (this.level().isClientSide()) {
             this.clientGuardDestinationActive = active;
+        }
+    }
+
+    /**
+     * Migrates only the exact cleared legacy tuple. A real negative-Y destination has a saved
+     * dimension, so it must remain an active command after loading.
+     */
+    private void repairUnassignedGuardState() {
+        if (!getStateFlag(ID.F.CanFollow)
+                && getStateMinor(ID.M.GuardX) == -1
+                && getStateMinor(ID.M.GuardY) == -1
+                && getStateMinor(ID.M.GuardZ) == -1
+                && getStateMinor(ID.M.GuardID) == -1
+                && getStateMinor(ID.M.GuardType) == 0
+                && this.guardedEntityUuid == null
+                && this.guardedDimension == null) {
+            setStateFlag(ID.F.CanFollow, true);
         }
     }
 

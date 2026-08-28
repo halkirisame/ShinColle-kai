@@ -1,21 +1,36 @@
-# ShinColle-kai
+# ShinColle-kai — 深これ / Abyssal Fleet & Ship Girls for Minecraft 1.20.1
 
 [![CI](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml/badge.svg)](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml)
 
-深海棲艦を建造し、育て、敵として現れる艦娘と戦うMinecraft MODです。
-深海棲艦と、撃破後に味方へ迎えられる艦娘、装備システム、レベリングを追加します。
+**ShinColle-kai（深これ）**は、Minecraft Java Edition 1.20.1 / Forge向けの
+艦隊育成・戦闘MODです。プレイヤーは深海棲艦側となり、深海棲艦を建造・育成・指揮して、
+敵として現れる艦娘と戦います。撃破した艦娘を仲間にすることもできます。
+ShinColleは日本語圏で「深これ」として知られる、艦これ風の非公式Minecraft MODです。
+
+艦娘・深海棲艦、艦隊戦、建造、レベリング、婚約、主砲・魚雷・艦載機などの装備を追加します。
+KubeJS、datapack、Javaアドオンから独自装備・艦属性を追加できる拡張基盤も備えています。
 
 PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したもの(ShinColle-Reforge)の
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
-## 特徴
+## ゲームプレイと特徴
 
-- **深海棲艦と艦娘** — 深海側の艦を建造・育成。野生の艦娘は敵として出現します
+- **深海棲艦側で遊ぶ艦隊戦** — 深海側の艦を建造・育成・指揮。野生の艦娘は敵として出現します
+- **艦娘を仲間にする** — 敵の艦娘を撃破し、入手したスポーン卵から味方として迎えられます
 - **建造と育成** — 小型建造、レベリング、婚約
   （大型建造は現在利用できません。「既知の問題」を参照）
 - **装備** — 主砲・魚雷・艦載機など。艦の性能を変化させます
 - **拡張** — KubeJSスクリプト、datapack、Javaアドオンから独自の艦属性と装備を追加できます
+
+## 導入方法
+
+1. Minecraft Java Edition 1.20.1へForge 47系を導入します
+2. 配布されたShinColle-kaiのJARを`mods`フォルダへ入れます
+3. マルチプレイではサーバーと参加クライアントの両方へ同じバージョンを入れます
+
+ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継がれないため、
+**初回は新規ワールドで遊ぶことを推奨します。**
 
 ## 動作環境
 
@@ -29,6 +44,13 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 | Tinkers' Construct | 修飾子を艦の攻撃効果へ変換 |
 | KubeJS | 独自の艦属性・装備をスクリプトから追加 |
 | JEI | 艦GUIとアイテム一覧の表示競合を回避 |
+
+## ShinColle-Reforgeとの違い
+
+ShinColle-kaiは単なる名称変更版ではありません。Forge 1.20.1移植で残った不具合を修正し、
+ShinColle 1.10.2のプレイヤーが体感できる挙動・演出を復元しながら、内部を現代のMOD環境へ
+合わせています。装備datapack、KubeJS連携、Java Public APIにより、第三者が装備や艦属性を
+追加できることも本派生版の重点です。
 
 ## 互換性
 
@@ -65,7 +87,8 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 **検証中**は、修正を実装して自動テストは通ったものの、実際のゲーム内での確認が
 まだ終わっていないものです。直っているかどうかは未確定として扱ってください。
 
-- **未修正: 指揮棒の単艦モードが機能せず、選択した艦が全て反応します**
+- **検証中: 指揮棒の単艦モード。** 選択した艦が全て反応する問題を修正しました。
+  自動テストと独立検証は通過していますが、実機確認が残っています
 - **未修正: 艦娘タスク（採掘・釣りなど）とクレーンは未検証です。** 1.20.1移植時の
   欠落が未調査のため、動作しない可能性があります
 - **未修正: 1.10.2にあったパーティクル49種のうち24種が未移植です**（見た目のみ）
@@ -114,23 +137,38 @@ MITライセンスのもとで公開されています。詳細は [LICENSE](LIC
 
 ---
 
-ShinColle-kai is a Minecraft mod about building and raising abyssal ships to fight
-hostile ship girls. Defeated ship girls can also be recruited as allies. It adds an
-equipment system and leveling.
+**ShinColle-kai** is an abyssal-fleet and ship-girl combat mod for Minecraft Java
+Edition 1.20.1 with Forge. Build, raise, equip and command abyssal ships against hostile
+ship girls, then recruit defeated ship girls as allies.
+It is an unofficial, Kantai Collection-inspired continuation of the ShinColle mod.
+
+It adds fleet construction, leveling, marriage, cannons, torpedoes, aircraft and other
+equipment. Datapacks, KubeJS scripts and Java addons can define custom equipment and
+ship attributes.
 
 It is a fork of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of PinkaLulan's
 ShinColle, fixing bugs left in that port and restoring behaviour lost in the move from
 1.10.2.
 
-## Features
+## Gameplay and Features
 
-- **Abyssal ships and ship girls** — build and raise abyssal ships; wild ship girls
-  appear as enemies
+- **Fight for the abyssal fleet** — build, raise and command abyssal ships; wild ship
+  girls appear as enemies
+- **Recruit ship girls** — defeat hostile ship girls and bring them back as allies
 - **Construction and growth** — small construction, leveling, marriage
   (large construction is currently unavailable; see Known Issues)
 - **Equipment** — cannons, torpedoes, aircraft and more, changing a ship's stats
 - **Extensible** — custom ship attributes and equipment from KubeJS scripts, datapacks
   or a Java addon
+
+## Installation
+
+1. Install Forge 47.x for Minecraft Java Edition 1.20.1
+2. Put the ShinColle-kai JAR in the `mods` folder
+3. For multiplayer, install the same version on both the server and every client
+
+ShinColle-kai uses a different mod ID from ShinColle-Reforge, so existing data is not
+migrated. **Starting in a new world is recommended.**
 
 ## Requirements
 
@@ -144,6 +182,13 @@ Optional integrations (all work fine when absent):
 | Tinkers' Construct | Modifiers converted into ship attack effects |
 | KubeJS | Custom ship attributes and equipment from scripts |
 | JEI | Keeps its item list clear of the ship GUI |
+
+## Differences from ShinColle-Reforge
+
+ShinColle-kai is more than a rename. It repairs defects left in the Forge 1.20.1 port,
+restores player-visible behaviour and effects from ShinColle 1.10.2, and modernizes the
+internal integration layer. Equipment datapacks, KubeJS support and a public Java API
+let third-party authors add equipment and ship attributes.
 
 ## Compatibility
 
@@ -181,8 +226,9 @@ Problems currently known to affect play.
 has not yet been confirmed in an actual game session. Treat whether it is fixed as
 undetermined.
 
-- **Not fixed: the pointer's single-ship mode does not work; every selected ship
-  responds**
+- **In verification: the pointer's single-ship mode.** The bug that made every selected
+  ship respond has been fixed and independently reviewed, but still needs an in-game
+  check
 - **Not fixed: ship tasks (mining, fishing) and the crane are unverified.** Gaps from
   the 1.20.1 port have not been investigated, so they may not work
 - **Not fixed: 24 of the 49 particle types from 1.10.2 are not ported** (cosmetic only)

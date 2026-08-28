@@ -102,28 +102,11 @@ public class CapaShipInventory {
         if (stack.isEmpty())
             return false;
 
-        int cargoStart = Math.min(EquipSlots, stacks.length);
-        int capacity = 0;
-        for (int i = cargoStart; i < stacks.length; i++) {
-            ItemStack itemStack = stacks[i];
-            if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
-                capacity += Math.max(0, itemStack.getMaxStackSize() - itemStack.getCount());
-            } else if (itemStack.isEmpty()) {
-                capacity += stack.getMaxStackSize();
-            }
-            if (capacity >= stack.getCount()) {
-                break;
-            }
-        }
-
-        // The boolean contract is all-or-nothing. Do not partially mutate the
-        // destination when the full stack cannot fit.
-        if (capacity < stack.getCount()) {
-            LogHelper.diag("DIAG: cargo insert failed capacity=" + capacity
-                    + " requested=" + stack.getCount() + " item=" + stack.getItem());
+        if (!canAddItemStackToInventory(stack)) {
             return false;
         }
 
+        int cargoStart = Math.min(EquipSlots, stacks.length);
         for (int i = cargoStart; i < stacks.length && !stack.isEmpty(); i++) {
             ItemStack itemStack = stacks[i];
             if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
@@ -146,6 +129,35 @@ public class CapaShipInventory {
         }
 
         return stack.isEmpty();
+    }
+
+    /**
+     * Return whether the complete stack fits in cargo slots without changing inventory state.
+     */
+    public boolean canAddItemStackToInventory(ItemStack stack) {
+        if (stack.isEmpty())
+            return false;
+
+        int cargoStart = Math.min(EquipSlots, stacks.length);
+        int capacity = 0;
+        for (int i = cargoStart; i < stacks.length; i++) {
+            ItemStack itemStack = stacks[i];
+            if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
+                capacity += Math.max(0, itemStack.getMaxStackSize() - itemStack.getCount());
+            } else if (itemStack.isEmpty()) {
+                capacity += stack.getMaxStackSize();
+            }
+            if (capacity >= stack.getCount()) {
+                break;
+            }
+        }
+
+        if (capacity < stack.getCount()) {
+            LogHelper.diag("DIAG: cargo insert failed capacity=" + capacity
+                    + " requested=" + stack.getCount() + " item=" + stack.getItem());
+            return false;
+        }
+        return true;
     }
 
     public int getInventoryPage() {

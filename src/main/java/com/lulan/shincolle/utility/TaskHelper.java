@@ -133,9 +133,9 @@ public class TaskHelper {
             return;
 
         // check waypoint has paired chest
-        pos = waypoint.getPairedChest();
-        if (pos == null)
+        if (!waypoint.hasPairedChest())
             return;
+        pos = waypoint.getPairedChest();
 
         // check paired chest has inventory capability
         IItemHandler chest = CapaHelper.getCapaInventory(host.level().getBlockEntity(pos), -1);
@@ -209,7 +209,8 @@ public class TaskHelper {
                 }
 
                 // get item from chest
-                ItemStack fromChest = getAndRemoveItemFromHandler(chest, tempStack, 1);
+                ItemStack fromChest = getAndRemoveItemFromHandler(chest, tempStack, 1,
+                        checkMetadata, checkNbt);
                 invShip.setStackInSlot(i + 12, fromChest);
                 recipeTemp.setItem(i, invShip.getStackInSlot(i + 12));
             }
@@ -221,7 +222,7 @@ public class TaskHelper {
             if (resultOpt.isPresent()) {
                 ItemStack resultTemp = resultOpt.get().assemble(recipeTemp, host.level().registryAccess());
 
-                if (!ItemStack.isSameItemSameTags(resultTemp, result)) {
+                if (!InventoryHelper.matchTargetItem(resultTemp, result, checkMetadata, checkNbt)) {
                     break;
                 }
 
@@ -548,9 +549,9 @@ public class TaskHelper {
             return;
 
         // check waypoint has paired chest
-        pos = waypoint.getPairedChest();
-        if (pos == null)
+        if (!waypoint.hasPairedChest())
             return;
+        pos = waypoint.getPairedChest();
 
         // check paired chest is a furnace
         te = host.level().getBlockEntity(pos);
@@ -575,107 +576,82 @@ public class TaskHelper {
         if (resultStack.isEmpty())
             return;
 
+        int taskSide = host.getStateMinor(ID.M.TaskSide);
+        boolean checkMetadata = (taskSide & Values.N.Pow2[18]) == Values.N.Pow2[18];
+        boolean checkNbt = (taskSide & Values.N.Pow2[20]) == Values.N.Pow2[20];
+        List<IItemHandler> inputHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 0);
+        List<IItemHandler> outputHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 1);
+        List<IItemHandler> fuelHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 2);
         boolean swing = false;
 
-        // put target item into furnace input (slot 0)
-        ItemStack furnaceInput = furnace.getItem(0);
-        if (furnaceInput.isEmpty() || (ItemStack.isSameItemSameTags(furnaceInput, mainstack)
-                && furnaceInput.getCount() < furnaceInput.getMaxStackSize())) {
-            // find matching item in ship inventory (not slot 22/23)
-            int targetSlot = findMatchingSlot(inv, mainstack, 22, 23);
-            if (targetSlot >= 0) {
-                ItemStack toMove = inv.getStackInSlot(targetSlot);
-                int toAdd = Math.min(toMove.getCount(),
-                        furnaceInput.isEmpty() ? mainstack.getMaxStackSize()
-                                : furnaceInput.getMaxStackSize() - furnaceInput.getCount());
-                if (toAdd > 0) {
-                    if (furnaceInput.isEmpty()) {
-                        furnace.setItem(0, toMove.copyWithCount(toAdd));
-                    } else {
-                        furnaceInput.grow(toAdd);
-                    }
-                    toMove.shrink(toAdd);
-                    if (toMove.isEmpty())
-                        inv.setStackInSlot(targetSlot, ItemStack.EMPTY);
+        // Original 1.10.2 TaskHelper.java:654-658:
+        // int[] inSlots = InventoryHelper.getSlotsFromSide(furnace, targetStack, taskSide, 0);
+        // int[] outSlots = InventoryHelper.getSlotsFromSide(furnace, null, taskSide, 1);
+        // int[] fuSlots = InventoryHelper.getSlotsFromSide(furnace, fuelStack, taskSide, 2);
+        int targetSlot = findMatchingSlot(inv, mainstack, checkMetadata, checkNbt, 22, 23);
+        if (targetSlot >= 0) {
+            ItemStack toMove = inv.getStackInSlot(targetSlot);
+            if (moveItemToHandlers(inputHandlers, toMove)) {
+                if (toMove.isEmpty())
+                    inv.setStackInSlot(targetSlot, ItemStack.EMPTY);
+                swing = true;
+            }
+        }
+
+        // Put fuel through the configured face-scoped handlers.
+        if (!offstack.isEmpty()) {
+            int fuelSlot = findMatchingSlot(inv, offstack, checkMetadata, checkNbt, 22, 23);
+            if (fuelSlot >= 0) {
+                ItemStack fuelToMove = inv.getStackInSlot(fuelSlot);
+                if (moveItemToHandlers(fuelHandlers, fuelToMove)) {
+                    if (fuelToMove.isEmpty())
+                        inv.setStackInSlot(fuelSlot, ItemStack.EMPTY);
                     swing = true;
                 }
             }
         }
 
-        // put fuel into furnace fuel slot (slot 1)
-        if (!offstack.isEmpty()) {
-            ItemStack furnaceFuel = furnace.getItem(1);
-            if (furnaceFuel.isEmpty() || (ItemStack.isSameItemSameTags(furnaceFuel, offstack)
-                    && furnaceFuel.getCount() < furnaceFuel.getMaxStackSize())) {
-                int fuelSlot = findMatchingSlot(inv, offstack, 22, 23);
-                if (fuelSlot >= 0) {
-                    ItemStack fuelToMove = inv.getStackInSlot(fuelSlot);
-                    int toAdd = Math.min(fuelToMove.getCount(),
-                            furnaceFuel.isEmpty() ? offstack.getMaxStackSize()
-                                    : furnaceFuel.getMaxStackSize() - furnaceFuel.getCount());
-                    if (toAdd > 0) {
-                        if (furnaceFuel.isEmpty()) {
-                            furnace.setItem(1, fuelToMove.copyWithCount(toAdd));
-                        } else {
-                            furnaceFuel.grow(toAdd);
-                        }
-                        fuelToMove.shrink(toAdd);
-                        if (fuelToMove.isEmpty())
-                            inv.setStackInSlot(fuelSlot, ItemStack.EMPTY);
-                        swing = true;
+        // Take one matching output stack through the configured face-scoped handlers.
+        if (moveMatchingOutputToShip(outputHandlers, inv, resultStack, checkMetadata, checkNbt)) {
+            swing = true;
+
+            // add exp and consume grudge
+            host.addShipExp(ConfigHandler.expGainTask[0]);
+            host.decrGrudgeNum(ConfigHandler.consumeGrudgeTask[0]);
+            host.addMorale(100);
+
+            // generate charcoal by fail chance
+            float failChance = (float) (ConfigHandler.maxLevel - host.getLevel())
+                    / (float) ConfigHandler.maxLevel * 0.2F + 0.05F;
+
+            if (host.getRandom().nextFloat() < failChance) {
+                ItemStack coal = new ItemStack(Items.CHARCOAL, 1);
+                ItemEntity entityitem = new ItemEntity(host.level(),
+                        pos.getX() + 0.5D, pos.getY() + 1D, pos.getZ() + 0.5D, coal);
+                entityitem.setDeltaMovement(
+                        host.getRandom().nextGaussian() * 0.05D,
+                        host.getRandom().nextGaussian() * 0.05D + 0.2D,
+                        host.getRandom().nextGaussian() * 0.05D);
+                host.level().addFreshEntity(entityitem);
+                host.applyEmotesReaction(6);
+            } else if (host.getRandom().nextInt(7) == 0) {
+                switch (host.getRandom().nextInt(5)) {
+                    case 1:
+                        host.applyParticleEmotion(1);
+                        break;
+                    case 2:
+                        host.applyParticleEmotion(7);
+                        break;
+                    case 3:
+                        host.applyParticleEmotion(16);
+                        break;
+                    case 4:
+                        host.applyParticleEmotion(30);
+                        break;
+                    default:
+                        host.applyParticleEmotion(0);
+                        break;
                     }
-                }
-            }
-        }
-
-        // take output from furnace (slot 2)
-        ItemStack output = furnace.getItem(2);
-        if (!output.isEmpty() && ItemStack.isSameItemSameTags(output, resultStack)) {
-            // move output to ship inventory
-            if (inv.addItemStackToInventory(output.copy())) {
-                furnace.setItem(2, ItemStack.EMPTY);
-                swing = true;
-
-                // add exp and consume grudge
-                host.addShipExp(ConfigHandler.expGainTask[0]);
-                host.decrGrudgeNum(ConfigHandler.consumeGrudgeTask[0]);
-                host.addMorale(100);
-
-                // generate charcoal by fail chance
-                float failChance = (float) (ConfigHandler.maxLevel - host.getLevel())
-                        / (float) ConfigHandler.maxLevel * 0.2F + 0.05F;
-
-                if (host.getRandom().nextFloat() < failChance) {
-                    ItemStack coal = new ItemStack(Items.CHARCOAL, 1);
-                    ItemEntity entityitem = new ItemEntity(host.level(),
-                            pos.getX() + 0.5D, pos.getY() + 1D, pos.getZ() + 0.5D, coal);
-                    entityitem.setDeltaMovement(
-                            host.getRandom().nextGaussian() * 0.05D,
-                            host.getRandom().nextGaussian() * 0.05D + 0.2D,
-                            host.getRandom().nextGaussian() * 0.05D);
-                    host.level().addFreshEntity(entityitem);
-                    host.applyEmotesReaction(6);
-                } else {
-                    if (host.getRandom().nextInt(7) == 0) {
-                        switch (host.getRandom().nextInt(5)) {
-                            case 1:
-                                host.applyParticleEmotion(1);
-                                break;
-                            case 2:
-                                host.applyParticleEmotion(7);
-                                break;
-                            case 3:
-                                host.applyParticleEmotion(16);
-                                break;
-                            case 4:
-                                host.applyParticleEmotion(30);
-                                break;
-                            default:
-                                host.applyParticleEmotion(0);
-                                break;
-                        }
-                    }
-                }
             }
         }
 
@@ -1012,6 +988,14 @@ public class TaskHelper {
      * Find slot in ship inventory matching target item, excluding specific slots.
      */
     private static int findMatchingSlot(CapaShipInventory inv, ItemStack target, int... excludeSlots) {
+        return findMatchingSlot(inv, target, false, false, excludeSlots);
+    }
+
+    /**
+     * Find a TaskSide-configured item match, excluding specific slots.
+     */
+    private static int findMatchingSlot(CapaShipInventory inv, ItemStack target,
+                                        boolean checkMetadata, boolean checkNbt, int... excludeSlots) {
         for (int i = 0; i < inv.getSlots(); i++) {
             boolean excluded = false;
             for (int ex : excludeSlots) {
@@ -1024,7 +1008,7 @@ public class TaskHelper {
                 continue;
 
             ItemStack stack = inv.getStackInSlot(i);
-            if (!stack.isEmpty() && ItemStack.isSameItem(stack, target)) {
+            if (InventoryHelper.matchTargetItem(stack, target, checkMetadata, checkNbt)) {
                 return i;
             }
         }
@@ -1074,10 +1058,11 @@ public class TaskHelper {
     /**
      * Get and remove matching item from IItemHandler.
      */
-    private static ItemStack getAndRemoveItemFromHandler(IItemHandler handler, ItemStack target, int amount) {
+    private static ItemStack getAndRemoveItemFromHandler(IItemHandler handler, ItemStack target, int amount,
+                                                         boolean checkMetadata, boolean checkNbt) {
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStackInSlot(i);
-            if (!stack.isEmpty() && ItemStack.isSameItem(stack, target)) {
+            if (InventoryHelper.matchTargetItem(stack, target, checkMetadata, checkNbt)) {
                 return handler.extractItem(i, amount, false);
             }
         }
@@ -1089,9 +1074,44 @@ public class TaskHelper {
      */
     private static void moveItemToHandler(IItemHandler handler, ItemStack stack) {
         for (int i = 0; i < handler.getSlots() && !stack.isEmpty(); i++) {
-            ItemStack remainder = handler.insertItem(i, stack, false);
-            stack.setCount(remainder.getCount());
+            ItemStack offered = stack.copy();
+            ItemStack remainder = handler.insertItem(i, offered, false);
+            int inserted = offered.getCount() - remainder.getCount();
+            if (inserted > 0) {
+                stack.shrink(inserted);
+            }
         }
+    }
+
+    private static boolean moveItemToHandlers(List<IItemHandler> handlers, ItemStack stack) {
+        int oldCount = stack.getCount();
+        for (IItemHandler handler : handlers) {
+            moveItemToHandler(handler, stack);
+            if (stack.isEmpty())
+                break;
+        }
+        return stack.getCount() < oldCount;
+    }
+
+    private static boolean moveMatchingOutputToShip(List<IItemHandler> handlers, CapaShipInventory inventory,
+                                                    ItemStack target, boolean checkMetadata, boolean checkNbt) {
+        for (IItemHandler handler : handlers) {
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                ItemStack visible = handler.getStackInSlot(slot);
+                if (!InventoryHelper.matchTargetItem(visible, target, checkMetadata, checkNbt))
+                    continue;
+
+                ItemStack simulated = handler.extractItem(slot, visible.getCount(), true);
+                if (simulated.isEmpty() || !inventory.canAddItemStackToInventory(simulated))
+                    continue;
+
+                ItemStack extracted = handler.extractItem(slot, simulated.getCount(), false);
+                if (!extracted.isEmpty() && inventory.addItemStackToInventory(extracted)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

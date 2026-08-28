@@ -164,13 +164,13 @@ public class ParticleHelper {
     /**
      * Spawn emotion particles on an entity using custom ParticleEmotion.
      * Emotion types correspond to the original mod's emotion system:
-     * 0 = none, 1 = heart, 2 = note, 3 = angry, 4 = sweat, etc.
+     * 0 = sweat/drop, 1 = heart, 2 = panic, etc.
      *
      * @param entity      the entity to spawn particles on
      * @param emotionType the emotion type ID
      */
     public static void spawnEmotionParticle(Entity entity, int emotionType) {
-        if (entity.level().isClientSide() && emotionType > 0) {
+        if (entity.level().isClientSide()) {
             spawnEmotionParticleClient(entity, emotionType);
         }
     }

@@ -22,6 +22,7 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
     private BlockPos nextPos = BlockPos.ZERO;
     private BlockPos lastPos = BlockPos.ZERO;
     private BlockPos chestPos = BlockPos.ZERO;
+    private boolean pairedChestSet;
     private int wpstay = 0;
 
     public TileEntityWaypoint(BlockPos pos, BlockState state) {
@@ -92,12 +93,14 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
     }
 
     public void setPairedChest(BlockPos pos) {
-        this.chestPos = pos != null ? pos : BlockPos.ZERO;
+        this.chestPos = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.pairedChestSet = pos != null;
         setChanged();
     }
 
+    @Override
     public boolean hasPairedChest() {
-        return !chestPos.equals(BlockPos.ZERO);
+        return pairedChestSet;
     }
 
     // ========== Stay Time ==========
@@ -129,6 +132,7 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
         tag.putInt("ChestX", chestPos.getX());
         tag.putInt("ChestY", chestPos.getY());
         tag.putInt("ChestZ", chestPos.getZ());
+        tag.putBoolean("HasPairedChest", pairedChestSet);
         tag.putInt("WpStay", wpstay);
     }
 
@@ -142,6 +146,13 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
         nextPos = new BlockPos(tag.getInt("NextX"), tag.getInt("NextY"), tag.getInt("NextZ"));
         lastPos = new BlockPos(tag.getInt("LastX"), tag.getInt("LastY"), tag.getInt("LastZ"));
         chestPos = new BlockPos(tag.getInt("ChestX"), tag.getInt("ChestY"), tag.getInt("ChestZ"));
+        // Original 1.10.2 used `this.chestPos = BlockPos.ORIGIN;` as the unset state.
+        // World origin and negative Y are valid in 1.20.1, so new saves carry explicit presence.
+        pairedChestSet = tag.contains("HasPairedChest")
+                ? tag.getBoolean("HasPairedChest") : !chestPos.equals(BlockPos.ZERO);
+        if (!pairedChestSet) {
+            chestPos = BlockPos.ZERO;
+        }
         wpstay = tag.getInt("WpStay");
     }
 }

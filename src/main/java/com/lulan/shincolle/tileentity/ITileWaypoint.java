@@ -34,6 +34,11 @@ public interface ITileWaypoint extends IShipOwner, ITileGuardPoint {
     BlockPos getPairedChest();
 
     /**
+     * Whether a paired chest position was explicitly assigned.
+     */
+    boolean hasPairedChest();
+
+    /**
      * Paired chest position
      */
     void setPairedChest(BlockPos pos);

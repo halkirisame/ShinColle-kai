@@ -3,16 +3,21 @@ package com.lulan.shincolle.utility;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.Values;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.items.IItemHandler;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -362,6 +367,50 @@ public class InventoryHelper {
     }
 
     /**
+     * Check target and template using the TaskSide metadata/NBT options.
+     *
+     * <p>Original 1.10.2 InventoryHelper.java:786-804:</p>
+     * <pre>
+     * if (checkNbt &amp;&amp; checkMetadata)
+     * if (ItemStack.areItemStackTagsEqual(target, temp) &amp;&amp;
+     *     target.getItemDamage() == temp.getItemDamage()) return true;
+     * else if (checkNbt)
+     * else if (checkMetadata)
+     * else return true;
+     * </pre>
+     */
+    public static boolean matchTargetItem(ItemStack target, ItemStack temp,
+                                          boolean checkMetadata, boolean checkNbt) {
+        if (target.isEmpty() && temp.isEmpty())
+            return true;
+        if (target.isEmpty() || temp.isEmpty() || !ItemStack.isSameItem(target, temp))
+            return false;
+        if (checkMetadata && target.getDamageValue() != temp.getDamageValue())
+            return false;
+        if (!checkNbt)
+            return true;
+        if (checkMetadata)
+            return Objects.equals(target.getTag(), temp.getTag());
+        return taskTagsEqualIgnoringDamage(target.getTag(), temp.getTag());
+    }
+
+    private static boolean taskTagsEqualIgnoringDamage(CompoundTag first, CompoundTag second) {
+        CompoundTag firstWithoutDamage = copyWithoutDamage(first);
+        CompoundTag secondWithoutDamage = copyWithoutDamage(second);
+        return Objects.equals(firstWithoutDamage, secondWithoutDamage);
+    }
+
+    private static CompoundTag copyWithoutDamage(CompoundTag tag) {
+        if (tag == null)
+            return null;
+        CompoundTag copy = tag.copy();
+        // Item damage was metadata outside NBT in 1.10.2. Remove its modern storage
+        // key so the original metadata and NBT toggles remain independent.
+        copy.remove("Damage");
+        return copy.isEmpty() ? null : copy;
+    }
+
+    /**
      * Check slot is NOT mode.
      *
      * @param slotID    slot index (bit position)
@@ -404,7 +453,10 @@ public class InventoryHelper {
      * @param side    TaskSide bit flags
      * @param type    slot type (0=input, 1=output, 2=fuel)
      * @return array of available slot indices
+     * @deprecated an already-resolved handler does not retain which face was requested;
+     *             use {@link #getItemHandlersFromSides(ICapabilityProvider, int, int)}
      */
+    @Deprecated(forRemoval = false)
     public static int[] getSlotsFromSide(IItemHandler handler, ItemStack stack, int side, int type) {
         if (handler == null)
             return new int[0];
@@ -446,6 +498,37 @@ public class InventoryHelper {
             return CalcHelper.intSetToArray(slots);
         }
         return new int[0];
+    }
+
+    /**
+     * Get the face-scoped item handlers selected by TaskSide for an operation.
+     *
+     * <p>Original 1.10.2 InventoryHelper.java:890-897:</p>
+     * <pre>
+     * EnumFacing face = EnumFacing.getFront(i);  //id: D U N S W E
+     * if ((side &amp; Values.N.Pow2[tarbit]) == Values.N.Pow2[tarbit])
+     * slotstemp = te.getSlotsForFace(face);
+     * </pre>
+     * Forge 1.20.1 exposes that face contract through a separate capability
+     * handler for each direction, so an unsided handler cannot preserve it.
+     */
+    public static List<IItemHandler> getItemHandlersFromSides(ICapabilityProvider provider,
+                                                               int taskSide, int type) {
+        if (provider == null || type < 0 || type > 2)
+            return List.of();
+
+        List<IItemHandler> handlers = new ArrayList<>();
+        int firstBit = type * 6;
+        for (int side = 0; side < 6; side++) {
+            int bit = firstBit + side;
+            if ((taskSide & Values.N.Pow2[bit]) == Values.N.Pow2[bit]) {
+                IItemHandler handler = CapaHelper.getCapaInventory(provider, side);
+                if (handler != null && !handlers.contains(handler)) {
+                    handlers.add(handler);
+                }
+            }
+        }
+        return List.copyOf(handlers);
     }
 
     /**
