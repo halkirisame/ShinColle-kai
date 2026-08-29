@@ -13,6 +13,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  docs-audit:
+    name: Docs audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The current repository intentionally has documented baseline findings.
+    # Promote this job to a required gate only after the baseline is green.
+    continue-on-error: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Audit documentation
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_audit_docs.py'
+          python3 scripts/audit_docs.py
+
   verify:
     name: Build and GameTests
     runs-on: ubuntu-latest

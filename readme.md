@@ -14,14 +14,35 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
-## ゲームプレイと特徴
+## 概要
 
+<!-- traceability: readme.gameplay.abyssal-side begin -->
 - **深海棲艦側で遊ぶ艦隊戦** — 深海側の艦を建造・育成・指揮。野生の艦娘は敵として出現します
+<!-- traceability: readme.gameplay.abyssal-side end -->
+<!-- traceability: readme.gameplay.recruit begin -->
 - **艦娘を仲間にする** — 敵の艦娘を撃破し、入手したスポーン卵から味方として迎えられます
-- **建造と育成** — 小型建造、レベリング、婚約
-  （大型建造は現在利用できません。「既知の問題」を参照）
+<!-- traceability: readme.gameplay.recruit end -->
+<!-- traceability: readme.gameplay.small-construction begin -->
+- **小型建造** — 深海棲艦を小型造船所で建造できます
+<!-- traceability: readme.gameplay.small-construction end -->
+<!-- traceability: readme.gameplay.leveling begin -->
+- **レベリング** — 艦を育成できます
+<!-- traceability: readme.gameplay.leveling end -->
+<!-- traceability: readme.gameplay.marriage begin -->
+- **婚約** — 艦と婚約できます
+<!-- traceability: readme.gameplay.marriage end -->
+<!-- traceability: readme.gameplay.equipment begin -->
 - **装備** — 主砲・魚雷・艦載機など。艦の性能を変化させます
-- **拡張** — KubeJSスクリプト、datapack、Javaアドオンから独自の艦属性と装備を追加できます
+<!-- traceability: readme.gameplay.equipment end -->
+<!-- traceability: readme.extension.kubejs begin -->
+- **KubeJS拡張** — スクリプトから独自の艦属性と装備を追加できます
+<!-- traceability: readme.extension.kubejs end -->
+<!-- traceability: readme.extension.datapack begin -->
+- **datapack拡張** — datapackから独自の装備を追加できます
+<!-- traceability: readme.extension.datapack end -->
+<!-- traceability: readme.extension.java-addon begin -->
+- **Javaアドオン拡張** — Javaアドオンから独自の艦属性と装備を追加できます
+<!-- traceability: readme.extension.java-addon end -->
 
 ## 導入方法
 
@@ -40,10 +61,18 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 
 | MOD | 連携内容 |
 |---|---|
+<!-- traceability: readme.optional.curios begin -->
 | Curios | 艦の装備スロット |
+<!-- traceability: readme.optional.curios end -->
+<!-- traceability: readme.optional.tinkers begin -->
 | Tinkers' Construct | 修飾子を艦の攻撃効果へ変換 |
+<!-- traceability: readme.optional.tinkers end -->
+<!-- traceability: readme.optional.kubejs begin -->
 | KubeJS | 独自の艦属性・装備をスクリプトから追加 |
+<!-- traceability: readme.optional.kubejs end -->
+<!-- traceability: readme.optional.jei begin -->
 | JEI | 艦GUIとアイテム一覧の表示競合を回避 |
+<!-- traceability: readme.optional.jei end -->
 
 ## ShinColle-Reforgeとの違い
 
@@ -54,6 +83,7 @@ ShinColle 1.10.2のプレイヤーが体感できる挙動・演出を復元し�
 
 ## 互換性
 
+<!-- traceability: readme.reforge-compatibility begin -->
 **MOD IDを `shincolle` から `shincolle_kai` へ変更したため、*ShinColle-Reforge* との
 互換性はありません。**内容ごとに分けて説明します。
 
@@ -65,9 +95,11 @@ ShinColle 1.10.2のプレイヤーが体感できる挙動・演出を復元し�
 | API互換性 | **不可**。旧IDを前提にしたaddon・KubeJSスクリプトは動きません |
 
 設定ファイルは新規生成されます。旧設定は引き継がれません。
+<!-- traceability: readme.reforge-compatibility end -->
 
-## Reforge からの移行
+## 移行
 
+<!-- traceability: readme.reforge-migration begin -->
 Reforgeのワールドを開くこと自体はできますが、**自動移行は行われません。**
 
 1. Reforgeで作った艦娘・アイテムは、ワールドを開いた時点で失われます。
@@ -79,6 +111,7 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
    [docs/java_addon_api.md](docs/java_addon_api.md) を参照してください
 
 **新規ワールドで始めることを推奨します。**
+<!-- traceability: readme.reforge-migration end -->
 
 ## 既知の問題
 
@@ -87,19 +120,31 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 **検証中**は、修正を実装して自動テストは通ったものの、実際のゲーム内での確認が
 まだ終わっていないものです。直っているかどうかは未確定として扱ってください。
 
+<!-- traceability: readme.known-issue.pointer-single-ship begin -->
 - **検証中: 指揮棒の単艦モード。** 選択した艦が全て反応する問題を修正しました。
   自動テストと独立検証は通過していますが、実機確認が残っています
+<!-- traceability: readme.known-issue.pointer-single-ship end -->
+<!-- traceability: readme.known-issue.ship-tasks-crane begin -->
 - **未修正: 艦娘タスク（採掘・釣りなど）とクレーンは未検証です。** 1.20.1移植時の
   欠落が未調査のため、動作しない可能性があります
+<!-- traceability: readme.known-issue.ship-tasks-crane end -->
+<!-- traceability: readme.known-issue.particles begin -->
 - **未修正: 1.10.2にあったパーティクル49種のうち24種が未移植です**（見た目のみ）
+<!-- traceability: readme.known-issue.particles end -->
+<!-- traceability: readme.known-issue.large-construction begin -->
 - **検証中: 大型建造。** 大型造船所を構成するブロック（多金属ブロック・深海重怨念
   ブロック）を右クリックで設置できず造船所を組み立てられない問題を修正しました。
   実際に建造できるかは未確認です
+<!-- traceability: readme.known-issue.large-construction end -->
+<!-- traceability: readme.known-issue.emotion begin -->
 - **検証中: 艦の感情・反応。** 撫でる・被弾する・攻撃する・待機する・命令する・
   艦娘タスクのいずれでも感情の表示、音声、士気の変動、押し返し、反撃が起きない
   問題を修正しました。表情やパーティクルの表示は未確認です
+<!-- traceability: readme.known-issue.emotion end -->
+<!-- traceability: readme.known-issue.shipyard-vortex begin -->
 - **検証中: 大型造船所の渦**が建造中も停止時と同じ表示のままだった問題を
   修正しました（見た目のみ）。表示は未確認です
+<!-- traceability: readme.known-issue.shipyard-vortex end -->
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
@@ -150,16 +195,36 @@ It is a fork of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of PinkaLulan'
 ShinColle, fixing bugs left in that port and restoring behaviour lost in the move from
 1.10.2.
 
-## Gameplay and Features
+## Overview
 
+<!-- traceability: readme.gameplay.abyssal-side-en begin -->
 - **Fight for the abyssal fleet** — build, raise and command abyssal ships; wild ship
   girls appear as enemies
+<!-- traceability: readme.gameplay.abyssal-side-en end -->
+<!-- traceability: readme.gameplay.recruit-en begin -->
 - **Recruit ship girls** — defeat hostile ship girls and bring them back as allies
-- **Construction and growth** — small construction, leveling, marriage
-  (large construction is currently unavailable; see Known Issues)
+<!-- traceability: readme.gameplay.recruit-en end -->
+<!-- traceability: readme.gameplay.small-construction-en begin -->
+- **Small construction** — build abyssal ships at a small shipyard
+<!-- traceability: readme.gameplay.small-construction-en end -->
+<!-- traceability: readme.gameplay.leveling-en begin -->
+- **Leveling** — raise ships
+<!-- traceability: readme.gameplay.leveling-en end -->
+<!-- traceability: readme.gameplay.marriage-en begin -->
+- **Marriage** — marry ships
+<!-- traceability: readme.gameplay.marriage-en end -->
+<!-- traceability: readme.gameplay.equipment-en begin -->
 - **Equipment** — cannons, torpedoes, aircraft and more, changing a ship's stats
-- **Extensible** — custom ship attributes and equipment from KubeJS scripts, datapacks
-  or a Java addon
+<!-- traceability: readme.gameplay.equipment-en end -->
+<!-- traceability: readme.extension.kubejs-en begin -->
+- **KubeJS extensions** — scripts can add custom ship attributes and equipment
+<!-- traceability: readme.extension.kubejs-en end -->
+<!-- traceability: readme.extension.datapack-en begin -->
+- **Datapack extensions** — datapacks can add custom equipment
+<!-- traceability: readme.extension.datapack-en end -->
+<!-- traceability: readme.extension.java-addon-en begin -->
+- **Java addon extensions** — Java addons can add custom ship attributes and equipment
+<!-- traceability: readme.extension.java-addon-en end -->
 
 ## Installation
 
@@ -178,10 +243,18 @@ Optional integrations (all work fine when absent):
 
 | Mod | What it adds |
 |---|---|
+<!-- traceability: readme.optional.curios-en begin -->
 | Curios | Equipment slots for ships |
+<!-- traceability: readme.optional.curios-en end -->
+<!-- traceability: readme.optional.tinkers-en begin -->
 | Tinkers' Construct | Modifiers converted into ship attack effects |
+<!-- traceability: readme.optional.tinkers-en end -->
+<!-- traceability: readme.optional.kubejs-en begin -->
 | KubeJS | Custom ship attributes and equipment from scripts |
+<!-- traceability: readme.optional.kubejs-en end -->
+<!-- traceability: readme.optional.jei-en begin -->
 | JEI | Keeps its item list clear of the ship GUI |
+<!-- traceability: readme.optional.jei-en end -->
 
 ## Differences from ShinColle-Reforge
 
@@ -192,6 +265,7 @@ let third-party authors add equipment and ship attributes.
 
 ## Compatibility
 
+<!-- traceability: readme.reforge-compatibility-en begin -->
 **The mod id changed from `shincolle` to `shincolle_kai`, so this is not compatible with
 *ShinColle-Reforge*.** Broken down by kind:
 
@@ -203,9 +277,11 @@ let third-party authors add equipment and ship attributes.
 | API | **Broken.** Addons and KubeJS scripts written against the old id will not work |
 
 Config files are regenerated; old settings are not carried over.
+<!-- traceability: readme.reforge-compatibility-en end -->
 
 ## Migration from Reforge
 
+<!-- traceability: readme.reforge-migration-en begin -->
 A Reforge world will open, but **nothing is migrated automatically.**
 
 1. Ships and items created in Reforge are lost the moment the world is opened.
@@ -217,6 +293,7 @@ A Reforge world will open, but **nothing is migrated automatically.**
    [docs/java_addon_api.md](docs/java_addon_api.md) for the API boundary
 
 **Starting a new world is recommended.**
+<!-- traceability: readme.reforge-migration-en end -->
 
 ## Known Issues
 
@@ -226,22 +303,34 @@ Problems currently known to affect play.
 has not yet been confirmed in an actual game session. Treat whether it is fixed as
 undetermined.
 
+<!-- traceability: readme.known-issue.pointer-single-ship-en begin -->
 - **In verification: the pointer's single-ship mode.** The bug that made every selected
   ship respond has been fixed and independently reviewed, but still needs an in-game
   check
+<!-- traceability: readme.known-issue.pointer-single-ship-en end -->
+<!-- traceability: readme.known-issue.ship-tasks-crane-en begin -->
 - **Not fixed: ship tasks (mining, fishing) and the crane are unverified.** Gaps from
   the 1.20.1 port have not been investigated, so they may not work
+<!-- traceability: readme.known-issue.ship-tasks-crane-en end -->
+<!-- traceability: readme.known-issue.particles-en begin -->
 - **Not fixed: 24 of the 49 particle types from 1.10.2 are not ported** (cosmetic only)
+<!-- traceability: readme.known-issue.particles-en end -->
+<!-- traceability: readme.known-issue.large-construction-en begin -->
 - **In verification: large construction.** The blocks that make up the large shipyard
   (polymetal block, heavy grudge block) could not be placed by right-clicking, so the
   shipyard could not be assembled. This is fixed; whether construction actually works
   is unconfirmed
+<!-- traceability: readme.known-issue.large-construction-en end -->
+<!-- traceability: readme.known-issue.emotion-en begin -->
 - **In verification: ship emotional reactions.** Petting, taking damage, attacking,
   idling, being commanded and ship tasks produced no emotion display, voice, morale
   change, pushback or retaliation. This is fixed; the on-screen expressions and
   particles are unconfirmed
+<!-- traceability: readme.known-issue.emotion-en end -->
+<!-- traceability: readme.known-issue.shipyard-vortex-en begin -->
 - **In verification: the large shipyard's vortex** stayed in its idle appearance even
   while building. This is fixed (cosmetic only); the appearance is unconfirmed
+<!-- traceability: readme.known-issue.shipyard-vortex-en end -->
 
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).

@@ -24,6 +24,7 @@ equipment JSONの完全な語彙は[JSON Schema](schemas/shincolle_kai-equipment
 
 ## 1. 艦属性を登録する
 
+<!-- traceability: kubejs.attribute-dsl begin -->
 `kubejs/startup_scripts/shincolle_kai_attributes.js`:
 
 ```javascript
@@ -81,6 +82,7 @@ client/serverで同じ計算を再現できるよう、Java側の名前付き方
 
 名前は大文字小文字を区別せず、`weapon-additive`のようなハイフンも使えます。
 不明な名前、空のID、`minimum > maximum`は曖昧なfallbackをせずstartup errorになります。
+<!-- traceability: kubejs.attribute-dsl end -->
 
 ## 2. KubeJS Itemを登録する
 
@@ -96,6 +98,7 @@ StartupEvents.registry('item', event => {
 
 ## 3. Itemを艦装備として定義する
 
+<!-- traceability: kubejs.item-equipment begin -->
 `kubejs/data/kubejs/equipment/sonar_module.json`:
 
 ```json
@@ -139,6 +142,7 @@ JavaScript callbackを戦闘中に実行するScript Effect APIはまだ公開�
 
 この装備は既存の`ShipEquipmentResolver`を通るため、native 6枠、対応するCurios枠、
 装備集計、専用server同期、tooltipでJava addonの装備と同じ扱いになります。
+<!-- traceability: kubejs.item-equipment end -->
 
 ## 4. reloadと責任範囲
 

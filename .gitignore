@@ -41,6 +41,8 @@ original_source
 tmpclaude-*
 tools
 *.py
+!scripts/*.py
+__pycache__/
 run
 run-server
 run-client2

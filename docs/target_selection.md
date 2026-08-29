@@ -3,8 +3,8 @@
 この文書は旧実装のターゲット選定ロジックを詳細に分解し、意思決定フローをフローチャート（Mermaid）で示したものです。実装参照元は `EntityAIShipRangeTarget` とそれに依存する `TargetHelper` 系です。
 
 参照実装:
-- [original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeTarget.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeTarget.java)
-- [original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java](original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java)
+- ローカル原典: `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeTarget.java`
+- ローカル原典: `original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java`
 
 ---
 
@@ -220,7 +220,7 @@ flowchart TD
 
 フローチャートを PNG/SVG で確認したい場合はリポジトリに SVG を作成済みです。以下のファイルを開いてください。
 
-- [docs/target_selection.svg](docs/target_selection.svg)
+- [target_selection.svg](target_selection.svg)
 
 この SVG は簡易的なフローチャート図です。PNG 変換や高解像度化、細かいレイアウト調整をご希望なら指示ください。
 

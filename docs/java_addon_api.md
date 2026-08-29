@@ -28,9 +28,12 @@ APIは公開前のため、現在は互換性を固定していません。本�
 
 ## 独自の艦属性を登録する
 
+<!-- traceability: java-addon.registry-key begin -->
 艦属性はForge startup registryです。addon自身の`DeferredRegister`を、Public APIが
 所有するregistry keyへ接続します。
+<!-- traceability: java-addon.registry-key end -->
 
+<!-- traceability: java-addon.attribute-builder begin -->
 ```java
 public final class AddonShipAttributes {
     public static final DeferredRegister<ShipAttributeType> ATTRIBUTES =
@@ -50,12 +53,14 @@ public final class AddonShipAttributes {
     }
 }
 ```
+<!-- traceability: java-addon.attribute-builder end -->
 
 登録内容はclient/serverで一致させ、変更後は両方を再起動してください。`/reload`では
 startup registryは変更されません。IDは必ずaddon自身のnamespaceを使います。
 
 ## Item自身から動的な装備値を返す
 
+<!-- traceability: java-addon.equipment-context-values begin -->
 Item固有のNBT等から値を計算する場合は`IShipEquipment`を実装します。受け取った
 `ShipEquipmentContext`は副作用のない解決専用で、返す値は不変です。
 
@@ -83,10 +88,13 @@ public final class SonarModuleItem extends Item implements IShipEquipment {
     }
 }
 ```
+<!-- traceability: java-addon.equipment-context-values end -->
 
+<!-- traceability: java-addon.equipment-hit-callback begin -->
 非finite値、未登録属性、現在のlayoutと異なる値は装備単位で拒否されます。解決中にworld、
 entity、元のItemStackを変更してはいけません。攻撃命中後の副作用が必要な場合だけ
 `onShipHit(LivingEntity, Entity, float, ItemStack)`を使い、戦闘判断はserver側で行います。
+<!-- traceability: java-addon.equipment-hit-callback end -->
 
 ## equipment JSONを使う
 
@@ -127,6 +135,7 @@ reload時に検証します。
 
 ## 友軍艦と所有者を判定する
 
+<!-- traceability: java-addon.player-ownership begin -->
 友軍艦の内部classや所有UIDを参照せず、read-only契約を使います。
 
 ```java
@@ -138,6 +147,7 @@ if (target instanceof PlayerOwnedShip ship && ship.isOwnedByPlayer(player)) {
 
 敵艦、マウント、艦載機、projectileはこの契約を実装しません。このqueryは所有権を変更せず、
 clientからの判定結果をserverのゲームロジックで信用してはいけません。
+<!-- traceability: java-addon.player-ownership end -->
 
 ## Java addonとKubeJSの関係
 
