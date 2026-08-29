@@ -1,5 +1,6 @@
 # Java addon最小例
 
+<!-- traceability: java-addon.example begin -->
 この例はShinColle-kai本体JAR同梱の`com.lulan.shincolle.api`だけを使い、独自艦属性、
 独自Item、固定JSON値、Item NBT由来の動的値を同じcanonical resolverへ接続します。
 
@@ -19,3 +20,4 @@ JSON-only datapack例と同じ経路を使えます。
 
 動的Item APIは`ResolvedShipEquipment`からResourceLocation識別の`ShipAttackEffect`も返せます。
 固定効果だけならequipment JSONの`attack_effects`を使い、Java callbackは不要です。
+<!-- traceability: java-addon.example end -->

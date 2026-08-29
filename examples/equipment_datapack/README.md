@@ -1,5 +1,6 @@
 # JSON-only装備datapack例
 
+<!-- traceability: datapack.example begin -->
 このフォルダは追加Java MODやKubeJSなしで、登録済みItemをShinColle-kaiの艦装備にする
 最小datapackです。例ではvanillaの望遠鏡を`shincolle_example:observation_spyglass`として
 定義します。
@@ -21,3 +22,4 @@
 
 サンプルは属性値に加えて、命中時25%で5秒間の`minecraft:glowing`を付与します。
 攻撃効果もserverの`/reload`で再読込され、接続中clientのtooltip/GUIへ同期されます。
+<!-- traceability: datapack.example end -->

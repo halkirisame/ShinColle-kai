@@ -11,9 +11,9 @@
 ---
 
 ## 全体フロー（要点）
-- 各艦種のコンストラクタや `postInit()` の後に `setAIList()` と `setAITargetList()` が呼ばれて、`tasks` と `targetTasks` に AI を登録します（登録順と `setMutexBits()` により同時実行が制御される）。参照: [original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java](original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java)
+- 各艦種のコンストラクタや `postInit()` の後に `setAIList()` と `setAITargetList()` が呼ばれて、`tasks` と `targetTasks` に AI を登録します（登録順と `setMutexBits()` により同時実行が制御される）。原典参照（ローカル開発ツリー）: `original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java`
 - 毎 tick の更新で `onLivingUpdate()` 等を経て個々の AI が `shouldExecute()` → `startExecuting()` → `updateTask()` → `continueExecuting()` の流れで実行されます。
-- ターゲットは `EntityAIShipRangeTarget` や `EntityAIShipRevengeTarget` 等の targetTasks で決定され、`host.setEntityTarget(...)` によりホストへ設定されます。詳しくは [docs/target_selection.md](docs/target_selection.md) を参照してください。
+- ターゲットは `EntityAIShipRangeTarget` や `EntityAIShipRevengeTarget` 等の targetTasks で決定され、`host.setEntityTarget(...)` によりホストへ設定されます。詳しくは [ターゲット選定ロジック](target_selection.md) を参照してください。
 
 ---
 
@@ -21,11 +21,11 @@
 - `EntityAIShipSit` — 着席／停止状態。優先度高。
 - `EntityAIShipFlee` — 一定条件で回避行動。
 - `EntityAIShipGuarding` — 指定地点またはエンティティの守衛行動。
-- `EntityAIShipFollowOwner` — 主人（プレイヤー）を追従。遠距離ではテレポート機能あり。([original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFollowOwner.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFollowOwner.java))
+- `EntityAIShipFollowOwner` — 主人（プレイヤー）を追従。遠距離ではテレポート機能あり（原典参照: `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFollowOwner.java`）。
 - `EntityAIShipOpenDoor` — 扉を開ける処理。
-- 近接: `EntityAIShipAttackOnCollide` — 近接攻撃（追尾して殴る）。([original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipAttackOnCollide.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipAttackOnCollide.java))
-- 射撃: `EntityAIShipRangeAttack` — 軽/重弾の選択・照準・発射を扱う。弾薬判定や aimTime、視認判定を備える。([original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeAttack.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeAttack.java))
-- `EntityAIShipRangeTarget` — 範囲内ターゲット選定（AntiAir/AntiSS/PVPFirst 等の優先を実装）。詳細は [docs/target_selection.md](docs/target_selection.md)。
+- 近接: `EntityAIShipAttackOnCollide` — 近接攻撃（追尾して殴る）（原典参照: `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipAttackOnCollide.java`）。
+- 射撃: `EntityAIShipRangeAttack` — 軽/重弾の選択・照準・発射を扱う。弾薬判定や aimTime、視認判定を備える（原典参照: `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeAttack.java`）。
+- `EntityAIShipRangeTarget` — 範囲内ターゲット選定（AntiAir/AntiSS/PVPFirst 等の優先を実装）。詳細は [ターゲット選定ロジック](target_selection.md)。
 - 巡回/アイドル: `EntityAIShipWander`, `EntityAIShipFloating`, `EntityAIShipWatchClosest`, `EntityAIShipLookIdle`。
 
 ---
@@ -33,17 +33,17 @@
 ## パス探索と移動補助
 - `ShipPathNavigate`:
   - 水中／空中も考慮した独自のパス探索（`ShipPathFinder` を使用）。Y 軸起点や最大探索範囲が `canFly()` 等で決まる。
-  - 経路短縮（高低差の節約）やスタック検出（所定時間移動できない場合の回避）を行う。([original_source/src/main/java/com/lulan/shincolle/ai/path/ShipPathNavigate.java](original_source/src/main/java/com/lulan/shincolle/ai/path/ShipPathNavigate.java))
+  - 経路短縮（高低差の節約）やスタック検出（所定時間移動できない場合の回避）を行う（原典参照: `original_source/src/main/java/com/lulan/shincolle/ai/path/ShipPathNavigate.java`）。
 - `ShipMoveHelper`:
   - `setMoveTo(x,y,z,speed)` で MOVE_TO 状態へ。`onUpdateMoveHelper()` が Y 軸の補正（浮上／降下）や速度調整を直接 `motionY` 等へ適用する。
-  - フォーメーション時の速度補正も行う。([original_source/src/main/java/com/lulan/shincolle/ai/path/ShipMoveHelper.java](original_source/src/main/java/com/lulan/shincolle/ai/path/ShipMoveHelper.java))
+  - フォーメーション時の速度補正も行う（原典参照: `original_source/src/main/java/com/lulan/shincolle/ai/path/ShipMoveHelper.java`）。
 
 ---
 
 ## ターゲティング（まとめ）
 - 優先順序（概略）: AntiAir → AntiSS → PVPFirst → 通常ターゲット
 - フィルタ条件: 無敵プレイヤー、特殊投射物、サーバの unattackable リスト、不可視（フレア/サーチライトで捕捉可否）、チーム/オーナー判定
-- 選択: 距離ソート（`TargetHelper.Sorter`）の最短を基本、候補多数の場合は上位3からランダム選択。詳細: [docs/target_selection.md](docs/target_selection.md)
+- 選択: 距離ソート（`TargetHelper.Sorter`）の最短を基本、候補多数の場合は上位3からランダム選択。詳細: [ターゲット選定ロジック](target_selection.md)
 
 ---
 
@@ -71,14 +71,14 @@
 ---
 
 ## 参考ファイル
-- 基本: [original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java](original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java)
-- パス/移動: [original_source/src/main/java/com/lulan/shincolle/ai/path/ShipPathNavigate.java](original_source/src/main/java/com/lulan/shincolle/ai/path/ShipPathNavigate.java), [original_source/src/main/java/com/lulan/shincolle/ai/path/ShipMoveHelper.java](original_source/src/main/java/com/lulan/shincolle/ai/path/ShipMoveHelper.java)
+- 基本（ローカル原典）: `original_source/src/main/java/com/lulan/shincolle/entity/BasicEntityShip.java`
+- パス/移動（ローカル原典）: `original_source/src/main/java/com/lulan/shincolle/ai/path/ShipPathNavigate.java`, `original_source/src/main/java/com/lulan/shincolle/ai/path/ShipMoveHelper.java`
 - 主要 AI:
-  - [original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeAttack.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeAttack.java)
-  - [original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipAttackOnCollide.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipAttackOnCollide.java)
-  - [original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFollowOwner.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFollowOwner.java)
-  - [original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFloating.java](original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFloating.java)
-- ターゲティング詳細: [docs/target_selection.md](docs/target_selection.md)
+  - `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipRangeAttack.java`
+  - `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipAttackOnCollide.java`
+  - `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFollowOwner.java`
+  - `original_source/src/main/java/com/lulan/shincolle/ai/EntityAIShipFloating.java`
+- ターゲティング詳細: [ターゲット選定ロジック](target_selection.md)
 
 ---
 
