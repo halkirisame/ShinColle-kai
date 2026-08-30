@@ -17,10 +17,6 @@ jobs:
     name: Docs audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The current repository intentionally has documented baseline findings.
-    # Promote this job to a required gate only after the baseline is green.
-    continue-on-error: true
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
