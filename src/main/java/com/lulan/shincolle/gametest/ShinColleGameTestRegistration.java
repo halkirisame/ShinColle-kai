@@ -17,6 +17,8 @@ public final class ShinColleGameTestRegistration {
     @SubscribeEvent
     public static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(ShinColleEntityRegistryGameTests.class);
+        event.register(HostileDespawnGameTests.class);
+        event.register(ShipInventoryPageGateGameTests.class);
         event.register(ShipEquipmentResolverGameTests.class);
         event.register(ChestLootInjectionGameTests.class);
     }

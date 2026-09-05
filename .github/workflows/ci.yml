@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 120
 
     env:
-      EXPECTED_GAMETESTS: 211
+      EXPECTED_GAMETESTS: 253
 
     steps:
       - name: Check out repository

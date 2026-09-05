@@ -3960,7 +3960,10 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Set inventory page size.
      */
     public void setInventoryPageSize(int par1) {
-        this.itemHandler.setInventoryPage(par1);
+        // [PORT] 1.10.2 parity: the original writes StateMinor[DrumState], which is
+        // what getInventoryPageSize() reads back. The port wrote the capability's own
+        // inventoryPage field instead, so this setter never changed the page count.
+        this.setStateMinor(ID.M.DrumState, par1);
     }
 
     // ========== Batch 2: Timer/Update Methods ==========

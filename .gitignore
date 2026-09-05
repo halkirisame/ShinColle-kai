@@ -25,7 +25,9 @@ Thumbs.db
 !gradle-wrapper.jar
 
 # Maven
-target
+# ルート限定にする。裸の `target` は src/main/java/.../api/target のような
+# ソースパッケージにも一致し、api/target 配下が公開クローンで未追跡になっていた。
+/target
 
 # Build
 out

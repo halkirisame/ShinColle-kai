@@ -454,14 +454,30 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int renderY = this.topPos + 100 + offsetY;
         float lookX = (float) (this.leftPos + 215 - mouseX);
         float lookY = (float) (this.topPos + 60 - mouseY);
-        InventoryScreen.renderEntityInInventoryFollowsMouse(
-                graphics,
-                renderX,
-                renderY,
-                scale,
-                lookX,
-                lookY,
-                ship);
+
+        // Vanilla's preview overwrites yBodyRot, yRot, yHeadRot and yHeadRotO, but
+        // leaves yBodyRotO alone. LivingEntityRenderer then takes the body angle as
+        // rotLerp(partialTick, yBodyRotO, yBodyRot), so it interpolates from the ship's
+        // real facing in the world towards the forced preview angle, while the head
+        // stays pinned at the preview angle. netHeadYaw is their difference, so a ship
+        // facing away from the preview angle showed its head twisted up to 180 degrees.
+        // Pre-set yBodyRotO to the value vanilla is about to assign to yBodyRot so the
+        // interpolation is a no-op and only the mouse offset remains.
+        float previewBodyRot = 180.0F + (float) Math.atan(lookX / 40.0F) * 20.0F;
+        float savedBodyRotO = ship.yBodyRotO;
+        ship.yBodyRotO = previewBodyRot;
+        try {
+            InventoryScreen.renderEntityInInventoryFollowsMouse(
+                    graphics,
+                    renderX,
+                    renderY,
+                    scale,
+                    lookX,
+                    lookY,
+                    ship);
+        } finally {
+            ship.yBodyRotO = savedBodyRotO;
+        }
     }
 
     /**
