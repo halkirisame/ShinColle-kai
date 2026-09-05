@@ -1,6 +1,8 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.sounds.SoundEvents;
@@ -110,9 +112,17 @@ public class ShipPickItemGoal extends Goal {
                             this.ship.level().playSound(null,
                                     this.ship.getX(), this.ship.getY(), this.ship.getZ(),
                                     SoundEvents.ITEM_PICKUP, this.ship.getSoundSource(),
-                                    0.8F,
-                                    ((this.ship.getRandom().nextFloat() - this.ship.getRandom().nextFloat()) * 0.7F + 1.0F)
-                                            * 2.0F);
+                                    (float) ConfigHandler.volumeShip(),
+                                    ShipAiCompatibilityRules.pickupSoundPitch(
+                                            this.ship.getRandom().nextFloat(), this.ship.getRandom().nextFloat()));
+
+                            // play item voice with the original shared-RNG order and cooldown
+                            if (ShipAiCompatibilityRules.tryStartPickupVoiceCooldown(
+                                    this.ship.getStateTimer(ID.T.SoundTime), this.ship.getRandom()::nextInt,
+                                    cooldown -> this.ship.setStateTimer(ID.T.SoundTime, cooldown))) {
+                                this.ship.playSound(this.ship.getCustomSound(6, this.ship),
+                                        (float) ConfigHandler.volumeShip(), 1.0F);
+                            }
 
                             // pickup animation
                             this.ship.take(itemEntity, count);

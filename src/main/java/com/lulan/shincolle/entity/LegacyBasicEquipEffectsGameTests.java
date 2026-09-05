@@ -5,7 +5,6 @@ import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.item.EquipAmmo;
-import com.lulan.shincolle.item.IShipEffectItem;
 import com.lulan.shincolle.reference.Reference;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -13,7 +12,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -30,16 +28,6 @@ public final class LegacyBasicEquipEffectsGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void legacyEquipEffectsCopyItemAttackEffectArrays(GameTestHelper helper) {
-        IShipEffectItem source = fixedEffects(new ShipAttackEffect(effectId("poison"), 2, 120, 40));
-        Map<ResourceLocation, ShipAttackEffect> target = new HashMap<>();
-
-        LegacyBasicEquipEffects.applyAttackEffects(target, new ItemStack(Items.STICK), source, 0);
-        assertEffect(target, effectId("poison"), 2, 120, 40, "fixed item effect");
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void legacyEquipEffectsReadEnchantShellPListAndDetachIt(GameTestHelper helper) {
         ItemStack shell = new ItemStack(ModItems.EQUIP_AMMO.get());
         BasicEquip.setEquipMeta(shell, 7);
@@ -53,11 +41,10 @@ public final class LegacyBasicEquipEffectsGameTests {
         shell.getOrCreateTag().put(EquipAmmo.PLIST, list);
 
         Map<ResourceLocation, ShipAttackEffect> target = new HashMap<>();
-        IShipEffectItem ammo = (IShipEffectItem) shell.getItem();
-        LegacyBasicEquipEffects.applyAttackEffects(target, shell, ammo, 7);
+        LegacyBasicEquipEffects.applyAttackEffects(target, shell, 7);
         assertEffect(target, effectId("wither"), 3, 240, 35, "PList effect");
         target.clear();
-        LegacyBasicEquipEffects.applyAttackEffects(target, shell, ammo, 7);
+        LegacyBasicEquipEffects.applyAttackEffects(target, shell, 7);
         assertEffect(target, effectId("wither"), 3, 240, 35, "PList effect after recalculation");
         helper.succeed();
     }
@@ -98,30 +85,6 @@ public final class LegacyBasicEquipEffectsGameTests {
                     + ship.getAttackEffectMap());
         }
         helper.succeed();
-    }
-
-    private static IShipEffectItem fixedEffects(ShipAttackEffect source) {
-        return new IShipEffectItem() {
-            @Override
-            public Map<ResourceLocation, ShipAttackEffect> getEffectOnAttack(int meta) {
-                return Map.of(source.effectId(), source);
-            }
-
-            @Override
-            public int getMissileType(int meta) {
-                return 0;
-            }
-
-            @Override
-            public int getMissileMoveType(int meta) {
-                return -1;
-            }
-
-            @Override
-            public int getMissileSpeedLevel(int meta) {
-                return 0;
-            }
-        };
     }
 
     private static void assertEffect(Map<ResourceLocation, ShipAttackEffect> effects, ResourceLocation id,

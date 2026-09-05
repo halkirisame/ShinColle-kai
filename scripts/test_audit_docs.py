@@ -175,6 +175,56 @@ Optional integrations (all work fine when absent):
             self.findings(),
         )
 
+    STALE_TASK_STATE = (
+        "agent instruction references docs/development_status.md without marking it as the "
+        "historical cutover snapshot; governance/tasks.json is the task-state authority"
+    )
+
+    def write_skill(self, body: str) -> None:
+        skill = self.root / ".agents/skills/shincolle-task-workflow"
+        skill.mkdir(parents=True, exist_ok=True)
+        (skill / "SKILL.md").write_text(body, encoding="utf-8")
+
+    def test_stale_task_state_instruction_is_an_error(self) -> None:
+        self.write_skill("# Workflow\n\nUpdate `docs/development_status.md` before implementing.\n")
+        self.assertIn(self.STALE_TASK_STATE, self.findings())
+
+    def test_stale_root_agent_instruction_is_an_error(self) -> None:
+        (self.root / "AGENTS.md").write_text(
+            "Keep `docs/development_status.md` accurate.\n", encoding="utf-8"
+        )
+        self.assertIn(self.STALE_TASK_STATE, self.findings())
+
+    def test_stale_agent_core_instruction_is_an_error(self) -> None:
+        (self.root / "docs/agent_core.md").write_text(
+            "# Agent Core Rules\n\nKeep `docs/development_status.md` accurate.\n", encoding="utf-8"
+        )
+        self.assertIn(self.STALE_TASK_STATE, self.findings())
+
+    def test_historical_snapshot_reference_is_allowed(self) -> None:
+        self.write_skill(
+            "# Workflow\n\n`docs/development_status.md` is the historical cutover\n"
+            "snapshot; `governance/tasks.json` is the authority.\n"
+        )
+        self.assertNotIn(self.STALE_TASK_STATE, self.findings())
+
+    def test_explicit_prohibition_is_allowed(self) -> None:
+        self.write_skill("# Workflow\n\nDo not update `docs/development_status.md`.\n")
+        self.assertNotIn(self.STALE_TASK_STATE, self.findings())
+
+    def test_historical_read_is_allowed(self) -> None:
+        self.write_skill(
+            "# Migration research\n\nRead `docs/development_status.md` only as a historical snapshot.\n"
+        )
+        self.assertNotIn(self.STALE_TASK_STATE, self.findings())
+
+    def test_stale_directive_is_not_hidden_by_nearby_snapshot_text(self) -> None:
+        self.write_skill(
+            "# Workflow\n\nUpdate `docs/development_status.md` before implementing.\n"
+            "It was originally created as a cutover snapshot.\n"
+        )
+        self.assertIn(self.STALE_TASK_STATE, self.findings())
+
 
 if __name__ == "__main__":
     unittest.main()

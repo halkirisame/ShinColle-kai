@@ -1,5 +1,6 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
@@ -13,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -22,11 +24,32 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.items.IItemHandler;
 
+import java.lang.reflect.Method;
+import java.util.List;
+
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class TaskSideRoutingGameTests {
 
     private TaskSideRoutingGameTests() {
+    }
+
+    @GameTest(template = "arena")
+    public static void cookingDefaultTaskSidePrefersInputSlotForLogs(GameTestHelper helper) {
+        CookingFixture fixture = createFixture(helper);
+        try {
+            fixture.ship().getCapaShipInventory().setStackInSlot(22, new ItemStack(Items.OAK_LOG));
+            fixture.ship().getCapaShipInventory().setStackInSlot(0, new ItemStack(Items.OAK_LOG));
+
+            TaskHelper.onUpdateCooking(fixture.ship());
+            helper.assertTrue(fixture.furnace().getItem(0).is(Items.OAK_LOG),
+                    "Default TaskSide must prefer the furnace input slot for a smeltable fuel item");
+            helper.assertTrue(fixture.furnace().getItem(1).isEmpty(),
+                    "Default TaskSide must not route the cooking input into the fuel slot");
+        } finally {
+            fixture.close();
+        }
+        helper.succeed();
     }
 
     @GameTest(template = "arena")
@@ -134,7 +157,56 @@ public final class TaskSideRoutingGameTests {
                 "NBT matching must reject different tags");
         helper.assertTrue(InventoryHelper.matchTargetItem(differentNbt, template, false, false),
                 "Disabling both options must compare item type only");
+        helper.assertTrue(!InventoryHelper.matchTargetItem(ItemStack.EMPTY, ItemStack.EMPTY, false, false),
+                "TaskSide matching must not treat two empty stacks as an item match");
+        helper.assertTrue(!InventoryHelper.matchTargetItem(ItemStack.EMPTY, template, true, true),
+                "TaskSide matching must reject an empty candidate");
+        helper.assertTrue(!InventoryHelper.matchTargetItem(template, ItemStack.EMPTY, true, true),
+                "TaskSide matching must reject an empty target");
         helper.succeed();
+    }
+
+    @GameTest(template = "arena")
+    public static void cookingOutputExtractionFailureDropsWithoutItemLoss(GameTestHelper helper) {
+        CookingFixture fixture = createFixture(helper);
+        try {
+            CapaShipInventory inventory = fixture.ship().getCapaShipInventory();
+            ItemStack output = new ItemStack(Items.IRON_INGOT, 2);
+            output.getOrCreateTag().putBoolean("TaskSideOutputFallback", true);
+            inventory.setStackInSlot(CapaShipInventory.EquipSlots, output.copyWithCount(63));
+            for (int slot = CapaShipInventory.EquipSlots + 1; slot < inventory.getSlots(); slot++) {
+                inventory.setStackInSlot(slot, new ItemStack(Items.DIRT, 64));
+            }
+
+            DivergentExtractHandler handler = new DivergentExtractHandler(output);
+            boolean moved = invokeMoveMatchingOutputToShip(handler, inventory, fixture.ship(), output.copyWithCount(1));
+
+            helper.assertTrue(moved, "A safely dropped extracted output must count as a completed move");
+            helper.assertTrue(handler.getStackInSlot(0).isEmpty(),
+                    "The inconsistent handler did not perform its real extraction");
+            int droppedCount = fixture.level().getEntitiesOfClass(ItemEntity.class,
+                            fixture.ship().getBoundingBox().inflate(2.0D),
+                            entity -> ItemStack.isSameItemSameTags(entity.getItem(), output))
+                    .stream().mapToInt(entity -> entity.getItem().getCount()).sum();
+            helper.assertTrue(droppedCount == 2,
+                    "Extracted output must be dropped intact when cargo rejects the real stack");
+        } finally {
+            fixture.close();
+        }
+        helper.succeed();
+    }
+
+    private static boolean invokeMoveMatchingOutputToShip(IItemHandler handler, CapaShipInventory inventory,
+                                                          BasicEntityShip ship, ItemStack target) {
+        try {
+            Method method = TaskHelper.class.getDeclaredMethod("moveMatchingOutputToShip",
+                    List.class, CapaShipInventory.class, BasicEntityShip.class,
+                    ItemStack.class, boolean.class, boolean.class);
+            method.setAccessible(true);
+            return (boolean) method.invoke(null, List.of(handler), inventory, ship, target, true, true);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError("Failed to invoke cooking output transfer", exception);
+        }
     }
 
     private static CookingFixture createFixture(GameTestHelper helper) {
@@ -170,6 +242,50 @@ public final class TaskSideRoutingGameTests {
             this.ship.discard();
             this.level.removeBlock(this.waypointPos, false);
             this.level.removeBlock(this.furnacePos, false);
+        }
+    }
+
+    private static final class DivergentExtractHandler implements IItemHandler {
+        private ItemStack stored;
+
+        private DivergentExtractHandler(ItemStack stored) {
+            this.stored = stored.copy();
+        }
+
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return slot == 0 ? this.stored.copy() : ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return stack;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (slot != 0 || amount <= 0 || this.stored.isEmpty())
+                return ItemStack.EMPTY;
+            if (simulate)
+                return this.stored.copyWithCount(1);
+            ItemStack extracted = this.stored;
+            this.stored = ItemStack.EMPTY;
+            return extracted;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 64;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return false;
         }
     }
 }

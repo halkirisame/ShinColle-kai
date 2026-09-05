@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipCannonAttack;
 import com.lulan.shincolle.handler.ConfigHandler;
@@ -273,7 +274,7 @@ public class ShipRangeAttackGoal extends Goal {
         this.maxDelayHeavy = Math.max(10,
                 (int) (ConfigHandler.baseAttackSpeed[2] / Math.max(atkSpd, 0.01F))
                         + ConfigHandler.fixedAttackDelay[2]);
-        this.aimTime = (int) (20.0F * (150 - this.host.getLevel()) / 150.0F) + 10;
+        this.aimTime = ShipAiCompatibilityRules.aimTime(this.host.getLevel());
         this.range = this.host.getAttrs().getAttackRange();
         this.rangeSq = this.range * this.range;
     }

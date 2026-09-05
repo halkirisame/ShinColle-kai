@@ -10,7 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraftforge.common.util.INBTSerializable;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -32,102 +32,14 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
     public static final int TEAM_NUM = 9;
     public static final int SLOT_NUM = 6;
-    /**
-     * teamList[team][slot] = persistent ship UID (-1 = empty)
-     */
-    private final int[][] teamList;
-    /**
-     * sidList[team][slot] = transient runtime entity ID (-1 = unresolved)
-     */
-    private final int[][] sidList;
-    /**
-     * selectState[team][slot] = whether pointer group commands include this ship.
-     * This is persistent because the selected subset is player state, not an entity ID.
-     */
-    private final boolean[][] selectState;
-    /**
-     * formatID[team] = formation type
-     */
-    private final int[] formatID;
-    /**
-     * unitNames[team] = team name
-     */
-    private final String[] unitNames;
-    // ========== Ring state ==========
-    private boolean hasRing;
-    private boolean isRingActive;
-
-    // ========== Team data ==========
-    private boolean isRingFlying;
-    private int marriageNum;
-    // ========== Cooldowns ==========
-    private int bossCooldown;
-    private int teamCooldown;
-    // ========== Player identification ==========
-    private int playerUID;
-    private int selectTeam;
-
-    // ========== Collection data ==========
-    private int colledShipNum;
-    private int colledEquipNum;
-
-    // ========== Flags ==========
-    private boolean isOpeningGUI;
-    private boolean initSID;
-    private boolean showPlayerSkill;
-
-    // ========== Lists / Sync data ==========
-    private List<Integer> targetClassList;
-    private List<String> targetClassNames;
-    private String teamName;
-    private List<Integer> allyList;
-    private List<Integer> banList;
-    private List<Integer> knownTeamIds;
-    private List<Integer> colledShipList;
-    private List<Integer> colledEquipList;
-    private List<Integer> shipList;
-    private float[] entityItemList;
+    private final AdmiralPersistentState persistent;
+    private final AdmiralRuntimeState runtime;
+    private final AdmiralClientMirror mirror;
 
     public CapaTeitoku() {
-        this.hasRing = false;
-        this.isRingActive = false;
-        this.isRingFlying = false;
-        this.marriageNum = 0;
-        this.bossCooldown = ConfigHandler.bossCooldown();
-        this.teamCooldown = 0;
-        this.playerUID = -1;
-        this.selectTeam = 0;
-        this.colledShipNum = 0;
-        this.colledEquipNum = 0;
-        this.isOpeningGUI = false;
-        this.initSID = false;
-        this.showPlayerSkill = false;
-
-        this.targetClassList = new ArrayList<>();
-        this.targetClassNames = new ArrayList<>();
-        this.teamName = "";
-        this.allyList = new ArrayList<>();
-        this.banList = new ArrayList<>();
-        this.knownTeamIds = new ArrayList<>();
-        this.colledShipList = new ArrayList<>();
-        this.colledEquipList = new ArrayList<>();
-        this.shipList = new ArrayList<>();
-        this.entityItemList = new float[0];
-
-        this.teamList = new int[TEAM_NUM][SLOT_NUM];
-        this.sidList = new int[TEAM_NUM][SLOT_NUM];
-        this.selectState = new boolean[TEAM_NUM][SLOT_NUM];
-        this.formatID = new int[TEAM_NUM];
-        this.unitNames = new String[TEAM_NUM];
-
-        for (int i = 0; i < TEAM_NUM; i++) {
-            for (int j = 0; j < SLOT_NUM; j++) {
-                this.teamList[i][j] = -1;
-                this.sidList[i][j] = -1;
-            }
-            this.formatID[i] = 0;
-            this.unitNames[i] = "Team " + (i + 1);
-        }
+        this.persistent = new AdmiralPersistentState(ConfigHandler.bossCooldown());
+        this.runtime = new AdmiralRuntimeState();
+        this.mirror = new AdmiralClientMirror();
     }
 
     // ========== NBT Serialization ==========
@@ -136,62 +48,58 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
 
-        nbt.putBoolean("HasRing", hasRing);
-        nbt.putBoolean("RingActive", isRingActive);
-        nbt.putBoolean("RingFlying", isRingFlying);
-        nbt.putInt("MarriageNum", marriageNum);
-        nbt.putInt("BossCD", bossCooldown);
-        nbt.putInt("TeamCD", teamCooldown);
-        nbt.putInt("PlayerUID", playerUID);
-        nbt.putInt("SelectTeam", selectTeam);
-        nbt.putInt("ColledShip", colledShipNum);
-        nbt.putInt("ColledEquip", colledEquipNum);
+        nbt.putBoolean("HasRing", persistent.hasRing());
+        nbt.putBoolean("RingActive", persistent.isRingActive());
+        nbt.putBoolean("RingFlying", persistent.isRingFlying());
+        nbt.putInt("MarriageNum", persistent.getMarriageNum());
+        nbt.putInt("BossCD", persistent.getBossCooldown());
+        nbt.putInt("TeamCD", persistent.getTeamCooldown());
+        nbt.putInt("PlayerUID", persistent.getPlayerUID());
+        nbt.putInt("SelectTeam", persistent.getSelectTeam());
+        nbt.putInt("ColledShip", persistent.getColledShipNum());
+        nbt.putInt("ColledEquip", persistent.getColledEquipNum());
 
         // Save team data
         ListTag teamTag = new ListTag();
         for (int i = 0; i < TEAM_NUM; i++) {
             CompoundTag team = new CompoundTag();
-            team.putIntArray("EIDs", teamList[i]);
-            byte[] selected = new byte[SLOT_NUM];
-            for (int slot = 0; slot < SLOT_NUM; slot++) {
-                selected[slot] = (byte) (selectState[i][slot] ? 1 : 0);
-            }
-            team.putByteArray("Selected", selected);
+            team.putIntArray("EIDs", persistent.copyTeamMembers(i));
+            team.putByteArray("Selected", persistent.copyShipSelection(i));
             // Runtime entity IDs are deliberately not persisted. Minecraft
             // may reuse them after reload or a dimension transition.
-            team.putInt("Format", formatID[i]);
-            team.putString("Name", unitNames[i] != null ? unitNames[i] : "");
+            team.putInt("Format", persistent.getFormatID(i));
+            team.putString("Name", persistent.getUnitName(i));
             teamTag.add(team);
         }
         nbt.put("Teams", teamTag);
 
         // Save persistent list/string fields
-        nbt.putString("TeamName", teamName != null ? teamName : "");
-        nbt.putIntArray("TargetClassList", targetClassList.stream().mapToInt(Integer::intValue).toArray());
-        nbt.putIntArray("AllyList", allyList.stream().mapToInt(Integer::intValue).toArray());
-        nbt.putIntArray("BanList", banList.stream().mapToInt(Integer::intValue).toArray());
-        nbt.putIntArray("KnownTeamIds", knownTeamIds.stream().mapToInt(Integer::intValue).toArray());
-        nbt.putIntArray("ColledShipList", colledShipList.stream().mapToInt(Integer::intValue).toArray());
-        nbt.putIntArray("ColledEquipList", colledEquipList.stream().mapToInt(Integer::intValue).toArray());
-        nbt.putIntArray("ShipList", shipList.stream().mapToInt(Integer::intValue).toArray());
+        nbt.putString("TeamName", mirror.getTeamName());
+        nbt.putIntArray("TargetClassList", toIntArray(mirror.getTargetClassList()));
+        nbt.putIntArray("AllyList", toIntArray(mirror.getAllyList()));
+        nbt.putIntArray("BanList", toIntArray(mirror.getBanList()));
+        nbt.putIntArray("KnownTeamIds", toIntArray(mirror.getKnownTeamIds()));
+        nbt.putIntArray("ColledShipList", toIntArray(mirror.getColledShipList()));
+        nbt.putIntArray("ColledEquipList", toIntArray(mirror.getColledEquipList()));
+        nbt.putIntArray("ShipList", toIntArray(mirror.getShipList()));
 
         return nbt;
     }
 
     @Override
     public void deserializeNBT(CompoundTag nbt) {
-        this.hasRing = nbt.getBoolean("HasRing");
-        this.isRingActive = nbt.getBoolean("RingActive");
-        this.isRingFlying = nbt.getBoolean("RingFlying");
-        this.marriageNum = nbt.getInt("MarriageNum");
-        this.bossCooldown = nbt.contains("BossCD", Tag.TAG_INT)
+        persistent.setHasRing(nbt.getBoolean("HasRing"));
+        persistent.setRingActive(nbt.getBoolean("RingActive"));
+        persistent.setRingFlying(nbt.getBoolean("RingFlying"));
+        persistent.setMarriageNum(nbt.getInt("MarriageNum"));
+        persistent.setBossCooldown(nbt.contains("BossCD", Tag.TAG_INT)
                 ? nbt.getInt("BossCD")
-                : ConfigHandler.bossCooldown();
-        this.teamCooldown = nbt.getInt("TeamCD");
-        this.playerUID = nbt.getInt("PlayerUID");
-        this.selectTeam = nbt.getInt("SelectTeam");
-        this.colledShipNum = nbt.getInt("ColledShip");
-        this.colledEquipNum = nbt.getInt("ColledEquip");
+                : ConfigHandler.bossCooldown());
+        persistent.setTeamCooldown(nbt.getInt("TeamCD"));
+        persistent.setPlayerUID(nbt.getInt("PlayerUID"));
+        persistent.loadSelectTeam(nbt.getInt("SelectTeam"));
+        persistent.setColledShipNum(nbt.getInt("ColledShip"));
+        persistent.setColledEquipNum(nbt.getInt("ColledEquip"));
 
         // Load team data
         if (nbt.contains("Teams")) {
@@ -200,175 +108,125 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
                 CompoundTag team = teamTag.getCompound(i);
                 int[] eids = team.getIntArray("EIDs");
 
-                System.arraycopy(eids, 0, teamList[i], 0, Math.min(eids.length, SLOT_NUM));
+                persistent.loadTeamMembers(i, eids);
 
                 if (team.contains("Selected", Tag.TAG_BYTE_ARRAY)) {
-                    byte[] selected = team.getByteArray("Selected");
-                    for (int slot = 0; slot < Math.min(selected.length, SLOT_NUM); slot++) {
-                        selectState[i][slot] = selected[slot] != 0;
-                    }
+                    persistent.loadShipSelection(i, team.getByteArray("Selected"));
                 } else {
                     // Migration from saves made before pointer selection was ported.
                     // Keep single mode usable by choosing the first occupied slot.
-                    for (int slot = 0; slot < Math.min(eids.length, SLOT_NUM); slot++) {
-                        if (eids[slot] > 0) {
-                            selectState[i][slot] = true;
-                            break;
-                        }
-                    }
+                    persistent.migrateShipSelection(i, eids);
                 }
 
-                formatID[i] = team.getInt("Format");
-                unitNames[i] = team.getString("Name");
+                persistent.setFormatID(i, team.getInt("Format"));
+                persistent.setUnitName(i, team.getString("Name"));
             }
         }
 
         // Load persistent list/string fields
-        this.teamName = nbt.contains("TeamName") ? nbt.getString("TeamName") : "";
-
-        this.targetClassList = new ArrayList<>();
-        this.targetClassNames = new ArrayList<>();
-        if (nbt.contains("TargetClassList")) {
-            for (int v : nbt.getIntArray("TargetClassList")) {
-                this.targetClassList.add(v);
-            }
-        }
-
-        this.allyList = new ArrayList<>();
-        if (nbt.contains("AllyList")) {
-            for (int v : nbt.getIntArray("AllyList")) {
-                this.allyList.add(v);
-            }
-        }
-
-        this.banList = new ArrayList<>();
-        if (nbt.contains("BanList")) {
-            for (int v : nbt.getIntArray("BanList")) {
-                this.banList.add(v);
-            }
-        }
-
-        this.knownTeamIds = new ArrayList<>();
-        if (nbt.contains("KnownTeamIds")) {
-            for (int v : nbt.getIntArray("KnownTeamIds")) {
-                this.knownTeamIds.add(v);
-            }
-        }
-
-        this.colledShipList = new ArrayList<>();
-        if (nbt.contains("ColledShipList")) {
-            for (int v : nbt.getIntArray("ColledShipList")) {
-                this.colledShipList.add(v);
-            }
-        }
-
-        this.colledEquipList = new ArrayList<>();
-        if (nbt.contains("ColledEquipList")) {
-            for (int v : nbt.getIntArray("ColledEquipList")) {
-                this.colledEquipList.add(v);
-            }
-        }
-
-        this.shipList = new ArrayList<>();
-        if (nbt.contains("ShipList")) {
-            for (int v : nbt.getIntArray("ShipList")) {
-                this.shipList.add(v);
-            }
-        }
+        mirror.setTeamName(nbt.contains("TeamName") ? nbt.getString("TeamName") : "");
+        mirror.setTargetClassNames(List.of());
+        mirror.setTargetClassList(readIntList(nbt, "TargetClassList"));
+        mirror.setAllyList(readIntList(nbt, "AllyList"));
+        mirror.setBanList(readIntList(nbt, "BanList"));
+        mirror.setKnownTeamIds(readIntList(nbt, "KnownTeamIds"));
+        mirror.setColledShipList(readIntList(nbt, "ColledShipList"));
+        mirror.setColledEquipList(readIntList(nbt, "ColledEquipList"));
+        mirror.setShipList(readIntList(nbt, "ShipList"));
     }
 
     // ========== Getters / Setters ==========
 
     public boolean hasRing() {
-        return hasRing;
+        return persistent.hasRing();
     }
 
     public void setHasRing(boolean val) {
-        this.hasRing = val;
+        persistent.setHasRing(val);
     }
 
     public boolean isRingActive() {
-        return isRingActive;
+        return persistent.isRingActive();
     }
 
     public void setRingActive(boolean val) {
-        this.isRingActive = val;
+        persistent.setRingActive(val);
     }
 
     public boolean isRingFlying() {
-        return isRingFlying;
+        return persistent.isRingFlying();
     }
 
     public void setRingFlying(boolean val) {
-        this.isRingFlying = val;
+        persistent.setRingFlying(val);
     }
 
     public int getMarriageNum() {
-        return marriageNum;
+        return persistent.getMarriageNum();
     }
 
     public void setMarriageNum(int val) {
-        this.marriageNum = val;
+        persistent.setMarriageNum(val);
     }
 
     public void addMarriageNum(int val) {
-        this.marriageNum += val;
+        persistent.addMarriageNum(val);
     }
 
     public int getBossCooldown() {
-        return bossCooldown;
+        return persistent.getBossCooldown();
     }
 
     public void setBossCooldown(int val) {
-        this.bossCooldown = val;
+        persistent.setBossCooldown(val);
     }
 
     public int getTeamCooldown() {
-        return teamCooldown;
+        return persistent.getTeamCooldown();
     }
 
     public void setTeamCooldown(int val) {
-        this.teamCooldown = val;
+        persistent.setTeamCooldown(val);
     }
 
     public int getPlayerUID() {
-        return playerUID;
+        return persistent.getPlayerUID();
     }
 
     public void setPlayerUID(int val) {
-        this.playerUID = val;
+        persistent.setPlayerUID(val);
     }
 
     public int getSelectTeam() {
-        return selectTeam;
+        return persistent.getSelectTeam();
     }
 
     public void setSelectTeam(int val) {
-        this.selectTeam = Math.max(0, Math.min(val, TEAM_NUM - 1));
+        persistent.setSelectTeam(val);
     }
 
     public int getColledShipNum() {
-        return colledShipNum;
+        return persistent.getColledShipNum();
     }
 
     public void setColledShipNum(int val) {
-        this.colledShipNum = val;
+        persistent.setColledShipNum(val);
     }
 
     public int getColledEquipNum() {
-        return colledEquipNum;
+        return persistent.getColledEquipNum();
     }
 
     public void setColledEquipNum(int val) {
-        this.colledEquipNum = val;
+        persistent.setColledEquipNum(val);
     }
 
     public boolean isOpeningGUI() {
-        return isOpeningGUI;
+        return runtime.isOpeningGUI();
     }
 
     public void setOpeningGUI(boolean val) {
-        this.isOpeningGUI = val;
+        runtime.setOpeningGUI(val);
     }
 
     // ========== Team accessors ==========
@@ -376,128 +234,117 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
     // ========== New list/flag accessors ==========
 
     public List<Integer> getTargetClassList() {
-        return targetClassList;
+        return mirror.getTargetClassList();
     }
 
     public void setTargetClassList(List<Integer> list) {
-        this.targetClassList = list != null ? list : new ArrayList<>();
+        mirror.setTargetClassList(list);
     }
 
     public List<String> getTargetClassNames() {
-        return targetClassNames;
+        return mirror.getTargetClassNames();
     }
 
     public void setTargetClassNames(List<String> names) {
-        this.targetClassNames = names != null ? names : new ArrayList<>();
-        this.targetClassList = this.targetClassNames.stream().map(String::hashCode).toList();
+        mirror.setTargetClassNames(names);
     }
 
     public String getTeamName() {
-        return teamName;
+        return mirror.getTeamName();
     }
 
     public void setTeamName(String name) {
-        this.teamName = name != null ? name : "";
+        mirror.setTeamName(name);
     }
 
     public List<Integer> getAllyList() {
-        return allyList;
+        return mirror.getAllyList();
     }
 
     public void setAllyList(List<Integer> list) {
-        this.allyList = list != null ? list : new ArrayList<>();
+        mirror.setAllyList(list);
     }
 
     public List<Integer> getBanList() {
-        return banList;
+        return mirror.getBanList();
     }
 
     public void setBanList(List<Integer> list) {
-        this.banList = list != null ? list : new ArrayList<>();
+        mirror.setBanList(list);
     }
 
     public List<Integer> getKnownTeamIds() {
-        return knownTeamIds;
+        return mirror.getKnownTeamIds();
     }
 
     public void setKnownTeamIds(List<Integer> list) {
-        this.knownTeamIds = list != null ? list : new ArrayList<>();
+        mirror.setKnownTeamIds(list);
     }
 
     public List<Integer> getColledShipList() {
-        return colledShipList;
+        return mirror.getColledShipList();
     }
 
     public void setColledShipList(List<Integer> list) {
-        this.colledShipList = list != null ? list : new ArrayList<>();
+        mirror.setColledShipList(list);
     }
 
     public List<Integer> getColledEquipList() {
-        return colledEquipList;
+        return mirror.getColledEquipList();
     }
 
     public void setColledEquipList(List<Integer> list) {
-        this.colledEquipList = list != null ? list : new ArrayList<>();
+        mirror.setColledEquipList(list);
     }
 
     public List<Integer> getShipList() {
-        return shipList;
+        return mirror.getShipList();
     }
 
     public void setShipList(List<Integer> list) {
-        this.shipList = list != null ? list : new ArrayList<>();
+        mirror.setShipList(list);
     }
 
     public boolean isInitSID() {
-        return initSID;
+        return mirror.isInitSID();
     }
 
     public void setInitSID(boolean val) {
-        this.initSID = val;
+        mirror.setInitSID(val);
     }
 
     public boolean isShowPlayerSkill() {
-        return showPlayerSkill;
+        return mirror.isShowPlayerSkill();
     }
 
     public void setShowPlayerSkill(boolean val) {
-        this.showPlayerSkill = val;
+        mirror.setShowPlayerSkill(val);
     }
 
     public float[] getEntityItemList() {
-        return entityItemList;
+        return mirror.getEntityItemList();
     }
 
     public void setEntityItemList(float[] items) {
-        this.entityItemList = items != null ? items : new float[0];
+        mirror.setEntityItemList(items);
     }
 
     // ========== Team member accessors ==========
 
     public int getTeamMember(int team, int slot) {
-        if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            return teamList[team][slot];
-        }
-        return -1;
+        return persistent.getTeamMember(team, slot);
     }
 
     public void setTeamMember(int team, int slot, int shipUID) {
-        if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            teamList[team][slot] = shipUID;
-        }
+        persistent.setTeamMember(team, slot, shipUID);
     }
 
     public int getTeamSID(int team, int slot) {
-        if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            return sidList[team][slot];
-        }
-        return -1;
+        return runtime.getTeamSID(team, slot);
     }
 
     public void setTeamSID(int team, int slot, int entityId) {
-        if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            sidList[team][slot] = entityId;
-        }
+        runtime.setTeamSID(team, slot, entityId);
     }
 
     /**
@@ -506,17 +353,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
      * @return the team index, or -1 when the ship is not assigned to this player
      */
     public int findTeamOfShip(int shipUID) {
-        if (shipUID <= 0) {
-            return -1;
-        }
-        for (int team = 0; team < TEAM_NUM; team++) {
-            for (int slot = 0; slot < SLOT_NUM; slot++) {
-                if (teamList[team][slot] == shipUID) {
-                    return team;
-                }
-            }
-        }
-        return -1;
+        return persistent.findTeamOfShip(shipUID);
     }
 
     /**
@@ -589,13 +426,13 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
             Entity entity = level.getEntity(entityId);
             if (entity instanceof BasicEntityShip ship
                     && ship.getShipUID() == shipUID
-                    && ship.getPlayerUID() == playerUID) {
+                    && ship.getPlayerUID() == persistent.getPlayerUID()) {
                 return ship;
             }
         }
 
         BasicEntityShip ship = ServerDataManager.getShipByUID(shipUID);
-        if (ship != null && ship.level() == level && ship.getPlayerUID() == playerUID) {
+        if (ship != null && ship.level() == level && ship.getPlayerUID() == persistent.getPlayerUID()) {
             setTeamSID(team, slot, ship.getId());
             return ship;
         }
@@ -604,104 +441,62 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
     }
 
     public boolean isShipSelected(int team, int slot) {
-        return team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM
-                && selectState[team][slot];
+        return persistent.isShipSelected(team, slot);
     }
 
     public void setShipSelected(int team, int slot, boolean selected) {
-        if (team >= 0 && team < TEAM_NUM && slot >= 0 && slot < SLOT_NUM) {
-            selectState[team][slot] = selected;
-        }
+        persistent.setShipSelected(team, slot, selected);
     }
 
     public void clearShipSelection(int team) {
-        if (team < 0 || team >= TEAM_NUM) {
-            return;
-        }
-        for (int slot = 0; slot < SLOT_NUM; slot++) {
-            selectState[team][slot] = false;
-        }
+        persistent.clearShipSelection(team);
     }
 
     public int getFormatID(int team) {
-        if (team >= 0 && team < TEAM_NUM) {
-            return formatID[team];
-        }
-        return 0;
+        return persistent.getFormatID(team);
     }
 
     public void setFormatID(int team, int format) {
-        if (team >= 0 && team < TEAM_NUM) {
-            formatID[team] = format;
-        }
+        persistent.setFormatID(team, format);
     }
 
     public String getUnitName(int team) {
-        if (team >= 0 && team < TEAM_NUM) {
-            return unitNames[team];
-        }
-        return "";
+        return persistent.getUnitName(team);
     }
 
     public void setUnitName(int team, String name) {
-        if (team >= 0 && team < TEAM_NUM) {
-            unitNames[team] = name != null ? name : "";
-        }
+        persistent.setUnitName(team, name);
     }
 
     /**
      * Clear all entity IDs in team slots (e.g. on dimension change)
      */
     public void clearTeamEntityIDs() {
-        for (int i = 0; i < TEAM_NUM; i++) {
-            for (int j = 0; j < SLOT_NUM; j++) {
-                sidList[i][j] = -1;
-            }
-        }
+        runtime.clearTeamEntityIDs();
     }
 
     /**
      * Check if this player has a team (has team data in ServerDataManager)
      */
     public boolean hasTeam() {
-        return this.playerUID > 0
-                && com.lulan.shincolle.server.ServerDataManager.getTeamData(this.playerUID) != null;
+        return persistent.getPlayerUID() > 0
+                && com.lulan.shincolle.server.ServerDataManager.getTeamData(persistent.getPlayerUID()) != null;
     }
 
     /**
      * Copy all persistent data from another CapaTeitoku (for player respawn)
      */
     public void copyFrom(CapaTeitoku other) {
-        this.hasRing = other.hasRing;
-        this.isRingActive = other.isRingActive;
-        this.isRingFlying = other.isRingFlying;
-        this.marriageNum = other.marriageNum;
-        this.bossCooldown = other.bossCooldown;
-        this.teamCooldown = other.teamCooldown;
-        this.playerUID = other.playerUID;
-        this.selectTeam = other.selectTeam;
-        this.colledShipNum = other.colledShipNum;
-        this.colledEquipNum = other.colledEquipNum;
-        this.initSID = other.initSID;
-        this.showPlayerSkill = other.showPlayerSkill;
+        this.persistent.copyFrom(other.persistent);
+        this.runtime.copyForRespawn(other.runtime);
+        this.mirror.copyFrom(other.mirror);
+    }
 
-        this.targetClassList = new ArrayList<>(other.targetClassList);
-        this.targetClassNames = new ArrayList<>(other.targetClassNames);
-        this.teamName = other.teamName;
-        this.allyList = new ArrayList<>(other.allyList);
-        this.banList = new ArrayList<>(other.banList);
-        this.knownTeamIds = new ArrayList<>(other.knownTeamIds);
-        this.colledShipList = new ArrayList<>(other.colledShipList);
-        this.colledEquipList = new ArrayList<>(other.colledEquipList);
-        this.shipList = new ArrayList<>(other.shipList);
-        this.entityItemList = other.entityItemList != null ? other.entityItemList.clone() : new float[0];
+    private static int[] toIntArray(List<Integer> values) {
+        return values.stream().mapToInt(Integer::intValue).toArray();
+    }
 
-        for (int i = 0; i < TEAM_NUM; i++) {
-            System.arraycopy(other.teamList[i], 0, this.teamList[i], 0, SLOT_NUM);
-            System.arraycopy(other.sidList[i], 0, this.sidList[i], 0, SLOT_NUM);
-            System.arraycopy(other.selectState[i], 0, this.selectState[i], 0, SLOT_NUM);
-            this.formatID[i] = other.formatID[i];
-            this.unitNames[i] = other.unitNames[i];
-        }
+    private static List<Integer> readIntList(CompoundTag nbt, String key) {
+        return nbt.contains(key) ? Arrays.stream(nbt.getIntArray(key)).boxed().toList() : List.of();
     }
 }

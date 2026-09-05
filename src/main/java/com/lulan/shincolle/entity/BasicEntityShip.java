@@ -179,6 +179,8 @@ public abstract class BasicEntityShip extends TamableAnimal
      * waypoints: 0:last wp
      */
     protected BlockPos[] waypoints;
+    /** Session-only waypoint history; deliberately not serialized. */
+    protected boolean hasLastWaypoint;
     /**
      * attack attributes
      */
@@ -225,6 +227,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.BodyHeightSit = new byte[]{64, 49, 44, 29, 23, 12};
         this.ModelPos = new float[]{0F, 0F, 0F, 50F};
         this.waypoints = new BlockPos[]{BlockPos.ZERO};
+        this.hasLastWaypoint = false;
         this.BuffMap = new HashMap<>();
         this.AttackEffectMap = new HashMap<>();
         this.resetMissileData();
@@ -749,6 +752,10 @@ public abstract class BasicEntityShip extends TamableAnimal
                 // check every 16 ticks
                 if ((tickCount & 15) == 0) {
                     if (this.isAlive()) {
+                        if (EntityHelper.updateWaypointMove(this)) {
+                            sendSyncPacketGuard();
+                        }
+
                         // cancel mounts if can't summon
                         if (this.hasShipMounts() && !this.canSummonMounts()) {
                             if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount) {
@@ -1082,11 +1089,10 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     public void addShipExp(int exp) {
-        int capLevel = getStateFlag(ID.F.IsMarried) ? 150 : 100;
-
         exp = (int) ((float) exp * this.shipAttrs.getAttrsBuffed(ID.Attrs.XP));
 
-        if (StateMinor[ID.M.ShipLevel] != capLevel && StateMinor[ID.M.ShipLevel] < 150) {
+        if (ShipLevelRules.canGainExperience(StateMinor[ID.M.ShipLevel],
+                getStateFlag(ID.F.IsMarried), ConfigHandler.maxLevelUnmarried, ConfigHandler.maxLevel)) {
             StateMinor[ID.M.ExpCurrent] += exp;
             if (StateMinor[ID.M.ExpCurrent] >= StateMinor[ID.M.ExpNext]) {
                 // level up sound
@@ -1103,13 +1109,19 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     public void setShipLevel(int par1, boolean update) {
-        if (par1 < 151) {
+        if (ShipLevelRules.acceptsLevel(par1, ConfigHandler.maxLevel)) {
             StateMinor[ID.M.ShipLevel] = par1;
         }
         if (update) {
             this.calcShipAttributes(31, true);
             this.setHealth(this.getMaxHealth());
         }
+    }
+
+    /** Returns the configured natural level cap for this ship's marriage state. */
+    public int getShipLevelCap() {
+        return ShipLevelRules.naturalLevelCap(getStateFlag(ID.F.IsMarried),
+                ConfigHandler.maxLevelUnmarried, ConfigHandler.maxLevel);
     }
 
     // ========== Combat Methods ==========
@@ -2794,8 +2806,14 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     @Override
+    public boolean hasLastWaypoint() {
+        return this.hasLastWaypoint;
+    }
+
+    @Override
     public void setLastWaypoint(BlockPos pos) {
-        this.waypoints[0] = pos;
+        this.waypoints[0] = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.hasLastWaypoint = pos != null;
     }
 
     @Override
@@ -2810,7 +2828,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public int getWpStayTimeMax() {
-        return getStateMinor(ID.M.WpStay);
+        return wpStayTime2Ticks(getStateMinor(ID.M.WpStay));
     }
 
     // ========== IShipCustomTexture Implementation ==========
@@ -3318,11 +3336,11 @@ public abstract class BasicEntityShip extends TamableAnimal
                 // use training book, owner only
                 else if (stack.getItem() == ModItems.TRAINING_BOOK.get()
                         && TeamHelper.checkSameOwner(player, this)) {
-                    if (this.getLevel() < 150) {
-                        int lv = this.getLevel() + 5 + this.random.nextInt(6);
-                        int lvcap = this.getStateFlag(ID.F.IsMarried) ? 150 : 100;
-                        if (lv > lvcap)
-                            lv = lvcap;
+                    if (ShipLevelRules.canUseTrainingBook(this.getLevel(), ConfigHandler.maxLevel)) {
+                        int gainedLevels = 5 + this.random.nextInt(6);
+                        int lv = ShipLevelRules.trainingBookResult(this.getLevel(), gainedLevels,
+                                this.getStateFlag(ID.F.IsMarried),
+                                ConfigHandler.maxLevelUnmarried, ConfigHandler.maxLevel);
 
                         this.setShipLevel(lv, true);
 
@@ -3850,10 +3868,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     /**
      * convert WpStay value to ticks
      */
-    public int wpStayTime2Ticks(int wpStay) {
-        if (wpStay <= 0)
-            return 0;
-        return wpStay * 20;
+    public static int wpStayTime2Ticks(int wpStay) {
+        return WaypointStayTime.toTicks(wpStay);
     }
 
     /**

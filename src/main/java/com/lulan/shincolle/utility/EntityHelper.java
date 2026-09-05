@@ -1,6 +1,7 @@
 package com.lulan.shincolle.utility;
 
 import com.lulan.shincolle.capability.CapaTeitoku;
+import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
@@ -8,10 +9,13 @@ import com.lulan.shincolle.entity.IShipFloating;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.server.ServerDataManager;
+import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
@@ -30,6 +34,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Helper for ship entity movement and navigation.
@@ -78,6 +85,113 @@ public class EntityHelper {
         if (ship instanceof IShipFloating floating) {
             updateShipDepth(floating);
             updateShipFloatingGeneric(ship, floating);
+        }
+    }
+
+    /**
+     * Advance a friendly ship from an arrived waypoint to its linked destination.
+     * This is called from {@link BasicEntityShip#aiStep()}, not a Goal, so every
+     * ship receives the same 16-tick cadence.
+     *
+     * @return true when the caller must synchronize the flag ship's changed guard target
+     */
+    public static boolean updateWaypointMove(BasicEntityShip ship) {
+        if (!ship.hasGuardDestination() || !ship.isGuardedInCurrentDimension()
+                || ship.getGuardedEntity() != null || ship.getIsSitting()
+                || ship.getIsLeashed() || ship.isPassenger()) {
+            return false;
+        }
+
+        if (ship.getStateMinor(ID.M.FormatType) > 0 && ship.getStateMinor(ID.M.FormatPos) > 0) {
+            return false;
+        }
+
+        BlockPos current = new BlockPos(ship.getGuardedPos(0), ship.getGuardedPos(1), ship.getGuardedPos(2));
+        if (!(ship.level().getBlockEntity(current) instanceof TileEntityWaypoint waypoint)
+                || ship.distanceToSqr(Vec3.atCenterOf(current)) >= 9D) {
+            return false;
+        }
+
+        int stayMax = Math.max(ship.getWpStayTimeMax(),
+                BasicEntityShip.wpStayTime2Ticks(waypoint.getWpStayTime()));
+        if (ship.getWpStayTime() < stayMax) {
+            ship.setWpStayTime(ship.getWpStayTime() + 16);
+            return false;
+        }
+
+        ship.setWpStayTime(0);
+        BlockPos destination = null;
+        if (waypoint.hasNextWaypoint()) {
+            BlockPos next = waypoint.getNextWaypoint();
+            if (ship.hasLastWaypoint() && next.equals(ship.getLastWaypoint()) && waypoint.hasLastWaypoint()) {
+                destination = waypoint.getLastWaypoint();
+            } else {
+                destination = next;
+            }
+        }
+
+        setLastWaypointForShipAndPassengers(ship, current);
+        if (destination == null) {
+            return false;
+        }
+
+        applyWaypointDestination(ship, destination);
+        return true;
+    }
+
+    private static void setLastWaypointForShipAndPassengers(BasicEntityShip ship, BlockPos current) {
+        ship.setLastWaypoint(current);
+        for (Entity passenger : ship.getPassengers()) {
+            if (passenger instanceof BasicEntityShip passengerShip) {
+                passengerShip.setLastWaypoint(current);
+            }
+        }
+    }
+
+    private static void applyWaypointDestination(BasicEntityShip ship, BlockPos destination) {
+        int formationType = ship.getStateMinor(ID.M.FormatType);
+        if (formationType <= 0) {
+            FormationHelper.applyShipGuard(ship, destination.getX(), destination.getY(), destination.getZ(), true);
+            return;
+        }
+
+        ServerPlayer owner = ServerDataManager.getPlayerByUID(ship.getPlayerUID());
+        CapaTeitoku capa = owner == null ? null
+                : owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        int team = capa == null ? -1 : capa.findTeamOfShip(ship.getShipUID());
+        if (team < 0 || !(ship.level() instanceof ServerLevel serverLevel)) {
+            FormationHelper.applyShipGuard(ship, destination.getX(), destination.getY(), destination.getZ(), true);
+            return;
+        }
+
+        List<BasicEntityShip> ships = new ArrayList<>();
+        for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+            BasicEntityShip member = ServerDataManager.getShipByUID(capa.getTeamMember(team, slot));
+            if (member != null && member.isAlive() && member.level() == serverLevel
+                    && member.getStateMinor(ID.M.FormatType) == formationType) {
+                ships.add(member);
+            }
+        }
+        if (ships.isEmpty()) {
+            FormationHelper.applyShipGuard(ship, destination.getX(), destination.getY(), destination.getZ(), true);
+            return;
+        }
+
+        boolean[] facing = FormationHelper.getFormationDirection(destination.getX(), destination.getZ(),
+                ship.getX(), ship.getZ());
+        int[] cursor = {destination.getX(), destination.getY(), destination.getZ()};
+        for (BasicEntityShip member : ships) {
+            switch (formationType) {
+                case 1, 4 -> cursor = FormationHelper.setFormationPosAndApplyGuardPos1(member, formationType,
+                        facing[0], facing[1], cursor[0], cursor[1], cursor[2], serverLevel);
+                case 2, 3, 5 -> FormationHelper.setFormationPosAndApplyGuardPos2(member, formationType,
+                        facing[0], facing[1], destination.getX(), destination.getY(), destination.getZ(), serverLevel);
+                default -> FormationHelper.applyShipGuard(member, destination.getX(), destination.getY(),
+                        destination.getZ(), true);
+            }
+            if (member != ship) {
+                member.sendSyncPacketGuard();
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.IShipAircraftAttack;
 import com.lulan.shincolle.entity.IShipCannonAttack;
 import com.lulan.shincolle.entity.IShipGuardian;
@@ -314,7 +315,7 @@ public class ShipGuardingGoal extends Goal {
                 + ConfigHandler.fixedAttackDelay[3];
 
         // aim time scales inversely with level
-        this.aimTime = (int) (20F * (150 - this.host.getLevel()) / 150F) + 10;
+        this.aimTime = ShipAiCompatibilityRules.aimTime(this.host.getLevel());
     }
 
     /**

@@ -47,7 +47,7 @@ public class ParticleHelper {
      */
     public static void spawnAttackParticleAt(Level level, double x, double y, double z,
                                              double lookX, double lookY, double lookZ, int type) {
-        if (level.isClientSide()) {
+        if (level != null && level.isClientSide()) {
             switch (type) {
                 // Basic attack/effect particles (types 1-9)
                 // Light cannon fire: upstream (EntityBattleshipRe.applyParticleAtAttacker,
@@ -134,6 +134,38 @@ public class ParticleHelper {
                 // types are still unported and the numbering is not settled.
                 case 30 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 4);
 
+                // [BETA STOPGAP] Types the original sends but the port never wired.
+                // Implemented against the port's existing particle classes so the
+                // effects exist at all; the numbering is NOT yet aligned with the
+                // original's table (see docs/specs/particle_type_parity_stopgap).
+                case 28 -> {
+                    // drip water
+                    double dx = level.random.nextDouble() * 0.7 - 0.35;
+                    double dz = level.random.nextDouble() * 0.7 - 0.35;
+                    level.addParticle(ParticleTypes.DRIPPING_WATER, x + dx, y, z + dz, lookX, lookY, lookZ);
+                }
+                case 31 -> {
+                    // throw snow smoke
+                    for (int i = 0; i < 22; i++) {
+                        double r1 = level.random.nextDouble() - 0.5;
+                        double r2 = level.random.nextDouble();
+                        double r3 = level.random.nextDouble();
+                        double px = x + lookX - 0.5 + 0.05 * i;
+                        double pz = z + lookZ - 0.5 + 0.05 * i;
+                        level.addParticle(ParticleTypes.SNOWFLAKE, px, y + 0.7 + r1, pz,
+                                lookX * 0.3 * r2, 0.05 * r2, lookZ * 0.3 * r2);
+                        level.addParticle(ParticleTypes.SNOWFLAKE, px, y + 0.9 + r1, pz,
+                                lookX * 0.3 * r3, 0.05 * r3, lookZ * 0.3 * r3);
+                    }
+                }
+                // dodge text. The original puts this on type 34; the port's type 14
+                // already renders it, so both reach the same ParticleTexts subtype
+                // until the table is aligned.
+                case 34 -> spawnTextParticleClient((ClientLevel) level, x, y + lookY, z, 1.0f, 4);
+                case 37 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 12);
+                case 38 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 13);
+                case 39 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 14);
+
                 // Death smoke particles (types 40-49)
                 case 43 -> {
                     // death smoke - spawns multiple large smoke columns
@@ -170,7 +202,7 @@ public class ParticleHelper {
      * @param emotionType the emotion type ID
      */
     public static void spawnEmotionParticle(Entity entity, int emotionType) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnEmotionParticleClient(entity, emotionType);
         }
     }
@@ -186,7 +218,7 @@ public class ParticleHelper {
      * @param count number of particles to spawn
      */
     public static void spawnSprayParticle(Level level, double x, double y, double z, int count) {
-        if (level.isClientSide()) {
+        if (level != null && level.isClientSide()) {
             spawnSprayParticleClient(level, x, y, z, count);
         }
     }
@@ -197,7 +229,7 @@ public class ParticleHelper {
      * @param entity the entity that was missed
      */
     public static void spawnMissParticle(Entity entity) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnTextParticleClient((ClientLevel) entity.level(),
                     entity.getX(), entity.getY() + entity.getBbHeight() + 0.5, entity.getZ(),
                     1.0f, 0);
@@ -212,7 +244,7 @@ public class ParticleHelper {
      * @param indicatorType the visual subtype (determines color and marker behavior)
      */
     public static void spawnTeamCircle(Entity entity, int indicatorType) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnTeamCircleClient(entity, indicatorType);
         }
     }
@@ -222,7 +254,7 @@ public class ParticleHelper {
      * Used for pointer block/waypoint target visualization.
      */
     public static void spawnTeamCircleAt(Level level, double x, double y, double z, int indicatorType) {
-        if (level.isClientSide()) {
+        if (level != null && level.isClientSide()) {
             spawnTeamCircleAtClient((ClientLevel) level, x, y, z, indicatorType);
         }
     }
@@ -294,7 +326,7 @@ public class ParticleHelper {
      */
     public static void spawnLaserParticle(Level level, double x, double y, double z,
                                           double tarX, double tarY, double tarZ, float scale, int type) {
-        if (level.isClientSide()) {
+        if (level != null && level.isClientSide()) {
             spawnLaserParticleClient((ClientLevel) level, x, y, z, tarX, tarY, tarZ, scale, type);
         }
     }
@@ -307,7 +339,7 @@ public class ParticleHelper {
      * @param type   lightning visual type
      */
     public static void spawnLightningParticle(Entity entity, float scale, int type) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnLightningParticleClient(entity, scale, type);
         }
     }
@@ -320,7 +352,7 @@ public class ParticleHelper {
      * @param type   chi visual type
      */
     public static void spawnChiParticle(Entity entity, float scale, int type) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnChiParticleClient(entity, scale, type);
         }
     }
@@ -333,7 +365,7 @@ public class ParticleHelper {
      * @param type   cube visual type
      */
     public static void spawnCubeParticle(LivingEntity entity, float scale, int type) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnCubeParticleClient(entity, scale, type);
         }
     }
@@ -346,7 +378,7 @@ public class ParticleHelper {
      * @param parms  additional parameters
      */
     public static void spawnGradientParticle(Entity entity, int type, float... parms) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnGradientParticleClient(entity, type, parms);
         }
     }
@@ -359,7 +391,7 @@ public class ParticleHelper {
      * @param parms  additional parameters
      */
     public static void spawnSphereLightParticle(Entity entity, int type, float... parms) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnSphereLightParticleClient(entity, type, parms);
         }
     }
@@ -369,7 +401,7 @@ public class ParticleHelper {
      * Ported for legacy projectile beam effects.
      */
     public static void spawnStickyLightningParticle(Entity entity, float scale, int life, int type) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnStickyLightningParticleClient(entity, scale, life, type);
         }
     }
@@ -382,7 +414,7 @@ public class ParticleHelper {
      * @param parms  additional parameters
      */
     public static void spawnSparkleParticle(Entity entity, int type, float... parms) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnSparkleParticleClient(entity, type, parms);
         }
     }
@@ -395,7 +427,7 @@ public class ParticleHelper {
      * @param parms line parameters (positions, etc.)
      */
     public static void spawnLineParticle(Level level, int type, float[] parms) {
-        if (level.isClientSide()) {
+        if (level != null && level.isClientSide()) {
             spawnLineParticleClient((ClientLevel) level, type, parms);
         }
     }
@@ -408,7 +440,7 @@ public class ParticleHelper {
      * @param parms  sweep parameters
      */
     public static void spawnSweepParticle(Entity entity, int type, float... parms) {
-        if (entity.level().isClientSide()) {
+        if (entity != null && entity.level().isClientSide()) {
             spawnSweepParticleClient(entity, type, parms);
         }
     }
@@ -427,7 +459,7 @@ public class ParticleHelper {
      */
     public static void spawnCraningParticle(Level level, double x, double y, double z,
                                             double lengthMax, double par1, double scale, int type) {
-        if (level.isClientSide()) {
+        if (level != null && level.isClientSide()) {
             spawnCraningParticleClient((ClientLevel) level, x, y, z, lengthMax, par1, scale, type);
         }
     }

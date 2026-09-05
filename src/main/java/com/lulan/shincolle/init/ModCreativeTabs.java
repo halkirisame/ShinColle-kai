@@ -1,5 +1,9 @@
 package com.lulan.shincolle.init;
 
+import com.lulan.shincolle.equipdata.EquipDataRegistry;
+import com.lulan.shincolle.equipdata.EquipDefinition;
+import com.lulan.shincolle.equipdata.EquipDataSnapshot;
+import com.lulan.shincolle.equipdata.EquipmentAvailabilityStacks;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.reference.Reference;
@@ -11,11 +15,40 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class ModCreativeTabs {
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS = DeferredRegister
             .create(Registries.CREATIVE_MODE_TAB, Reference.MOD_ID);
+
+    // Variant display order. Every equipment item shows its weakest development tier first, so a
+    // row of look-alike icons still reads left to right as a progression. Items whose model has
+    // equip_icon overrides (airplane, cannon, drum) keep their icon families grouped, because the
+    // grid shows that split; the rest are a single ramp, since grouping them would be invisible.
+    static final int[] AIRPLANE_ORDER = {0, 3, 1, 2, 15, 4, 7, 5, 8, 18, 16, 6, 21,
+            9, 11, 12, 17, 19, 10, 20, 13, 14};
+    static final int[] AMMO_ORDER = {1, 0, 2, 3, 5, 6, 7, 8, 4};
+    static final int[] ARMOR_ORDER = {0, 4, 1, 2, 3, 5, 6};
+    static final int[] CANNON_ORDER = {0, 1, 12, 2, 6, 3, 7, 13, 4, 5, 8, 9, 15, 11, 10, 14};
+    static final int[] MACHINEGUN_ORDER = {0, 4, 1, 5, 2, 3, 6};
+    static final int[] RADAR_ORDER = {0, 5, 1, 6, 2, 7, 3, 4, 8};
+    static final int[] TORPEDO_ORDER = {0, 3, 1, 4, 5, 2, 6};
+    static final int[] TURBINE_ORDER = {0, 2, 3, 1, 4};
+
+    /** The ordered variant lists, keyed by item, for the ordering regression test. */
+    static java.util.Map<net.minecraft.world.item.Item, int[]> equipmentDisplayOrders() {
+        java.util.Map<net.minecraft.world.item.Item, int[]> orders = new java.util.LinkedHashMap<>();
+        orders.put(ModItems.EQUIP_AIRPLANE.get(), AIRPLANE_ORDER);
+        orders.put(ModItems.EQUIP_AMMO.get(), AMMO_ORDER);
+        orders.put(ModItems.EQUIP_ARMOR.get(), ARMOR_ORDER);
+        orders.put(ModItems.EQUIP_CANNON.get(), CANNON_ORDER);
+        orders.put(ModItems.EQUIP_MACHINEGUN.get(), MACHINEGUN_ORDER);
+        orders.put(ModItems.EQUIP_RADAR.get(), RADAR_ORDER);
+        orders.put(ModItems.EQUIP_TORPEDO.get(), TORPEDO_ORDER);
+        orders.put(ModItems.EQUIP_TURBINE.get(), TURBINE_ORDER);
+        return orders;
+    }
 
     public static final RegistryObject<CreativeModeTab> SHINCOLLE_TAB = CREATIVE_TABS.register("shincolle_tab",
             () -> CreativeModeTab.builder()
@@ -43,29 +76,28 @@ public class ModCreativeTabs {
                         output.accept(ModItems.GRUDGE_1.get());
 
                         // 6. Equipment Items - alphabetical order, custom sub-ordering where applicable
-                        // Airplane: T:0,1,2,3,15 / F:4,5,6,7,8,18,16,21 / B:9,10,11,12,17,19,20 /
-                        // R:13,14
-                        addEquipVariants(output, ModItems.EQUIP_AIRPLANE,
-                                new int[]{0, 1, 2, 3, 15, 4, 5, 6, 7, 8, 18, 16, 21, 9, 10, 11, 12, 17, 19, 20, 13,
-                                        14});
-                        addEquipVariants(output, ModItems.EQUIP_AMMO);
-                        // Armor: 0,1,5,2,3,4,6
-                        addEquipVariants(output, ModItems.EQUIP_ARMOR,
-                                new int[]{0, 1, 5, 2, 3, 4, 6});
-                        // Cannon: S:0,1,12 / Tw:2,3,4,13,5,6,7,8 / Tr:11,9,15,10 / Qu:14
-                        addEquipVariants(output, ModItems.EQUIP_CANNON,
-                                new int[]{0, 1, 12, 2, 3, 4, 13, 5, 6, 7, 8, 11, 9, 15, 10, 14});
+                        // Airplane. Icon families (see the equip_icon model overrides) stay grouped:
+                        // T:0,3,1,2,15 / F:4,7,5,8,18,16,6,21 / B:9,11,12,17,19,10,20 / R:13,14.
+                        // Within a family, weakest first by develop rare_mean.
+                        addEquipVariants(output, ModItems.EQUIP_AIRPLANE, AIRPLANE_ORDER);
+                        // One icon for every variant, so nothing is gained by grouping: order by
+                        // develop rare_mean so the row reads weakest to strongest.
+                        addEquipVariants(output, ModItems.EQUIP_AMMO, AMMO_ORDER);
+                        // Armor: one icon, ordered by develop rare_mean.
+                        addEquipVariants(output, ModItems.EQUIP_ARMOR, ARMOR_ORDER);
+                        // Cannon. Icon families stay grouped, weakest first inside each:
+                        // S:0,1,12 / Tw:2,6,3,7,13,4,5,8 / Tr:9,15,11,10 / Qu:14
+                        addEquipVariants(output, ModItems.EQUIP_CANNON, CANNON_ORDER);
                         addEquipVariants(output, ModItems.EQUIP_CATAPULT);
                         addEquipVariants(output, ModItems.EQUIP_COMPASS);
                         addEquipVariants(output, ModItems.EQUIP_DRUM);
                         addEquipVariants(output, ModItems.EQUIP_FLARE);
-                        addEquipVariants(output, ModItems.EQUIP_MACHINEGUN);
-                        // Radar: AA:0,1,5 / Surface:2,3,6 / Sonar:4,7 / Other:8
-                        addEquipVariants(output, ModItems.EQUIP_RADAR,
-                                new int[]{0, 1, 5, 2, 3, 6, 4, 7, 8});
+                        addEquipVariants(output, ModItems.EQUIP_MACHINEGUN, MACHINEGUN_ORDER);
+                        // Radar: one icon, ordered by develop rare_mean.
+                        addEquipVariants(output, ModItems.EQUIP_RADAR, RADAR_ORDER);
                         addEquipVariants(output, ModItems.EQUIP_SEARCHLIGHT);
-                        addEquipVariants(output, ModItems.EQUIP_TORPEDO);
-                        addEquipVariants(output, ModItems.EQUIP_TURBINE);
+                        addEquipVariants(output, ModItems.EQUIP_TORPEDO, TORPEDO_ORDER);
+                        addEquipVariants(output, ModItems.EQUIP_TURBINE, TURBINE_ORDER);
 
                         // 7. BucketRepair
                         output.accept(ModItems.BUCKET_REPAIR.get());
@@ -151,14 +183,25 @@ public class ModCreativeTabs {
                     })
                     .build());
 
+    public static final RegistryObject<CreativeModeTab> SHINCOLLE_DEBUG_TAB = CREATIVE_TABS.register(
+            "shincolle_debug_tab", () -> CreativeModeTab.builder()
+                    .title(Component.translatable("creativetab." + Reference.MOD_ID + ".debug"))
+                    .icon(ModCreativeTabs::debugTabIcon)
+                    .displayItems((parameters, output) ->
+                            debugEquipmentStacks(EquipDataRegistry.client()).forEach(output::accept))
+                    .build());
+
     /**
      * Add all variants of an equipment item to creative tab in sequential order
      */
     private static void addEquipVariants(CreativeModeTab.Output output, RegistryObject<Item> equipItem) {
         Item item = equipItem.get();
         if (item instanceof BasicEquip equip) {
+            var itemId = ForgeRegistries.ITEMS.getKey(item);
             for (int meta = 0; meta < equip.getNumVariants(); meta++) {
-                output.accept(equip.createStack(meta));
+                if (shouldShowEquipmentVariant(EquipDataRegistry.client().byItemVariant(itemId, meta))) {
+                    output.accept(equip.createStack(meta));
+                }
             }
         } else {
             output.accept(item);
@@ -171,12 +214,33 @@ public class ModCreativeTabs {
     private static void addEquipVariants(CreativeModeTab.Output output, RegistryObject<Item> equipItem, int[] order) {
         Item item = equipItem.get();
         if (item instanceof BasicEquip equip) {
+            var itemId = ForgeRegistries.ITEMS.getKey(item);
             for (int meta : order) {
-                output.accept(equip.createStack(meta));
+                if (shouldShowEquipmentVariant(EquipDataRegistry.client().byItemVariant(itemId, meta))) {
+                    output.accept(equip.createStack(meta));
+                }
             }
         } else {
             output.accept(item);
         }
+    }
+
+    static boolean shouldShowEquipmentVariant(EquipDefinition definition) {
+        return definition == null || !definition.availability().isHidden();
+    }
+
+    static boolean shouldShowDebugEquipmentVariant(EquipDefinition definition) {
+        return definition != null && definition.availability().isHidden();
+    }
+
+    static java.util.List<ItemStack> debugEquipmentStacks(EquipDataSnapshot snapshot) {
+        return EquipmentAvailabilityStacks.hiddenStacks(snapshot);
+    }
+
+    private static ItemStack debugTabIcon() {
+        ItemStack icon = new ItemStack(ModItems.EQUIP_TURBINE.get());
+        BasicEquip.setEquipMeta(icon, 5);
+        return icon;
     }
 
     /**

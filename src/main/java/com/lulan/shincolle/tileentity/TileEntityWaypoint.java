@@ -21,6 +21,8 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
     private int playerUID = -1;
     private BlockPos nextPos = BlockPos.ZERO;
     private BlockPos lastPos = BlockPos.ZERO;
+    private boolean nextWaypointSet;
+    private boolean lastWaypointSet;
     private BlockPos chestPos = BlockPos.ZERO;
     private boolean pairedChestSet;
     private int wpstay = 0;
@@ -65,7 +67,8 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
     }
 
     public void setNextWaypoint(BlockPos pos) {
-        this.nextPos = pos != null ? pos : BlockPos.ZERO;
+        this.nextPos = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.nextWaypointSet = pos != null;
         setChanged();
     }
 
@@ -74,16 +77,17 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
     }
 
     public void setLastWaypoint(BlockPos pos) {
-        this.lastPos = pos != null ? pos : BlockPos.ZERO;
+        this.lastPos = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.lastWaypointSet = pos != null;
         setChanged();
     }
 
     public boolean hasNextWaypoint() {
-        return !nextPos.equals(BlockPos.ZERO);
+        return nextWaypointSet;
     }
 
     public boolean hasLastWaypoint() {
-        return !lastPos.equals(BlockPos.ZERO);
+        return lastWaypointSet;
     }
 
     // ========== Chest Pairing ==========
@@ -114,6 +118,11 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
         setChanged();
     }
 
+    /** Advance the raw waypoint stay setting, wrapping after the longest value. */
+    public void nextWpStayTime() {
+        setWpStayTime(this.wpstay == 16 ? 0 : this.wpstay + 1);
+    }
+
     // ========== NBT ==========
 
     @Override
@@ -126,9 +135,11 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
         tag.putInt("NextX", nextPos.getX());
         tag.putInt("NextY", nextPos.getY());
         tag.putInt("NextZ", nextPos.getZ());
+        tag.putBoolean("HasNextWaypoint", nextWaypointSet);
         tag.putInt("LastX", lastPos.getX());
         tag.putInt("LastY", lastPos.getY());
         tag.putInt("LastZ", lastPos.getZ());
+        tag.putBoolean("HasLastWaypoint", lastWaypointSet);
         tag.putInt("ChestX", chestPos.getX());
         tag.putInt("ChestY", chestPos.getY());
         tag.putInt("ChestZ", chestPos.getZ());
@@ -145,6 +156,18 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
         playerUID = tag.getInt("PlayerUID");
         nextPos = new BlockPos(tag.getInt("NextX"), tag.getInt("NextY"), tag.getInt("NextZ"));
         lastPos = new BlockPos(tag.getInt("LastX"), tag.getInt("LastY"), tag.getInt("LastZ"));
+        // Legacy saves could not link world origin. Once saved by this version,
+        // the explicit flag is authoritative and keeps origin/Y=0/negative-Y valid.
+        nextWaypointSet = tag.contains("HasNextWaypoint")
+                ? tag.getBoolean("HasNextWaypoint") : !nextPos.equals(BlockPos.ZERO);
+        lastWaypointSet = tag.contains("HasLastWaypoint")
+                ? tag.getBoolean("HasLastWaypoint") : !lastPos.equals(BlockPos.ZERO);
+        if (!nextWaypointSet) {
+            nextPos = BlockPos.ZERO;
+        }
+        if (!lastWaypointSet) {
+            lastPos = BlockPos.ZERO;
+        }
         chestPos = new BlockPos(tag.getInt("ChestX"), tag.getInt("ChestY"), tag.getInt("ChestZ"));
         // Original 1.10.2 used `this.chestPos = BlockPos.ORIGIN;` as the unset state.
         // World origin and negative Y are valid in 1.20.1, so new saves carry explicit presence.

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.*;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.DebugProfiler;
@@ -96,7 +97,9 @@ public class ShipRangeTargetGoal extends Goal {
             // made detection reach twice as far along Z as along X, so whether
             // a ship noticed you depended on which side you approached from.
             AABB searchBox = this.entity.getBoundingBox()
-                    .inflate(this.range, this.range * 0.75D, this.range);
+                    .inflate(this.range,
+                            ShipAiCompatibilityRules.targetSearchVerticalInflation(this.range),
+                            this.range);
             List<LivingEntity> targets = null;
             String targetTier = "Normal";
 
@@ -254,9 +257,8 @@ public class ShipRangeTargetGoal extends Goal {
     }
 
     private void updateRange() {
-        this.range = Math.round(this.host.getAttrs().getAttackRange());
-        if (this.range < 2) {
-            this.range = Math.max(2, this.host.getStateMinor(ID.M.FollowMax) + 2);
-        }
+        this.range = ShipAiCompatibilityRules.targetSearchRange(
+                this.host.getAttrs().getAttackRange(),
+                this.host.getStateMinor(ID.M.FollowMax));
     }
 }

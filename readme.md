@@ -148,12 +148,22 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## 次のリリース v1.20.1-1.0.0 について
+## β版 v1.20.1-0.9.0 について
 
-**まだリリースしていません。**配布されている最新版は `v1.20.1.0.8.2`(α版)です。
+配布されている最新版は `v1.20.1.0.8.2`(α版)です。次のリリースは **β版 `0.9.0`** になります。
 
-1.0.0 では KubeJS連携・装備datapack・Javaアドオン向けPublic APIが初出になります。
+造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
+一通り遊べます。KubeJS連携・装備datapack・Javaアドオン向けPublic APIはこの版が初出です。
 艦が攻撃・反撃しない不具合なども修正しました。
+
+**ただし未完成の領域と既知の不具合があります。**`1.0.0` はそれらが解消された版の
+ために取ってあります。
+
+既知の不具合: 撫でても士気が上がらない / 艦が手持ちアイテムを表示しない /
+移動指示のマーカーが約0.8ブロック浮く。
+
+未完成の領域: 艦娘タスクとクレーン(本フォークで未着手) / 艦ごとの固有戦闘演出 /
+艦AIの作り直し(新コードは本版ではゲーム側から到達しません)。
 
 変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
@@ -335,12 +345,24 @@ undetermined.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the next release, v1.20.1-1.0.0
+## About the beta release, v1.20.1-0.9.0
 
-**It has not been released yet.** The latest distributed build is `v1.20.1.0.8.2` (alpha).
+The latest distributed build is `v1.20.1.0.8.2` (alpha). The next release is the
+**beta, `0.9.0`**.
 
-1.0.0 will be the debut of KubeJS integration, datapack equipment and the public Java
-addon API. Ships not attacking or retaliating, among other bugs, have been fixed.
+The mod is playable end to end - build a shipyard, construct ships, equip them, command
+a fleet, fight, level up and marry. This release is the debut of KubeJS integration,
+datapack equipment and the public Java addon API. Ships not attacking or retaliating,
+among other bugs, have been fixed.
+
+**Some systems are known to be incomplete.** `1.0.0` is reserved for the release where
+they are closed.
+
+Known defects: petting does not raise morale; ships do not render a held item; a
+movement-order marker floats about 0.8 blocks above its destination.
+
+Incomplete systems: ship work tasks and the crane (untouched by this fork); per-ship
+combat effects; the ship AI rewrite (its new code is not reachable from gameplay here).
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes.
 

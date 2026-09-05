@@ -4,6 +4,7 @@ import com.lulan.shincolle.capability.CapabilityHandler;
 import com.lulan.shincolle.command.CommandHandler;
 import com.lulan.shincolle.config.ConfigMining;
 import com.lulan.shincolle.api.equipment.ShipEquipmentProviders;
+import com.lulan.shincolle.api.target.TargetTraits;
 import com.lulan.shincolle.equip.ShipEquipmentOptionalIntegrations;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.equip.curios.ShipCuriosRecalcHandler;
@@ -107,9 +108,12 @@ public class ShinColle {
                 .resolve(Reference.MOD_ID + "-mining.cfg").toFile());
     }
 
-    /** Freezes addon equipment-provider registration after every mod has constructed. */
+    /** Freezes addon registration after every mod has constructed. */
     private void loadComplete(FMLLoadCompleteEvent event) {
-        event.enqueueWork(ShipEquipmentProviders::freeze);
+        event.enqueueWork(() -> {
+            ShipEquipmentProviders.freeze();
+            TargetTraits.freeze();
+        });
     }
 
     /**

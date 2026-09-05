@@ -973,6 +973,11 @@ public abstract class BasicEntityMount extends TamableAnimal
     }
 
     @Override
+    public boolean hasLastWaypoint() {
+        return this.host != null && this.host.hasLastWaypoint();
+    }
+
+    @Override
     public void setLastWaypoint(BlockPos pos) {
         if (this.host != null)
             this.host.setLastWaypoint(pos);

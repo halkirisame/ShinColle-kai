@@ -17,6 +17,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Comparator;
+import java.util.Collection;
 import java.util.List;
 
 /** Adds the raw result of a separate datapack loot table to a matched table. */
@@ -61,14 +62,20 @@ public final class InjectLootTableModifier extends LootModifier {
         }
 
         ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        List<EquipDefinition> definitions = EquipDataRegistry.server().all().stream()
-                .filter(definition -> definition.item().equals(itemId))
-                .sorted(Comparator.comparing(definition -> definition.id().toString()))
-                .toList();
+        List<EquipDefinition> definitions = collectLootCandidates(EquipDataRegistry.server().all(), itemId);
         if (!definitions.isEmpty()) {
             EquipDefinition selected = definitions.get(context.getRandom().nextInt(definitions.size()));
             BasicEquip.setEquipMeta(stack, selected.variant());
         }
+    }
+
+    static List<EquipDefinition> collectLootCandidates(Collection<EquipDefinition> definitions,
+                                                       ResourceLocation itemId) {
+        return definitions.stream()
+                .filter(definition -> definition.item().equals(itemId))
+                .filter(definition -> definition.availability().canLoot())
+                .sorted(Comparator.comparing(definition -> definition.id().toString()))
+                .toList();
     }
 
     @Override

@@ -24,5 +24,13 @@
     "shincolle_kai:thit": 0.06,
     "shincolle_kai:miss": 0.06,
     "shincolle_kai:ammo": 0.2
-  }
+  },
+  "attack_effects": [
+    {
+      "effect": "minecraft:wither",
+      "amplifier": 0,
+      "duration": 100,
+      "chance": 25
+    }
+  ]
 }

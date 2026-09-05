@@ -5,6 +5,7 @@ import com.lulan.shincolle.config.ConfigMining;
 import com.lulan.shincolle.crafting.InventoryCraftingFake;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
+import com.lulan.shincolle.entity.ShipLevelRules;
 import com.lulan.shincolle.entity.other.EntityShipFishingHook;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
@@ -28,6 +29,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -591,7 +593,7 @@ public class TaskHelper {
         int targetSlot = findMatchingSlot(inv, mainstack, checkMetadata, checkNbt, 22, 23);
         if (targetSlot >= 0) {
             ItemStack toMove = inv.getStackInSlot(targetSlot);
-            if (moveItemToHandlers(inputHandlers, toMove)) {
+            if (moveItemToConfiguredInventory(furnace, inputHandlers, taskSide, 0, toMove)) {
                 if (toMove.isEmpty())
                     inv.setStackInSlot(targetSlot, ItemStack.EMPTY);
                 swing = true;
@@ -603,7 +605,7 @@ public class TaskHelper {
             int fuelSlot = findMatchingSlot(inv, offstack, checkMetadata, checkNbt, 22, 23);
             if (fuelSlot >= 0) {
                 ItemStack fuelToMove = inv.getStackInSlot(fuelSlot);
-                if (moveItemToHandlers(fuelHandlers, fuelToMove)) {
+                if (moveItemToConfiguredInventory(furnace, fuelHandlers, taskSide, 2, fuelToMove)) {
                     if (fuelToMove.isEmpty())
                         inv.setStackInSlot(fuelSlot, ItemStack.EMPTY);
                     swing = true;
@@ -612,7 +614,7 @@ public class TaskHelper {
         }
 
         // Take one matching output stack through the configured face-scoped handlers.
-        if (moveMatchingOutputToShip(outputHandlers, inv, resultStack, checkMetadata, checkNbt)) {
+        if (moveMatchingOutputToShip(outputHandlers, inv, host, resultStack, checkMetadata, checkNbt)) {
             swing = true;
 
             // add exp and consume grudge
@@ -621,8 +623,7 @@ public class TaskHelper {
             host.addMorale(100);
 
             // generate charcoal by fail chance
-            float failChance = (float) (ConfigHandler.maxLevel - host.getLevel())
-                    / (float) ConfigHandler.maxLevel * 0.2F + 0.05F;
+            float failChance = ShipLevelRules.expeditionFailureChance(host.getLevel(), ConfigHandler.maxLevel);
 
             if (host.getRandom().nextFloat() < failChance) {
                 ItemStack coal = new ItemStack(Items.CHARCOAL, 1);
@@ -799,7 +800,7 @@ public class TaskHelper {
             luck = Math.max(lv1, lv2);
 
             // add level modifier
-            luck += (float) ship.getLevel() / ConfigHandler.maxLevel * 1.5F;
+            luck += ShipLevelRules.expeditionLuckContribution(ship.getLevel(), ConfigHandler.maxLevel);
         } else if (!(host instanceof IShipAttackBase)) {
             return;
         }
@@ -1093,8 +1094,17 @@ public class TaskHelper {
         return stack.getCount() < oldCount;
     }
 
+    private static boolean moveItemToConfiguredInventory(BlockEntity provider, List<IItemHandler> handlers,
+                                                         int taskSide, int type, ItemStack stack) {
+        if (provider instanceof WorldlyContainer container) {
+            return InventoryHelper.insertItemThroughTaskSides(container, stack, taskSide, type);
+        }
+        return moveItemToHandlers(handlers, stack);
+    }
+
     private static boolean moveMatchingOutputToShip(List<IItemHandler> handlers, CapaShipInventory inventory,
-                                                    ItemStack target, boolean checkMetadata, boolean checkNbt) {
+                                                    BasicEntityShip host, ItemStack target,
+                                                    boolean checkMetadata, boolean checkNbt) {
         for (IItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack visible = handler.getStackInSlot(slot);
@@ -1107,6 +1117,10 @@ public class TaskHelper {
 
                 ItemStack extracted = handler.extractItem(slot, simulated.getCount(), false);
                 if (!extracted.isEmpty() && inventory.addItemStackToInventory(extracted)) {
+                    return true;
+                }
+                if (!extracted.isEmpty()) {
+                    dropItemOnGround(host, extracted);
                     return true;
                 }
             }

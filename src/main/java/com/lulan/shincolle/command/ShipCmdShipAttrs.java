@@ -1,7 +1,8 @@
 package com.lulan.shincolle.command;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.entity.ShipLevelRules;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -24,7 +25,7 @@ import net.minecraft.world.phys.Vec3;
  * Requires OP level 2.
  * <p>
  * Args:
- * level - Ship level (1-150, required)
+ * level - Ship level (1 to the configured maximum, required)
  * bonusHP - Bonus HP points (0-100, optional)
  * bonusATK - Bonus ATK points (0-100, optional)
  * bonusDEF - Bonus DEF points (0-100, optional)
@@ -37,7 +38,7 @@ public class ShipCmdShipAttrs {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("shipattrs")
                 .requires(s -> s.hasPermission(2))
-                .then(Commands.argument("level", IntegerArgumentType.integer(1, 150))
+                .then(Commands.argument("level", IntegerArgumentType.integer(1))
                         // /shipattrs <level>
                         .executes(ctx -> execute(ctx.getSource(),
                                 IntegerArgumentType.getInteger(ctx, "level"),
@@ -179,8 +180,14 @@ public class ShipCmdShipAttrs {
             return 0;
         }
 
+        if (!ShipLevelRules.acceptsLevel(level, ConfigHandler.maxLevel)) {
+            source.sendFailure(Component.literal(
+                    "[ShinColle] Level exceeds configured maximum " + ConfigHandler.maxLevel + "."));
+            return 0;
+        }
+
         // Set ship level
-        ship.setStateMinor(ID.M.ShipLevel, level);
+        ship.setShipLevel(level, false);
 
         // Set bonus attrs
         byte[] bonus = new byte[]{

@@ -3,12 +3,17 @@ package com.lulan.shincolle.crafting;
 import com.google.gson.JsonObject;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.init.ModRecipes;
+import com.lulan.shincolle.item.BasicEquip;
+import com.lulan.shincolle.item.EquipAmmo;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
@@ -19,10 +24,8 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Custom crafting recipe: Enchant Shell
@@ -40,13 +43,13 @@ import java.util.Objects;
  * 10% (cap 100%)
  * - Different potion or amplifier: reset to duration=100, chance=20%
  * <p>
- * NBT keys on the result ammo:
- * "PID" - potion effect registry ID (String)
- * "PLEVEL" - amplifier (int)
- * "PTIME" - duration in ticks (int)
- * "PCHANCE" - chance percentage (int, max 100)
+ * NBT on the result ammo: the {@code PList} list contains one compound with
+ * {@code PID} (numeric mob effect ID), {@code PLV} (amplifier), {@code PTick}
+ * (duration in ticks), and {@code PChance} (percentage, capped at 100).
  */
 public class RecipeEnchantShell implements CraftingRecipe {
+
+    public static final int ENCHANT_SHELL_VARIANT = 7;
 
     private final ResourceLocation id;
     private final CraftingBookCategory category;
@@ -65,6 +68,9 @@ public class RecipeEnchantShell implements CraftingRecipe {
         // Center slot (1, 1) must be equip_ammo
         ItemStack center = container.getItem(container.getWidth() + 1);
         if (center.isEmpty() || center.getItem() != ModItems.EQUIP_AMMO.get()) {
+            return false;
+        }
+        if (BasicEquip.getEquipMeta(center) != ENCHANT_SHELL_VARIANT) {
             return false;
         }
 
@@ -141,32 +147,44 @@ public class RecipeEnchantShell implements CraftingRecipe {
             return ItemStack.EMPTY;
         }
 
-        // Use the first effect from the potion
+        // Use the first effect from the potion.
+        //
+        // The stored shape has to be the one the consumers read: EquipAmmo's tooltip and
+        // LegacyBasicEquipEffects both walk the "PList" list and take PID as a numeric effect id
+        // (MobEffect.byId), with PLV / PTick / PChance inside. Writing flat string-keyed tags
+        // instead produced a shell that showed nothing and applied nothing.
         MobEffectInstance effect = effects.get(0);
-        String potionId = Objects.requireNonNull(ForgeRegistries.MOB_EFFECTS
-                .getKey(effect.getEffect())).toString();
-        int amplifier = effect.getAmplifier();
-
-        // Apply/stack potion NBT onto the ammo
-        CompoundTag tag = result.getOrCreateTag();
-
-        String existingPID = tag.getString("PID");
-        int existingLevel = tag.getInt("PLEVEL");
-
-        if (existingPID.equals(potionId) && existingLevel == amplifier) {
-            // Same potion and amplifier: stack duration and chance
-            int existingTime = tag.getInt("PTIME");
-            int existingChance = tag.getInt("PCHANCE");
-
-            tag.putInt("PTIME", existingTime + 20);
-            tag.putInt("PCHANCE", Math.min(100, existingChance + 10));
-        } else {
-            // Different potion or amplifier: reset
-            tag.putString("PID", potionId);
-            tag.putInt("PLEVEL", amplifier);
-            tag.putInt("PTIME", 100);
-            tag.putInt("PCHANCE", 20);
+        int potionId = MobEffect.getId(effect.getEffect());
+        if (potionId < 1) {
+            return result;
         }
+        int amplifier = effect.getAmplifier();
+        int durationTicks = 100;
+        int chancePercent = 20;
+
+        // Crafting the same potion into the same shell again extends it, as upstream did.
+        CompoundTag existingTag = center.getTag();
+        if (existingTag != null) {
+            CompoundTag previous = existingTag.getList(EquipAmmo.PLIST, Tag.TAG_COMPOUND).getCompound(0);
+            if (previous.getInt(EquipAmmo.PID) == potionId
+                    && previous.getInt(EquipAmmo.PLEVEL) == amplifier) {
+                durationTicks = previous.getInt(EquipAmmo.PTIME) + 20;
+                chancePercent = Math.min(100, previous.getInt(EquipAmmo.PCHANCE) + 10);
+            }
+        }
+
+        CompoundTag stored = new CompoundTag();
+        stored.putInt(EquipAmmo.PID, potionId);
+        stored.putInt(EquipAmmo.PLEVEL, amplifier);
+        stored.putInt(EquipAmmo.PTIME, durationTicks);
+        stored.putInt(EquipAmmo.PCHANCE, chancePercent);
+
+        ListTag list = new ListTag();
+        list.add(stored);
+
+        // Upstream replaced the whole tag here, which was safe when the variant lived in item
+        // damage. In 1.20.1 the variant is NBT (EquipMeta), so only the list may be written.
+        result.getOrCreateTag().put(EquipAmmo.PLIST, list);
 
         return result;
     }
@@ -178,7 +196,7 @@ public class RecipeEnchantShell implements CraftingRecipe {
 
     @Override
     public ItemStack getResultItem(RegistryAccess registryAccess) {
-        return new ItemStack(ModItems.EQUIP_AMMO.get());
+        return ((BasicEquip) ModItems.EQUIP_AMMO.get()).createStack(ENCHANT_SHELL_VARIANT);
     }
 
     @Override

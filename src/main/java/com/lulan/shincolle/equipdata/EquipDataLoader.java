@@ -53,6 +53,14 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> object, ResourceManager resourceManager,
                           ProfilerFiller profiler) {
+        EquipDataSnapshot candidate = parseDefinitions(object);
+        if (!publishCandidate(candidate)) {
+            return;
+        }
+        ShinColle.LOGGER.info("Loaded {} ship equipment definitions", serverSnapshot.byId().size());
+    }
+
+    static EquipDataSnapshot parseDefinitions(Map<ResourceLocation, JsonElement> object) {
         Map<ResourceLocation, EquipDefinition> definitions = new HashMap<>();
         Map<ResourceLocation, Map<Integer, EquipDefinition>> itemVariants = new HashMap<>();
         Map<Integer, EquipDefinition> legacyDefinitions = new HashMap<>();
@@ -83,11 +91,7 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
             }
         }
 
-        EquipDataSnapshot candidate = new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
-        if (!publishCandidate(candidate)) {
-            return;
-        }
-        ShinColle.LOGGER.info("Loaded {} ship equipment definitions", serverSnapshot.byId().size());
+        return new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
     }
 
     static boolean publishCandidate(EquipDataSnapshot candidate) {
@@ -182,9 +186,12 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
 
         int rollType = json.has("roll_type")
                 ? requireNonNegative(requireInt(json, "roll_type"), "roll_type") : equipType;
+        EquipAvailability availability = json.has("availability")
+                ? EquipAvailability.fromJsonName(requireString(json, "availability"))
+                : EquipAvailability.ANY;
 
         return new EquipDefinition(id, item, variant, equipType, legacyEquipId, stats, attackEffects, compatible,
-                enchantType, material, amount, rareMean, rollType);
+                enchantType, material, amount, rareMean, rollType, availability);
     }
 
     private static Map<ResourceLocation, ShipAttackEffect> parseAttackEffects(JsonObject json) {

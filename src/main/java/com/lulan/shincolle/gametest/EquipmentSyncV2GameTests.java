@@ -5,6 +5,7 @@ import com.lulan.shincolle.api.attribute.ShipAttributeType;
 import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.equipdata.ClientEquipData;
+import com.lulan.shincolle.equipdata.EquipAvailability;
 import com.lulan.shincolle.equipdata.EquipDataSnapshot;
 import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.network.EquipmentSyncV2Codec;
@@ -26,8 +27,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
-/** Regression coverage for the equipment definition synchronization codec (schema v3). */
+/** Regression coverage for the equipment definition synchronization codec (schema v4). */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class EquipmentSyncV2GameTests {
@@ -50,7 +52,8 @@ public final class EquipmentSyncV2GameTests {
         ShipAttributeLayout sourceLayout = layoutWithOpaque();
         ShipAttackEffect poison = new ShipAttackEffect(POISON, 2, 120, 35);
         EquipDefinition first = definition("v2_first", 1, 101, sourceLayout,
-                Map.of(CORE_HP, 2.5F, OPAQUE, 0.25F), Map.of(POISON, poison));
+                Map.of(CORE_HP, 2.5F, OPAQUE, 0.25F), Map.of(POISON, poison),
+                EquipAvailability.TREASURE_ONLY);
         EquipDefinition second = definition("v2_second", 2, null, sourceLayout,
                 Map.of(OPAQUE, 0.5F));
         EquipDataSnapshot source = snapshot(List.of(first, second),
@@ -58,7 +61,7 @@ public final class EquipmentSyncV2GameTests {
 
         S2CEquipDataSyncPacket packet = roundTrip(source);
         if (!packet.isValid()) {
-            throw new AssertionError("Schema v3 round-trip failed: " + packet.decodeError());
+            throw new AssertionError("Schema v4 round-trip failed: " + packet.decodeError());
         }
         EquipDataSnapshot decoded = packet.snapshot();
         EquipDefinition decodedFirst = decoded.get(first.id());
@@ -77,7 +80,10 @@ public final class EquipmentSyncV2GameTests {
         assertFloat(0.25F, decodedFirst.stats().get(OPAQUE), "opaque first value");
         assertFloat(0.5F, decodedSecond.stats().get(OPAQUE), "opaque second value");
         if (!poison.equals(decodedFirst.attackEffects().get(POISON))) {
-            throw new AssertionError("Attack effect did not survive the schema v3 round trip");
+            throw new AssertionError("Attack effect did not survive the schema v4 round trip");
+        }
+        if (!decodedFirst.availability().canLoot() || decodedFirst.availability().canDevelop()) {
+            throw new AssertionError("Availability did not survive the schema v4 round trip");
         }
         if (ShipAttributeLayout.current() != canonical || canonical.indexOf(OPAQUE) >= 0) {
             throw new AssertionError("Equipment packet decoding polluted the canonical attribute layout");
@@ -232,6 +238,15 @@ public final class EquipmentSyncV2GameTests {
             tooManyEffects.writeVarInt(EquipmentSyncV2Codec.MAX_ATTACK_EFFECTS_PER_DEFINITION + 1);
             assertRejected(tooManyEffects, retainedSnapshot, "attack effect count overflow");
 
+            FriendlyByteBuf invalidAvailability = malformedHeader();
+            writeDefinitionStart(invalidAvailability, id("sync_test", "invalid_availability"));
+            invalidAvailability.writeVarInt(0);
+            invalidAvailability.writeVarInt(0);
+            writeDefinitionTail(invalidAvailability, "command_only");
+            invalidAvailability.writeVarInt(0);
+            invalidAvailability.writeVarInt(0);
+            assertRejected(invalidAvailability, retainedSnapshot, "unknown availability name");
+
             FriendlyByteBuf tooManyDefinitions = new FriendlyByteBuf(Unpooled.buffer());
             tooManyDefinitions.writeVarInt(EquipmentSyncV2Codec.SCHEMA_VERSION);
             tooManyDefinitions.writeVarInt(EquipmentSyncV2Codec.MAX_DEFINITIONS + 1);
@@ -308,6 +323,33 @@ public final class EquipmentSyncV2GameTests {
         helper.succeed();
     }
 
+    /** A new snapshot and the following clear notify once each; repeated clears stay silent. */
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void equipmentSyncV2ClearNotifiesInstallListenersOnlyWhenStateChanges(GameTestHelper helper) {
+        EquipDataSnapshot original = ClientEquipData.current();
+        AtomicInteger notifications = new AtomicInteger();
+        Runnable listener = notifications::incrementAndGet;
+        EquipDefinition installedDefinition = definition("listener_snapshot", 8, 808,
+                ShipAttributeLayout.current(), Map.of(CORE_HP, 8F));
+        EquipDataSnapshot installed = snapshot(List.of(installedDefinition), Map.of(ITEM, Map.of(8, installedDefinition)),
+                Map.of(808, installedDefinition));
+        ClientEquipData.addInstallListener(listener);
+        try {
+            ClientEquipData.install(installed);
+            assertInt(1, notifications.get(), "install listener count");
+
+            ClientEquipData.clear();
+            assertInt(2, notifications.get(), "clear listener count");
+
+            ClientEquipData.clear();
+            assertInt(2, notifications.get(), "repeated clear listener count");
+        } finally {
+            ClientEquipData.removeInstallListener(listener);
+            ClientEquipData.install(original);
+        }
+        helper.succeed();
+    }
+
     private static EquipDataSnapshot snapshot(List<EquipDefinition> definitions,
                                               Map<ResourceLocation, Map<Integer, EquipDefinition>> variants,
                                               Map<Integer, EquipDefinition> legacy) {
@@ -324,10 +366,17 @@ public final class EquipmentSyncV2GameTests {
     private static EquipDefinition definition(String path, int variant, Integer legacyId, ShipAttributeLayout layout,
                                                Map<ResourceLocation, Float> stats,
                                                Map<ResourceLocation, ShipAttackEffect> attackEffects) {
+        return definition(path, variant, legacyId, layout, stats, attackEffects, EquipAvailability.ANY);
+    }
+
+    private static EquipDefinition definition(String path, int variant, Integer legacyId, ShipAttributeLayout layout,
+                                               Map<ResourceLocation, Float> stats,
+                                               Map<ResourceLocation, ShipAttackEffect> attackEffects,
+                                               EquipAvailability availability) {
         ShipAttributeValues.Builder values = ShipAttributeValues.builder(layout);
         stats.forEach(values::set);
         return new EquipDefinition(id("sync_test", path), ITEM, variant, 0, legacyId, values.build(),
-                attackEffects, List.of("cannon"), 0, "grudge", 1, 2, 0);
+                attackEffects, List.of("cannon"), 0, "grudge", 1, 2, 0, availability);
     }
 
     private static ShipAttributeLayout layoutWithOpaque() {
@@ -416,12 +465,17 @@ public final class EquipmentSyncV2GameTests {
     }
 
     private static void writeDefinitionTail(FriendlyByteBuf buffer) {
+        writeDefinitionTail(buffer, EquipAvailability.ANY.jsonName());
+    }
+
+    private static void writeDefinitionTail(FriendlyByteBuf buffer, String availabilityName) {
         buffer.writeVarInt(0);
         buffer.writeVarInt(0);
         buffer.writeUtf("grudge", 128);
         buffer.writeVarInt(0);
         buffer.writeVarInt(0);
         buffer.writeVarInt(0);
+        buffer.writeUtf(availabilityName, 32);
     }
 
     private static void writeAttackEffect(FriendlyByteBuf buffer, ResourceLocation effectId,
@@ -450,14 +504,14 @@ public final class EquipmentSyncV2GameTests {
         try {
             S2CEquipDataSyncPacket packet = new S2CEquipDataSyncPacket(buffer);
             if (packet.isValid() || packet.applyToClient()) {
-                throw new AssertionError("Malformed v3 synchronization was accepted: " + caseName);
+                throw new AssertionError("Malformed v4 synchronization was accepted: " + caseName);
             }
             if (expectedErrorPart != null && (packet.decodeError() == null
                     || !packet.decodeError().contains(expectedErrorPart))) {
                 throw new AssertionError(caseName + " was rejected for the wrong reason: " + packet.decodeError());
             }
             if (ClientEquipData.current() != expected) {
-                throw new AssertionError("Malformed v3 synchronization replaced client state: " + caseName);
+                throw new AssertionError("Malformed v4 synchronization replaced client state: " + caseName);
             }
         } finally {
             buffer.release();
@@ -475,6 +529,12 @@ public final class EquipmentSyncV2GameTests {
 
     private static void assertFloat(float expected, float actual, String name) {
         if (Float.compare(expected, actual) != 0) {
+            throw new AssertionError(name + ": expected " + expected + " but was " + actual);
+        }
+    }
+
+    private static void assertInt(int expected, int actual, String name) {
+        if (expected != actual) {
             throw new AssertionError(name + ": expected " + expected + " but was " + actual);
         }
     }
