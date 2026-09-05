@@ -150,7 +150,7 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 ## β版 v1.20.1-0.9.0 について
 
-配布されている最新版は `v1.20.1.0.8.2`(α版)です。次のリリースは **β版 `0.9.0`** になります。
+**β版 `0.9.0`** です。CurseForgeでの配布はこのバージョンが初回になります。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
 一通り遊べます。KubeJS連携・装備datapack・Javaアドオン向けPublic APIはこの版が初出です。
@@ -347,8 +347,7 @@ Please report bugs at
 
 ## About the beta release, v1.20.1-0.9.0
 
-The latest distributed build is `v1.20.1.0.8.2` (alpha). The next release is the
-**beta, `0.9.0`**.
+This is the **beta, `0.9.0`** - the first build distributed through CurseForge.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
 a fleet, fight, level up and marry. This release is the debut of KubeJS integration,
