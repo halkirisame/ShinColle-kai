@@ -20,17 +20,23 @@ public final class ShipLevelCapGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "ship_level_cap_config")
     public static void configuredCapsApplyThroughLevelOneThousand(GameTestHelper helper) {
-        int originalUnmarriedCap = ConfigHandler.COMMON.maxLevelUnmarried.get();
-        int originalAbsoluteCap = ConfigHandler.COMMON.maxLevel.get();
+        // getShipLevelCap() reads ConfigHandler's cached static fields, not the
+        // ForgeConfigSpec values. Driving this through ConfigValue#set dragged in
+        // Forge's asynchronous config save and file-watcher reload, which calls
+        // syncConfig() again on its own schedule - so a stale reload could land
+        // between the set and the assert (seen in CI as both "expected 600 but got
+        // 100" and "restored 100 but got 600"). Assign the cached fields the test
+        // actually reads instead; the read path under test is unchanged.
+        int originalUnmarriedCap = ConfigHandler.maxLevelUnmarried;
+        int originalAbsoluteCap = ConfigHandler.maxLevel;
 
         try {
             assertEquals(100, ConfigHandler.COMMON.maxLevelUnmarried.getDefault(),
                     "maxLevelUnmarried config default");
             assertEquals(150, ConfigHandler.COMMON.maxLevel.getDefault(), "maxLevel config default");
 
-            ConfigHandler.COMMON.maxLevelUnmarried.set(100);
-            ConfigHandler.COMMON.maxLevel.set(150);
-            ConfigHandler.syncConfig();
+            ConfigHandler.maxLevelUnmarried = 100;
+            ConfigHandler.maxLevel = 150;
 
             BasicEntityShip ship = ModEntities.BB_KONGOU.get().create(helper.getLevel());
             if (ship == null) {
@@ -43,9 +49,8 @@ public final class ShipLevelCapGameTests {
             ship.setShipLevel(151, false);
             assertEquals(150, ship.getLevel(), "default absolute cap rejection");
 
-            ConfigHandler.COMMON.maxLevelUnmarried.set(600);
-            ConfigHandler.COMMON.maxLevel.set(1000);
-            ConfigHandler.syncConfig();
+            ConfigHandler.maxLevelUnmarried = 600;
+            ConfigHandler.maxLevel = 1000;
 
             ship.setStateFlag(ID.F.IsMarried, false);
             assertEquals(600, ship.getShipLevelCap(), "configured unmarried cap");
@@ -56,9 +61,8 @@ public final class ShipLevelCapGameTests {
             ship.setShipLevel(1001, false);
             assertEquals(1000, ship.getLevel(), "configured absolute cap rejection");
         } finally {
-            ConfigHandler.COMMON.maxLevelUnmarried.set(originalUnmarriedCap);
-            ConfigHandler.COMMON.maxLevel.set(originalAbsoluteCap);
-            ConfigHandler.syncConfig();
+            ConfigHandler.maxLevelUnmarried = originalUnmarriedCap;
+            ConfigHandler.maxLevel = originalAbsoluteCap;
         }
 
         assertEquals(originalUnmarriedCap, ConfigHandler.maxLevelUnmarried, "restored unmarried cap");
