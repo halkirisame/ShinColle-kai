@@ -33,10 +33,34 @@ public final class EquipmentPublicationGameTests {
             "shincolle_example", "equipment", "observation_spyglass.json");
     private static final Path ADDON_EXAMPLE = projectPath("examples", "java_addon", "src", "main", "resources",
             "data", "shincolle_example", "equipment", "sonar_module.json");
+    private static final Path EQUIPMENT_DATA = projectPath("src", "main", "resources", "data",
+            "shincolle_kai", "equipment");
     private static final ResourceLocation CUSTOM_ATTRIBUTE = id("shincolle_example", "sonar_precision");
     private static final ResourceLocation GLOWING = id("minecraft", "glowing");
 
     private EquipmentPublicationGameTests() {
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void debugDefinitionsAreExplicitlyUnobtainable(GameTestHelper helper) {
+        try (var paths = Files.list(EQUIPMENT_DATA)) {
+            var debugDefinitions = paths
+                    .filter(path -> path.getFileName().toString().contains("debug"))
+                    .toList();
+            if (debugDefinitions.isEmpty()) {
+                throw new AssertionError("No debug equipment definitions were found");
+            }
+            for (Path path : debugDefinitions) {
+                JsonObject definition = readJson(path);
+                if (!definition.has("availability")
+                        || !"unobtainable".equals(definition.get("availability").getAsString())) {
+                    throw new AssertionError(path.getFileName() + " must declare availability=unobtainable");
+                }
+            }
+        } catch (IOException exception) {
+            throw new AssertionError("Failed to enumerate debug equipment definitions", exception);
+        }
+        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
@@ -54,6 +78,8 @@ public final class EquipmentPublicationGameTests {
                         .getAsJsonArray("enum")), "compatibility values");
         assertSetEquals(EquipmentJsonFormat.ENCHANT_TYPES, enumValues(properties, "enchant_type"),
                 "enchant types");
+        assertSetEquals(EquipmentJsonFormat.AVAILABILITY, enumValues(properties, "availability"),
+                "availability values");
 
         JsonObject developProperties = properties.getAsJsonObject("develop").getAsJsonObject("properties");
         assertSetEquals(EquipmentJsonFormat.DEVELOP_FIELDS, developProperties.keySet(), "develop fields");

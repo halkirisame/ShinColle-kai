@@ -2,6 +2,8 @@ package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipAttackBase;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CSpawnParticlePacket;
 import com.lulan.shincolle.reference.ID;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -49,8 +51,24 @@ public class ShipSkillAttackGoal extends Goal {
         return canUse();
     }
 
+    /**
+     * [BETA STOPGAP] Announce a skill activation visually.
+     * <p>
+     * The original gives every skill ship its own effect (Tenryuu 9 sites,
+     * Tatsuta 9, Nagato 5, Yamato 5, ...), none of which were ported - skills
+     * fire silently. Until those per-ship effects are restored, emit one
+     * generic burst so a skill is visible at all. Types 2 and 8 are what the
+     * port currently renders as an explosion and heavy smoke.
+     */
     @Override
     public void start() {
+        if (this.entity.level().isClientSide()) {
+            return;
+        }
+        ModNetworking.sendToAllTracking(
+                new S2CSpawnParticlePacket((byte) 2, this.entity.getId(), null), this.entity);
+        ModNetworking.sendToAllTracking(
+                new S2CSpawnParticlePacket((byte) 8, this.entity.getId(), null), this.entity);
     }
 
     @Override

@@ -277,6 +277,20 @@ public abstract class BasicEntityShipHostile extends Mob
         return this.scaleLevel < 2; // bosses don't despawn
     }
 
+    /**
+     * [PORT] 1.10.2 parity: hostile ships must vanish on Peaceful.
+     * <p>
+     * The original extends {@code EntityMob}, whose {@code onUpdate} kills the entity
+     * outright while the difficulty is Peaceful. This port extends {@link Mob} rather
+     * than {@code Monster}, and vanilla only overrides this to {@code true} on
+     * {@code Monster} - so registering as {@code MobCategory.MONSTER} was not enough
+     * and hostile ships survived Peaceful indefinitely.
+     */
+    @Override
+    protected boolean shouldDespawnInPeaceful() {
+        return true;
+    }
+
     // ========== Invulnerability ==========
 
     @Override

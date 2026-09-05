@@ -2,6 +2,7 @@ package com.lulan.shincolle.handler;
 
 import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
+import com.lulan.shincolle.entity.ShipLevelRules;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
@@ -30,10 +31,10 @@ public class ConfigHandler {
     public static final Common COMMON;
 
     // ========== Cached values for backward compatibility ==========
-    /**
-     * Max ship level (not configurable)
-     */
-    public static final int maxLevel = 150;
+    /** Absolute and married ship level cap, synchronized from common config. */
+    public static volatile int maxLevel = ShipLevelRules.DEFAULT_ABSOLUTE_CAP;
+    /** Unmarried ship level cap, synchronized from common config. */
+    public static volatile int maxLevelUnmarried = ShipLevelRules.DEFAULT_UNMARRIED_CAP;
     /**
      * Max attrs limit, -1 = no limit, index by ID.Attrs
      */
@@ -187,6 +188,8 @@ public class ConfigHandler {
      * Called after config load/reload via ModConfigEvent.
      */
     public static synchronized void syncConfig() {
+        maxLevel = COMMON.maxLevel.get();
+        maxLevelUnmarried = COMMON.maxLevelUnmarried.get();
         modernLimit = COMMON.attrsLimitModernization.get();
 
         // Sync double arrays
@@ -510,6 +513,8 @@ public class ConfigHandler {
 
         // ==================== SHIP COMBAT ====================
         public final IntValue dmgTakenSvS;
+        public final IntValue maxLevel;
+        public final IntValue maxLevelUnmarried;
         public final IntValue expModifier;
         public final IntValue attrsLimitModernization;
         public final IntValue cdSearchLight;
@@ -733,8 +738,22 @@ public class ConfigHandler {
                     .comment("Ship vs Ship damage modifier in percent (100 = 100%, 20 = 20%)")
                     .defineInRange("dmgTakenSvS", 100, 0, 10000);
 
+            maxLevelUnmarried = builder
+                    .comment("Maximum natural level for unmarried ships. Capped by maxLevel if set higher.",
+                            "Values through 1000 are supported; higher values are accepted but unsupported.")
+                    .defineInRange("maxLevelUnmarried", ShipLevelRules.DEFAULT_UNMARRIED_CAP,
+                            1, Integer.MAX_VALUE);
+
+            maxLevel = builder
+                    .comment("Maximum level for married ships and administrative level changes.",
+                            "Also normalizes level-based expedition failure chance and luck.",
+                            "Values through 1000 are supported; higher values are accepted but unsupported.")
+                    .defineInRange("maxLevel", ShipLevelRules.DEFAULT_ABSOLUTE_CAP,
+                            1, Integer.MAX_VALUE);
+
             expModifier = builder
-                    .comment("Ship experience modifier. Example: 20 means level 150 requires 150*20+20 = 3020 exp")
+                    .comment("Ship experience modifier. At level L, reaching the next level requires "
+                            + "(L + 1) * this value experience.")
                     .defineInRange("expModifier", 20, 1, 10000);
 
             attrsLimitModernization = builder

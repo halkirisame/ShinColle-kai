@@ -6,15 +6,18 @@ import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.crafting.EquipCalc;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.equipdata.EquipDefinition;
+import com.lulan.shincolle.equipdata.EquipTier;
 import com.lulan.shincolle.reference.Enums.EnumEquipEffectSP;
 import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.EnchantHelper;
 import net.minecraft.ChatFormatting;
+import net.minecraft.locale.Language;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
@@ -80,6 +83,43 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
             reportMissingDefinition(itemId, getEquipMeta(stack));
         }
         return definition;
+    }
+
+    /**
+     * Resolve a stack through whichever snapshot has it, without the missing-definition log.
+     *
+     * <p>For hot paths such as {@link #getRarity(ItemStack)}, which runs on every name render.</p>
+     */
+    private static EquipDefinition lookupDefinitionQuietly(ItemStack stack) {
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (itemId == null) {
+            return null;
+        }
+        int variant = getEquipMeta(stack);
+        EquipDefinition definition = EquipDataRegistry.client().byItemVariant(itemId, variant);
+        return definition != null ? definition : EquipDataRegistry.server().byItemVariant(itemId, variant);
+    }
+
+    /**
+     * Colors the equipment name by its development tier: white, yellow, aqua, light purple.
+     *
+     * <p>Unlike vanilla, an enchanted copy is <em>not</em> promoted a step. The color states the
+     * grade of the equipment itself; what a particular copy rolled is what the stat lines are
+     * for. Without this, a starter cannon with a development enchantment would read as the same
+     * grade as a late-game one.</p>
+     */
+    @Override
+    public Rarity getRarity(ItemStack stack) {
+        EquipDefinition definition = lookupDefinitionQuietly(stack);
+        if (definition == null) {
+            return super.getRarity(stack);
+        }
+        return switch (EquipTier.of(definition)) {
+            case BASIC -> Rarity.COMMON;
+            case IMPROVED -> Rarity.UNCOMMON;
+            case ADVANCED -> Rarity.RARE;
+            case ELITE -> Rarity.EPIC;
+        };
     }
 
     /** Resolve a stack through the display-only client item/variant index. */
@@ -202,6 +242,8 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
         EquipDefinition def = getClientDefinition(stack);
 
         if (def != null) {
+            appendVariantDescription(stack, tooltip);
+
             try {
                 ShipAttributeValues main = EquipCalc.calcEquipStatWithEnchant(def.enchantType(), def.stats(),
                         EnchantHelper.calcEnchantEffect(stack));
@@ -253,13 +295,35 @@ public abstract class BasicEquip extends BasicItem implements IShipResourceItem 
                 default -> Component.translatable("item.shincolle_kai.grudge").getString();
             };
 
-            drawstr = ChatFormatting.DARK_PURPLE + Component.translatable("gui.shincolle_kai.equip.matstype").getString() +
-                    ChatFormatting.GRAY + " (" + matname + ") " +
-                    String.format("%.0f", (float) def.developAmount()) + "  " +
-                    ChatFormatting.DARK_PURPLE + Component.translatable("gui.shincolle_kai.equip.matsrarelevel").getString()
-                    +
-                    ChatFormatting.GRAY + " " + String.format("%.0f", (float) def.rareMean());
-            tooltip.add(Component.literal(drawstr));
+            // Upstream put the material and the rare level on one line. With the stars added it
+            // grew wide enough to stretch the whole tooltip box, so they get a line each.
+            tooltip.add(Component.literal(
+                    ChatFormatting.DARK_PURPLE
+                            + Component.translatable("gui.shincolle_kai.equip.matstype").getString()
+                            + ChatFormatting.GRAY + " (" + matname + ") "
+                            + String.format("%.0f", (float) def.developAmount())));
+
+            // The raw rare_mean says nothing on its own about how high this sits. Stars read at a
+            // glance and, being text, are reachable from JEI's "#" search.
+            tooltip.add(Component.literal(
+                    ChatFormatting.DARK_PURPLE
+                            + Component.translatable("gui.shincolle_kai.equip.matsrarelevel").getString()
+                            + ChatFormatting.GRAY + " " + EquipTier.of(def).starText()
+                            + " " + String.format("%.0f", (float) def.rareMean())));
+        }
+    }
+
+    /**
+     * Adds the variant's own explanation line when one is translated.
+     *
+     * <p>Keyed off the variant's description ID plus {@code .desc}, so a variant whose behaviour
+     * is not obvious from its stats can say what it does without every other variant growing a
+     * line. Absent key, absent line.</p>
+     */
+    private static void appendVariantDescription(ItemStack stack, List<Component> tooltip) {
+        String key = stack.getItem().getDescriptionId(stack) + ".desc";
+        if (Language.getInstance().has(key)) {
+            tooltip.add(Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 

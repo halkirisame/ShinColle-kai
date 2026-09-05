@@ -32,6 +32,31 @@ public class CapaShipInventory {
         }
     }
 
+    /**
+     * Whether a cargo slot is usable given how many inventory pages this ship has
+     * unlocked.
+     * <p>
+     * [PORT] 1.10.2 parity: the original gates insertion on this
+     * (`CapaShipInventory#isSlotAvailable`), and its `getFirstSlotForItem` /
+     * `getFirstSlotStackable` stop scanning at the first unavailable slot. The port
+     * dropped the gate, so picked-up items were written into pages the player has
+     * not unlocked and cannot open. Worse, {@code BasicEntityShip#findItemInSlot}
+     * does honour the page limit, so anything stranded there was invisible to the
+     * ship's own consumption as well.
+     */
+    public boolean isSlotAvailable(int slotid) {
+        if (!(owner instanceof BasicEntityShip ship)) {
+            // No host to ask (the client-side placeholder container). Keep every
+            // slot usable rather than silently shrinking the inventory.
+            return true;
+        }
+        int pages = ship.getInventoryPageSize();
+        if (pages < 2 && slotid >= EquipSlots + 36) {
+            return false;
+        }
+        return pages >= 1 || slotid < EquipSlots + 18;
+    }
+
     public ItemStack getStackInSlot(int slot) {
         if (slot >= 0 && slot < stacks.length) {
             return stacks[slot];
@@ -108,6 +133,11 @@ public class CapaShipInventory {
 
         int cargoStart = Math.min(EquipSlots, stacks.length);
         for (int i = cargoStart; i < stacks.length && !stack.isEmpty(); i++) {
+            // Original stops the scan here rather than skipping: the locked pages
+            // are always the tail of the array.
+            if (!isSlotAvailable(i)) {
+                break;
+            }
             ItemStack itemStack = stacks[i];
             if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
                 int toAdd = Math.min(itemStack.getMaxStackSize() - itemStack.getCount(), stack.getCount());
@@ -119,6 +149,9 @@ public class CapaShipInventory {
         }
 
         for (int i = cargoStart; i < stacks.length && !stack.isEmpty(); i++) {
+            if (!isSlotAvailable(i)) {
+                break;
+            }
             if (stacks[i].isEmpty()) {
                 int toAdd = Math.min(stack.getMaxStackSize(), stack.getCount());
                 ItemStack inserted = stack.copy();

@@ -3,6 +3,7 @@
   "item": "shincolle_kai:equip_airplane",
   "variant": 22,
   "equip_type": "air_r_hi",
+  "availability": "unobtainable",
   "compatible": [
     "cannon",
     "aircraft"

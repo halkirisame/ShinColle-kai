@@ -39,8 +39,15 @@ public class LayerShipHeldItem<T extends BasicEntityShip> extends RenderLayer<T,
         if (!entity.canShowHeldItem())
             return;
 
-        ItemStack mainHand = entity.getMainHandItem();
-        ItemStack offHand = entity.getOffhandItem();
+        // [PORT] 1.10.2 parity: the original overrides getHeldItemMainhand() to
+        // return the ship's own inventory slot 22 (offhand: 23). The port kept
+        // those reads in getMainHandItemShip()/getOffHandItemShip() instead of
+        // overriding the vanilla accessors, so reading getMainHandItem() here
+        // always saw the empty vanilla equipment slot and nothing ever drew.
+        // Read the ship's slots directly rather than overriding the vanilla
+        // accessor, which vanilla also consults for melee damage and drops.
+        ItemStack mainHand = entity.getMainHandItemShip();
+        ItemStack offHand = entity.getOffHandItemShip();
 
         if (!mainHand.isEmpty()) {
             renderHeldItem(poseStack, buffer, packedLight, entity, mainHand,

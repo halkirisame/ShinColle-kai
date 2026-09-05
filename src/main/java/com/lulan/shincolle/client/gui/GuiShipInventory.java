@@ -157,6 +157,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             renderMoraleIcon(graphics, ship);
             renderShipIdentityIcons(graphics, ship);
             renderAISettingsButton(graphics);
+            renderAppearanceToggles(graphics, ship);
             renderInventoryTaskOverlay(graphics, ship);
             if (ModList.get().isLoaded("curios")) {
                 renderEquipPanel(graphics);
@@ -258,7 +259,10 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
         // The background sheet still has the old tab gutter and row grooves
         // drawn in here, so blank the whole former strip before drawing.
-        graphics.fill(this.leftPos + 170, this.topPos + 128,
+        // Player inventory starts at x=8 with nine 18px columns, so it ends at
+        // x=170. Blanking must not start left of that or it paints over the last
+        // inventory column.
+        graphics.fill(this.leftPos + 171, this.topPos + 128,
                 this.leftPos + 256, this.topPos + 212, 0xFFC6C6C6);
 
         graphics.fill(x, y, x + b[2], y + b[3], 0xFF8B8B8B);
@@ -268,6 +272,110 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         String label = tr("gui.shincolle_kai.aisettings.title", "Settings");
         graphics.drawString(this.font, label,
                 x + (b[2] - this.font.width(label)) / 2, y + 4, 0x404040, false);
+    }
+
+    // ========== Appearance Toggles ==========
+
+    /** Toggle sprite size on {@link #TEXTURE}: ON at (0,214), OFF at (11,214). */
+    private static final int APPEAR_CELL = 11;
+    /** Toggles per row; a ship with more wraps onto further rows. */
+    private static final int APPEAR_COLS = 4;
+    /** Vertical pitch between grid rows. */
+    private static final int APPEAR_ROW_H = 12;
+    /**
+     * Left edge of the appearance strip, flush with the settings button above it
+     * (x=172). Must stay right of x=170, where the player inventory's last
+     * column ends.
+     */
+    private static final int APPEAR_X = 172;
+    private static final int APPEAR_GRID_Y = 151;
+
+    /**
+     * Number of model-part toggles this ship exposes, capped at the 8 that fit on
+     * one row. Every registered ship reports 0..8, so the cap never truncates.
+     */
+    private static int appearanceCellCount(BasicEntityShip ship) {
+        return Mth.clamp(ship.getStateMinor(ID.M.NumState), 0, 8);
+    }
+
+    /**
+     * Draw the model-part toggles and the held-item toggle, in the strip the old
+     * 8-page AI gutter used to occupy. These live here rather than in
+     * {@link GuiShipAISettings} because the grid also picks a ship's rensouhou
+     * summon type, which is a combat setting rather than decoration.
+     */
+    private void renderAppearanceToggles(GuiGraphics graphics, BasicEntityShip ship) {
+        int count = appearanceCellCount(ship);
+        int state = ship.getStateEmotion(ID.S.State);
+        for (int i = 0; i < count; i++) {
+            drawToggleSprite(graphics,
+                    this.leftPos + APPEAR_X + (i % APPEAR_COLS) * APPEAR_CELL,
+                    this.topPos + APPEAR_GRID_Y + (i / APPEAR_COLS) * APPEAR_ROW_H,
+                    (state & (1 << i)) != 0);
+        }
+
+        int heldY = this.topPos + appearanceHeldRelY(ship);
+        drawToggleSprite(graphics, this.leftPos + APPEAR_X, heldY,
+                ship.getStateFlag(ID.F.ShowHeldItem));
+        // Keep the label inside the 256px panel whatever the locale: 8 CJK glyphs
+        // already reach the edge from here.
+        String heldLabel = tr("gui.shincolle_kai.showhelditem", "Show Held Item");
+        int labelX = Math.max(APPEAR_X + APPEAR_CELL + 1,
+                Math.min(APPEAR_X + APPEAR_CELL + 2, this.imageWidth - this.font.width(heldLabel) - 2));
+        graphics.drawString(this.font, heldLabel,
+                this.leftPos + labelX, heldY + 2, 0x404040, false);
+    }
+
+    /** Rows the grid occupies for this ship; 0 when it has no model parts. */
+    private static int appearanceRowCount(BasicEntityShip ship) {
+        return (appearanceCellCount(ship) + APPEAR_COLS - 1) / APPEAR_COLS;
+    }
+
+    /** Y of the held-item row, pushed below however many grid rows are drawn. */
+    private static int appearanceHeldRelY(BasicEntityShip ship) {
+        return APPEAR_GRID_Y + appearanceRowCount(ship) * APPEAR_ROW_H + 2;
+    }
+
+    private void drawToggleSprite(GuiGraphics graphics, int x, int y, boolean on) {
+        graphics.blit(TEXTURE, x, y, on ? 0 : 11, 214, APPEAR_CELL, APPEAR_CELL);
+    }
+
+    /**
+     * Handle clicks on the appearance strip. Mirrors the state edit the settings
+     * screen used to perform, including the same button ids, so the server side
+     * is unchanged.
+     */
+    private boolean handleAppearanceClick(BasicEntityShip ship, int relX, int relY) {
+        if (relX < APPEAR_X) {
+            return false;
+        }
+
+        int rows = appearanceRowCount(ship);
+        int row = (relY - APPEAR_GRID_Y) / APPEAR_ROW_H;
+        if (relX >= APPEAR_X && relY >= APPEAR_GRID_Y && row >= 0 && row < rows
+                && (relY - APPEAR_GRID_Y) % APPEAR_ROW_H < APPEAR_CELL) {
+            int col = (relX - APPEAR_X) / APPEAR_CELL;
+            if (col >= 0 && col < APPEAR_COLS) {
+                int idx = row * APPEAR_COLS + col;
+                if (idx < appearanceCellCount(ship)) {
+                    int state = ship.getStateEmotion(ID.S.State) ^ (1 << idx);
+                    ship.setStateEmotion(ID.S.State, state, false);
+                    sendShipButton(ship, ID.B.ShipInv_ModelState01 + idx, state);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        int heldY = appearanceHeldRelY(ship);
+        if (relY >= heldY && relY < heldY + APPEAR_CELL
+                && relX < APPEAR_X + APPEAR_CELL) {
+            int newValue = ship.getStateFlag(ID.F.ShowHeldItem) ? 0 : 1;
+            ship.setStateFlagI(ID.F.ShowHeldItem, newValue);
+            sendShipButton(ship, ID.B.ShipInv_ShowHeld, newValue);
+            return true;
+        }
+        return false;
     }
 
     // ========== AI Page Tab Rendering ==========
@@ -346,14 +454,30 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int renderY = this.topPos + 100 + offsetY;
         float lookX = (float) (this.leftPos + 215 - mouseX);
         float lookY = (float) (this.topPos + 60 - mouseY);
-        InventoryScreen.renderEntityInInventoryFollowsMouse(
-                graphics,
-                renderX,
-                renderY,
-                scale,
-                lookX,
-                lookY,
-                ship);
+
+        // Vanilla's preview overwrites yBodyRot, yRot, yHeadRot and yHeadRotO, but
+        // leaves yBodyRotO alone. LivingEntityRenderer then takes the body angle as
+        // rotLerp(partialTick, yBodyRotO, yBodyRot), so it interpolates from the ship's
+        // real facing in the world towards the forced preview angle, while the head
+        // stays pinned at the preview angle. netHeadYaw is their difference, so a ship
+        // facing away from the preview angle showed its head twisted up to 180 degrees.
+        // Pre-set yBodyRotO to the value vanilla is about to assign to yBodyRot so the
+        // interpolation is a no-op and only the mouse offset remains.
+        float previewBodyRot = 180.0F + (float) Math.atan(lookX / 40.0F) * 20.0F;
+        float savedBodyRotO = ship.yBodyRotO;
+        ship.yBodyRotO = previewBodyRot;
+        try {
+            InventoryScreen.renderEntityInInventoryFollowsMouse(
+                    graphics,
+                    renderX,
+                    renderY,
+                    scale,
+                    lookX,
+                    lookY,
+                    ship);
+        } finally {
+            ship.yBodyRotO = savedBodyRotO;
+        }
     }
 
     /**
@@ -621,6 +745,8 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
             BasicEntityShip ship = this.menu.getShip();
             if (ship != null) {
+                if (handleAppearanceClick(ship, relX, relY))
+                    return true;
                 if (handleInfoPageClick(relX, relY))
                     return true;
                 if (handleInventoryPageClick(ship, relX, relY))

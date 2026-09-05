@@ -16,6 +16,8 @@ public interface IShipGuardian extends IShipAttackBase {
 
     BlockPos getLastWaypoint();
 
+    boolean hasLastWaypoint();
+
     void setLastWaypoint(BlockPos pos);
 
     int getWpStayTime();

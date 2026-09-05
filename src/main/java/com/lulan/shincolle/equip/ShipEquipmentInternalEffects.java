@@ -21,10 +21,13 @@ public final class ShipEquipmentInternalEffects {
     public static void apply(LivingEntity entity, IShipAttackBase ship, ItemStack stack,
                              ResolvedShipEquipment resolved) {
         try {
-            ship.getAttackEffectMap().putAll(resolved.attackEffects());
+            // The enchant shell's PList goes in first and the declarative effects after it, so a
+            // definition and a shell that name the same effect resolve the way EquipCalc did:
+            // "apply enchant shell effect" preceded "apply effect on attack".
             if (entity instanceof BasicEntityShip friendly) {
                 LegacyBasicEquipEffects.apply(friendly, stack);
             }
+            ship.getAttackEffectMap().putAll(resolved.attackEffects());
         } catch (RuntimeException error) {
             ShinColle.LOGGER.warn("Ship equipment internal effects failed for {}; continuing recalculation",
                     stack.getItem(), error);

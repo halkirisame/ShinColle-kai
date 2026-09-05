@@ -3,7 +3,9 @@ package com.lulan.shincolle.utility;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.Values;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
@@ -19,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * ItemStack and inventory helper methods.
@@ -381,8 +384,6 @@ public class InventoryHelper {
      */
     public static boolean matchTargetItem(ItemStack target, ItemStack temp,
                                           boolean checkMetadata, boolean checkNbt) {
-        if (target.isEmpty() && temp.isEmpty())
-            return true;
         if (target.isEmpty() || temp.isEmpty() || !ItemStack.isSameItem(target, temp))
             return false;
         if (checkMetadata && target.getDamageValue() != temp.getDamageValue())
@@ -529,6 +530,58 @@ public class InventoryHelper {
             }
         }
         return List.copyOf(handlers);
+    }
+
+    /**
+     * Insert through TaskSide-selected faces of a sided vanilla-style container.
+     * Slots exposed by multiple selected faces are tried once in container slot order.
+     */
+    static boolean insertItemThroughTaskSides(WorldlyContainer container, ItemStack stack,
+                                              int taskSide, int type) {
+        if (container == null || stack.isEmpty() || type < 0 || type > 2)
+            return false;
+
+        TreeMap<Integer, List<Direction>> slotFaces = new TreeMap<>();
+        int firstBit = type * 6;
+        for (int side = 0; side < 6; side++) {
+            int bit = firstBit + side;
+            if ((taskSide & Values.N.Pow2[bit]) != Values.N.Pow2[bit])
+                continue;
+            Direction face = Direction.from3DDataValue(side);
+            for (int slot : container.getSlotsForFace(face)) {
+                slotFaces.computeIfAbsent(slot, key -> new ArrayList<>()).add(face);
+            }
+        }
+
+        int oldCount = stack.getCount();
+        for (var entry : slotFaces.entrySet()) {
+            if (stack.isEmpty())
+                break;
+            int slot = entry.getKey();
+            boolean acceptsThroughSelectedFace = entry.getValue().stream()
+                    .anyMatch(face -> container.canPlaceItemThroughFace(slot, stack, face));
+            if (!acceptsThroughSelectedFace || !container.canPlaceItem(slot, stack))
+                continue;
+
+            ItemStack existing = container.getItem(slot);
+            int slotLimit = Math.min(container.getMaxStackSize(), stack.getMaxStackSize());
+            if (existing.isEmpty()) {
+                int inserted = Math.min(slotLimit, stack.getCount());
+                container.setItem(slot, stack.copyWithCount(inserted));
+                stack.shrink(inserted);
+            } else if (ItemStack.isSameItemSameTags(existing, stack)) {
+                int inserted = Math.min(slotLimit - existing.getCount(), stack.getCount());
+                if (inserted > 0) {
+                    existing.grow(inserted);
+                    stack.shrink(inserted);
+                }
+            }
+        }
+        if (stack.getCount() < oldCount) {
+            container.setChanged();
+            return true;
+        }
+        return false;
     }
 
     /**

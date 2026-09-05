@@ -1,6 +1,18 @@
 package com.lulan.shincolle.utility;
 
+import com.lulan.shincolle.ai.domain.ClassifiedTargetObservation;
+import com.lulan.shincolle.ai.domain.EntityClassification;
+import com.lulan.shincolle.ai.domain.RelationClassification;
+import com.lulan.shincolle.ai.domain.TargetPredicateEvaluator;
+import com.lulan.shincolle.ai.domain.TargetPredicateFacts;
+import com.lulan.shincolle.ai.domain.TargetPredicateKind;
+import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
+import com.lulan.shincolle.ai.domain.TargetEntityClassifier;
+import com.lulan.shincolle.ai.domain.TargetTraitClassification;
+import com.lulan.shincolle.ai.domain.TargetTraitClassifier;
+import com.lulan.shincolle.api.target.TargetTraits;
 import com.lulan.shincolle.entity.*;
+import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.server.ServerDataManager;
@@ -164,24 +176,9 @@ public class TargetHelper {
      * Check if target class is in player's custom attack target list.
      */
     public static boolean checkAttackTargetList(Entity host, Entity target) {
-        if (target == null || !(host instanceof IShipAttackBase attackHost)) {
-            return false;
-        }
-
-        int pid = attackHost.getPlayerUID();
-        java.util.HashMap<Integer, String> targetList = ServerDataManager.getPlayerTargetClass(pid);
-        if (targetList == null) {
-            return false;
-        }
-
-        String targetClass = target.getClass().getSimpleName();
-        if (!targetList.containsKey(targetClass.hashCode())) {
-            return false;
-        }
-
         // A custom class may broaden the target type, but it must never bypass
         // current ownership/alliance rules.
-        return !checkIsAlly(host, target);
+        return isAttackTargetClassListed(host, target) && !checkIsAlly(host, target);
     }
 
     // ========== Revenge propagation ==========
@@ -267,8 +264,192 @@ public class TargetHelper {
         return -1;
     }
 
-    private static boolean isInvalidTarget(Entity host, Entity target) {
-        return target == null || !target.isAlive() || host == null || host.equals(target);
+    private static boolean isAttackTargetClassListed(Entity host, Entity target) {
+        if (target == null || !(host instanceof IShipAttackBase attackHost)) {
+            return false;
+        }
+        java.util.HashMap<Integer, String> targetList =
+                ServerDataManager.getPlayerTargetClass(attackHost.getPlayerUID());
+        if (targetList == null) {
+            return false;
+        }
+        String targetClass = target.getClass().getSimpleName();
+        return targetList.containsKey(targetClass.hashCode());
+    }
+
+    private static boolean evaluatePredicate(
+            TargetPredicateKind kind,
+            Entity host,
+            Entity target,
+            TargetPredicatePolicy policy) {
+        boolean targetPresent = target != null;
+        boolean hostPresent = host != null;
+        boolean targetAlive = targetPresent && target.isAlive();
+        boolean sameEntity = targetPresent && hostPresent && host.equals(target);
+        boolean player = target instanceof Player;
+        boolean playerInvulnerable = player && ((Player) target).getAbilities().invulnerable;
+        boolean entityInvulnerable = targetPresent && isEntityInvulnerable(target);
+        boolean invisible = targetPresent && target.isInvisible();
+        boolean hostDetectsInvisible = invisible && canDetectInvisible(host);
+        boolean invisibleDetectable = !invisible || hostDetectsInvisible;
+        boolean lineOfSightRequired = requiresLineOfSight(kind, host);
+        boolean hasLineOfSight = true;
+        if (lineOfSightRequired
+                && targetAlive
+                && !sameEntity
+                && !player
+                && !entityInvulnerable
+                && invisibleDetectable) {
+            hasLineOfSight = hasLineOfSight(host, target);
+        }
+        boolean airplane = target instanceof BasicEntityAirplane;
+        boolean abyssMissile = target instanceof EntityAbyssMissile;
+        boolean submarine = target instanceof IShipInvisible;
+        boolean friendlyShip = target instanceof BasicEntityShip;
+        boolean mount = target instanceof BasicEntityMount;
+        boolean hostileShip = target instanceof BasicEntityShipHostile;
+        boolean monsterOrSlime = target instanceof Monster || target instanceof Slime;
+        boolean shipOwner = target instanceof IShipOwner;
+        boolean commonAutomaticChecksPass = kind == TargetPredicateKind.FRIENDLY_AUTOMATIC
+                && targetAlive
+                && hostPresent
+                && !sameEntity
+                && !player
+                && !entityInvulnerable
+                && invisibleDetectable
+                && (!lineOfSightRequired || hasLineOfSight);
+        boolean customAttackClassListed = commonAutomaticChecksPass
+                && !airplane
+                && !submarine
+                && !hostileShip
+                && !monsterOrSlime
+                && !shipOwner
+                && isAttackTargetClassListed(host, target);
+
+        TargetPredicateFacts facts = new TargetPredicateFacts(
+                hostPresent,
+                targetPresent,
+                targetAlive,
+                sameEntity,
+                player,
+                playerInvulnerable,
+                entityInvulnerable,
+                invisible,
+                hostDetectsInvisible,
+                lineOfSightRequired,
+                hasLineOfSight,
+                airplane,
+                abyssMissile,
+                submarine,
+                friendlyShip,
+                mount,
+                hostileShip,
+                monsterOrSlime,
+                shipOwner,
+                customAttackClassListed);
+        EntityClassification entity = TargetEntityClassifier.classify(facts);
+        TargetTraitClassification traits = TargetTraitClassifier.classify(
+                facts, target == null ? java.util.Set.of() : TargetTraits.traitsFor(target.getType()));
+        RelationClassification relation = captureRequiredRelation(kind, host, target, entity, traits, policy);
+        ClassifiedTargetObservation classified = new ClassifiedTargetObservation(entity, relation, traits);
+        return TargetPredicateEvaluator.test(kind, classified, policy);
+    }
+
+    private static RelationClassification captureRequiredRelation(
+            TargetPredicateKind kind,
+            Entity host,
+            Entity target,
+            EntityClassification entity,
+            TargetTraitClassification traits,
+            TargetPredicatePolicy policy) {
+        if (!entity.valid()) {
+            return new RelationClassification(false, false, false);
+        }
+        boolean sameOwner = false;
+        boolean allied = false;
+        boolean banned = false;
+        switch (kind) {
+            case FRIENDLY_AUTOMATIC -> {
+                if (entity.player()) {
+                    if (!entity.playerInvulnerable()) {
+                        switch (policy.shipAttackPlayer()) {
+                            case 1 -> banned = checkIsBanned(host, target);
+                            case 2 -> allied = checkIsAlly(host, target);
+                            case 3 -> sameOwner = checkSameOwner(host, target);
+                            default -> {
+                            }
+                        }
+                    }
+                } else if (!entity.entityInvulnerable()
+                        && entity.invisibleDetectable()
+                        && entity.lineOfSightEligible()) {
+                    if (traits.airplane() || traits.submarine()) {
+                        banned = checkIsBanned(host, target);
+                    } else if (traits.friendlyShipOrMount() && policy.pvpFirst()) {
+                        banned = checkIsBanned(host, target);
+                        if (!banned && traits.shipOwner()) {
+                            allied = checkIsAlly(host, target);
+                        }
+                    } else if (!traits.hostileShip()
+                            && !traits.monsterOrSlime()
+                            && (traits.customAttackClassListed() || traits.shipOwner())) {
+                        allied = checkIsAlly(host, target);
+                    }
+                }
+            }
+            case FRIENDLY_REVENGE -> {
+                if (!(entity.player() && entity.playerInvulnerable())
+                        && !entity.entityInvulnerable()
+                        && entity.invisibleDetectable()) {
+                    if (traits.shipOwner()) {
+                        allied = checkIsAlly(host, target);
+                    } else {
+                        sameOwner = checkSameOwner(host, target);
+                    }
+                }
+            }
+            case HOSTILE_AUTOMATIC -> {
+                if (!entity.player()
+                        && !entity.entityInvulnerable()
+                        && !entity.invisible()
+                        && !traits.hostileShip()
+                        && !traits.friendlyShipOrMount()
+                        && traits.shipOwner()) {
+                    sameOwner = checkSameOwner(host, target);
+                }
+            }
+            case HOSTILE_REVENGE -> {
+                if (!entity.player()
+                        && !entity.entityInvulnerable()
+                        && !entity.invisible()
+                        && !traits.hostileShip()
+                        && !traits.friendlyShip()) {
+                    sameOwner = checkSameOwner(host, target);
+                }
+            }
+            default -> throw new IllegalStateException("Unsupported target predicate kind: " + kind);
+        }
+        return new RelationClassification(sameOwner, allied, banned);
+    }
+
+    private static boolean requiresLineOfSight(TargetPredicateKind kind, Entity host) {
+        if (kind != TargetPredicateKind.FRIENDLY_AUTOMATIC) {
+            return false;
+        }
+        if (host instanceof BasicEntityShip ship) {
+            return ship.getStateFlag(ID.F.OnSightChase);
+        }
+        return host instanceof Mob;
+    }
+
+    private static boolean hasLineOfSight(Entity host, Entity target) {
+        if (host instanceof BasicEntityShip ship) {
+            return ship.getSensing().hasLineOfSight(target);
+        }
+        if (host instanceof Mob mob) {
+            return mob.getSensing().hasLineOfSight(target);
+        }
+        return true;
     }
 
     /**
@@ -316,96 +497,13 @@ public class TargetHelper {
                 this.isASM = false;
             }
 
-            // null / alive / self check
-            if (isInvalidTarget(host, target)) {
-                return false;
-            }
-
-            // player targeting
-            if (target instanceof Player player) {
-                if (player.getAbilities().invulnerable)
-                    return false;
-
-                switch (ConfigHandler.shipAttackPlayer()) {
-                    case 0: // don't attack players
-                        return false;
-                    case 1: // attack hostile players
-                        return checkIsBanned(host, target);
-                    case 2: // attack hostile and neutral players
-                        return !checkIsAlly(host, target);
-                    case 3: // attack all players except owner
-                        return !checkSameOwner(host, target);
-                    default:
-                        return false;
-                }
-            }
-
-            // invulnerable entities (projectiles, hangings, etc.)
-            if (isEntityInvulnerable(target))
-                return false;
-
-            // invisible target check
-            if (target.isInvisible()) {
-                if (!canDetectInvisible(host))
-                    return false;
-            }
-
-            // on-sight check for ship host
-            if (host instanceof BasicEntityShip ship) {
-                if (ship.getStateFlag(ID.F.OnSightChase)) {
-                    if (!ship.getSensing().hasLineOfSight(target))
-                        return false;
-                }
-            } else if (host instanceof Mob mob) {
-                if (!mob.getSensing().hasLineOfSight(target))
-                    return false;
-            }
-
-            // anti-air target (airplanes, missiles)
-            if (target instanceof BasicEntityAirplane) {
-                return isAA && checkIsBanned(host, target);
-            }
-
-            // anti-submarine target
-            if (target instanceof IShipInvisible) {
-                return isASM && checkIsBanned(host, target);
-            }
-
-            // PVP: attack hostile ships/mounts
-            if (this.isPVP && (target instanceof BasicEntityShip || target instanceof BasicEntityMount)) {
-                if (checkIsBanned(host, target))
-                    return true;
-            }
-
-            // Target hostile ships (they extend Mob, not Monster, so they
-            // won't be caught by the Monster check below)
-            if (target instanceof BasicEntityShipHostile) {
-                return true;
-            }
-
-            // vanilla monsters and slimes
-            if (target instanceof Monster || target instanceof Slime) {
-                return true;
-            }
-
-            // Explicit per-player extension point retained from 1.10.2.
-            if (checkAttackTargetList(host, target)) {
-                return true;
-            }
-
-            // IShipOwner entities (summons, etc.): attack if not ally
-            if (target instanceof IShipOwner) {
-                boolean isAlly = checkIsAlly(host, target);
-                if (!isAlly) {
-                    int hostUID = TeamHelper.getPlayerUID(host);
-                    int tarUID = TeamHelper.getPlayerUID(target);
-                    LogHelper.debug("DEBUG: target selector: " + host + " -> IShipOwner target=" + target
-                            + " NOT ally: hostUID=" + hostUID + " tarUID=" + tarUID);
-                }
-                return !isAlly;
-            }
-
-            return false;
+            TargetPredicatePolicy policy = new TargetPredicatePolicy(
+                    this.isPVP,
+                    this.isAA,
+                    this.isASM,
+                    ConfigHandler.shipAttackPlayer(),
+                    false);
+            return evaluatePredicate(TargetPredicateKind.FRIENDLY_AUTOMATIC, host, target, policy);
         }
     }
 
@@ -422,31 +520,11 @@ public class TargetHelper {
 
         @Override
         public boolean test(Entity target) {
-            if (isInvalidTarget(host, target)) {
-                return false;
-            }
-
-            // don't revenge on invulnerable players
-            if (target instanceof Player player && player.getAbilities().invulnerable) {
-                return false;
-            }
-
-            if (isEntityInvulnerable(target))
-                return false;
-
-            // invisible check
-            if (target.isInvisible()) {
-                if (!canDetectInvisible(host))
-                    return false;
-            }
-
-            // ship/summon targets: check ally state
-            if (target instanceof IShipOwner) {
-                return !checkIsAlly(host, target);
-            }
-
-            // other entities: attack if not same owner
-            return !checkSameOwner(host, target);
+            return evaluatePredicate(
+                    TargetPredicateKind.FRIENDLY_REVENGE,
+                    host,
+                    target,
+                    TargetPredicatePolicy.neutral());
         }
     }
 
@@ -463,37 +541,13 @@ public class TargetHelper {
 
         @Override
         public boolean test(Entity target) {
-            if (isInvalidTarget(host, target)) {
-                return false;
-            }
-
-            // player targeting
-            if (target instanceof Player player) {
-                if (player.getAbilities().invulnerable)
-                    return false;
-                return ConfigHandler.mobShipsAttackPlayer();
-            }
-
-            if (isEntityInvulnerable(target))
-                return false;
-
-            if (!target.isInvisible()) {
-                // don't attack other hostile ships
-                if (target instanceof BasicEntityShipHostile)
-                    return false;
-
-                // attack friendly ships and mounts
-                if (target instanceof BasicEntityShip || target instanceof BasicEntityMount) {
-                    return true;
-                }
-
-                // attack summons if not same faction
-                if (target instanceof IShipOwner) {
-                    return !checkSameOwner(host, target);
-                }
-            }
-
-            return false;
+            TargetPredicatePolicy policy = new TargetPredicatePolicy(
+                    false,
+                    false,
+                    false,
+                    0,
+                    ConfigHandler.mobShipsAttackPlayer());
+            return evaluatePredicate(TargetPredicateKind.HOSTILE_AUTOMATIC, host, target, policy);
         }
     }
 
@@ -510,36 +564,11 @@ public class TargetHelper {
 
         @Override
         public boolean test(Entity target) {
-            if (isInvalidTarget(host, target)) {
-                return false;
-            }
-
-            if (target instanceof Player player) {
-                return !player.getAbilities().invulnerable;
-            }
-
-            if (isEntityInvulnerable(target))
-                return false;
-
-            if (!target.isInvisible()) {
-                // don't attack other hostile ships
-                if (target instanceof BasicEntityShipHostile)
-                    return false;
-
-                // attack friendly ships
-                if (target instanceof BasicEntityShip)
-                    return true;
-
-                // attack summons if not same faction
-                if (target instanceof IShipOwner) {
-                    return !checkSameOwner(host, target);
-                }
-
-                // attack anything else not same owner
-                return !checkSameOwner(host, target);
-            }
-
-            return false;
+            return evaluatePredicate(
+                    TargetPredicateKind.HOSTILE_REVENGE,
+                    host,
+                    target,
+                    TargetPredicatePolicy.neutral());
         }
     }
 

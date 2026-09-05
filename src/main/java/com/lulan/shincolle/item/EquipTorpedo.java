@@ -1,17 +1,14 @@
 package com.lulan.shincolle.item;
 
 import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Equipment Torpedo - torpedo equipment with 7 variants.
@@ -62,11 +59,6 @@ public class EquipTorpedo extends BasicEquip implements IShipEffectItem {
             default:
                 return ResourceAmount.ZERO;
         }
-    }
-
-    @Override
-    public Map<ResourceLocation, ShipAttackEffect> getEffectOnAttack(int meta) {
-        return Map.of();
     }
 
     @Override

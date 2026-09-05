@@ -45,7 +45,7 @@ import java.util.List;
  * Ported from 1.10.2 EntityAbyssMissile.
  */
 public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs, IShipCustomTexture,
-        IShipProjectile, IEntityAdditionalSpawnData {
+        IShipFlyable, IShipProjectile, IEntityAdditionalSpawnData {
 
     public int moveType;
     public int life;

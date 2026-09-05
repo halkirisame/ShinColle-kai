@@ -1,6 +1,5 @@
 package com.lulan.shincolle.item;
 
-import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.ResourceAmount;
 import net.minecraft.ChatFormatting;
@@ -8,15 +7,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Equipment Ammo - ammunition equipment with 9 variants.
@@ -65,39 +61,6 @@ public class EquipAmmo extends BasicEquip implements IShipEffectItem {
             default:
                 return ResourceAmount.ZERO;
         }
-    }
-
-    @Override
-    public Map<ResourceLocation, ShipAttackEffect> getEffectOnAttack(int meta) {
-        Map<ResourceLocation, ShipAttackEffect> effects = new LinkedHashMap<>();
-
-        switch (meta) {
-            case 0: // type 91
-                addEffect(effects, "poison", 0, 120, 50);
-                break;
-            case 1: // type 1
-                addEffect(effects, "poison", 1, 120, 70);
-                break;
-            case 3: // type 3
-                addEffect(effects, "nausea", 0, 120, 50);
-                break;
-            case 4: // DU
-                addEffect(effects, "wither", 0, 100, 25);
-                break;
-            case 6: // anti-grav
-                addEffect(effects, "levitation", 0, 100, 50);
-                break;
-            default:
-                break;
-        }
-
-        return Map.copyOf(effects);
-    }
-
-    private static void addEffect(Map<ResourceLocation, ShipAttackEffect> effects, String path,
-                                  int amplifier, int duration, int chance) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("minecraft", path);
-        effects.put(id, new ShipAttackEffect(id, amplifier, duration, chance));
     }
 
     @Override
@@ -160,20 +123,6 @@ public class EquipAmmo extends BasicEquip implements IShipEffectItem {
             case 8: // cluster
                 tooltip.add(Component.literal(ChatFormatting.YELLOW + Component.translatable("gui.shincolle_kai.equip.cluster").getString()));
                 break;
-        }
-
-        // Show other effects from getEffectOnAttack
-        Map<ResourceLocation, ShipAttackEffect> emap = getEffectOnAttack(meta);
-        if (emap != null && !emap.isEmpty()) {
-            emap.forEach((effectId, attackEffect) -> {
-                MobEffect effect = net.minecraftforge.registries.ForgeRegistries.MOB_EFFECTS.getValue(effectId);
-                if (effect != null) {
-                    String s1 = Component.translatable(effect.getDescriptionId()).getString().trim();
-                    tooltip.add(Component.translatable("gui.shincolle_kai.equip.enchantshell",
-                            attackEffect.chancePercent(), s1, attackEffect.amplifier() + 1,
-                            attackEffect.durationTicks() / 20));
-                }
-            });
         }
     }
 }

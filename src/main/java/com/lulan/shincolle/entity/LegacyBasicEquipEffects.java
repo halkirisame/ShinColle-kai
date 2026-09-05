@@ -44,9 +44,9 @@ public final class LegacyBasicEquipEffects {
         }
 
         applySpecialEffect(ship, equipItem, stack);
+        int meta = BasicEquip.getEquipMeta(stack);
+        applyAttackEffects(ship.getAttackEffectMap(), stack, meta);
         if (stack.getItem() instanceof IShipEffectItem effectItem) {
-            int meta = BasicEquip.getEquipMeta(stack);
-            applyAttackEffects(ship.getAttackEffectMap(), stack, effectItem, meta);
             applyMissileEffects(ship, effectItem, meta);
         }
     }
@@ -78,17 +78,14 @@ public final class LegacyBasicEquipEffects {
      *
      * <p>Package visibility is intentional: this is a focused test seam, not canonical API.</p>
      */
-    static void applyAttackEffects(Map<ResourceLocation, ShipAttackEffect> target, ItemStack stack,
-                                   IShipEffectItem effectItem, int meta) {
-        if (target == null || stack == null || effectItem == null) {
+    static void applyAttackEffects(Map<ResourceLocation, ShipAttackEffect> target, ItemStack stack, int meta) {
+        if (target == null || stack == null) {
             return;
         }
 
-        // Original ordering: PList first, then the item's fixed effect map.
         if (meta == 7 && stack.getItem() == ModItems.EQUIP_AMMO.get()) {
             addEnchantShellEffects(target, stack);
         }
-        addCopiedEffects(target, effectItem.getEffectOnAttack(meta));
     }
 
     private static void addEnchantShellEffects(Map<ResourceLocation, ShipAttackEffect> target, ItemStack stack) {
@@ -106,20 +103,6 @@ public final class LegacyBasicEquipEffects {
                 target.put(effectId, new ShipAttackEffect(effectId,
                         effect.getInt(EquipAmmo.PLEVEL), effect.getInt(EquipAmmo.PTIME),
                         effect.getInt(EquipAmmo.PCHANCE)));
-            }
-        }
-    }
-
-    private static void addCopiedEffects(Map<ResourceLocation, ShipAttackEffect> target,
-                                         Map<ResourceLocation, ShipAttackEffect> effects) {
-        if (effects == null || effects.isEmpty()) {
-            return;
-        }
-        for (Map.Entry<ResourceLocation, ShipAttackEffect> entry : effects.entrySet()) {
-            ResourceLocation effectId = entry.getKey();
-            ShipAttackEffect value = entry.getValue();
-            if (effectId != null && value != null) {
-                target.put(effectId, value);
             }
         }
     }

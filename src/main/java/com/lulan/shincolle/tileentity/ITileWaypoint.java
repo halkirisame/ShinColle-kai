@@ -12,12 +12,16 @@ public interface ITileWaypoint extends IShipOwner, ITileGuardPoint {
 
     BlockPos getLastWaypoint();
 
+    boolean hasLastWaypoint();
+
     /**
      * Last waypoint position
      */
     void setLastWaypoint(BlockPos pos);
 
     BlockPos getNextWaypoint();
+
+    boolean hasNextWaypoint();
 
     /**
      * Next waypoint position

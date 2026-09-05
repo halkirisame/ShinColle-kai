@@ -62,7 +62,7 @@ public class TileEntityHelper {
         wpFrom.setNextWaypoint(posTo);
 
         // Set last waypoint on target (unless it would create a 2-node cycle)
-        if (!wpTo.getNextWaypoint().equals(posFrom)) {
+        if (!wpTo.hasNextWaypoint() || !wpTo.getNextWaypoint().equals(posFrom)) {
             wpTo.setLastWaypoint(posFrom);
         }
 

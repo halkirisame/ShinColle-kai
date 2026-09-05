@@ -16,7 +16,7 @@ final class EquipmentJsonFormat {
     static final Set<String> REQUIRED_FIELDS = Set.of("item", "variant", "equip_type");
     static final Set<String> TOP_LEVEL_FIELDS = Set.of(
             "$schema", "equip_id", "item", "variant", "equip_type", "compatible",
-            "enchant_type", "develop", "roll_type", "stats", "attack_effects");
+            "enchant_type", "develop", "roll_type", "stats", "attack_effects", "availability");
     static final Set<String> DEVELOP_FIELDS = Set.of("material", "amount", "rare_mean");
     static final Set<String> ATTACK_EFFECT_FIELDS = Set.of(
             "effect", "amplifier", "duration", "chance");
@@ -24,6 +24,8 @@ final class EquipmentJsonFormat {
     static final Set<String> ENCHANT_TYPES = Set.of("none", "weapon", "armor", "misc");
     static final Set<String> DEVELOP_MATERIALS = Set.of(
             "grudge", "abyss_metal", "ammo", "abyss_metal_1");
+    static final Set<String> AVAILABILITY = Set.of(
+            "any", "shipyard_only", "treasure_only", "unobtainable");
 
     static final Map<String, Integer> EQUIP_TYPES = Map.ofEntries(
             Map.entry("cannon_si", (int) ID.EquipType.CANNON_SI),

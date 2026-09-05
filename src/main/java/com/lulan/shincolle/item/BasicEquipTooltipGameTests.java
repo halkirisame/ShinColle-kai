@@ -17,6 +17,7 @@ import com.lulan.shincolle.reference.Reference;
 import net.minecraft.ChatFormatting;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -180,8 +181,10 @@ public final class BasicEquipTooltipGameTests {
             ClientEquipData.install(original);
         }
 
-        if (tooltip.size() != 3) {
-            throw new AssertionError("Invalid stats must skip only attribute lines and retain three metadata lines; got "
+        // Four metadata lines: enchant type, shipyard, material, and the rare level. The last two
+        // were one line upstream and were split so the stars do not stretch the tooltip box.
+        if (tooltip.size() != 4) {
+            throw new AssertionError("Invalid stats must skip only attribute lines and retain four metadata lines; got "
                     + tooltip.size() + " lines: " + tooltip);
         }
         assertContains(tooltip.get(0), Component.translatable("gui.shincolle_kai.equip.enchtype").getString(),
@@ -190,6 +193,33 @@ public final class BasicEquipTooltipGameTests {
                 "shipyard metadata");
         assertContains(tooltip.get(2), Component.translatable("gui.shincolle_kai.equip.matstype").getString(),
                 "material metadata");
+        assertContains(tooltip.get(3), Component.translatable("gui.shincolle_kai.equip.matsrarelevel").getString(),
+                "rare level metadata");
+        assertContains(tooltip.get(3), "★", "rare level stars");
+        helper.succeed();
+    }
+
+    /**
+     * A variant with no ".desc" translation must not gain an explanation line. The positive case
+     * needs a client language table, which a GameTest server does not load, so it is checked in
+     * game (`検証.txt` 36節).
+     */
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void variantWithoutDescriptionKeyGainsNoExtraLine(GameTestHelper helper) {
+        ItemStack stack = ((BasicEquip) ModItems.EQUIP_CANNON.get()).createStack(0);
+        String descriptionKey = stack.getItem().getDescriptionId(stack) + ".desc";
+        if (Language.getInstance().has(descriptionKey)) {
+            throw new AssertionError("This test needs a variant without a description key");
+        }
+
+        List<Component> tooltip = new ArrayList<>();
+        ((BasicEquip) ModItems.EQUIP_CANNON.get())
+                .appendHoverText(stack, helper.getLevel(), tooltip, TooltipFlag.Default.NORMAL);
+        for (Component line : tooltip) {
+            if (line.getString().contains(descriptionKey)) {
+                throw new AssertionError("An untranslated description key leaked into the tooltip: " + line);
+            }
+        }
         helper.succeed();
     }
 

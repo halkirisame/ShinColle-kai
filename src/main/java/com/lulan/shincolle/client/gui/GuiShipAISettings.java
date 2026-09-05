@@ -54,7 +54,7 @@ public class GuiShipAISettings extends Screen {
 
     // ========== Row model ==========
 
-    private sealed interface Row permits Section, Toggle, Slider, TaskPick, MaskBit, SideGrid, AppearGrid {
+    private sealed interface Row permits Section, Toggle, Slider, TaskPick, MaskBit, SideGrid {
         int height(BasicEntityShip ship);
     }
 
@@ -115,16 +115,6 @@ public class GuiShipAISettings extends Screen {
                             String descKey, String descFallback) implements Row {
         public int height(BasicEntityShip ship) {
             return ROW_H + GRID_ROW_H;
-        }
-    }
-
-    /** Model appearance bitmask ({@link ID.S#State}), 8 cells per row. */
-    private record AppearGrid(String key, String fallback,
-                              String descKey, String descFallback) implements Row {
-        public int height(BasicEntityShip ship) {
-            int n = Math.max(0, ship.getStateMinor(ID.M.NumState));
-            int rows = Math.max(1, (n + 7) / 8);
-            return ROW_H + rows * GRID_ROW_H;
         }
     }
 
@@ -214,14 +204,6 @@ public class GuiShipAISettings extends Screen {
                     "gui.shincolle_kai.aidesc.autocr",
                     "Eat a combat ration once morale drops to this level. Off disables it."),
 
-            new Section("gui.shincolle_kai.aisec.look", "Appearance"),
-            new Toggle(ID.F.ShowHeldItem, ID.B.ShipInv_ShowHeld, -1,
-                    "gui.shincolle_kai.showhelditem", "Show Held Item",
-                    "gui.shincolle_kai.aidesc.showheld", "Render the item the ship is holding.",
-                    "", ""),
-            new AppearGrid("gui.shincolle_kai.appearance", "Appearance",
-                    "gui.shincolle_kai.aidesc.appearance",
-                    "Toggle this ship's individual model parts."),
 
             new Section("gui.shincolle_kai.aisec.task", "Work Task"),
             new TaskPick("gui.shincolle_kai.aisec.taskpick", "Task",
@@ -416,15 +398,7 @@ public class GuiShipAISettings extends Screen {
                 graphics.drawString(this.font, SIDE_LETTERS[col],
                         cx + 3, cy + 2, on ? 0x203020 : 0xD0D0D0, false);
             }
-        } else if (row instanceof AppearGrid ag) {
-            graphics.drawString(this.font, tr(ag.key(), ag.fallback()), x + 2, y + 2, 0xE0E0E0, false);
-            int n = Math.max(0, ship.getStateMinor(ID.M.NumState));
-            int state = ship.getStateEmotion(ID.S.State);
-            for (int i = 0; i < n; i++) {
-                int cx = x + 2 + (i % 8) * (CELL + 1);
-                int cy = y + ROW_H + (i / 8) * GRID_ROW_H;
-                drawToggleSprite(graphics, cx, cy, (state & (1 << i)) != 0);
-            }
+
         }
     }
 
@@ -460,9 +434,7 @@ public class GuiShipAISettings extends Screen {
         } else if (row instanceof SideGrid g) {
             title = tr(g.key(), g.fallback());
             desc = tr(g.descKey(), g.descFallback());
-        } else if (row instanceof AppearGrid a) {
-            title = tr(a.key(), a.fallback());
-            desc = tr(a.descKey(), a.descFallback());
+
         } else {
             return out;
         }
@@ -559,20 +531,6 @@ public class GuiShipAISettings extends Screen {
                     int mask = ship.getStateMinor(ID.M.TaskSide) ^ (1 << (sg.group() * 6 + col));
                     ship.setStateMinor(ID.M.TaskSide, mask);
                     GuiShipInventory.sendShipButton(ship, ID.B.ShipInv_TaskSide, mask);
-                }
-            }
-            return true;
-        }
-        if (row instanceof AppearGrid) {
-            int n = Math.max(0, ship.getStateMinor(ID.M.NumState));
-            int col = (mouseX - (x + 2)) / (CELL + 1);
-            int gridRow = (mouseY - (rowY + ROW_H)) / GRID_ROW_H;
-            if (col >= 0 && col < 8 && gridRow >= 0) {
-                int idx = gridRow * 8 + col;
-                if (idx < n) {
-                    int state = ship.getStateEmotion(ID.S.State) ^ (1 << idx);
-                    ship.setStateEmotion(ID.S.State, state, false);
-                    GuiShipInventory.sendShipButton(ship, ID.B.ShipInv_ModelState01 + idx, state);
                 }
             }
             return true;

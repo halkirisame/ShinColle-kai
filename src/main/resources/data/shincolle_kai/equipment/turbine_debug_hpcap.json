@@ -3,6 +3,7 @@
   "item": "shincolle_kai:equip_turbine",
   "variant": 5,
   "equip_type": "turbine_hi",
+  "availability": "unobtainable",
   "compatible": [
     "cannon",
     "aircraft"

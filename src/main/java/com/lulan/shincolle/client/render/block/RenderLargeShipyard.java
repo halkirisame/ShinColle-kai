@@ -39,8 +39,10 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
             Reference.MOD_ID, "textures/blocks/modelvortex.png");
     private static final ResourceLocation VORTEX_ON = new ResourceLocation(
             Reference.MOD_ID, "textures/blocks/modelvortexon.png");
-    private static final RenderType VORTEX_OFF_NO_DEPTH_WRITE = createVortexRenderType(VORTEX_OFF);
-    private static final RenderType VORTEX_ON_NO_DEPTH_WRITE = createVortexRenderType(VORTEX_ON);
+    private static final RenderType VORTEX_OFF_NO_DEPTH_WRITE = createVortexRenderType(VORTEX_OFF, false);
+    private static final RenderType VORTEX_ON_NO_DEPTH_WRITE = createVortexRenderType(VORTEX_ON, false);
+    private static final RenderType VORTEX_OFF_DEPTH_WRITE = createVortexRenderType(VORTEX_OFF, true);
+    private static final RenderType VORTEX_ON_DEPTH_WRITE = createVortexRenderType(VORTEX_ON, true);
 
     private final ModelLargeShipyard modelBase;
     private final ModelVortex modelVortex;
@@ -108,24 +110,30 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
         poseStack.scale(0.5F, 0.5F, 0.5F); // scale down vortex
 
         RenderType vortexRenderType = ConfigHandler.depthHadalVortex()
-                ? RenderType.entityTranslucent(vortexTex)
-                : active ? VORTEX_ON_NO_DEPTH_WRITE : VORTEX_OFF_NO_DEPTH_WRITE;
+                ? (active ? VORTEX_ON_DEPTH_WRITE : VORTEX_OFF_DEPTH_WRITE)
+                : (active ? VORTEX_ON_NO_DEPTH_WRITE : VORTEX_OFF_NO_DEPTH_WRITE);
         VertexConsumer vortexConsumer = bufferSource.getBuffer(vortexRenderType);
         modelVortex.renderToBuffer(poseStack, vortexConsumer, packedLight, packedOverlay, 1F, 1F, 1F, 1F);
         poseStack.popPose();
     }
 
     /**
-     * Mirrors entityTranslucent while disabling depth writes for the vortex.
+     * Unlit, alpha-blended vortex type with a configurable depth-write mask.
      * The write-mask is part of the RenderType so it is applied when the shared
      * buffer is flushed, rather than being reset before batched vertices draw.
      */
-    private static RenderType createVortexRenderType(ResourceLocation texture) {
-        return RenderType.create(Reference.MOD_ID + ":shipyard_vortex_no_depth_write",
+    private static RenderType createVortexRenderType(ResourceLocation texture, boolean depthWrite) {
+        return RenderType.create(Reference.MOD_ID + ":shipyard_vortex"
+                        + (depthWrite ? "_depth_write" : "_no_depth_write"),
                 DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 256, false, true,
                 RenderType.CompositeState.builder()
+                        // [PORT] 1.10.2 parity: the original TESR drew the vortex with no
+                        // normal-based diffuse shading - brightness came from the lightmap
+                        // alone. Both entity translucent shaders call minecraft_mix_light,
+                        // which shades a camera-facing billboard by view angle. rendertype_eyes
+                        // is the NEW_ENTITY-compatible shader that just passes Color through.
                         .setShaderState(new RenderStateShard.ShaderStateShard(
-                                GameRenderer::getRendertypeEntityTranslucentShader))
+                                GameRenderer::getRendertypeEyesShader))
                         .setTextureState(new RenderStateShard.TextureStateShard(texture, false, false))
                         .setCullState(new RenderStateShard.CullStateShard(false))
                         .setTransparencyState(new RenderStateShard.TransparencyStateShard(
@@ -143,7 +151,7 @@ public class RenderLargeShipyard implements BlockEntityRenderer<TileMultiGrudgeH
                                 }))
                         .setLightmapState(new RenderStateShard.LightmapStateShard(true))
                         .setOverlayState(new RenderStateShard.OverlayStateShard(true))
-                        .setWriteMaskState(new RenderStateShard.WriteMaskStateShard(true, false))
+                        .setWriteMaskState(new RenderStateShard.WriteMaskStateShard(true, depthWrite))
                         .createCompositeState(true));
     }
 

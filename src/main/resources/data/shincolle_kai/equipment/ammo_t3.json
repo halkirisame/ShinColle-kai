@@ -22,5 +22,13 @@
     "shincolle_kai:miss": 0.1,
     "shincolle_kai:aa": 60.0,
     "shincolle_kai:ammo": 0.15
-  }
+  },
+  "attack_effects": [
+    {
+      "effect": "minecraft:nausea",
+      "amplifier": 0,
+      "duration": 120,
+      "chance": 50
+    }
+  ]
 }

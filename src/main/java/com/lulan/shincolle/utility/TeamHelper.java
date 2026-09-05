@@ -1,5 +1,10 @@
 package com.lulan.shincolle.utility;
 
+import com.lulan.shincolle.ai.domain.RelationClassification;
+import com.lulan.shincolle.ai.domain.RelationClassifier;
+import com.lulan.shincolle.ai.domain.RelationIdentity;
+import com.lulan.shincolle.ai.domain.RelationPolicy;
+import com.lulan.shincolle.ai.domain.TeamRelationSnapshot;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipOwner;
@@ -11,6 +16,11 @@ import com.lulan.shincolle.team.TeamData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.player.Player;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Helper for owner / team / ally / friendly / hostile checking.
@@ -100,35 +110,11 @@ public class TeamHelper {
     }
 
     /**
-     * Check if two player UIDs are allied. SERVER SIDE ONLY.
+     * Check if two legacy relation PIDs are allied. SERVER SIDE ONLY.
+     * Captures team data at the Minecraft boundary and delegates to pure classification.
      */
     public static boolean checkIsAlly(int hostPID, int tarPID) {
-        // Mob vs mob
-        if (hostPID < -1 && tarPID < -1) {
-            return true;
-        }
-
-        // Player vs mob
-        if ((hostPID < -1 && tarPID > 0) || (hostPID > 0 && tarPID < -1)) {
-            return false;
-        }
-
-        // Player vs player
-        if (hostPID > 0 && tarPID > 0) {
-            // Same owner
-            if (hostPID == tarPID)
-                return true;
-
-            // Check team alliance
-            TeamData hostTeam = getTeamDataByUID(hostPID);
-            TeamData tarTeam = getTeamDataByUID(tarPID);
-
-            if (hostTeam != null && tarTeam != null) {
-                return hostTeam.getTeamAllyList().contains(tarTeam.getTeamID());
-            }
-        }
-
-        return false;
+        return classifyRelation(hostPID, tarPID, hostPID != tarPID).allied();
     }
 
     /**
@@ -144,30 +130,41 @@ public class TeamHelper {
     }
 
     /**
-     * Check if two player UIDs are banned (hostile). SERVER SIDE ONLY.
+     * Check if two legacy relation PIDs are banned (hostile). SERVER SIDE ONLY.
+     * Captures team data at the Minecraft boundary and delegates to pure classification.
      */
     public static boolean checkIsBanned(int hostPID, int tarPID) {
-        // Mob vs mob
-        if (hostPID < -1 && tarPID < -1) {
-            return false;
+        return classifyRelation(hostPID, tarPID, true).banned();
+    }
+
+    private static RelationClassification classifyRelation(
+            int hostPID, int tarPID, boolean captureTeams) {
+        return RelationClassifier.classify(
+                RelationIdentity.fromLegacyPlayerUid(hostPID),
+                RelationIdentity.fromLegacyPlayerUid(tarPID),
+                captureTeams ? captureRelationPolicy(hostPID, tarPID) : RelationPolicy.empty());
+    }
+
+    private static RelationPolicy captureRelationPolicy(int hostPID, int tarPID) {
+        Map<Integer, TeamRelationSnapshot> teams = new HashMap<>();
+        captureTeam(teams, hostPID);
+        captureTeam(teams, tarPID);
+        return new RelationPolicy(teams);
+    }
+
+    private static void captureTeam(Map<Integer, TeamRelationSnapshot> teams, int playerUid) {
+        if (playerUid <= 0 || teams.containsKey(playerUid)) {
+            return;
         }
-
-        // Player vs mob
-        if ((hostPID < -1 && tarPID > 0) || (hostPID > 0 && tarPID < -1)) {
-            return true;
+        TeamData team = getTeamDataByUID(playerUid);
+        if (team == null) {
+            return;
         }
-
-        // Player vs player
-        if (hostPID > 0 && tarPID > 0) {
-            TeamData hostTeam = getTeamDataByUID(hostPID);
-            TeamData tarTeam = getTeamDataByUID(tarPID);
-
-            if (hostTeam != null && tarTeam != null) {
-                return hostTeam.getTeamBannedList().contains(tarTeam.getTeamID());
-            }
-        }
-
-        return false;
+        Set<Integer> allies = new HashSet<>(team.getTeamAllyList());
+        Set<Integer> banned = new HashSet<>(team.getTeamBannedList());
+        allies.remove(null);
+        banned.remove(null);
+        teams.put(playerUid, new TeamRelationSnapshot(team.getTeamID(), allies, banned));
     }
 
     /**

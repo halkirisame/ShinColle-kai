@@ -33,6 +33,17 @@ INTERNAL_NAMESPACE_PREFIXES = (
     PurePosixPath("session-logs"),
 )
 ROOT_RELATIVE_LINK_PREFIXES = ("src/", "examples/", ".github/", "gradle/", "config/")
+
+# governance/tasks.json is the sole Task State authority.  Agent instructions may still
+# point at the pre-cutover snapshot, but only where the surrounding lines say it is
+# historical; an unmarked mention reads as "keep this file current" and revives the
+# workflow the cutover replaced.
+TASK_STATE_INSTRUCTION_FILES = (PurePosixPath("AGENTS.md"), PurePosixPath("docs/agent_core.md"))
+TASK_STATE_INSTRUCTION_ROOTS = (PurePosixPath(".agents/skills"),)
+CUTOVER_SNAPSHOT = "docs/development_status.md"
+CUTOVER_SNAPSHOT_MARKERS = ("read-only", "read only", "historical", "cutover", "snapshot", "凍結")
+TASK_STATE_MUTATION_WORDS = ("update", "edit", "write", "maintain", "synchronize", "keep")
+TASK_STATE_PROHIBITIONS = ("do not", "don't", "never", "must not", "更新しない", "更新してはならない")
 RELEASE_CHECKLIST_LEGACY_NAMESPACE = "- [ ] 旧namespace `shincolle:` が公開ドキュメントに残っていない"
 
 README_OPTIONAL_MODS = {
@@ -105,6 +116,41 @@ class Audit:
         if (self.root / readme).exists():
             files.append(readme)
         return sorted(set(files), key=lambda path: path.as_posix())
+
+    def instruction_files(self) -> list[PurePosixPath]:
+        files = [path for path in TASK_STATE_INSTRUCTION_FILES if (self.root / path).exists()]
+        for relative_root in TASK_STATE_INSTRUCTION_ROOTS:
+            absolute_root = self.root / relative_root
+            if absolute_root.exists():
+                files.extend(
+                    PurePosixPath(path.relative_to(self.root).as_posix())
+                    for path in absolute_root.rglob("*.md")
+                )
+        return sorted(set(files), key=lambda path: path.as_posix())
+
+    def check_task_state_authority(self) -> None:
+        for path in self.instruction_files():
+            lines = self.read_text(path).splitlines()
+            for index, line in enumerate(lines):
+                if CUTOVER_SNAPSHOT not in line:
+                    continue
+                lowered = line.lower()
+                prohibits_state_use = (
+                    any(prohibition in lowered for prohibition in TASK_STATE_PROHIBITIONS)
+                    and any(word in lowered for word in TASK_STATE_MUTATION_WORDS)
+                    and "do not forget" not in lowered
+                )
+                if prohibits_state_use:
+                    continue
+                directs_state_use = any(word in lowered for word in TASK_STATE_MUTATION_WORDS)
+                window = " ".join(lines[max(index - 1, 0):index + 2]).lower()
+                if not directs_state_use and any(marker in window for marker in CUTOVER_SNAPSHOT_MARKERS):
+                    continue
+                self.add(
+                    "ERROR", path, index + 1,
+                    f"agent instruction references {CUTOVER_SNAPSHOT} without marking it as the "
+                    "historical cutover snapshot; governance/tasks.json is the task-state authority",
+                )
 
     def check_metadata(self) -> None:
         properties: dict[str, str] = {}
@@ -322,6 +368,7 @@ class Audit:
         self.check_links()
         self.check_public_api_types()
         self.check_bilingual_sections()
+        self.check_task_state_authority()
         if check_external:
             self.check_external_urls()
 

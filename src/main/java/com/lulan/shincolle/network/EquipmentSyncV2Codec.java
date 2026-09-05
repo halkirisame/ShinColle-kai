@@ -5,6 +5,7 @@ import com.lulan.shincolle.api.attribute.ShipAttributeType;
 import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.equipdata.EquipDataSnapshot;
+import com.lulan.shincolle.equipdata.EquipAvailability;
 import com.lulan.shincolle.equipdata.EquipDefinition;
 
 import io.netty.buffer.Unpooled;
@@ -23,7 +24,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Validates and serializes the v3 complete equipment-definition snapshot.
+ * Validates and serializes the v4 complete equipment-definition snapshot.
  *
  * <p>The server uses {@link #validateSnapshotForServer(EquipDataSnapshot)} before publishing a
  * reload generation. The same validation is performed by {@link #encode(EquipDataSnapshot,
@@ -31,7 +32,7 @@ import java.util.Set;
  */
 public final class EquipmentSyncV2Codec {
 
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
     public static final int MAX_DEFINITIONS = 4096;
     public static final int MAX_STATS_PER_DEFINITION = 256;
     public static final int MAX_DISTINCT_ATTRIBUTE_IDS = 4096;
@@ -42,12 +43,13 @@ public final class EquipmentSyncV2Codec {
     private static final int MAX_RESOURCE_LOCATION_LENGTH = 256;
     private static final int MAX_COMPATIBLE_LENGTH = 128;
     private static final int MAX_MATERIAL_LENGTH = 128;
+    private static final int MAX_AVAILABILITY_LENGTH = 32;
 
     private EquipmentSyncV2Codec() {
     }
 
     /**
-     * Performs all generation-wide v3 checks, including the actual encoded payload size.
+     * Performs all generation-wide v4 checks, including the actual encoded payload size.
      *
      * @throws IllegalArgumentException when this generation cannot be published or sent
      */
@@ -127,7 +129,8 @@ public final class EquipmentSyncV2Codec {
             data.stats().forEach(stats::set);
             EquipDefinition definition = new EquipDefinition(data.id(), data.item(), data.variant(), data.equipType(),
                     data.legacyEquipId(), stats.build(), data.attackEffects(), data.compatible(), data.enchantType(),
-                    data.developMaterial(), data.developAmount(), data.rareMean(), data.rollType());
+                    data.developMaterial(), data.developAmount(), data.rareMean(), data.rollType(),
+                    data.availability());
             definitions.put(definition.id(), definition);
         }
 
@@ -315,6 +318,9 @@ public final class EquipmentSyncV2Codec {
         buf.writeVarInt(definition.developAmount());
         buf.writeVarInt(definition.rareMean());
         buf.writeVarInt(definition.rollType());
+        // The stable JSON name, not the enum ordinal: reordering the enum must not be able to
+        // change what an already-encoded payload means.
+        buf.writeUtf(definition.availability().jsonName(), MAX_AVAILABILITY_LENGTH);
     }
 
     private static DefinitionData readDefinition(FriendlyByteBuf buf, Set<ResourceLocation> packetAttributeIds) {
@@ -366,9 +372,10 @@ public final class EquipmentSyncV2Codec {
         int developAmount = buf.readVarInt();
         int rareMean = buf.readVarInt();
         int rollType = buf.readVarInt();
+        EquipAvailability availability = EquipAvailability.fromJsonName(buf.readUtf(MAX_AVAILABILITY_LENGTH));
         return new DefinitionData(id, item, variant, equipType, legacyId, Map.copyOf(stats),
                 Map.copyOf(attackEffects), List.copyOf(compatible), enchantType, developMaterial,
-                developAmount, rareMean, rollType);
+                developAmount, rareMean, rollType, availability);
     }
 
     private static ShipAttributeLayout packetLayout(Set<ResourceLocation> packetAttributeIds) {
@@ -438,7 +445,8 @@ public final class EquipmentSyncV2Codec {
                                   Integer legacyEquipId, Map<ResourceLocation, Float> stats,
                                   Map<ResourceLocation, ShipAttackEffect> attackEffects,
                                   List<String> compatible, int enchantType, String developMaterial,
-                                  int developAmount, int rareMean, int rollType) {
+                                  int developAmount, int rareMean, int rollType,
+                                  EquipAvailability availability) {
     }
 
     private record ItemVariantEntry(ResourceLocation item, int variant, ResourceLocation definitionId) {

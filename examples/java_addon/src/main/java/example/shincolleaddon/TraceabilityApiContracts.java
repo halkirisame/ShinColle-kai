@@ -12,8 +12,11 @@ import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.api.equipment.ShipEquipmentContext;
 import com.lulan.shincolle.api.ship.PlayerOwnedShip;
+import com.lulan.shincolle.api.target.TargetTrait;
+import com.lulan.shincolle.api.target.TargetTraits;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -52,6 +55,10 @@ final class TraceabilityApiContracts {
         IShipEquipment equipment = new ContractEquipment();
         equipment.onShipHit(owner, target, 1F, stack);
         boolean ownedByPlayer = ship.isOwnedByPlayer(owner);
+    }
+
+    static void targetTraitContract(EntityType<?> addonEntityType) {
+        TargetTraits.registerTargetTrait(addonEntityType, TargetTrait.ANTI_AIR_ELIGIBLE);
     }
 
     private static final class ContractEquipment implements IShipEquipment {

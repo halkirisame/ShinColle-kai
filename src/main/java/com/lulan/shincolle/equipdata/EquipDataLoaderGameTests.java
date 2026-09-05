@@ -34,6 +34,47 @@ public final class EquipDataLoaderGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void definitionAvailabilityDefaultsParsesAndRejectsUnknownValues(GameTestHelper helper) {
+        EquipDefinition omitted = EquipDataLoader.parse(id("loader_test", "availability_default"),
+                minimalDefinition());
+        if (!omitted.availability().canDevelop() || !omitted.availability().canLoot()
+                || omitted.availability().isHidden()) {
+            throw new AssertionError("Omitted availability did not default to any");
+        }
+
+        for (EquipAvailability availability : EquipAvailability.values()) {
+            JsonObject json = minimalDefinition();
+            json.addProperty("availability", availability.jsonName());
+            EquipDefinition parsed = EquipDataLoader.parse(
+                    id("loader_test", "availability_" + availability.jsonName()), json);
+            if (parsed.availability() != availability) {
+                throw new AssertionError("Availability mapping drift for " + availability.jsonName());
+            }
+        }
+
+        JsonObject unknown = minimalDefinition();
+        unknown.addProperty("availability", "command_only");
+        assertDefinitionRejected(unknown, "unknown availability");
+
+        ResourceLocation validId = id("loader_test", "availability_isolated_valid");
+        ResourceLocation invalidId = id("loader_test", "availability_isolated_invalid");
+        EquipDataSnapshot isolated = EquipDataLoader.parseDefinitions(Map.of(
+                validId, minimalDefinition(), invalidId, unknown));
+        if (isolated.get(validId) == null || isolated.get(invalidId) != null || isolated.byId().size() != 1) {
+            throw new AssertionError("Unknown availability was not isolated to its own definition");
+        }
+
+        EquipDefinition normalized = new EquipDefinition(omitted.id(), omitted.item(), omitted.variant(),
+                omitted.equipType(), omitted.legacyEquipId(), omitted.stats(), omitted.attackEffects(),
+                omitted.compatible(), omitted.enchantType(), omitted.developMaterial(), omitted.developAmount(),
+                omitted.rareMean(), omitted.rollType(), null);
+        if (normalized.availability() != EquipAvailability.ANY) {
+            throw new AssertionError("Null availability was not normalized to any");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void parseStatsAcceptsAliasesCanonicalIdsAndDetachedCustomIds(GameTestHelper helper) {
         JsonObject stats = new JsonObject();
         stats.addProperty("atk_l", 5.5F);

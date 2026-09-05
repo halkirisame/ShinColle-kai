@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:shincolle-kai:schema:equipment:2",
+  "$id": "urn:shincolle-kai:schema:equipment:3",
   "title": "ShinColle-kai ship equipment definition",
   "description": "One data/<namespace>/equipment/<path>.json definition. The definition ID is derived from its file path.",
   "type": "object",
@@ -66,6 +66,17 @@
         "turbine_lo"
       ],
       "description": "Fixed legacy behavior/roll category. This category is not a dynamic registry."
+    },
+    "availability": {
+      "type": "string",
+      "enum": [
+        "any",
+        "shipyard_only",
+        "treasure_only",
+        "unobtainable"
+      ],
+      "default": "any",
+      "description": "Automatic acquisition routes: both, shipyard only, treasure only, or neither. Unobtainable definitions are kept out of the main creative tab and listed in the separate debug tab instead; they are also removed from JEI wherever JEI lists equipment variants as separate entries."
     },
     "compatible": {
       "type": "array",

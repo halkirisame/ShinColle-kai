@@ -39,6 +39,7 @@ import java.util.Objects;
  *                         category this rolls under in {@code EquipCalc}'s
  *                         construction tables. Usually equal to {@code equipId %
  *                         100} but kept explicit since nothing guarantees that.
+ * @param availability     automatic acquisition routes that may select this definition
  */
 public record EquipDefinition(
         ResourceLocation id,
@@ -53,7 +54,8 @@ public record EquipDefinition(
         String developMaterial,
         int developAmount,
         int rareMean,
-        int rollType
+        int rollType,
+        EquipAvailability availability
 ) {
 
     public EquipDefinition {
@@ -70,14 +72,42 @@ public record EquipDefinition(
         });
         attackEffects = Map.copyOf(effectCopy);
         compatible = List.copyOf(compatible);
+        availability = availability == null ? EquipAvailability.ANY : availability;
     }
 
+    /**
+     * @deprecated silently defaults {@code availability} to {@link EquipAvailability#ANY}, which
+     *             makes a definition obtainable from every automatic route without saying so.
+     *             Pass the availability explicitly. Kept only for existing test call sites.
+     */
+    @Deprecated
+    public EquipDefinition(ResourceLocation id, ResourceLocation item, int variant, int equipType,
+                           Integer legacyEquipId, ShipAttributeValues stats,
+                           Map<ResourceLocation, ShipAttackEffect> attackEffects, List<String> compatible,
+                           int enchantType, String developMaterial, int developAmount, int rareMean,
+                           int rollType) {
+        this(id, item, variant, equipType, legacyEquipId, stats, attackEffects, compatible,
+                enchantType, developMaterial, developAmount, rareMean, rollType, EquipAvailability.ANY);
+    }
+
+    /**
+     * @deprecated see the other availability-less constructor. Pass the availability explicitly.
+     */
+    @Deprecated
     public EquipDefinition(ResourceLocation id, ResourceLocation item, int variant, int equipType,
                            Integer legacyEquipId, ShipAttributeValues stats, List<String> compatible,
                            int enchantType, String developMaterial, int developAmount, int rareMean,
                            int rollType) {
         this(id, item, variant, equipType, legacyEquipId, stats, Map.of(), compatible,
-                enchantType, developMaterial, developAmount, rareMean, rollType);
+                enchantType, developMaterial, developAmount, rareMean, rollType, EquipAvailability.ANY);
+    }
+
+    public EquipDefinition(ResourceLocation id, ResourceLocation item, int variant, int equipType,
+                           Integer legacyEquipId, ShipAttributeValues stats, List<String> compatible,
+                           int enchantType, String developMaterial, int developAmount, int rareMean,
+                           int rollType, EquipAvailability availability) {
+        this(id, item, variant, equipType, legacyEquipId, stats, Map.of(), compatible,
+                enchantType, developMaterial, developAmount, rareMean, rollType, availability);
     }
 
     public boolean isCompatibleWith(String tag) {

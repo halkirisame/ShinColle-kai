@@ -9,6 +9,8 @@ import com.lulan.shincolle.entity.other.EntityAirplane;
 import com.lulan.shincolle.entity.other.EntityFloatingFort;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.EmotionHelper;
+import com.lulan.shincolle.utility.ParticleHelper;
 
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -83,6 +85,18 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
     @Override
     public void aiStep() {
         super.aiStep();
+
+        // [BETA STOPGAP] Dripping water while the ship's water-drip model part is on.
+        // Ported from the original's 8-tick client effect (particle type 28).
+        if (this.level().isClientSide()) {
+            if (this.tickCount % 8 == 0
+                    && EmotionHelper.checkModelState(2, this.getStateEmotion(ID.S.State))
+                    && !this.getStateFlag(ID.F.NoFuel)) {
+                double dripY = (this.getIsSitting() || this.isPassenger()) ? 0.9D : 1.1D;
+                ParticleHelper.spawnAttackParticleAt(this.level(),
+                        this.getX(), this.getY() + dripY, this.getZ(), 0D, 0D, 0D, 28);
+            }
+        }
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {

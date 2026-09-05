@@ -20,5 +20,13 @@
     "shincolle_kai:spd": -0.1,
     "shincolle_kai:mov": -0.02,
     "shincolle_kai:hit": 2.0
-  }
+  },
+  "attack_effects": [
+    {
+      "effect": "minecraft:levitation",
+      "amplifier": 0,
+      "duration": 100,
+      "chance": 50
+    }
+  ]
 }

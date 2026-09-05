@@ -20,6 +20,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,21 +153,19 @@ public class EquipCalc {
         Map<ResourceLocation, Float> equipList = new HashMap<>();
 
         // Find all equipment of this type from the datapack-driven equipment data
-        for (EquipDefinition def : EquipDataRegistry.server().all()) {
-            if (def.rollType() == type) {
-                int totalMat = totalMats;
-                // Scale small build resolution
-                if (buildType == 0) {
-                    totalMat = (int) (totalMats * 15.625F);
-                }
-
-                int meanDist = Mth.abs(totalMat - def.rareMean());
-                float prob = CalcHelper.getNormDist(meanDist);
-                equipList.put(def.id(), prob);
-                LogHelper.debug("DEBUG: roll equip: ID " + def.id() +
-                        " MEAN " + def.rareMean() +
-                        " MD " + meanDist + " PR " + prob);
+        for (EquipDefinition def : collectDevelopableCandidates(EquipDataRegistry.server().all(), type)) {
+            int totalMat = totalMats;
+            // Scale small build resolution
+            if (buildType == 0) {
+                totalMat = (int) (totalMats * 15.625F);
             }
+
+            int meanDist = Mth.abs(totalMat - def.rareMean());
+            float prob = CalcHelper.getNormDist(meanDist);
+            equipList.put(def.id(), prob);
+            LogHelper.debug("DEBUG: roll equip: ID " + def.id() +
+                    " MEAN " + def.rareMean() +
+                    " MD " + meanDist + " PR " + prob);
         }
 
         ResourceLocation rollResult = weightedRoll(equipList, random);
@@ -190,6 +189,13 @@ public class EquipCalc {
         }
 
         return getItemStackFromId(rollResult, enchLv);
+    }
+
+    static List<EquipDefinition> collectDevelopableCandidates(Collection<EquipDefinition> definitions, int type) {
+        return definitions.stream()
+                .filter(definition -> definition.rollType() == type)
+                .filter(definition -> definition.availability().canDevelop())
+                .toList();
     }
 
     /**
