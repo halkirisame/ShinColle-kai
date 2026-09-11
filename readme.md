@@ -1,11 +1,11 @@
-# ShinColle-kai — 深これ / Abyssal Fleet & Ship Girls for Minecraft 1.20.1
+# ShinColle-kai（深これ改） — Abyssal Fleet & Ship Girls for Minecraft 1.20.1
 
 [![CI](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml/badge.svg)](https://github.com/halkirisame/ShinColle-kai/actions/workflows/ci.yml)
 
-**ShinColle-kai（深これ）**は、Minecraft Java Edition 1.20.1 / Forge向けの
+**ShinColle-kai（深これ改）**は、Minecraft Java Edition 1.20.1 / Forge向けの
 艦隊育成・戦闘MODです。プレイヤーは深海棲艦側となり、深海棲艦を建造・育成・指揮して、
 敵として現れる艦娘と戦います。撃破した艦娘を仲間にすることもできます。
-ShinColleは日本語圏で「深これ」として知られる、艦これ風の非公式Minecraft MODです。
+ShinColleは日本語圏で「深これ」「艦これMOD」として知られる、艦これ風の非公式Minecraft MODです。
 
 艦娘・深海棲艦、艦隊戦、建造、レベリング、婚約、主砲・魚雷・艦載機などの装備を追加します。
 KubeJS、datapack、Javaアドオンから独自装備・艦属性を追加できる拡張基盤も備えています。
@@ -56,6 +56,7 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 ## 動作環境
 
 - Minecraft 1.20.1 / Forge 47系(`[47,)`)。開発・検証は 47.4.0 で行っています
+- 前提MODはありません
 
 任意で連携するMOD(無くても動作します):
 
@@ -76,10 +77,43 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 
 ## ShinColle-Reforgeとの違い
 
-ShinColle-kaiは単なる名称変更版ではありません。Forge 1.20.1移植で残った不具合を修正し、
-ShinColle 1.10.2のプレイヤーが体感できる挙動・演出を復元しながら、内部を現代のMOD環境へ
-合わせています。装備datapack、KubeJS連携、Java Public APIにより、第三者が装備や艦属性を
-追加できることも本派生版の重点です。
+深これ改は、1.20.1への移植で遊べなくなっていた致命的な不具合を、原作1.10.2のとおりに
+直すところから始めました。
+
+**遊べなくなっていた不具合**
+
+- 敵艦がまったく動かなかった問題を直しました。接近して戦います
+- 艦の約半数が敵を見つけられなかった問題を直し、索敵・攻撃・反撃が安定しました
+- 宝箱からスポーン卵・装備・婚約指輪が一切出なかった問題を直しました
+- 艦が轟沈したときにクライアントが落ちる問題を直しました
+- 連装砲を召喚したときにクラッシュする問題を直しました
+- 燃料切れのときにクラッシュする問題を直しました
+
+**マルチプレイ**
+
+- アイテムを複製できる問題を直しました
+- 不正な通信でサーバーを落とせる問題を塞ぎました
+
+**戦う**
+
+- ピースフルにしても敵艦が消えなかった問題を直しました(味方艦は残ります)
+- 敵艦の頭や砲身が激しく震える問題を直しました
+- 連装砲が攻撃しなかった問題を直しました
+- ミサイルが必ず命中していた問題を直し、外れも出るようにしました
+- 艦ごとの固有の命中時効果(23艦種)を復元しました
+
+**集める・育てる**
+
+- 動いていなかったレシピ4件を使えるようにしました
+- 婚約指輪を艦に使うと、別の操作とぶつかっていた問題を直しました
+- 艦が拾ったアイテムが取り出せないページに入り、弾薬や食料が使われない問題を直しました
+- 轟沈しても装備とアイテムは艦の卵に残り、再召喚すると戻ります
+
+**拡張の仕組み**
+
+- 装備をdatapack(JSON)で追加・調整できます。JSON Schemaとサンプル付きです
+- KubeJSやJavaアドオンから、独自の装備や艦の能力値を追加できます
+- Curiosの装備枠、Tinkers' Constructの修飾子を艦の攻撃効果に使えます
 
 ## 互換性
 
@@ -248,6 +282,7 @@ migrated. **Starting in a new world is recommended.**
 ## Requirements
 
 - Minecraft 1.20.1 / Forge 47.x (`[47,)`); developed and tested against 47.4.0
+- No other mods are required
 
 Optional integrations (all work fine when absent):
 
@@ -268,10 +303,46 @@ Optional integrations (all work fine when absent):
 
 ## Differences from ShinColle-Reforge
 
-ShinColle-kai is more than a rename. It repairs defects left in the Forge 1.20.1 port,
-restores player-visible behaviour and effects from ShinColle 1.10.2, and modernizes the
-internal integration layer. Equipment datapacks, KubeJS support and a public Java API
-let third-party authors add equipment and ship attributes.
+ShinColle-kai started by fixing the game-breaking bugs left in the 1.20.1 port,
+following ShinColle 1.10.2.
+
+**Game-breaking bugs fixed**
+
+- Hostile ships never moved; they now close in and fight
+- About half of all ships could not find targets; target search, attacks and
+  retaliation now work reliably
+- Chests never contained ship spawn eggs, equipment or marriage rings; chest loot is back
+- Fixed a client crash when a ship sinks
+- Fixed a crash when a Rensouhou turret is summoned
+- Fixed a crash when a ship runs out of fuel
+
+**Multiplayer**
+
+- Fixed an item duplication exploit
+- Closed a way to crash the server with malformed packets
+
+**Combat**
+
+- Hostile ships now despawn on Peaceful, as in 1.10.2; friendly ships stay
+- Hostile ships' heads and gun barrels no longer shake violently
+- Rensouhou turrets now attack
+- Missiles could never miss; they now can
+- Ship-specific on-hit effects for 23 ship classes are restored
+
+**Collecting and raising**
+
+- Four recipes that never loaded now work
+- Using a marriage ring on a ship no longer collides with other actions
+- Items a ship picked up could land on a locked inventory page, where the ship could
+  not use its ammo or food; fixed
+- A sunk ship keeps its equipment and cargo in its ship egg and gets them back when
+  summoned again
+
+**Built for extension**
+
+- Add or tune equipment with datapacks (JSON), with a JSON Schema and examples
+- Add custom equipment and ship stats from KubeJS or Java addons
+- Use Curios equipment slots and Tinkers' Construct modifiers as ship attack effects
 
 ## Compatibility
 
