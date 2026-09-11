@@ -43,44 +43,46 @@ public final class ShipAttributeDatapackReloadGameTests {
 
     @GameTest(template = "arena", batch = "equipment_reload_config")
     public static void reloadRecalculatesLoadedShipBeforeNextTick(GameTestHelper helper) {
-        EquipDataSnapshot originalSnapshot = EquipDataRegistry.server();
-        BasicEntityShip ship = createLoadedShip(helper);
-        try {
-            ItemStack cannon = new ItemStack(ModItems.EQUIP_CANNON.get());
-            BasicEquip.setEquipMeta(cannon, VARIANT);
-            ship.getCapaShipInventory().setStackInSlot(0, cannon);
-            ship.calcShipAttributes(31, false);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            EquipDataSnapshot originalSnapshot = EquipDataRegistry.server();
+            BasicEntityShip ship = createLoadedShip(helper, entities);
+            try {
+                ItemStack cannon = new ItemStack(ModItems.EQUIP_CANNON.get());
+                BasicEquip.setEquipMeta(cannon, VARIANT);
+                ship.getCapaShipInventory().setStackInSlot(0, cannon);
+                ship.calcShipAttributes(31, false);
 
-            AttrsAdv attrs = requireAdvancedAttrs(ship);
-            float oldEquipHp = attrs.getAttrsEquip(ID.Attrs.HP);
-            EquipDefinition originalDefinition = originalSnapshot.byItemVariant(
-                    ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "equip_cannon"), VARIANT);
-            if (originalDefinition == null || oldEquipHp <= 0F) {
-                throw new AssertionError("Reload fixture equipment definition is missing or has no HP bonus");
-            }
+                AttrsAdv attrs = requireAdvancedAttrs(ship);
+                float oldEquipHp = attrs.getAttrsEquip(ID.Attrs.HP);
+                EquipDefinition originalDefinition = originalSnapshot.byItemVariant(
+                        ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "equip_cannon"), VARIANT);
+                if (originalDefinition == null || oldEquipHp <= 0F) {
+                    throw new AssertionError("Reload fixture equipment definition is missing or has no HP bonus");
+                }
 
-            installServerSnapshot(replaceDefinition(originalSnapshot, withExtraHp(originalDefinition)));
-            ServerEventHandler.onDatapackSync(new OnDatapackSyncEvent(
-                    helper.getLevel().getServer().getPlayerList(), null));
+                installServerSnapshot(replaceDefinition(originalSnapshot, withExtraHp(originalDefinition)));
+                ServerEventHandler.onDatapackSync(new OnDatapackSyncEvent(
+                        helper.getLevel().getServer().getPlayerList(), null));
 
-            float newEquipHp = attrs.getAttrsEquip(ID.Attrs.HP);
-            if (Float.compare(oldEquipHp + RELOAD_HP_DELTA, newEquipHp) != 0) {
-                throw new AssertionError("Reload did not immediately recalculate loaded equipment attributes: old="
-                        + oldEquipHp + " new=" + newEquipHp);
+                float newEquipHp = attrs.getAttrsEquip(ID.Attrs.HP);
+                if (Float.compare(oldEquipHp + RELOAD_HP_DELTA, newEquipHp) != 0) {
+                    throw new AssertionError("Reload did not immediately recalculate loaded equipment attributes: old="
+                            + oldEquipHp + " new=" + newEquipHp);
+                }
+                double maxHealth = Objects.requireNonNull(ship.getAttribute(Attributes.MAX_HEALTH)).getBaseValue();
+                if (Double.compare(attrs.getAttrsBuffed(ID.Attrs.HP), maxHealth) != 0) {
+                    throw new AssertionError("Reloaded HP did not reach the Minecraft MAX_HEALTH attribute");
+                }
+            } finally {
+                installServerSnapshot(originalSnapshot);
+                ship.calcShipAttributes(31, false);
             }
-            double maxHealth = Objects.requireNonNull(ship.getAttribute(Attributes.MAX_HEALTH)).getBaseValue();
-            if (Double.compare(attrs.getAttrsBuffed(ID.Attrs.HP), maxHealth) != 0) {
-                throw new AssertionError("Reloaded HP did not reach the Minecraft MAX_HEALTH attribute");
-            }
-        } finally {
-            installServerSnapshot(originalSnapshot);
-            ship.calcShipAttributes(31, false);
+            helper.succeed();
         }
-        helper.succeed();
     }
 
-    private static BasicEntityShip createLoadedShip(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
+    private static BasicEntityShip createLoadedShip(GameTestHelper helper, GameTestEntities entities) {
+        Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
         if (!(entity instanceof BasicEntityShip ship) || !helper.getLevel().addFreshEntity(ship)) {
             throw new AssertionError("Failed to create a loaded friendly ship for reload test");
         }

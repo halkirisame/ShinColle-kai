@@ -31,8 +31,8 @@ public final class ShipInventoryPageGateGameTests {
     private ShipInventoryPageGateGameTests() {
     }
 
-    private static BasicEntityShip spawn(GameTestHelper helper, int drumState) {
-        Entity e = ModEntities.DESTROYER_SHIMAKAZE.get().create(helper.getLevel());
+    private static BasicEntityShip spawn(GameTestHelper helper, GameTestEntities entities, int drumState) {
+        Entity e = entities.add(ModEntities.DESTROYER_SHIMAKAZE.get().create(helper.getLevel()));
         if (!(e instanceof BasicEntityShip ship)) {
             throw new AssertionError("Failed to create ship");
         }
@@ -59,44 +59,52 @@ public final class ShipInventoryPageGateGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void pickupStopsAtFirstPageWhenNoDrums(GameTestHelper helper) {
-        int highest = highestFilledCargoSlot(spawn(helper, 0));
-        int limit = ContainerShipInventory.EQUIP_SLOTS + 18;
-        if (highest >= limit) {
-            throw new AssertionError("Page 0 only: expected slots below " + limit
-                    + " but items reached slot " + highest);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            int highest = highestFilledCargoSlot(spawn(helper, entities, 0));
+            int limit = ContainerShipInventory.EQUIP_SLOTS + 18;
+            if (highest >= limit) {
+                throw new AssertionError("Page 0 only: expected slots below " + limit
+                        + " but items reached slot " + highest);
+            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void pickupStopsAtSecondPageWithOneDrum(GameTestHelper helper) {
-        int highest = highestFilledCargoSlot(spawn(helper, 1));
-        int limit = ContainerShipInventory.EQUIP_SLOTS + 36;
-        if (highest >= limit) {
-            throw new AssertionError("Pages 0-1: expected slots below " + limit
-                    + " but items reached slot " + highest);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            int highest = highestFilledCargoSlot(spawn(helper, entities, 1));
+            int limit = ContainerShipInventory.EQUIP_SLOTS + 36;
+            if (highest >= limit) {
+                throw new AssertionError("Pages 0-1: expected slots below " + limit
+                        + " but items reached slot " + highest);
+            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void pickupUsesEveryPageWithTwoDrums(GameTestHelper helper) {
-        int highest = highestFilledCargoSlot(spawn(helper, 2));
-        if (highest != CapaShipInventory.SlotMax - 1) {
-            throw new AssertionError("All pages unlocked: expected the last slot "
-                    + (CapaShipInventory.SlotMax - 1) + " to be used, but the highest was " + highest);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            int highest = highestFilledCargoSlot(spawn(helper, entities, 2));
+            if (highest != CapaShipInventory.SlotMax - 1) {
+                throw new AssertionError("All pages unlocked: expected the last slot "
+                        + (CapaShipInventory.SlotMax - 1) + " to be used, but the highest was " + highest);
+            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void pageSizeSetterUpdatesTheValueTheGetterReads(GameTestHelper helper) {
-        BasicEntityShip ship = spawn(helper, 0);
-        ship.setInventoryPageSize(2);
-        if (ship.getInventoryPageSize() != 2) {
-            throw new AssertionError("setInventoryPageSize must write the field "
-                    + "getInventoryPageSize reads; got " + ship.getInventoryPageSize());
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = spawn(helper, entities, 0);
+            ship.setInventoryPageSize(2);
+            if (ship.getInventoryPageSize() != 2) {
+                throw new AssertionError("setInventoryPageSize must write the field "
+                        + "getInventoryPageSize reads; got " + ship.getInventoryPageSize());
+            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 }

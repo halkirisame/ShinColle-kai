@@ -62,7 +62,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.player.Inventory;
@@ -134,10 +133,14 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected UUID guardedEntityUuid;
     @Nullable
     protected ResourceKey<Level> guardedDimension;
+    private boolean releaseGuardOnArrival;
     /** Client copy of whether the synchronized guard coordinates represent an active destination. */
     private boolean clientGuardDestinationActive;
     protected Entity atkTarget;
     protected Entity rvgTarget;
+    /** Server-only command, separate from the temporary current combat target; never persisted. */
+    @Nullable
+    private Entity manualTarget;
     // AI calculation
     protected double ShipDepth;
     protected double ShipFloatingDepth;
@@ -454,14 +457,8 @@ public abstract class BasicEntityShip extends TamableAnimal
         // idle AI
         this.goalSelector.addGoal(23, new ShipFloatingGoal(this));
         this.goalSelector.addGoal(24, new ShipWanderGoal(this, 10, 5, 0.8D));
-        // Replace ShipWatchClosestGoal -> LookAtPlayerGoal
-        this.goalSelector.addGoal(25, new LookAtPlayerGoal(this, Player.class, 4.0F, 0.06F) {
-            @Override
-            public boolean canUse() {
-                if (BasicEntityShip.this.getStateFlag(ID.F.NoFuel)) return false;
-                return super.canUse();
-            }
-        });
+        this.goalSelector.addGoal(25,
+                new ShipWatchClosestGoal(this, Player.class, 4.0F, 0.06F));
         // Replace: ShipLookIdleGoal -> RandomLookAroundGoal
         this.goalSelector.addGoal(26, new RandomLookAroundGoal(this) {
             @Override
@@ -473,11 +470,12 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     public void setAITargetList() {
+        this.targetSelector.addGoal(3, new ShipManualTargetGoal(this));
         if (this.getStateFlag(ID.F.PassiveAI)) {
-            // passive: only revenge targeting
+            // passive: revenge and explicit manual commands only
             this.targetSelector.addGoal(1, new ShipRevengeTargetGoal(this));
         } else {
-            // active: revenge + range targeting
+            // active: also allow automatic range targeting
             this.targetSelector.addGoal(1, new ShipRevengeTargetGoal(this));
             this.targetSelector.addGoal(5, new ShipRangeTargetGoal(this));
         }
@@ -488,6 +486,10 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     protected void clearAITargetTasks() {
+        // Release the old manual mutex before removing its wrapper, but retain the command.
+        this.targetSelector.getAvailableGoals().stream()
+                .filter(goal -> goal.getGoal() instanceof ShipManualTargetGoal)
+                .forEach(goal -> goal.stop());
         this.setTarget(null);
         this.setEntityTarget(null);
         this.targetSelector.removeAllGoals(goal -> true);
@@ -507,11 +509,13 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (this.guardedDimension != null) {
             nbt.putString("GuardDimension", this.guardedDimension.location().toString());
         }
+        nbt.putBoolean("ReleaseGuardOnArrival", shouldReleaseGuardOnArrival());
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag nbt) {
         super.readAdditionalSaveData(nbt);
+        this.setManualTarget(null);
 
         // load ship attributes
         CapaShipSavedValues.loadNBTData(nbt, this);
@@ -533,6 +537,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         // Entity IDs are runtime-only and must never be restored from NBT.
         setStateMinor(ID.M.GuardID, -1);
         repairUnassignedGuardState();
+        this.releaseGuardOnArrival = nbt.getBoolean("ReleaseGuardOnArrival") && hasGuardDestination();
 
         // Derived attributes depend on the equipment inventory. Recalculate only
         // after every persisted dependency has been restored; doing this from
@@ -610,39 +615,28 @@ public abstract class BasicEntityShip extends TamableAnimal
             return;
         }
         int mode = PointerItem.getMode(pointer);
-        if (mode > PointerItem.MODE_FORMATION) {
-            return;
-        }
-
         CapaTeitoku capa = clientPlayer.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
         if (capa == null) {
             return;
         }
 
         int teamId = capa.getSelectTeam();
-        boolean isInTeam = false;
-        boolean isSelected = false;
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (capa.getTeamSID(teamId, i) == this.getId()) {
-                isInTeam = true;
-                isSelected = mode == PointerItem.MODE_FORMATION || capa.isShipSelected(teamId, i);
+            if (capa.getTeamMember(teamId, i) == this.getStateMinor(ID.M.ShipUID)
+                    && capa.isShipSelected(teamId, i)) {
+                int circleType = switch (PointerItem.baseMode(mode)) {
+                    case PointerItem.MODE_GROUP -> 2;
+                    case PointerItem.MODE_FORMATION -> 3;
+                    default -> 1;
+                };
+                ParticleHelper.spawnTeamCircle(this, circleType);
                 break;
             }
         }
 
-        int circleType;
-        if (isSelected) {
-            circleType = switch (mode) {
-                case PointerItem.MODE_GROUP -> 2;
-                case PointerItem.MODE_FORMATION -> 3;
-                default -> 1;
-            };
-        } else {
-            circleType = mode == PointerItem.MODE_FORMATION && isInTeam ? 3 : 0;
+        if (mode > PointerItem.MODE_FORMATION) {
+            return;
         }
-
-        ParticleHelper.spawnTeamCircle(this, circleType);
-
         if (!this.getStateFlag(ID.F.CanFollow)) {
             updateClientGuardedEntity();
             Entity guarded = this.getGuardedEntity();
@@ -758,7 +752,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
                         // cancel mounts if can't summon
                         if (this.hasShipMounts() && !this.canSummonMounts()) {
-                            if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount) {
+                            if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount mount) {
                                 if (this.getStateFlag(ID.F.NoFuel)) {
                                     LogHelper.diag("DIAG: mount dismount host=" + this + " reason=noFuel");
                                 }
@@ -766,6 +760,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                                     LogHelper.diag("DIAG: mount dismount host=" + this + " reason=stateDisabled");
                                 }
                                 this.stopRiding();
+                                mount.clearRider();
                             }
                         }
 
@@ -1679,6 +1674,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
 
         if (noFuel) {
+            this.setManualTarget(null);
             // Clear all AI when fuel runs out — ship becomes inert.  Stop an
             // in-progress path as well, otherwise its MoveControl can retain
             // a vertical velocity after the goals have been removed.
@@ -2424,6 +2420,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.setOrderedToSit(sit);
         this.setInSittingPose(sit);
         if (sit) {
+            this.setManualTarget(null);
             this.jumping = false;
             this.getNavigation().stop();
             this.setTarget(null);
@@ -2543,6 +2540,17 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     // ========== IShipAttackBase Implementation ==========
+
+    @Nullable
+    public Entity getManualTarget() {
+        return this.manualTarget;
+    }
+
+    public void setManualTarget(@Nullable Entity target) {
+        if (!this.level().isClientSide()) {
+            this.manualTarget = target;
+        }
+    }
 
     @Override
     public Entity getEntityTarget() {
@@ -2719,6 +2727,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void setGuardedPos(int x, int y, int z, int dim, int type) {
+        this.releaseGuardOnArrival = false;
         setStateMinor(ID.M.GuardX, x);
         setStateMinor(ID.M.GuardY, y);
         setStateMinor(ID.M.GuardZ, z);
@@ -2748,6 +2757,14 @@ public abstract class BasicEntityShip extends TamableAnimal
             return this.clientGuardDestinationActive;
         }
         return !getStateFlag(ID.F.CanFollow) && getStateMinor(ID.M.GuardType) != 2;
+    }
+
+    public boolean shouldReleaseGuardOnArrival() {
+        return this.releaseGuardOnArrival && hasGuardDestination();
+    }
+
+    public void setReleaseGuardOnArrival(boolean release) {
+        this.releaseGuardOnArrival = release && hasGuardDestination();
     }
 
     public void setClientGuardDestinationActive(boolean active) {
@@ -3396,6 +3413,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void die(DamageSource source) {
+        this.setManualTarget(null);
         // The inventory is deliberately left alone: tickDeath() folds it into the
         // saved ship egg, so equipment and cargo come back with the ship instead
         // of scattering across the water where it is easily lost.
@@ -3538,6 +3556,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void remove(RemovalReason reason) {
+        this.setManualTarget(null);
         // clear chunk loader
         this.clearChunkLoader();
 
@@ -3916,12 +3935,21 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Update mount entity summoning.
      */
     public void updateMountSummon() {
-        if (!this.hasShipMounts() || !this.canSummonMounts())
+        if (!(this.level() instanceof ServerLevel serverLevel) || !this.isAlive()
+                || !this.hasShipMounts() || !this.canSummonMounts())
             return;
 
         // check if already riding
         if (this.isPassenger())
             return;
+
+        // A dismounted or just-loaded orphan may not have ticked yet. Do not
+        // create a duplicate in that interval, even when it is far from us.
+        for (Entity entity : serverLevel.getAllEntities()) {
+            if (entity instanceof BasicEntityMount existing && existing.isAlive() && existing.hasHost(this)) {
+                return;
+            }
+        }
 
         BasicEntityMount mount = this.summonMountEntity();
         if (mount == null) {

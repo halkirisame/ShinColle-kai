@@ -1,4 +1,10 @@
 {
+  "key.categories.shincolle_kai.pointer": "ShinColle-kai: Pointer",
+  "key.shincolle_kai.pointer.formation_gui": "Formation GUI (hold + use; default: Ctrl)",
+  "key.shincolle_kai.pointer.guard_position": "Guard position (hold + use; default: sneak state)",
+  "key.shincolle_kai.pointer.guard_entity": "Guard entity (hold + use; default: sprint state)",
+  "key.shincolle_kai.pointer.team_management": "Manage team (hold + attack; default: sneak state)",
+  "key.shincolle_kai.pointer.cycle_mode": "Cycle mode (hold + wheel; default: sneak state)",
   "itemGroup.shincolle_kai": "ShinColle",
   "block.shincolle_kai.abyssium": "Abyssium Block",
   "block.shincolle_kai.block_abyssium": "Abyssium Block",
@@ -807,5 +813,20 @@
   "gui.shincolle_kai.peek.empty": "Empty",
   "gui.shincolle_kai.egg.contents": "Stored items: %s",
   "gui.shincolle_kai.additional_attributes": "Additional Attributes",
-  "gui.shincolle_kai.additional_attributes.more": "...and %s more"
+  "gui.shincolle_kai.additional_attributes.more": "...and %s more",
+  "chat.shincolle_kai.pointer.ship_label": "%s %s",
+  "chat.shincolle_kai.pointer.team_added": "Added %s to the team",
+  "chat.shincolle_kai.pointer.team_removed": "Removed %s from the team",
+  "shiptype.shincolle_kai.-1": "Destroyer",
+  "shiptype.shincolle_kai.0": "Ship",
+  "shiptype.shincolle_kai.1": "Light cruiser",
+  "shiptype.shincolle_kai.2": "Heavy cruiser",
+  "shiptype.shincolle_kai.3": "Torpedo cruiser",
+  "shiptype.shincolle_kai.4": "Light carrier",
+  "shiptype.shincolle_kai.5": "Aircraft carrier",
+  "shiptype.shincolle_kai.6": "Battleship",
+  "shiptype.shincolle_kai.7": "Transport",
+  "shiptype.shincolle_kai.8": "Submarine",
+  "shiptype.shincolle_kai.9": "Demon",
+  "shiptype.shincolle_kai.10": "Princess"
 }

@@ -22,14 +22,14 @@ import net.minecraftforge.network.simple.SimpleChannel;
  * Packet directions:
  * S2C (Server to Client): S2CEntitySyncPacket, S2CSpawnParticlePacket,
  * S2CGUISyncPacket, S2CReactPacket, S2CShipItemListPacket,
- * S2CShipyardStockPacket
+ * S2CShipyardStockPacket, S2CEquipDataSyncPacket, S2CShipLevelCapPacket
  * C2S (Client to Server): C2SGUIInputPacket, C2SInputPacket
  */
 public class ModNetworking {
 
-    // Dynamic entity attribute sync changes its wire schema. Reject mixed
+    // Ship level-cap sync changes the registered packet set. Reject mixed
     // client/server jars rather than decoding the wrong schema.
-    private static final String PROTOCOL_VERSION = "8";
+    private static final String PROTOCOL_VERSION = "9";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),
@@ -104,6 +104,12 @@ public class ModNetworking {
                 .encoder(S2CEquipDataSyncPacket::encode)
                 .decoder(S2CEquipDataSyncPacket::new)
                 .consumerMainThread(S2CEquipDataSyncPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CShipLevelCapPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CShipLevelCapPacket::encode)
+                .decoder(S2CShipLevelCapPacket::new)
+                .consumerMainThread(S2CShipLevelCapPacket::handle)
                 .add();
 
         LogHelper.info("ShinColle: Network packets registered (" + packetId + " packets).");

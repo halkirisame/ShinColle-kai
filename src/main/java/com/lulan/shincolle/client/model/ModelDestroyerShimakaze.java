@@ -1,5 +1,7 @@
 package com.lulan.shincolle.client.model;
 
+import com.lulan.shincolle.utility.LogHelper;
+import com.lulan.shincolle.utility.ModelFloatLog;
 import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -337,6 +339,16 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
         return LayerDefinition.create(meshdefinition, 128, 128);
     }
 
+    /**
+     * TASK-106 diagnostic. Counts how many times a pose method ran between two renders and
+     * reports the offset that render actually used. The float measured for sitting is almost
+     * exactly twice the constant the sit branch adds, so the first thing to settle is whether
+     * the addition happens once or twice per rendered frame. Only emitted while debugMode is on.
+     */
+    private int diagPoseCalls;
+    private IShipEmotion diagEntity;
+    private int diagFrames;
+
     @Override
     public void setupAnim(Entity entity, float limbSwing, float limbSwingAmount, float ageInTicks,
                           float netHeadYaw, float headPitch) {
@@ -372,10 +384,13 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
         EmotionHelper.rollEmotionAdv(this, ent);
 
         if (ent.getStateFlag(ID.F.NoFuel)) {
+            this.diagPoseCalls++;
             this.applyDeadPose(limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, ent);
         } else {
+            this.diagPoseCalls++;
             this.applyNormalPose(limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, ent);
         }
+        this.diagEntity = ent;
 
         this.syncRotationGlowPart();
     }
@@ -384,6 +399,7 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         // Determine scale from entity scale level
+        this.reportOffsetDiagnostic();
         poseStack.pushPose();
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
@@ -394,6 +410,30 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
 
         poseStack.popPose();
+    }
+
+    /**
+     * TASK-106. Reports the offset this render will use, and how many pose methods ran since the
+     * previous render. A count above one means the per-pose additions stack across a single
+     * frame, which would explain the measured float being twice the constant that was added.
+     */
+    private void reportOffsetDiagnostic() {
+        IShipEmotion ent = this.diagEntity;
+        int calls = this.diagPoseCalls;
+        this.diagPoseCalls = 0;
+        if (ent == null || !LogHelper.diagEnabled()) {
+            return;
+        }
+        if ((this.diagFrames++ & 63) != 0) {
+            return;
+        }
+        ModelFloatLog.log("offset model=shimakaze poseCalls=" + calls
+                + " scaleLevel=" + ent.getScaleLevel() + " scale=" + this.scale
+                + " offsetY=" + this.offsetY + " worldOffsetY=" + (this.offsetY * this.scale)
+                + " sitting=" + ent.getIsSitting() + " riding=" + ent.getIsRiding()
+                + " noFuel=" + ent.getStateFlag(ID.F.NoFuel)
+                + " emotion=" + ent.getStateEmotion(ID.S.Emotion)
+                + " depth=" + ent.getShipDepth(0));
     }
 
     @Override
@@ -666,8 +706,15 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
 
         if (ent.getIsSitting() || ent.getIsRiding()) {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
-                // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.575F;
+                // [PORT] Restored from 1.10.2 GlStateManager.translate: 0.575F.
+                // TASK-106 PATCH, cause not found. Measured on 2026-09-09: with 0.575F the
+                // model still rendered 1.18 model units above the ground at every scale level
+                // (0.485 / 0.962 / 1.455 / 1.948 in world units at scale 0.41 / 0.82 / 1.23 /
+                // 1.64). The float is constant in model space, so the shortfall is added here.
+                // Increasing offsetY moves the model down. Upstream grounds the same pose with
+                // 0.575F, so the port's sitting pose lifts more than upstream's for a reason
+                // that has not been identified. Do not treat 1.755F as a derived value.
+                this.offsetY += 1.755F;
                 this.Head.xRot = -1.48F;
                 this.Head.yRot = 0F;
                 this.Head.zRot = 0F;
@@ -682,7 +729,10 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
                 this.LegRight.zRot = -0.35F;
             } else {
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.45F;
+                // [PORT] Restored from 1.10.2 GlStateManager.translate: 0.45F.
+                // TASK-106 PATCH, cause not found. Same measurement as the bored branch above:
+                // 0.886 model units of float remained, constant across scale levels.
+                this.offsetY += 1.336F;
                 this.Head.xRot -= 0.7F;
                 this.BodyMain.xRot = 0.5236F;
                 this.HairL01.xRot -= 0.2F;

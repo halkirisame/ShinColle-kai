@@ -1,6 +1,13 @@
 package com.lulan.shincolle.client.particle;
 
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.capability.CapaTeitoku;
+import com.lulan.shincolle.capability.CapaTeitokuProvider;
+import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.init.ModItems;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Camera;
@@ -40,6 +47,7 @@ public class ParticleTeam extends Particle {
     private final float pScale;
     private float particleAlphaA, particleAlphaC; // arrow alpha, circle alpha
     private Entity host;
+    private int selectionTeam = -1;
 
     // mark at entity
     public ParticleTeam(ClientLevel level, Entity host, float scale, int type) {
@@ -116,6 +124,50 @@ public class ParticleTeam extends Particle {
                 this.lifetime = 30;
                 break;
         }// end switch
+        if (type >= 1 && type <= 3) {
+            var player = Minecraft.getInstance().player;
+            if (player != null) {
+                player.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(
+                        capa -> selectionTeam = capa.getSelectTeam());
+            }
+            // Ship indicators refresh every 32 ticks; overlap instead of blinking.
+            this.lifetime = 34;
+        }
+    }
+
+    private ItemStack activePointer() {
+        var player = Minecraft.getInstance().player;
+        if (player == null) {
+            return ItemStack.EMPTY;
+        }
+        if (player.getMainHandItem().getItem() == ModItems.POINTER.get()) {
+            return player.getMainHandItem();
+        }
+        return player.getOffhandItem().getItem() == ModItems.POINTER.get()
+                ? player.getOffhandItem() : ItemStack.EMPTY;
+    }
+
+    private boolean selectionExpired() {
+        if (particleType < 1 || particleType > 3) {
+            return false;
+        }
+        var player = Minecraft.getInstance().player;
+        ItemStack pointer = activePointer();
+        if (!(host instanceof BasicEntityShip ship) || !ship.isAlive() || player == null
+                || pointer.isEmpty()) {
+            return true;
+        }
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null || capa.getSelectTeam() != selectionTeam) {
+            return true;
+        }
+        for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+            if (capa.getTeamMember(selectionTeam, slot) == ship.getStateMinor(ID.M.ShipUID)
+                    && capa.isShipSelected(selectionTeam, slot)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // mark at block
@@ -182,6 +234,10 @@ public class ParticleTeam extends Particle {
 
     @Override
     public void render(@NotNull VertexConsumer buffer, Camera camera, float partialTick) {
+        if (selectionExpired()) {
+            this.remove();
+            return;
+        }
         RenderSystem.setShaderTexture(0, TEXTURE);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         RenderSystem.enableBlend();
@@ -263,6 +319,10 @@ public class ParticleTeam extends Particle {
 
     @Override
     public void tick() {
+        if (selectionExpired()) {
+            this.remove();
+            return;
+        }
         // check host position
         if (host != null) {
             if (this.particleType == 7) {// set interpolation position

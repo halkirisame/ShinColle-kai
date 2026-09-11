@@ -43,32 +43,34 @@ public final class PublicApiBoundaryGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void friendlyShipOwnershipUsesServerAuthoritativeUid(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        BasicEntityShip ship = ModEntities.BB_KONGOU.get().create(level);
-        if (ship == null) {
-            helper.fail("Could not create a friendly ship for the public ownership test");
-            return;
-        }
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ServerLevel level = helper.getLevel();
+            BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (ship == null) {
+                helper.fail("Could not create a friendly ship for the public ownership test");
+                return;
+            }
 
-        FakePlayer owner = player(level, "00000000-0000-0000-0000-000000000061", "api_owner", 1061);
-        FakePlayer other = player(level, "00000000-0000-0000-0000-000000000062", "api_other", 1062);
-        ship.setPlayerUID(1061);
+            FakePlayer owner = player(level, "00000000-0000-0000-0000-000000000061", "api_owner", 1061);
+            FakePlayer other = player(level, "00000000-0000-0000-0000-000000000062", "api_other", 1062);
+            ship.setPlayerUID(1061);
 
-        PlayerOwnedShip ownership = ship;
-        if (!ownership.isOwnedByPlayer(owner)) {
-            helper.fail("The public ownership contract rejected the matching ShinColle owner UID");
-            return;
+            PlayerOwnedShip ownership = ship;
+            if (!ownership.isOwnedByPlayer(owner)) {
+                helper.fail("The public ownership contract rejected the matching ShinColle owner UID");
+                return;
+            }
+            if (ownership.isOwnedByPlayer(other)) {
+                helper.fail("The public ownership contract accepted a different ShinColle owner UID");
+                return;
+            }
+            Object hostile = entities.add(ModEntities.BB_KONGOU_MOB.get().create(level));
+            if (hostile instanceof PlayerOwnedShip) {
+                helper.fail("Hostile ships must not expose the friendly ownership contract");
+                return;
+            }
+            helper.succeed();
         }
-        if (ownership.isOwnedByPlayer(other)) {
-            helper.fail("The public ownership contract accepted a different ShinColle owner UID");
-            return;
-        }
-        Object hostile = ModEntities.BB_KONGOU_MOB.get().create(level);
-        if (hostile instanceof PlayerOwnedShip) {
-            helper.fail("Hostile ships must not expose the friendly ownership contract");
-            return;
-        }
-        helper.succeed();
     }
 
     private static FakePlayer player(ServerLevel level, String uuid, String name, int playerUid) {

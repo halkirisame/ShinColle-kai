@@ -5,9 +5,11 @@ import com.lulan.shincolle.api.attribute.CoreShipAttributes;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
 import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.client.ClientShipLevelCaps;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
+import com.lulan.shincolle.entity.ShipLevelCapSummary;
 import com.lulan.shincolle.equip.ShipEquipSlots;
 import com.lulan.shincolle.item.ShipAttributeTooltipFormatter;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
@@ -540,10 +542,11 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         String shipName = ship.hasCustomName() ? Objects.requireNonNull(ship.getCustomName()).getString() : ship.getName().getString();
         graphics.drawString(this.font, shipName, 8, 6, 0x000000, false);
 
-        // Level (right-aligned, gold for 150+)
+        // Level (right-aligned, gold at the server's absolute cap)
         int level = ship.getStateMinor(ID.M.ShipLevel);
         String levelStr = "Lv." + level;
-        int levelColor = level >= 150 ? 0xFFD700 : 0xFFFFFF;
+        ShipLevelCapSummary caps = ClientShipLevelCaps.current();
+        int levelColor = caps.isAbsoluteCapReached(level) ? 0xFFD700 : 0xFFFFFF;
         graphics.drawString(this.font, levelStr, this.imageWidth - 6 - this.font.width(levelStr), 6, levelColor, true);
 
         // HP Text

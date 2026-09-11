@@ -1,4 +1,10 @@
 {
+  "key.categories.shincolle_kai.pointer": "ShinColle-kai：指揮棒",
+  "key.shincolle_kai.pointer.formation_gui": "陣形GUI（押しながら使用／既定：Ctrl）",
+  "key.shincolle_kai.pointer.guard_position": "地点護衛（押しながら使用／既定：スニーク状態）",
+  "key.shincolle_kai.pointer.guard_entity": "実体護衛（押しながら使用／既定：ダッシュ状態）",
+  "key.shincolle_kai.pointer.team_management": "チーム管理（押しながら攻撃／既定：スニーク状態）",
+  "key.shincolle_kai.pointer.cycle_mode": "モード切替（押しながらホイール／既定：スニーク状態）",
   "itemGroup.shincolle_kai": "ShinColle",
   "block.shincolle_kai.abyssium": "深海金属ブロック",
   "block.shincolle_kai.block_abyssium": "深海金属ブロック",
@@ -766,5 +772,20 @@
   "gui.shincolle_kai.peek.empty": "空っぽ",
   "gui.shincolle_kai.egg.contents": "保管中のアイテム: %s",
   "gui.shincolle_kai.additional_attributes": "追加属性",
-  "gui.shincolle_kai.additional_attributes.more": "...ほか%s件"
+  "gui.shincolle_kai.additional_attributes.more": "...ほか%s件",
+  "chat.shincolle_kai.pointer.ship_label": "%s %s",
+  "chat.shincolle_kai.pointer.team_added": "%sを編成しました",
+  "chat.shincolle_kai.pointer.team_removed": "%sを編成から外しました",
+  "shiptype.shincolle_kai.-1": "駆逐艦",
+  "shiptype.shincolle_kai.0": "艦",
+  "shiptype.shincolle_kai.1": "軽巡洋艦",
+  "shiptype.shincolle_kai.2": "重巡洋艦",
+  "shiptype.shincolle_kai.3": "重雷装巡洋艦",
+  "shiptype.shincolle_kai.4": "軽空母",
+  "shiptype.shincolle_kai.5": "正規空母",
+  "shiptype.shincolle_kai.6": "戦艦",
+  "shiptype.shincolle_kai.7": "輸送艦",
+  "shiptype.shincolle_kai.8": "潜水艦",
+  "shiptype.shincolle_kai.9": "鬼",
+  "shiptype.shincolle_kai.10": "姫"
 }

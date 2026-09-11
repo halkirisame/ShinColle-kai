@@ -37,42 +37,40 @@ public final class WaypointPairedChestGameTests {
         BlockPos waypointPos = new BlockPos(2, 0, 0);
         BlockState oldOriginState = level.getBlockState(origin);
         BlockState oldWaypointState = level.getBlockState(waypointPos);
-        BasicEntityShip ship = null;
 
-        try {
-            level.setBlock(origin, Blocks.FURNACE.defaultBlockState(), 3);
-            level.setBlock(waypointPos, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);
-            BlockEntity waypointEntity = level.getBlockEntity(waypointPos);
-            BlockEntity furnaceEntity = level.getBlockEntity(origin);
-            if (!(waypointEntity instanceof TileEntityWaypoint)
-                    || !(furnaceEntity instanceof AbstractFurnaceBlockEntity furnace)) {
-                throw new AssertionError("Failed to create waypoint/origin furnace fixtures.");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            try {
+                level.setBlock(origin, Blocks.FURNACE.defaultBlockState(), 3);
+                level.setBlock(waypointPos, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);
+                BlockEntity waypointEntity = level.getBlockEntity(waypointPos);
+                BlockEntity furnaceEntity = level.getBlockEntity(origin);
+                if (!(waypointEntity instanceof TileEntityWaypoint)
+                        || !(furnaceEntity instanceof AbstractFurnaceBlockEntity furnace)) {
+                    throw new AssertionError("Failed to create waypoint/origin furnace fixtures.");
+                }
+
+                BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(level));
+                if (ship == null) {
+                    throw new AssertionError("Failed to create ship for paired chest test.");
+                }
+                ship.moveTo(1.5D, 0D, 1.5D);
+                level.addFreshEntity(ship);
+                ship.setGuardedPos(waypointPos.getX(), waypointPos.getY(), waypointPos.getZ(),
+                        level.dimension(), 1);
+                ship.setStateFlag(ID.F.CanFollow, false);
+                ship.getCapaShipInventory().setStackInSlot(22, new ItemStack(Items.RAW_IRON));
+                ship.getCapaShipInventory().setStackInSlot(0, new ItemStack(Items.RAW_IRON));
+
+                TaskHelper.onUpdateCooking(ship);
+
+                helper.assertTrue(furnace.getItem(0).isEmpty(),
+                        "An unpaired waypoint must not route cooking into the world-origin furnace");
+            } finally {
+                level.setBlock(origin, oldOriginState, 3);
+                level.setBlock(waypointPos, oldWaypointState, 3);
             }
-
-            ship = ModEntities.BB_KONGOU.get().create(level);
-            if (ship == null) {
-                throw new AssertionError("Failed to create ship for paired chest test.");
-            }
-            ship.moveTo(1.5D, 0D, 1.5D);
-            level.addFreshEntity(ship);
-            ship.setGuardedPos(waypointPos.getX(), waypointPos.getY(), waypointPos.getZ(),
-                    level.dimension(), 1);
-            ship.setStateFlag(ID.F.CanFollow, false);
-            ship.getCapaShipInventory().setStackInSlot(22, new ItemStack(Items.RAW_IRON));
-            ship.getCapaShipInventory().setStackInSlot(0, new ItemStack(Items.RAW_IRON));
-
-            TaskHelper.onUpdateCooking(ship);
-
-            helper.assertTrue(furnace.getItem(0).isEmpty(),
-                    "An unpaired waypoint must not route cooking into the world-origin furnace");
-        } finally {
-            if (ship != null) {
-                ship.discard();
-            }
-            level.setBlock(origin, oldOriginState, 3);
-            level.setBlock(waypointPos, oldWaypointState, 3);
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "arena")

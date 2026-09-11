@@ -12,6 +12,7 @@ import com.lulan.shincolle.equip.curios.ShipEquipCurioCapabilityHandler;
 import com.lulan.shincolle.equip.tinkers.ShipTinkersIntegration;
 import com.lulan.shincolle.equipdata.EquipDataLoader;
 import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.handler.ServerEventHandler;
 import com.lulan.shincolle.init.*;
 import com.lulan.shincolle.loot.ShinColleLootModifiers;
 import com.lulan.shincolle.network.ModNetworking;
@@ -133,6 +134,7 @@ public class ShinColle {
     private void onConfigReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == ConfigHandler.COMMON_SPEC) {
             ConfigHandler.syncConfig();
+            ServerEventHandler.broadcastCurrentShipLevelCaps();
             LOGGER.info("ShinColle: Config reloaded.");
         }
     }

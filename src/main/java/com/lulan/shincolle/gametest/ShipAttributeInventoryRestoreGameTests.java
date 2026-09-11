@@ -33,60 +33,64 @@ public final class ShipAttributeInventoryRestoreGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void equippedAttributesAreReadyImmediatelyAfterLoad(GameTestHelper helper) {
-        BasicEntityShip source = createShip(helper, "source");
-        BasicEntityShip loaded = createShip(helper, "loaded");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip source = createShip(helper, entities, "source");
+            BasicEntityShip loaded = createShip(helper, entities, "loaded");
 
-        ItemStack cannon = new ItemStack(ModItems.EQUIP_CANNON.get());
-        BasicEquip.setEquipMeta(cannon, HP_EQUIPMENT_VARIANT);
-        source.getCapaShipInventory().setStackInSlot(0, cannon);
-        source.calcShipAttributes(31, false);
+            ItemStack cannon = new ItemStack(ModItems.EQUIP_CANNON.get());
+            BasicEquip.setEquipMeta(cannon, HP_EQUIPMENT_VARIANT);
+            source.getCapaShipInventory().setStackInSlot(0, cannon);
+            source.calcShipAttributes(31, false);
 
-        AttrsAdv sourceAttrs = requireAdvancedAttrs(source, "source");
-        if (sourceAttrs.getAttrsEquip(ID.Attrs.HP) <= 0F) {
-            throw new AssertionError("Regression fixture must have a non-zero equipment HP bonus");
+            AttrsAdv sourceAttrs = requireAdvancedAttrs(source, "source");
+            if (sourceAttrs.getAttrsEquip(ID.Attrs.HP) <= 0F) {
+                throw new AssertionError("Regression fixture must have a non-zero equipment HP bonus");
+            }
+
+            CompoundTag saved = new CompoundTag();
+            source.saveWithoutId(saved);
+            loaded.load(saved);
+
+            ItemStack restored = loaded.getCapaShipInventory().getStackInSlot(0);
+            if (restored.getItem() != ModItems.EQUIP_CANNON.get()
+                    || BasicEquip.getEquipMeta(restored) != HP_EQUIPMENT_VARIANT) {
+                throw new AssertionError("Native equipment slot was not restored with its variant");
+            }
+
+            AttrsAdv loadedAttrs = requireAdvancedAttrs(loaded, "loaded");
+            assertArrayEquals(sourceAttrs.getAttrsEquip(), loadedAttrs.getAttrsEquip(), "equipment");
+            assertArrayEquals(sourceAttrs.getAttrsBuffed(), loadedAttrs.getAttrsBuffed(), "buffed");
+            assertDoubleEquals(sourceAttrs.getAttrsBuffed(ID.Attrs.HP),
+                    Objects.requireNonNull(loaded.getAttribute(Attributes.MAX_HEALTH)).getBaseValue(),
+                    "MAX_HEALTH");
+            assertDoubleEquals(sourceAttrs.getAttrsBuffed(ID.Attrs.MOV),
+                    Objects.requireNonNull(loaded.getAttribute(Attributes.MOVEMENT_SPEED)).getBaseValue(),
+                    "MOVEMENT_SPEED");
+            helper.succeed();
         }
-
-        CompoundTag saved = new CompoundTag();
-        source.saveWithoutId(saved);
-        loaded.load(saved);
-
-        ItemStack restored = loaded.getCapaShipInventory().getStackInSlot(0);
-        if (restored.getItem() != ModItems.EQUIP_CANNON.get()
-                || BasicEquip.getEquipMeta(restored) != HP_EQUIPMENT_VARIANT) {
-            throw new AssertionError("Native equipment slot was not restored with its variant");
-        }
-
-        AttrsAdv loadedAttrs = requireAdvancedAttrs(loaded, "loaded");
-        assertArrayEquals(sourceAttrs.getAttrsEquip(), loadedAttrs.getAttrsEquip(), "equipment");
-        assertArrayEquals(sourceAttrs.getAttrsBuffed(), loadedAttrs.getAttrsBuffed(), "buffed");
-        assertDoubleEquals(sourceAttrs.getAttrsBuffed(ID.Attrs.HP),
-                Objects.requireNonNull(loaded.getAttribute(Attributes.MAX_HEALTH)).getBaseValue(),
-                "MAX_HEALTH");
-        assertDoubleEquals(sourceAttrs.getAttrsBuffed(ID.Attrs.MOV),
-                Objects.requireNonNull(loaded.getAttribute(Attributes.MOVEMENT_SPEED)).getBaseValue(),
-                "MOVEMENT_SPEED");
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void unequippedAttributesAreRecalculatedAfterLoad(GameTestHelper helper) {
-        BasicEntityShip source = createShip(helper, "unequipped source");
-        BasicEntityShip loaded = createShip(helper, "unequipped loaded");
-        source.calcShipAttributes(31, false);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip source = createShip(helper, entities, "unequipped source");
+            BasicEntityShip loaded = createShip(helper, entities, "unequipped loaded");
+            source.calcShipAttributes(31, false);
 
-        CompoundTag saved = new CompoundTag();
-        source.saveWithoutId(saved);
-        loaded.load(saved);
+            CompoundTag saved = new CompoundTag();
+            source.saveWithoutId(saved);
+            loaded.load(saved);
 
-        AttrsAdv sourceAttrs = requireAdvancedAttrs(source, "unequipped source");
-        AttrsAdv loadedAttrs = requireAdvancedAttrs(loaded, "unequipped loaded");
-        assertArrayEquals(sourceAttrs.getAttrsEquip(), loadedAttrs.getAttrsEquip(), "empty equipment");
-        assertArrayEquals(sourceAttrs.getAttrsBuffed(), loadedAttrs.getAttrsBuffed(), "empty buffed");
-        helper.succeed();
+            AttrsAdv sourceAttrs = requireAdvancedAttrs(source, "unequipped source");
+            AttrsAdv loadedAttrs = requireAdvancedAttrs(loaded, "unequipped loaded");
+            assertArrayEquals(sourceAttrs.getAttrsEquip(), loadedAttrs.getAttrsEquip(), "empty equipment");
+            assertArrayEquals(sourceAttrs.getAttrsBuffed(), loadedAttrs.getAttrsBuffed(), "empty buffed");
+            helper.succeed();
+        }
     }
 
-    private static BasicEntityShip createShip(GameTestHelper helper, String name) {
-        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
+    private static BasicEntityShip createShip(GameTestHelper helper, GameTestEntities entities, String name) {
+        Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
         if (!(entity instanceof BasicEntityShip ship)) {
             throw new AssertionError("Failed to create " + name + " ship");
         }

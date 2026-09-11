@@ -38,7 +38,6 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Enemy;
@@ -375,7 +374,7 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         // watch + look idle
         this.goalSelector.addGoal(25,
-                new LookAtPlayerGoal(this, Player.class, 8.0F));
+                new ShipWatchClosestGoal(this, Player.class, 8.0F, 0.1F));
         this.goalSelector.addGoal(26, new RandomLookAroundGoal(this));
     }
 

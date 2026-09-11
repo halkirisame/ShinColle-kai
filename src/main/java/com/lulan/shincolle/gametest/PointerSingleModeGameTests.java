@@ -21,6 +21,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -40,7 +41,13 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void singleModeAffectsOnlyLowestSelectedRealShip(GameTestHelper helper) {
-        TestContext context = createContext(helper, "single_first", 21);
+        try (TestContext context = createContext(helper, "single_first", 21)) {
+            verifySingleModeAffectsOnlyLowestSelectedRealShip(helper, context);
+        }
+    }
+
+    private static void verifySingleModeAffectsOnlyLowestSelectedRealShip(
+            GameTestHelper helper, TestContext context) {
         BasicEntityShip first = addShip(context, 1, 2101, new Vec3(4.5D, 2D, 1.5D));
         BasicEntityShip second = addShip(context, 3, 2103, new Vec3(6.5D, 2D, 1.5D));
         BasicEntityShip third = addShip(context, 5, 2105, new Vec3(8.5D, 2D, 1.5D));
@@ -59,7 +66,13 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void singleModeOutOfRangeFirstShipDoesNotFallBack(GameTestHelper helper) {
-        TestContext context = createContext(helper, "single_range", 22);
+        try (TestContext context = createContext(helper, "single_range", 22)) {
+            verifySingleModeOutOfRangeFirstShipDoesNotFallBack(helper, context);
+        }
+    }
+
+    private static void verifySingleModeOutOfRangeFirstShipDoesNotFallBack(
+            GameTestHelper helper, TestContext context) {
         Vec3 playerPos = context.player().position();
         BasicEntityShip first = addShip(context, 0, 2200,
                 new Vec3(playerPos.x, playerPos.y + 65D, playerPos.z), false);
@@ -79,7 +92,13 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void singleModeSkipsSelectedSlotWithoutRealShip(GameTestHelper helper) {
-        TestContext context = createContext(helper, "single_missing", 23);
+        try (TestContext context = createContext(helper, "single_missing", 23)) {
+            verifySingleModeSkipsSelectedSlotWithoutRealShip(helper, context);
+        }
+    }
+
+    private static void verifySingleModeSkipsSelectedSlotWithoutRealShip(
+            GameTestHelper helper, TestContext context) {
         context.capa().setTeamMember(TEAM_ID, 0, 2300);
         context.capa().setTeamSID(TEAM_ID, 0, -1);
         context.capa().setShipSelected(TEAM_ID, 0, true);
@@ -98,7 +117,12 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void groupModeAffectsEverySelectedShip(GameTestHelper helper) {
-        TestContext context = createContext(helper, "group", 24);
+        try (TestContext context = createContext(helper, "group", 24)) {
+            verifyGroupModeAffectsEverySelectedShip(helper, context);
+        }
+    }
+
+    private static void verifyGroupModeAffectsEverySelectedShip(GameTestHelper helper, TestContext context) {
         BasicEntityShip first = addShip(context, 0, 2400, new Vec3(4.5D, 2D, 1.5D));
         BasicEntityShip second = addShip(context, 2, 2402, new Vec3(6.5D, 2D, 1.5D));
         BasicEntityShip third = addShip(context, 4, 2404, new Vec3(8.5D, 2D, 1.5D));
@@ -118,7 +142,13 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void formationModeAffectsWholeTeamWithoutSelection(GameTestHelper helper) {
-        TestContext context = createContext(helper, "formation", 25);
+        try (TestContext context = createContext(helper, "formation", 25)) {
+            verifyFormationModeAffectsWholeTeamWithoutSelection(helper, context);
+        }
+    }
+
+    private static void verifyFormationModeAffectsWholeTeamWithoutSelection(
+            GameTestHelper helper, TestContext context) {
         BasicEntityShip first = addShip(context, 0, 2500, new Vec3(4.5D, 2D, 1.5D));
         BasicEntityShip second = addShip(context, 2, 2502, new Vec3(6.5D, 2D, 1.5D));
         BasicEntityShip third = addShip(context, 4, 2504, new Vec3(8.5D, 2D, 1.5D));
@@ -134,13 +164,19 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void singleModeOtherDimensionFirstShipDoesNotFallBack(GameTestHelper helper) {
-        TestContext context = createContext(helper, "single_dimension", 26);
+        try (TestContext context = createContext(helper, "single_dimension", 26)) {
+            verifySingleModeOtherDimensionFirstShipDoesNotFallBack(helper, context);
+        }
+    }
+
+    private static void verifySingleModeOtherDimensionFirstShipDoesNotFallBack(
+            GameTestHelper helper, TestContext context) {
         ServerLevel otherLevel = context.level().getServer().getLevel(Level.NETHER);
         if (otherLevel == null) {
             throw new AssertionError("Nether level is unavailable for pointer dimension test.");
         }
 
-        BasicEntityShip remote = ModEntities.BB_KONGOU.get().create(otherLevel);
+        BasicEntityShip remote = context.entities().add(ModEntities.BB_KONGOU.get().create(otherLevel));
         if (remote == null) {
             throw new AssertionError("Failed to create remote-dimension ship.");
         }
@@ -166,7 +202,6 @@ public final class PointerSingleModeGameTests {
                 "handleAttackTarget", context.player());
 
         boolean localUntargeted = local.getTarget() == null;
-        remote.discard();
         ServerDataManager.removeShipData(remoteUid);
         helper.assertTrue(localUntargeted,
                 "Single mode fell back to a local ship after the first selected ship was in another dimension.");
@@ -175,7 +210,13 @@ public final class PointerSingleModeGameTests {
 
     @GameTest(template = "arena")
     public static void marriageRingLivingEntityHookPerformsWedding(GameTestHelper helper) {
-        TestContext context = createContext(helper, "marriage_hook", 27);
+        try (TestContext context = createContext(helper, "marriage_hook", 27)) {
+            verifyMarriageRingLivingEntityHookPerformsWedding(helper, context);
+        }
+    }
+
+    private static void verifyMarriageRingLivingEntityHookPerformsWedding(
+            GameTestHelper helper, TestContext context) {
         BasicEntityShip ship = addShip(context, 0, 2700, new Vec3(4.5D, 2D, 1.5D));
         ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get());
         context.player().setItemInHand(InteractionHand.MAIN_HAND, ring);
@@ -189,6 +230,285 @@ public final class PointerSingleModeGameTests {
         helper.assertTrue(ship.getStateFlag(com.lulan.shincolle.reference.ID.F.IsMarried),
                 "Marriage ring living-entity hook did not marry the owned ship.");
         helper.succeed();
+    }
+
+    @GameTest(template = "arena", timeoutTicks = 240)
+    public static void plainMoveReleasesDestinationAndRestoresFollow(GameTestHelper helper) {
+        verifyArrivalCommand(helper, false, false, 28);
+    }
+
+    @GameTest(template = "arena", timeoutTicks = 240)
+    public static void shiftGuardRetainsDestinationAfterArrival(GameTestHelper helper) {
+        verifyArrivalCommand(helper, true, false, 29);
+    }
+
+    @GameTest(template = "arena", timeoutTicks = 240)
+    public static void entityGuardSurvivesCompletedPath(GameTestHelper helper) {
+        verifyArrivalCommand(helper, false, true, 30);
+    }
+
+    private static void verifyArrivalCommand(GameTestHelper helper, boolean persistent,
+                                             boolean entityGuard, int id) {
+        // The arena's implicit ground is below relative Y=0. Build the floor whose
+        // top actually matches the commanded feet Y=1 instead of guessing its height.
+        for (int x = 2; x <= 11; x++) {
+            for (int z = 2; z <= 8; z++) {
+                helper.setBlock(new BlockPos(x, 0, z), Blocks.STONE);
+            }
+        }
+        TestContext context = createContext(helper, "arrival_" + id, id);
+        BasicEntityShip ship = addShip(context, 0, 2800 + id, new Vec3(4.5D, 1D, 4.5D));
+        select(context.capa(), 0);
+        ship.calcShipAttributes(31, false);
+        ship.setStateMinor(com.lulan.shincolle.reference.ID.M.NumGrudge, 1000);
+        ship.setStateMinor(com.lulan.shincolle.reference.ID.M.FollowMin, 0);
+        ship.setStateMinor(com.lulan.shincolle.reference.ID.M.FollowMax, 0);
+        ship.setStateFlag(com.lulan.shincolle.reference.ID.F.PassiveAI, true);
+        ship.setNoAi(false);
+        BlockPos destination = helper.absolutePos(new BlockPos(9, 1, 4));
+        boolean[] reached = {false};
+        // Commands are issued after the entity's tick-16 deferred AI registration.
+        helper.runAtTickTime(25, () -> {
+            invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SetMove,
+                    new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, 1,
+                            destination.getX(), destination.getY(), destination.getZ(), persistent ? 0 : 1}),
+                    "handleSetMove", context.player());
+            if (entityGuard) {
+                Zombie target = addTarget(context, new Vec3(9.5D, 1D, 4.5D));
+                target.setInvulnerable(true);
+                invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.GuardEntity,
+                        new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, target.getId()}),
+                        "handleGuardEntity", context.player());
+            }
+        });
+        helper.onEachTick(() -> {
+            var path = ship.getNavigation().getPath();
+            if (path != null && path.isDone() && path.canReach()
+                    && path.getTarget().equals(destination)) {
+                reached[0] = true;
+            }
+        });
+        helper.runAtTickTime(220, () -> {
+            try (context) {
+                helper.assertTrue(reached[0], "Ship never completed a reachable path to " + destination
+                        + ": " + ship.position() + ", path=" + ship.getNavigation().getPath());
+                if (entityGuard) {
+                    helper.assertTrue(ship.getStateMinor(com.lulan.shincolle.reference.ID.M.GuardType) == 2
+                                    && ship.getGuardedEntity() != null
+                                    && !ship.getStateFlag(com.lulan.shincolle.reference.ID.F.CanFollow),
+                            "Entity guard was released by move completion");
+                } else {
+                    helper.assertTrue(ship.hasGuardDestination() == persistent,
+                            "Arrival guard state: expected active=" + persistent
+                                    + ", actual=" + ship.hasGuardDestination());
+                    helper.assertTrue(ship.getStateFlag(com.lulan.shincolle.reference.ID.F.CanFollow) != persistent,
+                            "Arrival did not restore the expected follow state");
+                }
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "arena")
+    public static void shiftLeftAddsUnassignedShip(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "left_add", 41)) {
+            BasicEntityShip ship = addShip(context, 0, 4100, new Vec3(4.5D, 2D, 1.5D));
+            context.capa().setTeamMember(TEAM_ID, 0, 0);
+            context.capa().setTeamSID(TEAM_ID, 0, 0);
+            clickPointer(context, ship, true);
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 4100,
+                    "Shift-left did not add the unassigned owned ship");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
+    public static void shiftLeftRemovesSelectedShip(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "left_remove", 42)) {
+            BasicEntityShip ship = addShip(context, 0, 4200, new Vec3(4.5D, 2D, 1.5D));
+            select(context.capa(), 0);
+            clickPointer(context, ship, true);
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0
+                            && !context.capa().isShipSelected(TEAM_ID, 0),
+                    "Shift-left did not remove and deselect the selected ship");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
+    public static void shiftLeftSelectsUnselectedTeamShip(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "left_select", 43)) {
+            BasicEntityShip ship = addShip(context, 0, 4300, new Vec3(4.5D, 2D, 1.5D));
+            clickPointer(context, ship, true);
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 4300
+                            && context.capa().isShipSelected(TEAM_ID, 0),
+                    "Shift-left removed an unselected team ship instead of selecting it");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
+    public static void plainLeftLeavesTeamAndSelectionUnchanged(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "left_plain", 44)) {
+            BasicEntityShip ship = addShip(context, 0, 4400, new Vec3(4.5D, 2D, 1.5D));
+            context.capa().setTeamMember(TEAM_ID, 0, 0);
+            context.capa().setTeamSID(TEAM_ID, 0, 0);
+            clickPointer(context, ship, false);
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0,
+                    "Plain left changed team membership");
+            context.capa().setTeamMember(TEAM_ID, 0, 4400);
+            context.capa().setTeamSID(TEAM_ID, 0, ship.getId());
+            clickPointer(context, ship, false);
+            helper.assertTrue(!context.capa().isShipSelected(TEAM_ID, 0),
+                    "Plain left changed the selected ship");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void explicitTeamInputAddsSelectsAndRemovesWithoutSneaking(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "key_team", 10201)) {
+            BasicEntityShip ship = addShip(context, 0, 1020100, new Vec3(4.5D, 2D, 1.5D));
+            context.capa().setTeamMember(TEAM_ID, 0, 0);
+            context.capa().setTeamSID(TEAM_ID, 0, 0);
+            context.player().setShiftKeyDown(false);
+            C2SGUIInputPacket command = new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
+                    new int[]{context.player().getId(), 0, ship.getId(), 1});
+            invokePacketHandler(command, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 1020100,
+                    "Explicit team input without sneak did not add the owned ship");
+            invokePacketHandler(command, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().isShipSelected(TEAM_ID, 0),
+                    "Explicit team input without sneak did not select the ship");
+            invokePacketHandler(command, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0
+                            && !context.capa().isShipSelected(TEAM_ID, 0),
+                    "Explicit team input without sneak did not remove the selected ship");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void teamInputRetainsLegacyAndAuthorizationChecks(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "key_checks", 10202)) {
+            BasicEntityShip ship = addShip(context, 0, 1020200, new Vec3(4.5D, 2D, 1.5D));
+            context.capa().setTeamMember(TEAM_ID, 0, 0);
+            context.capa().setTeamSID(TEAM_ID, 0, 0);
+            context.player().setShiftKeyDown(true);
+            for (int flag : new int[]{0, -1, 2}) {
+                invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
+                        new int[]{context.player().getId(), 0, ship.getId(), flag}),
+                        "handleAddTeam", context.player());
+                helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0,
+                        "Inactive/invalid explicit input bypassed rejection while sneaking: " + flag);
+            }
+            C2SGUIInputPacket legacy = new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
+                    new int[]{context.player().getId(), 0, ship.getId()});
+            context.player().setShiftKeyDown(false);
+            invokePacketHandler(legacy, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0,
+                    "Legacy packet acted without sneak");
+
+            C2SGUIInputPacket explicit = new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
+                    new int[]{context.player().getId(), 0, ship.getId(), 1});
+            context.player().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            invokePacketHandler(explicit, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0,
+                    "Explicit input bypassed the held pointer check");
+            context.player().setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+            ship.setPlayerUID(context.capa().getPlayerUID() + 1);
+            invokePacketHandler(explicit, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0,
+                    "Explicit input bypassed ownership");
+            ship.setPlayerUID(context.capa().getPlayerUID());
+            Vec3 originalPos = ship.position();
+            ship.moveTo(originalPos.x, originalPos.y + 65D, originalPos.z);
+            invokePacketHandler(explicit, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 0,
+                    "Explicit input bypassed pointer range");
+            ship.moveTo(originalPos.x, originalPos.y, originalPos.z);
+            context.player().setShiftKeyDown(true);
+            invokePacketHandler(legacy, "handleAddTeam", context.player());
+            helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 1020200,
+                    "Legacy packet no longer works with sneak");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
+    public static void everyModeChangePreservesSelectionAndGuard(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "left_mode", 45)) {
+            BasicEntityShip ship = addShip(context, 0, 4500, new Vec3(4.5D, 2D, 1.5D));
+            addShip(context, 1, 4501, new Vec3(5.5D, 2D, 1.5D));
+            BlockPos destination = helper.absolutePos(new BlockPos(9, 2, 4));
+            select(context.capa(), 0);
+            invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SetMove,
+                    new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, 1,
+                            destination.getX(), destination.getY(), destination.getZ(), 0}),
+                    "handleSetMove", context.player());
+            for (int oldMode = 0; oldMode < 6; oldMode++) {
+                for (int newMode = 0; newMode < 6; newMode++) {
+                    PointerItem.setMode(context.player().getMainHandItem(), oldMode);
+                    select(context.capa(), 0, 1);
+                    invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SyncPlayerItem,
+                            new int[]{context.player().getId(), 0, newMode}),
+                            "handleSyncPlayerItem", context.player());
+                    helper.assertTrue(context.capa().isShipSelected(TEAM_ID, 0)
+                                    && context.capa().isShipSelected(TEAM_ID, 1)
+                                    && PointerItem.getMode(context.player().getMainHandItem()) == newMode,
+                            "Mode selection mismatch: " + oldMode + " -> " + newMode);
+                    assertGuardDestination(helper, ship, destination, "mode-switch guard");
+                }
+            }
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
+    public static void leftOnOtherEntitySendsNoCommand(GameTestHelper helper) {
+        try (TestContext context = createContext(helper, "left_other", 46)) {
+            Zombie target = addTarget(context, new Vec3(2.5D, 2D, 4.5D));
+            for (boolean shift : new boolean[]{false, true}) {
+                context.player().setShiftKeyDown(shift);
+                invokeLeftClick(context, target, packet -> {
+                    throw new AssertionError("Left click on another entity emitted a command");
+                });
+            }
+            helper.succeed();
+        }
+    }
+
+    private static void clickPointer(TestContext context, net.minecraft.world.entity.Entity target,
+                                     boolean shift) {
+        context.player().setShiftKeyDown(shift);
+        invokeLeftClick(context, target, packet -> {
+            try {
+                var field = C2SGUIInputPacket.class.getDeclaredField("type");
+                field.setAccessible(true);
+                String handler = switch (field.getByte(packet)) {
+                    case C2SGUIInputPacket.AddTeam -> "handleAddTeam";
+                    case C2SGUIInputPacket.SetSelect -> "handleSetSelect";
+                    default -> throw new AssertionError("Unexpected left-click packet");
+                };
+                invokePacketHandler(packet, handler, context.player());
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("Cannot dispatch pointer packet", e);
+            }
+        });
+    }
+
+    private static void invokeLeftClick(TestContext context, net.minecraft.world.entity.Entity target,
+                                       java.util.function.Consumer<C2SGUIInputPacket> sendPacket) {
+        try {
+            Method method = PointerItem.class.getDeclaredMethod("handleLeftClick", ItemStack.class,
+                    net.minecraft.world.entity.player.Player.class,
+                    net.minecraft.world.phys.EntityHitResult.class, java.util.function.Consumer.class);
+            method.setAccessible(true);
+            method.invoke(ModItems.POINTER.get(), context.player().getMainHandItem(), context.player(),
+                    new net.minecraft.world.phys.EntityHitResult(target), sendPacket);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot execute pointer left-click input", e);
+        }
     }
 
     private static TestContext createContext(GameTestHelper helper, String name, int id) {
@@ -206,7 +526,7 @@ public final class PointerSingleModeGameTests {
         capa.setPlayerUID(2000 + id);
         capa.setSelectTeam(TEAM_ID);
         capa.clearShipSelection(TEAM_ID);
-        return new TestContext(helper, level, player, capa);
+        return new TestContext(helper, level, player, capa, GameTestEntities.open(helper));
     }
 
     private static BasicEntityShip addShip(TestContext context, int slot, int shipUid, Vec3 relativePos) {
@@ -216,7 +536,7 @@ public final class PointerSingleModeGameTests {
     private static BasicEntityShip addShip(TestContext context, int slot, int shipUid, Vec3 pos,
                                            boolean relativePos) {
         Vec3 worldPos = relativePos ? context.helper().absoluteVec(pos) : pos;
-        BasicEntityShip ship = ModEntities.BB_KONGOU.get().create(context.level());
+        BasicEntityShip ship = context.entities().add(ModEntities.BB_KONGOU.get().create(context.level()));
         if (ship == null) {
             throw new AssertionError("Failed to create ship for pointer mode test.");
         }
@@ -233,7 +553,7 @@ public final class PointerSingleModeGameTests {
     }
 
     private static Zombie addTarget(TestContext context, Vec3 relativePos) {
-        Zombie target = EntityType.ZOMBIE.create(context.level());
+        Zombie target = context.entities().add(EntityType.ZOMBIE.create(context.level()));
         if (target == null) {
             throw new AssertionError("Failed to create target for pointer mode test.");
         }
@@ -271,6 +591,11 @@ public final class PointerSingleModeGameTests {
         }
     }
 
-    private record TestContext(GameTestHelper helper, ServerLevel level, ServerPlayer player, CapaTeitoku capa) {
+    private record TestContext(GameTestHelper helper, ServerLevel level, ServerPlayer player, CapaTeitoku capa,
+                               GameTestEntities entities) implements AutoCloseable {
+        @Override
+        public void close() {
+            this.entities.close();
+        }
     }
 }

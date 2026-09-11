@@ -75,7 +75,7 @@ public class ShipEntityRenderer<T extends BasicEntityShip> extends MobRenderer<T
     @Override
     public void render(T entity, float entityYaw, float partialTick, PoseStack poseStack,
                        MultiBufferSource bufferSource, int packedLight) {
-        super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+        ModelPoseProbe.trace(entity, poseStack, bufferSource, model, b -> super.render(entity, entityYaw, partialTick, poseStack, b, packedLight));
         if (YamatoChargeOrbRenderer.shouldRender(entity)) {
             YamatoChargeOrbRenderer.render(entity, poseStack, bufferSource, partialTick);
         }

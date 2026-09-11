@@ -110,6 +110,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 
 @GameTestHolder(Reference.MOD_ID)
@@ -119,17 +120,25 @@ public final class ShinColleEntityRegistryGameTests {
     private ShinColleEntityRegistryGameTests() {
     }
 
+    private static void withEntities(GameTestHelper helper, Consumer<GameTestEntities> test) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            test.accept(entities);
+        }
+    }
+
     // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void criticalEntityTypesCreate(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        assertCanCreate(level, ModEntities.BB_KIRISHIMA_MOB.get(), "bb_kirishima_mob");
-        assertCanCreate(level, ModEntities.SS_KA.get(), "ss_ka");
-        assertCanCreate(level, ModEntities.ABYSS_MISSILE.get(), "abyss_missile");
-        assertCanCreate(level, ModEntities.BASIC_ENTITY_ITEM.get(), "basic_entity_item");
+            assertCanCreate(helper, level, ModEntities.BB_KIRISHIMA_MOB.get(), "bb_kirishima_mob");
+            assertCanCreate(helper, level, ModEntities.SS_KA.get(), "ss_ka");
+            assertCanCreate(helper, level, ModEntities.ABYSS_MISSILE.get(), "abyss_missile");
+            assertCanCreate(helper, level, ModEntities.BASIC_ENTITY_ITEM.get(), "basic_entity_item");
 
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
@@ -163,15 +172,17 @@ public final class ShinColleEntityRegistryGameTests {
     // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void allRegisteredEntityTypesCreate(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        for (RegistryObject<EntityType<?>> typeObject : ModEntities.ENTITIES.getEntries()) {
-            EntityType<?> type = typeObject.get();
-            assert typeObject.getId() != null;
-            assertCanCreate(level, type, typeObject.getId().toString());
-        }
+            for (RegistryObject<EntityType<?>> typeObject : ModEntities.ENTITIES.getEntries()) {
+                EntityType<?> type = typeObject.get();
+                assert typeObject.getId() != null;
+                assertCanCreate(helper, level, type, typeObject.getId().toString());
+            }
 
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
@@ -504,72 +515,74 @@ public final class ShinColleEntityRegistryGameTests {
     // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipInvPagePacketUpdatesOpenedContainerPage(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        ServerPlayer player = FakePlayerFactory.get(level, new GameProfile(
-                UUID.fromString("00000000-0000-0000-0000-000000000009"),
-                "shincolle_ship_inv_page"));
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            ServerPlayer player = FakePlayerFactory.get(level, new GameProfile(
+                    UUID.fromString("00000000-0000-0000-0000-000000000009"),
+                    "shincolle_ship_inv_page"));
 
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in inventory-page packet test.");
-        }
-        ship.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 2.5D, 0F, 0F);
-        if (!level.addFreshEntity(ship)) {
-            throw new AssertionError("Failed to add ship for inventory-page packet test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in inventory-page packet test.");
+            }
+            ship.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 2.5D, 0F, 0F);
+            if (!level.addFreshEntity(ship)) {
+                throw new AssertionError("Failed to add ship for inventory-page packet test.");
+            }
 
-        ship.tame(player);
-        ship.setOwnerUUID(player.getUUID());
-        player.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(9009));
-        ship.setStateMinor(ID.M.PlayerUID, 9009);
-        ship.setStateMinor(ID.M.DrumState, 2);
-        player.moveTo(ship.getX(), ship.getY(), ship.getZ());
-        ship.openGUI(player);
-        if (!(player.containerMenu instanceof ContainerShipInventory menu)) {
-            throw new AssertionError("Ship GUI should open ContainerShipInventory in inventory-page packet test.");
-        }
-        if (!com.lulan.shincolle.utility.TeamHelper.checkSameOwner(player, ship)
-                || !ship.isAlive() || ship.level() != player.level()
-                || menu.getShip() != ship || !menu.stillValid(player)
-                || level.getEntity(ship.getId()) != ship) {
-            throw new AssertionError("Authorized ship menu failed its server validation guards: owned="
-                    + com.lulan.shincolle.utility.TeamHelper.checkSameOwner(player, ship)
-                    + " alive=" + ship.isAlive()
-                    + " sameLevel=" + (ship.level() == player.level())
-                    + " sameMenuShip=" + (menu.getShip() == ship)
-                    + " stillValid=" + menu.stillValid(player)
-                    + " entityResolved=" + (level.getEntity(ship.getId()) == ship));
-        }
+            ship.tame(player);
+            ship.setOwnerUUID(player.getUUID());
+            player.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(9009));
+            ship.setStateMinor(ID.M.PlayerUID, 9009);
+            ship.setStateMinor(ID.M.DrumState, 2);
+            player.moveTo(ship.getX(), ship.getY(), ship.getZ());
+            ship.openGUI(player);
+            if (!(player.containerMenu instanceof ContainerShipInventory menu)) {
+                throw new AssertionError("Ship GUI should open ContainerShipInventory in inventory-page packet test.");
+            }
+            if (!com.lulan.shincolle.utility.TeamHelper.checkSameOwner(player, ship)
+                    || !ship.isAlive() || ship.level() != player.level()
+                    || menu.getShip() != ship || !menu.stillValid(player)
+                    || level.getEntity(ship.getId()) != ship) {
+                throw new AssertionError("Authorized ship menu failed its server validation guards: owned="
+                        + com.lulan.shincolle.utility.TeamHelper.checkSameOwner(player, ship)
+                        + " alive=" + ship.isAlive()
+                        + " sameLevel=" + (ship.level() == player.level())
+                        + " sameMenuShip=" + (menu.getShip() == ship)
+                        + " stillValid=" + menu.stillValid(player)
+                        + " entityResolved=" + (level.getEntity(ship.getId()) == ship));
+            }
 
-        C2SGUIInputPacket packet = new C2SGUIInputPacket(
-                C2SGUIInputPacket.ShipBtn,
-                new int[]{ship.getId(), 0, ID.B.ShipInv_InvPage, 2});
-        invokePacketHandler(packet, "handleShipBtn", player);
+            C2SGUIInputPacket packet = new C2SGUIInputPacket(
+                    C2SGUIInputPacket.ShipBtn,
+                    new int[]{ship.getId(), 0, ID.B.ShipInv_InvPage, 2});
+            invokePacketHandler(packet, "handleShipBtn", player);
 
-        int invPageCap = ship.getCapaShipInventory().getInventoryPage();
-        if (invPageCap != 2) {
-            throw new AssertionError(
-                    "ShipInv_InvPage should update capability inventory page to 2, actual=" + invPageCap);
-        }
-        if (menu.getInventoryPage() != 2) {
-            throw new AssertionError("ShipInv_InvPage should update opened ContainerShipInventory page to 2.");
-        }
+            int invPageCap = ship.getCapaShipInventory().getInventoryPage();
+            if (invPageCap != 2) {
+                throw new AssertionError(
+                        "ShipInv_InvPage should update capability inventory page to 2, actual=" + invPageCap);
+            }
+            if (menu.getInventoryPage() != 2) {
+                throw new AssertionError("ShipInv_InvPage should update opened ContainerShipInventory page to 2.");
+            }
 
-        ServerPlayer otherPlayer = FakePlayerFactory.get(level, new GameProfile(
-                UUID.fromString("00000000-0000-0000-0000-000000000010"),
-                "shincolle_ship_inv_unauthorized"));
-        otherPlayer.moveTo(ship.getX(), ship.getY(), ship.getZ());
-        otherPlayer.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(9010));
-        C2SGUIInputPacket unauthorized = new C2SGUIInputPacket(
-                C2SGUIInputPacket.ShipBtn,
-                new int[]{ship.getId(), 0, ID.B.ShipInv_InvPage, 1});
-        invokePacketHandler(unauthorized, "handleShipBtn", otherPlayer);
-        if (ship.getCapaShipInventory().getInventoryPage() != 2) {
-            throw new AssertionError("A non-owner must not change another ship's GUI state.");
-        }
+            ServerPlayer otherPlayer = FakePlayerFactory.get(level, new GameProfile(
+                    UUID.fromString("00000000-0000-0000-0000-000000000010"),
+                    "shincolle_ship_inv_unauthorized"));
+            otherPlayer.moveTo(ship.getX(), ship.getY(), ship.getZ());
+            otherPlayer.getCapability(CapaTeitokuProvider.CAPABILITY).ifPresent(capa -> capa.setPlayerUID(9010));
+            C2SGUIInputPacket unauthorized = new C2SGUIInputPacket(
+                    C2SGUIInputPacket.ShipBtn,
+                    new int[]{ship.getId(), 0, ID.B.ShipInv_InvPage, 1});
+            invokePacketHandler(unauthorized, "handleShipBtn", otherPlayer);
+            if (ship.getCapaShipInventory().getInventoryPage() != 2) {
+                throw new AssertionError("A non-owner must not change another ship's GUI state.");
+            }
 
-        player.closeContainer();
-        helper.succeed();
+            player.closeContainer();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
@@ -630,115 +643,123 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena")
     public static void hostileShipsParticipateInVanillaEnemyClassification(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
-        if (!(entity instanceof BasicEntityShipHostile) || !(entity instanceof Enemy)) {
-            throw new AssertionError("Hostile ship must implement vanilla Enemy classification.");
-        }
-        helper.succeed();
+        withEntities(helper, entities -> {
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            if (!(entity instanceof BasicEntityShipHostile) || !(entity instanceof Enemy)) {
+                throw new AssertionError("Hostile ship must implement vanilla Enemy classification.");
+            }
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void hostileBossBarSurvivesNbtReload(GameTestHelper helper) {
-        Entity sourceEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
-        Entity loadedEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
-        if (!(sourceEntity instanceof BasicEntityShipHostile source)
-                || !(loadedEntity instanceof BasicEntityShipHostile loaded)) {
-            throw new AssertionError("Failed to create hostile ships for boss bar reload test.");
-        }
+        withEntities(helper, entities -> {
+            Entity sourceEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            Entity loadedEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            if (!(sourceEntity instanceof BasicEntityShipHostile source)
+                    || !(loadedEntity instanceof BasicEntityShipHostile loaded)) {
+                throw new AssertionError("Failed to create hostile ships for boss bar reload test.");
+            }
 
-        source.initAttrs(2);
-        float savedHealth = source.getMaxHealth() * 0.35F;
-        source.setHealth(savedHealth);
-        CompoundTag saved = new CompoundTag();
-        source.saveWithoutId(saved);
+            source.initAttrs(2);
+            float savedHealth = source.getMaxHealth() * 0.35F;
+            source.setHealth(savedHealth);
+            CompoundTag saved = new CompoundTag();
+            source.saveWithoutId(saved);
 
-        loaded.load(saved);
-        if (loaded.getScaleLevel() != 2) {
-            throw new AssertionError("Boss scale level was not restored from NBT.");
-        }
-        if (Math.abs(loaded.getHealth() - savedHealth) > 0.01F) {
-            throw new AssertionError("Loading boss bar state must not heal the boss. expected="
-                    + savedHealth + " actual=" + loaded.getHealth());
-        }
+            loaded.load(saved);
+            if (loaded.getScaleLevel() != 2) {
+                throw new AssertionError("Boss scale level was not restored from NBT.");
+            }
+            if (Math.abs(loaded.getHealth() - savedHealth) > 0.01F) {
+                throw new AssertionError("Loading boss bar state must not heal the boss. expected="
+                        + savedHealth + " actual=" + loaded.getHealth());
+            }
 
-        ServerBossEvent firstEvent = extractBossEvent(loaded);
-        if (firstEvent == null) {
-            throw new AssertionError("NBT-loaded boss did not recreate its ServerBossEvent.");
-        }
-        loaded.creatBossEvent();
-        if (extractBossEvent(loaded) != firstEvent) {
-            throw new AssertionError("Boss event recreation must be idempotent.");
-        }
+            ServerBossEvent firstEvent = extractBossEvent(loaded);
+            if (firstEvent == null) {
+                throw new AssertionError("NBT-loaded boss did not recreate its ServerBossEvent.");
+            }
+            loaded.creatBossEvent();
+            if (extractBossEvent(loaded) != firstEvent) {
+                throw new AssertionError("Boss event recreation must be idempotent.");
+            }
 
-        ServerPlayer player = createFollowTestOwner(helper, helper.getLevel(),
-                UUID.fromString("00000000-0000-0000-0000-000000000012"),
-                "shincolle_boss_bar_reload");
-        loaded.startSeenByPlayer(player);
-        if (!firstEvent.getPlayers().contains(player)) {
-            throw new AssertionError("Tracking player was not registered with the restored boss event.");
-        }
+            ServerPlayer player = createFollowTestOwner(helper, helper.getLevel(),
+                    UUID.fromString("00000000-0000-0000-0000-000000000012"),
+                    "shincolle_boss_bar_reload");
+            loaded.startSeenByPlayer(player);
+            if (!firstEvent.getPlayers().contains(player)) {
+                throw new AssertionError("Tracking player was not registered with the restored boss event.");
+            }
 
-        loaded.stopSeenByPlayer(player);
-        helper.succeed();
+            loaded.stopSeenByPlayer(player);
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void shipAiSettingsClampUntrustedPacketValues(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in AI clamp test.");
-        }
+        withEntities(helper, entities -> {
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in AI clamp test.");
+            }
 
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FollowMin, Integer.MAX_VALUE);
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FollowMax, Integer.MIN_VALUE);
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FleeHP, 500);
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_WpStay, -10);
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_Task, 99);
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_TaskSide, -1);
-        ship.setStateFlag(ID.F.NoFuel, false);
-        C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_NoFuel, 1);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FollowMin, Integer.MAX_VALUE);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FollowMax, Integer.MIN_VALUE);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_FleeHP, 500);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_WpStay, -10);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_Task, 99);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_TaskSide, -1);
+            ship.setStateFlag(ID.F.NoFuel, false);
+            C2SGUIInputPacket.applyShipGUIButton(ship, ID.B.ShipInv_NoFuel, 1);
 
-        if (ship.getStateMinor(ID.M.FollowMin) != 1 || ship.getStateMinor(ID.M.FollowMax) != 2
-                || ship.getStateMinor(ID.M.FleeHP) != 100 || ship.getStateMinor(ID.M.WpStay) != 0
-                || ship.getStateMinor(ID.M.Task) != 4
-                || ship.getStateMinor(ID.M.TaskSide) != 0x17FFFF
-                || ship.getStateFlag(ID.F.NoFuel)) {
-            throw new AssertionError("Ship AI packet values were not clamped to server-owned ranges.");
-        }
-        helper.succeed();
+            if (ship.getStateMinor(ID.M.FollowMin) != 1 || ship.getStateMinor(ID.M.FollowMax) != 2
+                    || ship.getStateMinor(ID.M.FleeHP) != 100 || ship.getStateMinor(ID.M.WpStay) != 0
+                    || ship.getStateMinor(ID.M.Task) != 4
+                    || ship.getStateMinor(ID.M.TaskSide) != 0x17FFFF
+                    || ship.getStateFlag(ID.F.NoFuel)) {
+                throw new AssertionError("Ship AI packet values were not clamped to server-owned ranges.");
+            }
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void friendlyTargetSelectorRejectsPassiveMobsAndUsesCustomList(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        Entity cow = EntityType.COW.create(level);
-        Entity zombie = EntityType.ZOMBIE.create(level);
-        if (!(entity instanceof BasicEntityShip ship) || cow == null || zombie == null) {
-            throw new AssertionError("Failed to create entities for target selector test.");
-        }
-        cow.moveTo(2.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
-        zombie.moveTo(3.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
-        level.addFreshEntity(cow);
-        level.addFreshEntity(zombie);
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            Entity cow = entities.add(EntityType.COW.create(level));
+            Entity zombie = entities.add(EntityType.ZOMBIE.create(level));
+            if (!(entity instanceof BasicEntityShip ship) || cow == null || zombie == null) {
+                throw new AssertionError("Failed to create entities for target selector test.");
+            }
+            cow.moveTo(2.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
+            zombie.moveTo(3.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
+            level.addFreshEntity(cow);
+            level.addFreshEntity(zombie);
 
-        int playerUid = 54321;
-        ship.setStateMinor(ID.M.PlayerUID, playerUid);
-        ship.setStateFlag(ID.F.OnSightChase, false);
-        TargetHelper.Selector selector = new TargetHelper.Selector(ship);
-        if (selector.test(cow)) {
-            throw new AssertionError("Friendly ships must not automatically target passive mobs.");
-        }
-        if (!selector.test(zombie)) {
-            throw new AssertionError("Friendly ships should target vanilla monsters.");
-        }
+            int playerUid = 54321;
+            ship.setStateMinor(ID.M.PlayerUID, playerUid);
+            ship.setStateFlag(ID.F.OnSightChase, false);
+            TargetHelper.Selector selector = new TargetHelper.Selector(ship);
+            if (selector.test(cow)) {
+                throw new AssertionError("Friendly ships must not automatically target passive mobs.");
+            }
+            if (!selector.test(zombie)) {
+                throw new AssertionError("Friendly ships should target vanilla monsters.");
+            }
 
-        ServerDataManager.setPlayerTargetClass(playerUid, cow.getClass().getSimpleName());
-        if (!selector.test(cow)) {
-            throw new AssertionError("The per-player custom target class list is not used by the selector.");
-        }
-        ServerDataManager.setPlayerTargetClass(playerUid, cow.getClass().getSimpleName());
-        helper.succeed();
+            ServerDataManager.setPlayerTargetClass(playerUid, cow.getClass().getSimpleName());
+            if (!selector.test(cow)) {
+                throw new AssertionError("The per-player custom target class list is not used by the selector.");
+            }
+            ServerDataManager.setPlayerTargetClass(playerUid, cow.getClass().getSimpleName());
+            helper.succeed();
+        });
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
@@ -805,601 +826,640 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_critical_entity_spawn_and_tick_server_safe")
     public static void criticalEntitySpawnAndTickServerSafe(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        assertCanSpawnAndTick(level, ModEntities.BB_KIRISHIMA_MOB.get(), "bb_kirishima_mob");
-        assertCanSpawnAndTick(level, ModEntities.SS_KA.get(), "ss_ka");
-        assertCanSpawnAndTick(level, ModEntities.ABYSS_MISSILE.get(), "abyss_missile");
-        assertCanSpawnAndTick(level, ModEntities.BASIC_ENTITY_ITEM.get(), "basic_entity_item");
+            assertCanSpawnAndTick(helper, level, ModEntities.BB_KIRISHIMA_MOB.get(), "bb_kirishima_mob");
+            assertCanSpawnAndTick(helper, level, ModEntities.SS_KA.get(), "ss_ka");
+            assertCanSpawnAndTick(helper, level, ModEntities.ABYSS_MISSILE.get(), "abyss_missile");
+            assertCanSpawnAndTick(helper, level, ModEntities.BASIC_ENTITY_ITEM.get(), "basic_entity_item");
 
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_black_hole_special_effect_spawns_static_projectile")
     public static void blackHoleSpecialEffectSpawnsStaticProjectile(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(hostEntity instanceof IShipAttackBase host)) {
-            throw new AssertionError("BB_KONGOU does not implement IShipAttackBase in test context.");
-        }
+            Entity hostEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(hostEntity instanceof IShipAttackBase host)) {
+                throw new AssertionError("BB_KONGOU does not implement IShipAttackBase in test context.");
+            }
 
-        hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostEntity)) {
-            throw new AssertionError("Failed to add host entity for black hole special effect test.");
-        }
+            hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(hostEntity)) {
+                throw new AssertionError("Failed to add host entity for black hole special effect test.");
+            }
 
-        double x = hostEntity.getX();
-        double y = hostEntity.getY();
-        double z = hostEntity.getZ();
-        CombatHelper.specialAttackEffect(host, 5, new float[]{(float) x, (float) y, (float) z});
+            double x = hostEntity.getX();
+            double y = hostEntity.getY();
+            double z = hostEntity.getZ();
+            CombatHelper.specialAttackEffect(host, 5, new float[]{(float) x, (float) y, (float) z});
 
-        AABB search = new AABB(x - 2D, y - 2D, z - 2D, x + 2D, y + 2D, z + 2D);
-        List<EntityProjectileStatic> effects = level.getEntitiesOfClass(EntityProjectileStatic.class, search);
-        if (effects.isEmpty()) {
-            throw new AssertionError("Black hole special effect did not spawn EntityProjectileStatic.");
-        }
+            AABB search = new AABB(x - 2D, y - 2D, z - 2D, x + 2D, y + 2D, z + 2D);
+            List<EntityProjectileStatic> effects = level.getEntitiesOfClass(EntityProjectileStatic.class, search);
+            effects.forEach(entities::add);
+            if (effects.isEmpty()) {
+                throw new AssertionError("Black hole special effect did not spawn EntityProjectileStatic.");
+            }
 
-        hostEntity.discard();
-        for (EntityProjectileStatic effect : effects) {
-            effect.discard();
-        }
-
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void floatingFortHeavyAttackDetonatesAndDespawns(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
-        Entity targetEntity = ModEntities.SS_KA.get().create(level);
-        Entity floatingEntity = ModEntities.FLOATING_FORT.get().create(level);
+            Entity hostEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            Entity targetEntity = entities.add(ModEntities.SS_KA.get().create(level));
+            Entity floatingEntity = entities.add(ModEntities.FLOATING_FORT.get().create(level));
 
-        if (!(hostEntity instanceof IShipAttackBase host)) {
-            throw new AssertionError("BB_KONGOU is not IShipAttackBase in floating fort test.");
-        }
-        if (!(floatingEntity instanceof EntityFloatingFort floatingFort)) {
-            throw new AssertionError("FLOATING_FORT entity type did not create EntityFloatingFort.");
-        }
-        if (targetEntity == null) {
-            throw new AssertionError("Failed to create SS_KA target entity.");
-        }
+            if (!(hostEntity instanceof IShipAttackBase host)) {
+                throw new AssertionError("BB_KONGOU is not IShipAttackBase in floating fort test.");
+            }
+            if (!(floatingEntity instanceof EntityFloatingFort floatingFort)) {
+                throw new AssertionError("FLOATING_FORT entity type did not create EntityFloatingFort.");
+            }
+            if (targetEntity == null) {
+                throw new AssertionError("Failed to create SS_KA target entity.");
+            }
 
-        hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        targetEntity.moveTo(3.0D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostEntity) || !level.addFreshEntity(targetEntity)) {
-            throw new AssertionError("Failed to add host or target entity for floating fort test.");
-        }
+            hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            targetEntity.moveTo(3.0D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(hostEntity) || !level.addFreshEntity(targetEntity)) {
+                throw new AssertionError("Failed to add host or target entity for floating fort test.");
+            }
 
-        floatingFort.initAttrs(host, targetEntity, 0, (float) hostEntity.getY());
-        if (!level.addFreshEntity(floatingFort)) {
-            throw new AssertionError("Failed to add floating fort entity for test.");
-        }
+            floatingFort.initAttrs(host, targetEntity, 0, (float) hostEntity.getY());
+            if (!level.addFreshEntity(floatingFort)) {
+                throw new AssertionError("Failed to add floating fort entity for test.");
+            }
 
-        boolean attacked = floatingFort.attackEntityWithHeavyAmmo(targetEntity);
-        if (!attacked) {
-            throw new AssertionError("Floating fort heavy attack should detonate when target is close.");
-        }
-        if (floatingFort.isAlive()) {
-            throw new AssertionError("Floating fort should despawn after heavy impact attack.");
-        }
+            boolean attacked = floatingFort.attackEntityWithHeavyAmmo(targetEntity);
+            if (!attacked) {
+                throw new AssertionError("Floating fort heavy attack should detonate when target is close.");
+            }
+            if (floatingFort.isAlive()) {
+                throw new AssertionError("Floating fort should despawn after heavy impact attack.");
+            }
 
-        hostEntity.discard();
-        targetEntity.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightPlacesLightOnlyAtNight(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in searchlight test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in searchlight test.");
+            }
 
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for searchlight test.");
-        }
+            Vec3 shipPos = helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D));
+            hostile.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for searchlight test.");
+            }
 
-        hostile.setStateMinor(ID.M.LevelSearchlight, 1);
-        BlockPos lightPos = hostile.blockPosition().above(2);
+            hostile.setStateMinor(ID.M.LevelSearchlight, 1);
+            BlockPos lightPos = hostile.blockPosition().above(2);
+            helper.assertTrue(lightPos.equals(helper.absolutePos(new BlockPos(2, 4, 2))),
+                    "Searchlight must stay at this arena's relative light position");
+            com.mojang.logging.LogUtils.getLogger().info(
+                    "TASK-094 searchlight fixture: ship={}, light={}", hostile.position(), lightPos);
 
-        level.setDayTime(6000L);
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).isAir()) {
-            throw new AssertionError("Searchlight should not place light block during daytime.");
-        }
+            level.setDayTime(6000L);
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).isAir()) {
+                throw new AssertionError("Searchlight should not place light block during daytime.");
+            }
 
-        level.setDayTime(13000L);
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).is(ModBlocks.LIGHT_AIR.get())) {
-            throw new AssertionError("Searchlight should place LIGHT_AIR block at night.");
-        }
+            level.setDayTime(13000L);
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).is(ModBlocks.LIGHT_AIR.get())) {
+                throw new AssertionError("Searchlight should place LIGHT_AIR block at night.");
+            }
 
-        hostile.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightSkipsWhenNoFuel(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in no-fuel searchlight test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in no-fuel searchlight test.");
+            }
 
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for no-fuel searchlight test.");
-        }
+            Vec3 shipPos = helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D));
+            hostile.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for no-fuel searchlight test.");
+            }
 
-        hostile.setStateMinor(ID.M.LevelSearchlight, 1);
-        hostile.setStateFlag(ID.F.NoFuel, true);
-        BlockPos lightPos = hostile.blockPosition().above(2);
+            hostile.setStateMinor(ID.M.LevelSearchlight, 1);
+            hostile.setStateFlag(ID.F.NoFuel, true);
+            BlockPos lightPos = hostile.blockPosition().above(2);
+            helper.assertTrue(lightPos.equals(helper.absolutePos(new BlockPos(2, 4, 2))),
+                    "Searchlight must stay at this arena's relative light position");
+            com.mojang.logging.LogUtils.getLogger().info(
+                    "TASK-094 searchlight fixture: ship={}, light={}", hostile.position(), lightPos);
 
-        level.setDayTime(13000L);
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).isAir()) {
-            throw new AssertionError("Searchlight should not place LIGHT_AIR when NoFuel flag is set.");
-        }
+            level.setDayTime(13000L);
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).isAir()) {
+                throw new AssertionError("Searchlight should not place LIGHT_AIR when NoFuel flag is set.");
+            }
 
-        hostile.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightSkipsWhenNotAlive(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in not-alive searchlight test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in not-alive searchlight test.");
+            }
 
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for not-alive searchlight test.");
-        }
+            Vec3 shipPos = helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D));
+            hostile.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for not-alive searchlight test.");
+            }
 
-        hostile.setStateMinor(ID.M.LevelSearchlight, 1);
-        BlockPos lightPos = hostile.blockPosition().above(2);
+            hostile.setStateMinor(ID.M.LevelSearchlight, 1);
+            BlockPos lightPos = hostile.blockPosition().above(2);
+            helper.assertTrue(lightPos.equals(helper.absolutePos(new BlockPos(2, 4, 2))),
+                    "Searchlight must stay at this arena's relative light position");
+            com.mojang.logging.LogUtils.getLogger().info(
+                    "TASK-094 searchlight fixture: ship={}, light={}", hostile.position(), lightPos);
 
-        level.setDayTime(13000L);
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        hostile.discard();
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).isAir()) {
-            throw new AssertionError("Searchlight should not place LIGHT_AIR when entity is not alive.");
-        }
+            level.setDayTime(13000L);
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            // This discard is the test setup, not cleanup: it creates the not-alive
+            // state that updateSearchlight() must refuse. The scope still owns removal.
+            hostile.discard();
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).isAir()) {
+                throw new AssertionError("Searchlight should not place LIGHT_AIR when entity is not alive.");
+            }
 
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightNightWindowBoundaries(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in boundary searchlight test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in boundary searchlight test.");
+            }
 
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for boundary searchlight test.");
-        }
+            Vec3 shipPos = helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D));
+            hostile.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for boundary searchlight test.");
+            }
 
-        hostile.setStateMinor(ID.M.LevelSearchlight, 1);
-        BlockPos lightPos = hostile.blockPosition().above(2);
+            hostile.setStateMinor(ID.M.LevelSearchlight, 1);
+            BlockPos lightPos = hostile.blockPosition().above(2);
+            helper.assertTrue(lightPos.equals(helper.absolutePos(new BlockPos(2, 4, 2))),
+                    "Searchlight must stay at this arena's relative light position");
+            com.mojang.logging.LogUtils.getLogger().info(
+                    "TASK-094 searchlight fixture: ship={}, light={}", hostile.position(), lightPos);
 
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        level.setDayTime(12499L);
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).isAir()) {
-            throw new AssertionError("Searchlight should not place LIGHT_AIR at time 12499.");
-        }
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            level.setDayTime(12499L);
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).isAir()) {
+                throw new AssertionError("Searchlight should not place LIGHT_AIR at time 12499.");
+            }
 
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        level.setDayTime(12500L);
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).is(ModBlocks.LIGHT_AIR.get())) {
-            throw new AssertionError("Searchlight should place LIGHT_AIR at time 12500.");
-        }
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            level.setDayTime(12500L);
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).is(ModBlocks.LIGHT_AIR.get())) {
+                throw new AssertionError("Searchlight should place LIGHT_AIR at time 12500.");
+            }
 
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        level.setDayTime(23500L);
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).is(ModBlocks.LIGHT_AIR.get())) {
-            throw new AssertionError("Searchlight should place LIGHT_AIR at time 23500.");
-        }
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            level.setDayTime(23500L);
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).is(ModBlocks.LIGHT_AIR.get())) {
+                throw new AssertionError("Searchlight should place LIGHT_AIR at time 23500.");
+            }
 
-        level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
-        level.setDayTime(23501L);
-        hostile.updateSearchlight();
-        if (!level.getBlockState(lightPos).isAir()) {
-            throw new AssertionError("Searchlight should not place LIGHT_AIR at time 23501.");
-        }
+            level.setBlockAndUpdate(lightPos, Blocks.AIR.defaultBlockState());
+            level.setDayTime(23501L);
+            hostile.updateSearchlight();
+            if (!level.getBlockState(lightPos).isAir()) {
+                throw new AssertionError("Searchlight should not place LIGHT_AIR at time 23501.");
+            }
 
-        hostile.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_ship_pick_item_goal_respects_fuel_and_pick_flag")
     public static void shipPickItemGoalRespectsFuelAndPickFlag(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in pick-item goal test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in pick-item goal test.");
+            }
 
-        // Position relative to this test's own structure: absolute world
-        // coordinates are shared by every test here, and game tests run
-        // concurrently, so another test's dropped items would decide the result.
-        Vec3 shipPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
-        BlockPos clearFrom = BlockPos.containing(shipPos.x - 2D, shipPos.y - 1D, shipPos.z - 2D);
-        BlockPos clearTo = BlockPos.containing(shipPos.x + 2D, shipPos.y + 3D, shipPos.z + 2D);
-        for (BlockPos pos : BlockPos.betweenClosed(clearFrom, clearTo)) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-        }
+            // Position relative to this test's own structure: absolute world
+            // coordinates are shared by every test here, and game tests run
+            // concurrently, so another test's dropped items would decide the result.
+            Vec3 shipPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+            BlockPos clearFrom = BlockPos.containing(shipPos.x - 2D, shipPos.y - 1D, shipPos.z - 2D);
+            BlockPos clearTo = BlockPos.containing(shipPos.x + 2D, shipPos.y + 3D, shipPos.z + 2D);
+            for (BlockPos pos : BlockPos.betweenClosed(clearFrom, clearTo)) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            }
 
-        ship.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
-        if (!level.addFreshEntity(ship)) {
-            throw new AssertionError("Failed to add ship entity for pick-item goal test.");
-        }
+            ship.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+            if (!level.addFreshEntity(ship)) {
+                throw new AssertionError("Failed to add ship entity for pick-item goal test.");
+            }
 
-        // The goal is only usable when there is something to pick up, so the
-        // guard flags can only be exercised with an item actually present.
-        ItemEntity bait = new ItemEntity(level, shipPos.x + 1D, shipPos.y, shipPos.z,
-                new ItemStack(Items.STICK));
-        if (!level.addFreshEntity(bait)) {
-            throw new AssertionError("Failed to add bait item for pick-item goal test.");
-        }
+            // The goal is only usable when there is something to pick up, so the
+            // guard flags can only be exercised with an item actually present.
+            ItemEntity bait = entities.add(new ItemEntity(level, shipPos.x + 1D, shipPos.y, shipPos.z,
+                    new ItemStack(Items.STICK)));
+            if (!level.addFreshEntity(bait)) {
+                throw new AssertionError("Failed to add bait item for pick-item goal test.");
+            }
 
-        // [PORT] 1.10.2 -> 1.20.1: lock AI guard behavior for item pickup goal.
-        ShipPickItemGoal goal = new ShipPickItemGoal(ship, 6.0F);
+            // [PORT] 1.10.2 -> 1.20.1: lock AI guard behavior for item pickup goal.
+            ShipPickItemGoal goal = new ShipPickItemGoal(ship, 6.0F);
 
-        ship.setStateFlag(ID.F.PickItem, true);
-        ship.setStateFlag(ID.F.NoFuel, false);
-        if (!goal.canUse()) {
-            throw new AssertionError("ShipPickItemGoal should be usable when PickItem=true and NoFuel=false.");
-        }
+            ship.setStateFlag(ID.F.PickItem, true);
+            ship.setStateFlag(ID.F.NoFuel, false);
+            if (!goal.canUse()) {
+                throw new AssertionError("ShipPickItemGoal should be usable when PickItem=true and NoFuel=false.");
+            }
 
-        ship.setStateFlag(ID.F.NoFuel, true);
-        if (goal.canUse()) {
-            throw new AssertionError("ShipPickItemGoal should be blocked when NoFuel=true.");
-        }
+            ship.setStateFlag(ID.F.NoFuel, true);
+            if (goal.canUse()) {
+                throw new AssertionError("ShipPickItemGoal should be blocked when NoFuel=true.");
+            }
 
-        ship.setStateFlag(ID.F.NoFuel, false);
-        ship.setStateFlag(ID.F.PickItem, false);
-        if (goal.canUse()) {
-            throw new AssertionError("ShipPickItemGoal should be blocked when PickItem=false.");
-        }
+            ship.setStateFlag(ID.F.NoFuel, false);
+            ship.setStateFlag(ID.F.PickItem, false);
+            if (goal.canUse()) {
+                throw new AssertionError("ShipPickItemGoal should be blocked when PickItem=false.");
+            }
 
-        ship.setStateFlag(ID.F.PickItem, true);
-        ship.setOrderedToSit(true);
-        if (goal.canUse()) {
-            throw new AssertionError("ShipPickItemGoal should be blocked when ship is sitting.");
-        }
-        ship.setOrderedToSit(false);
+            ship.setStateFlag(ID.F.PickItem, true);
+            ship.setOrderedToSit(true);
+            if (goal.canUse()) {
+                throw new AssertionError("ShipPickItemGoal should be blocked when ship is sitting.");
+            }
+            ship.setOrderedToSit(false);
 
-        ship.setStateMinor(ID.M.CraneState, 1);
-        if (goal.canUse()) {
-            throw new AssertionError("ShipPickItemGoal should be blocked when CraneState > 0.");
-        }
-        ship.setStateMinor(ID.M.CraneState, 0);
+            ship.setStateMinor(ID.M.CraneState, 1);
+            if (goal.canUse()) {
+                throw new AssertionError("ShipPickItemGoal should be blocked when CraneState > 0.");
+            }
+            ship.setStateMinor(ID.M.CraneState, 0);
 
-        ship.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_yamato_beam_travels_after_initialization")
     public static void yamatoBeamTravelsAfterInitialization(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(hostEntity instanceof IShipAttackBase host)) {
-            throw new AssertionError("BB_KONGOU does not implement IShipAttackBase for beam travel test.");
-        }
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity hostEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(hostEntity instanceof IShipAttackBase host)) {
+                throw new AssertionError("BB_KONGOU does not implement IShipAttackBase for beam travel test.");
+            }
 
-        hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), level);
-        beam.initBeam(host, 1.0D, 0.0D, 0.0D, 1.0F);
-        Vec3 initialPosition = beam.position();
-        beam.tick();
+            hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            EntityProjectileBeam beam = entities.add(
+                    new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), level));
+            beam.initBeam(host, 1.0D, 0.0D, 0.0D, 1.0F);
+            Vec3 initialPosition = beam.position();
+            beam.tick();
 
-        if (beam.position().distanceToSqr(initialPosition) < 15.99D) {
-            throw new AssertionError("Yamato beam did not travel four blocks after one tick. initial="
-                    + initialPosition + " actual=" + beam.position());
-        }
+            if (beam.position().distanceToSqr(initialPosition) < 15.99D) {
+                throw new AssertionError("Yamato beam did not travel four blocks after one tick. initial="
+                        + initialPosition + " actual=" + beam.position());
+            }
 
-        hostEntity.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_goal_throttles_fire_on_both_tick_parities")
     public static void goalThrottlesFireOnBothTickParities(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in goal throttle parity test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in goal throttle parity test.");
+            }
 
-        assertStartInitializesThrottleFields(new ShipPickItemGoal(ship, 6.0F), ship, 101,
-                "nextItemScanTick");
-        assertStartInitializesThrottleFields(new ShipGuardingGoal(ship), ship, 101,
-                "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
-        assertStartInitializesThrottleFields(new ShipFollowOwnerGoal(ship), ship, 101,
-                "nextOwnerResolveTick", "nextParticleTick");
-        assertStartInitializesThrottleFields(new ShipRangeAttackGoal(ship), ship, 101,
-                "nextAttrTick", "nextRepathTick");
-        assertStartInitializesThrottleFields(new ShipAttackOnCollideGoal(ship, 1.0D), ship, 101,
-                "nextRepathTick");
+            assertStartInitializesThrottleFields(new ShipPickItemGoal(ship, 6.0F), ship, 101,
+                    "nextItemScanTick");
+            assertStartInitializesThrottleFields(new ShipGuardingGoal(ship), ship, 101,
+                    "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
+            assertStartInitializesThrottleFields(new ShipFollowOwnerGoal(ship), ship, 101,
+                    "nextOwnerResolveTick", "nextParticleTick");
+            assertStartInitializesThrottleFields(new ShipRangeAttackGoal(ship), ship, 101,
+                    "nextAttrTick", "nextRepathTick");
+            assertStartInitializesThrottleFields(new ShipAttackOnCollideGoal(ship, 1.0D), ship, 101,
+                    "nextRepathTick");
 
-        Entity carrierEntity = ModEntities.CV_AKAGI.get().create(level);
-        if (!(carrierEntity instanceof com.lulan.shincolle.entity.IShipAircraftAttack carrier)) {
-            throw new AssertionError("CV_AKAGI is not IShipAircraftAttack in goal throttle parity test.");
-        }
-        assertStartInitializesThrottleFields(new ShipCarrierAttackGoal(carrier), carrierEntity, 101,
-                "nextAttrTick", "nextRepathTick");
+            Entity carrierEntity = entities.add(ModEntities.CV_AKAGI.get().create(level));
+            if (!(carrierEntity instanceof com.lulan.shincolle.entity.IShipAircraftAttack carrier)) {
+                throw new AssertionError("CV_AKAGI is not IShipAircraftAttack in goal throttle parity test.");
+            }
+            assertStartInitializesThrottleFields(new ShipCarrierAttackGoal(carrier), carrierEntity, 101,
+                    "nextAttrTick", "nextRepathTick");
 
-        Entity airplaneEntity = ModEntities.AIRPLANE.get().create(level);
-        if (!(airplaneEntity instanceof BasicEntityAirplane airplane)) {
-            throw new AssertionError("AIRPLANE is not BasicEntityAirplane in goal throttle parity test.");
-        }
-        assertStartInitializesThrottleFields(new ShipAircraftAttackGoal(airplane), airplane, 101,
-                "nextCirclePathTick");
+            Entity airplaneEntity = entities.add(ModEntities.AIRPLANE.get().create(level));
+            if (!(airplaneEntity instanceof BasicEntityAirplane airplane)) {
+                throw new AssertionError("AIRPLANE is not BasicEntityAirplane in goal throttle parity test.");
+            }
+            assertStartInitializesThrottleFields(new ShipAircraftAttackGoal(airplane), airplane, 101,
+                    "nextCirclePathTick");
 
-        int evenFires = countPickItemThrottleFires(ship, 2);
-        int oddFires = countPickItemThrottleFires(ship, 3);
-        if (evenFires != 8 || oddFires != 8) {
-            throw new AssertionError("Goal throttle should fire eight times on both tick parities over 128 ticks."
-                    + " even=" + evenFires + " odd=" + oddFires);
-        }
+            int evenFires = countPickItemThrottleFires(ship, 2);
+            int oddFires = countPickItemThrottleFires(ship, 3);
+            if (evenFires != 8 || oddFires != 8) {
+                throw new AssertionError("Goal throttle should fire eight times on both tick parities over 128 ticks."
+                        + " even=" + evenFires + " odd=" + oddFires);
+            }
 
-        Entity targetEntity = ModEntities.SS_KA.get().create(level);
-        if (!(targetEntity instanceof LivingEntity target)) {
-            throw new AssertionError("SS_KA is not LivingEntity in goal throttle parity test.");
-        }
+            Entity targetEntity = entities.add(ModEntities.SS_KA.get().create(level));
+            if (!(targetEntity instanceof LivingEntity target)) {
+                throw new AssertionError("SS_KA is not LivingEntity in goal throttle parity test.");
+            }
 
-        Vec3 shipPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
-        ship.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
-        target.moveTo(shipPos.x + 16D, shipPos.y, shipPos.z, 0F, 0F);
-        if (!level.addFreshEntity(ship) || !level.addFreshEntity(target)) {
-            throw new AssertionError("Failed to add entities for melee throttle parity test.");
-        }
-        ship.setTarget(target);
+            Vec3 shipPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+            ship.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
+            target.moveTo(shipPos.x + 16D, shipPos.y, shipPos.z, 0F, 0F);
+            if (!level.addFreshEntity(ship) || !level.addFreshEntity(target)) {
+                throw new AssertionError("Failed to add entities for melee throttle parity test.");
+            }
+            ship.setTarget(target);
 
-        ShipAttackOnCollideGoal meleeGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
-        if (!meleeGoal.canUse()) {
-            throw new AssertionError("Melee goal should acquire the live target in throttle parity test.");
-        }
-        assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 2);
-        assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 3);
+            ShipAttackOnCollideGoal meleeGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
+            if (!meleeGoal.canUse()) {
+                throw new AssertionError("Melee goal should acquire the live target in throttle parity test.");
+            }
+            assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 2);
+            assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 3);
 
-        assertDeclaredIntFields(ShipPickItemGoal.class, "nextItemScanTick");
-        assertDeclaredIntFields(ShipGuardingGoal.class,
-                "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
-        assertDeclaredIntFields(ShipFollowOwnerGoal.class,
-                "nextOwnerResolveTick", "nextParticleTick");
-        assertDeclaredIntFields(ShipRangeAttackGoal.class,
-                "nextAttrTick", "nextRepathTick");
-        assertDeclaredIntFields(ShipCarrierAttackGoal.class,
-                "nextAttrTick", "nextRepathTick");
-        assertDeclaredIntFields(ShipAttackOnCollideGoal.class, "nextRepathTick");
-        assertDeclaredIntFields(ShipAircraftAttackGoal.class, "nextCirclePathTick");
+            assertDeclaredIntFields(ShipPickItemGoal.class, "nextItemScanTick");
+            assertDeclaredIntFields(ShipGuardingGoal.class,
+                    "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
+            assertDeclaredIntFields(ShipFollowOwnerGoal.class,
+                    "nextOwnerResolveTick", "nextParticleTick");
+            assertDeclaredIntFields(ShipRangeAttackGoal.class,
+                    "nextAttrTick", "nextRepathTick");
+            assertDeclaredIntFields(ShipCarrierAttackGoal.class,
+                    "nextAttrTick", "nextRepathTick");
+            assertDeclaredIntFields(ShipAttackOnCollideGoal.class, "nextRepathTick");
+            assertDeclaredIntFields(ShipAircraftAttackGoal.class, "nextCirclePathTick");
 
-        target.discard();
-        ship.discard();
-        carrierEntity.discard();
-        airplaneEntity.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipFollowOwnerGoalRespectsCoreGuards(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in follow-owner goal test.");
-        }
-
-        ServerPlayer owner = createFollowTestOwner(helper, level,
-                UUID.fromString("00000000-0000-0000-0000-000000000003"),
-                "shincolle_follow_owner");
-        owner.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-
-        ship.moveTo(24.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(ship)) {
-            throw new AssertionError("Failed to add ship entity for follow-owner goal test.");
-        }
-
-        // [PORT] 1.10.2 -> 1.20.1: lock owner-follow activation and guard branches.
-        ship.tame(owner);
-        ship.setOwnerUUID(owner.getUUID());
-        ship.setEntitySit(false);
-        ship.setStateFlag(ID.F.CanFollow, true);
-        ship.setStateMinor(ID.M.CraneState, 0);
-        ship.setStateMinor(ID.M.NumGrudge, 120);
-        ship.setStateMinor(ID.M.FollowMin, 2);
-        ship.setStateMinor(ID.M.FollowMax, 6);
-
-        ShipFollowOwnerGoal goal = new ShipFollowOwnerGoal(ship);
-        boolean ownerResolved = ship.getOwner() != null;
-
-        if (ownerResolved) {
-            if (!goal.canUse()) {
-                throw new AssertionError(
-                        "ShipFollowOwnerGoal should be usable with valid owner and follow conditions.");
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in follow-owner goal test.");
             }
 
-            ship.setStateFlag(ID.F.CanFollow, false);
-            if (goal.canUse()) {
-                throw new AssertionError("ShipFollowOwnerGoal should be blocked when CanFollow=false.");
+            ServerPlayer owner = createFollowTestOwner(helper, level,
+                    UUID.fromString("00000000-0000-0000-0000-000000000003"),
+                    "shincolle_follow_owner");
+            owner.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+
+            ship.moveTo(24.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(ship)) {
+                throw new AssertionError("Failed to add ship entity for follow-owner goal test.");
             }
 
+            // [PORT] 1.10.2 -> 1.20.1: lock owner-follow activation and guard branches.
+            ship.tame(owner);
+            ship.setOwnerUUID(owner.getUUID());
+            ship.setEntitySit(false);
             ship.setStateFlag(ID.F.CanFollow, true);
-            ship.setStateMinor(ID.M.NumGrudge, 0);
-            if (goal.canUse()) {
-                throw new AssertionError("ShipFollowOwnerGoal should be blocked when NumGrudge<=0.");
-            }
-
-            ship.setStateMinor(ID.M.NumGrudge, 120);
-            ship.setStateMinor(ID.M.CraneState, 1);
-            if (goal.canUse()) {
-                throw new AssertionError("ShipFollowOwnerGoal should be blocked when CraneState>=1.");
-            }
-
             ship.setStateMinor(ID.M.CraneState, 0);
-            ship.setEntitySit(true);
-            if (goal.canUse()) {
-                throw new AssertionError("ShipFollowOwnerGoal should be blocked when ship is sitting.");
-            }
-        } else {
-            if (goal.canUse()) {
-                throw new AssertionError(
-                        "ShipFollowOwnerGoal should not activate when owner resolution is unavailable.");
-            }
-        }
+            ship.setStateMinor(ID.M.NumGrudge, 120);
+            ship.setStateMinor(ID.M.FollowMin, 2);
+            ship.setStateMinor(ID.M.FollowMax, 6);
 
-        ship.discard();
-        helper.succeed();
+            ShipFollowOwnerGoal goal = new ShipFollowOwnerGoal(ship);
+            boolean ownerResolved = ship.getOwner() != null;
+
+            if (ownerResolved) {
+                if (!goal.canUse()) {
+                    throw new AssertionError(
+                            "ShipFollowOwnerGoal should be usable with valid owner and follow conditions.");
+                }
+
+                ship.setStateFlag(ID.F.CanFollow, false);
+                if (goal.canUse()) {
+                    throw new AssertionError("ShipFollowOwnerGoal should be blocked when CanFollow=false.");
+                }
+
+                ship.setStateFlag(ID.F.CanFollow, true);
+                ship.setStateMinor(ID.M.NumGrudge, 0);
+                if (goal.canUse()) {
+                    throw new AssertionError("ShipFollowOwnerGoal should be blocked when NumGrudge<=0.");
+                }
+
+                ship.setStateMinor(ID.M.NumGrudge, 120);
+                ship.setStateMinor(ID.M.CraneState, 1);
+                if (goal.canUse()) {
+                    throw new AssertionError("ShipFollowOwnerGoal should be blocked when CraneState>=1.");
+                }
+
+                ship.setStateMinor(ID.M.CraneState, 0);
+                ship.setEntitySit(true);
+                if (goal.canUse()) {
+                    throw new AssertionError("ShipFollowOwnerGoal should be blocked when ship is sitting.");
+                }
+            } else {
+                if (goal.canUse()) {
+                    throw new AssertionError(
+                            "ShipFollowOwnerGoal should not activate when owner resolution is unavailable.");
+                }
+            }
+
+            helper.succeed();
+        });
     }
 
     // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void lightCruiserSkillAttackGoalUsesLegacyPriority(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        assertLightCruiserGoalPriority(level, ModEntities.CL_TENRYUU.get(), "cl_tenryuu");
-        assertLightCruiserGoalPriority(level, ModEntities.CL_TATSUTA.get(), "cl_tatsuta");
+            assertLightCruiserGoalPriority(helper, level, ModEntities.CL_TENRYUU.get(), "cl_tenryuu");
+            assertLightCruiserGoalPriority(helper, level, ModEntities.CL_TATSUTA.get(), "cl_tatsuta");
 
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
-    public static void mountFollowHostTeleportsWhenFarAndUnridden(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+    /**
+     * A mount that its host is not riding is an orphan and removes itself.
+     * <p>
+     * This test previously asserted the opposite: that such a mount chases and teleports to its
+     * host. That behaviour was added by the port and is what made discarded mounts pile up around
+     * a ship, which is the defect TASK-103 fixes. Upstream 1.10.2 kills the mount instead
+     * ({@code host.getRidingEntity() != this -> setDead()} in BasicEntityMount.onUpdate). The
+     * assertion was inverted on 2026-09-09 by the project owner's decision.
+     */
+    public static void mountWithoutItsHostRidingIsDiscarded(GameTestHelper helper) {
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(hostEntity instanceof BasicEntityShip host)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in mount-follow test.");
-        }
-
-        Entity mountEntity = ModEntities.MOUNT_BAH.get().create(level);
-        if (!(mountEntity instanceof BasicEntityMount mount)) {
-            throw new AssertionError("MOUNT_BAH is not BasicEntityMount in mount-follow test.");
-        }
-
-        host.moveTo(48.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        mount.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-
-        if (!level.addFreshEntity(host)) {
-            throw new AssertionError("Failed to add host ship entity in mount-follow test.");
-        }
-        if (!level.addFreshEntity(mount)) {
-            throw new AssertionError("Failed to add mount entity in mount-follow test.");
-        }
-
-        mount.setHost(host);
-        mount.setAIList();
-
-        double initialDistSq = mount.distanceToSqr(host);
-        if (initialDistSq <= 1024.0D) {
-            throw new AssertionError("Mount-follow test requires long initial distance. actual=" + initialDistSq);
-        }
-
-        for (int i = 0; i < 20; i++) {
-            mount.tick();
-            if (mount.distanceToSqr(host) <= 4.0D) {
-                break;
+            Entity hostEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(hostEntity instanceof BasicEntityShip host)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in mount-orphan test.");
             }
-        }
 
-        double finalDistSq = mount.distanceToSqr(host);
-        if (finalDistSq > 4.0D) {
-            throw new AssertionError("Mount should follow/teleport to host when far and unridden. finalDistSq="
-                    + finalDistSq);
-        }
+            Entity mountEntity = entities.add(ModEntities.MOUNT_BAH.get().create(level));
+            if (!(mountEntity instanceof BasicEntityMount mount)) {
+                throw new AssertionError("MOUNT_BAH is not BasicEntityMount in mount-orphan test.");
+            }
 
-        mount.discard();
-        host.discard();
-        helper.succeed();
+            host.moveTo(48.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            mount.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+
+            if (!level.addFreshEntity(host)) {
+                throw new AssertionError("Failed to add host ship entity in mount-orphan test.");
+            }
+            if (!level.addFreshEntity(mount)) {
+                throw new AssertionError("Failed to add mount entity in mount-orphan test.");
+            }
+
+            mount.setHost(host);
+            mount.setAIList();
+
+            double initialDistSq = mount.distanceToSqr(host);
+            if (initialDistSq <= 1024.0D) {
+                throw new AssertionError("Mount-orphan test requires long initial distance. actual=" + initialDistSq);
+            }
+
+            for (int i = 0; i < 20; i++) {
+                mount.tick();
+                if (mount.isRemoved()) {
+                    break;
+                }
+            }
+
+            if (!mount.isRemoved()) {
+                throw new AssertionError("Mount whose host is not riding it should be discarded, not chased to"
+                        + " the host. finalDistSq=" + mount.distanceToSqr(host));
+            }
+
+            helper.succeed();
+        });
     }
 
     // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void mountFollowHostBlockedWhenRidden(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity hostEntity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(hostEntity instanceof BasicEntityShip host)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in mount-ridden test.");
-        }
+            Entity hostEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(hostEntity instanceof BasicEntityShip host)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in mount-ridden test.");
+            }
 
-        Entity mountEntity = ModEntities.MOUNT_BAH.get().create(level);
-        if (!(mountEntity instanceof BasicEntityMount mount)) {
-            throw new AssertionError("MOUNT_BAH is not BasicEntityMount in mount-ridden test.");
-        }
+            Entity mountEntity = entities.add(ModEntities.MOUNT_BAH.get().create(level));
+            if (!(mountEntity instanceof BasicEntityMount mount)) {
+                throw new AssertionError("MOUNT_BAH is not BasicEntityMount in mount-ridden test.");
+            }
 
-        ServerPlayer rider = createFollowTestOwner(helper, level,
-                UUID.fromString("00000000-0000-0000-0000-000000000007"),
-                "shincolle_mount_rider");
+            ServerPlayer rider = createFollowTestOwner(helper, level,
+                    UUID.fromString("00000000-0000-0000-0000-000000000007"),
+                    "shincolle_mount_rider");
 
-        host.moveTo(48.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        mount.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        rider.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            host.moveTo(48.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            mount.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            rider.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
 
-        if (!level.addFreshEntity(host)) {
-            throw new AssertionError("Failed to add host ship entity in mount-ridden test.");
-        }
-        if (!level.addFreshEntity(mount)) {
-            throw new AssertionError("Failed to add mount entity in mount-ridden test.");
-        }
+            if (!level.addFreshEntity(host)) {
+                throw new AssertionError("Failed to add host ship entity in mount-ridden test.");
+            }
+            if (!level.addFreshEntity(mount)) {
+                throw new AssertionError("Failed to add mount entity in mount-ridden test.");
+            }
 
-        mount.setHost(host);
-        mount.setAIList();
+            mount.setHost(host);
+            mount.setAIList();
 
-        if (!rider.startRiding(mount, true)) {
-            throw new AssertionError("Failed to mount rider onto BasicEntityMount in mount-ridden test.");
-        }
+            if (!rider.startRiding(mount, true)) {
+                throw new AssertionError("Failed to mount rider onto BasicEntityMount in mount-ridden test.");
+            }
 
-        double initialDistSq = mount.distanceToSqr(host);
-        if (initialDistSq <= 1024.0D) {
-            throw new AssertionError("Mount-ridden test requires long initial distance. actual=" + initialDistSq);
-        }
+            double initialDistSq = mount.distanceToSqr(host);
+            if (initialDistSq <= 1024.0D) {
+                throw new AssertionError("Mount-ridden test requires long initial distance. actual=" + initialDistSq);
+            }
 
-        for (int i = 0; i < 20; i++) {
-            mount.tick();
-        }
+            for (int i = 0; i < 20; i++) {
+                mount.tick();
+            }
 
-        double finalDistSq = mount.distanceToSqr(host);
-        if (finalDistSq < 256.0D) {
-            throw new AssertionError("Mount follow should be blocked while ridden. finalDistSq=" + finalDistSq);
-        }
+            double finalDistSq = mount.distanceToSqr(host);
+            if (finalDistSq < 256.0D) {
+                throw new AssertionError("Mount follow should be blocked while ridden. finalDistSq=" + finalDistSq);
+            }
 
-        rider.stopRiding();
-        mount.discard();
-        host.discard();
-        helper.succeed();
+            rider.stopRiding();
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
@@ -1502,245 +1562,248 @@ public final class ShinColleEntityRegistryGameTests {
     // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileGoalListContainsWanderAndOpenDoor(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in hostile goal list test.");
-        }
-
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for goal list test.");
-        }
-
-        invokeNoArgProtected(hostile, "clearAITasks");
-        invokeNoArgProtected(hostile, "setAIList");
-
-        GoalSelector selector = extractGoalSelector(hostile);
-        boolean hasWander = false;
-        boolean hasOpenDoor = false;
-
-        for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
-            Goal goal = wrappedGoal.getGoal();
-            if (goal instanceof ShipHostileWanderGoal) {
-                hasWander = true;
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in hostile goal list test.");
             }
-            if (goal instanceof ShipOpenDoorGoal) {
-                hasOpenDoor = true;
+
+            hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for goal list test.");
             }
-        }
 
-        if (!hasWander || !hasOpenDoor) {
-            throw new AssertionError("Hostile goal list missing expected mobility goals. hasWander="
-                    + hasWander + " hasOpenDoor=" + hasOpenDoor);
-        }
+            invokeNoArgProtected(hostile, "clearAITasks");
+            invokeNoArgProtected(hostile, "setAIList");
 
-        hostile.discard();
-        helper.succeed();
+            GoalSelector selector = extractGoalSelector(hostile);
+            boolean hasWander = false;
+            boolean hasOpenDoor = false;
+
+            for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
+                Goal goal = wrappedGoal.getGoal();
+                if (goal instanceof ShipHostileWanderGoal) {
+                    hasWander = true;
+                }
+                if (goal instanceof ShipOpenDoorGoal) {
+                    hasOpenDoor = true;
+                }
+            }
+
+            if (!hasWander || !hasOpenDoor) {
+                throw new AssertionError("Hostile goal list missing expected mobility goals. hasWander="
+                        + hasWander + " hasOpenDoor=" + hasOpenDoor);
+            }
+
+            helper.succeed();
+        });
     }
 
     // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void hostileTargetGoalPrioritiesMatchLegacy(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in target-priority test.");
-        }
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in target-priority test.");
+            }
 
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for target-priority test.");
-        }
+            hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for target-priority test.");
+            }
 
-        invokeNoArgProtected(hostile, "clearAITargetTasks");
-        invokeNoArgProtected(hostile, "setAITargetList");
+            invokeNoArgProtected(hostile, "clearAITargetTasks");
+            invokeNoArgProtected(hostile, "setAITargetList");
 
-        GoalSelector targetSelector = extractTargetSelector(hostile);
-        int revengePriority = findGoalPriority(targetSelector, ShipRevengeTargetGoal.class);
-        int rangePriority = findGoalPriority(targetSelector, ShipRangeTargetGoal.class);
+            GoalSelector targetSelector = extractTargetSelector(hostile);
+            int revengePriority = findGoalPriority(targetSelector, ShipRevengeTargetGoal.class);
+            int rangePriority = findGoalPriority(targetSelector, ShipRangeTargetGoal.class);
 
-        if (revengePriority != 1) {
-            throw new AssertionError("Hostile revenge target priority mismatch. expected=1 actual=" + revengePriority);
-        }
-        if (rangePriority != 3) {
-            throw new AssertionError("Hostile range target priority mismatch. expected=3 actual=" + rangePriority);
-        }
+            if (revengePriority != 1) {
+                throw new AssertionError("Hostile revenge target priority mismatch. expected=1 actual=" + revengePriority);
+            }
+            if (rangePriority != 3) {
+                throw new AssertionError("Hostile range target priority mismatch. expected=3 actual=" + rangePriority);
+            }
 
-        hostile.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void hostileShipEggDropRatesMatchScaleLevels(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
-        if (!(entity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in egg drop test.");
-        }
+        withEntities(helper, entities -> {
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            if (!(entity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in egg drop test.");
+            }
 
-        final int samples = 3000;
-        int[] minimumDrops = {450, 850, 2550, samples};
-        int[] maximumDrops = {750, 1150, 2850, samples};
-        int expectedShipClass = hostile.getShipClass();
+            final int samples = 3000;
+            int[] minimumDrops = {450, 850, 2550, samples};
+            int[] maximumDrops = {750, 1150, 2850, samples};
+            int expectedShipClass = hostile.getShipClass();
 
-        for (int scaleLevel = 0; scaleLevel <= 3; scaleLevel++) {
-            hostile.initAttrs(scaleLevel);
-            int drops = 0;
-            for (int attempt = 0; attempt < samples; attempt++) {
-                ItemStack egg = hostile.getDropEgg();
-                if (!egg.isEmpty()) {
-                    if (ShipSpawnEgg.getShipClass(egg) != expectedShipClass) {
-                        throw new AssertionError("Hostile drop egg lost its ship class.");
+            for (int scaleLevel = 0; scaleLevel <= 3; scaleLevel++) {
+                hostile.initAttrs(scaleLevel);
+                int drops = 0;
+                for (int attempt = 0; attempt < samples; attempt++) {
+                    ItemStack egg = hostile.getDropEgg();
+                    if (!egg.isEmpty()) {
+                        if (ShipSpawnEgg.getShipClass(egg) != expectedShipClass) {
+                            throw new AssertionError("Hostile drop egg lost its ship class.");
+                        }
+                        drops++;
                     }
-                    drops++;
+                }
+
+                if (drops < minimumDrops[scaleLevel] || drops > maximumDrops[scaleLevel]) {
+                    throw new AssertionError("Unexpected hostile egg drop rate for scale=" + scaleLevel
+                            + " drops=" + drops);
                 }
             }
 
-            if (drops < minimumDrops[scaleLevel] || drops > maximumDrops[scaleLevel]) {
-                throw new AssertionError("Unexpected hostile egg drop rate for scale=" + scaleLevel
-                        + " drops=" + drops);
-            }
-        }
-
-        hostile.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     // 2026/04/20：GitHub Copilotによって追加
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_hostile_range_target_goal_acquires_friendly_ship")
     public static void hostileRangeTargetGoalAcquiresFriendlyShip(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity hostileEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        Entity friendlyEntity = ModEntities.BB_KONGOU.get().create(level);
+            Entity hostileEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            Entity friendlyEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
 
-        if (!(hostileEntity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in hostile target-acquire test.");
-        }
-        if (!(friendlyEntity instanceof BasicEntityShip friendly)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in hostile target-acquire test.");
-        }
-
-        hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        friendly.moveTo(4.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for hostile target-acquire test.");
-        }
-        if (!level.addFreshEntity(friendly)) {
-            throw new AssertionError("Failed to add friendly ship for hostile target-acquire test.");
-        }
-
-        invokeNoArgProtected(hostile, "clearAITargetTasks");
-        invokeNoArgProtected(hostile, "setAITargetList");
-
-        GoalSelector selector = extractTargetSelector(hostile);
-        ShipRangeTargetGoal rangeGoal = null;
-        for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
-            if (wrappedGoal.getGoal() instanceof ShipRangeTargetGoal goal) {
-                rangeGoal = goal;
-                break;
+            if (!(hostileEntity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in hostile target-acquire test.");
             }
-        }
+            if (!(friendlyEntity instanceof BasicEntityShip friendly)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in hostile target-acquire test.");
+            }
 
-        if (rangeGoal == null) {
-            throw new AssertionError("Hostile target selector has no ShipRangeTargetGoal instance.");
-        }
+            hostile.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            friendly.moveTo(4.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
 
-        if (!rangeGoal.canUse()) {
-            throw new AssertionError("Hostile ShipRangeTargetGoal failed to acquire nearby friendly ship.");
-        }
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for hostile target-acquire test.");
+            }
+            if (!level.addFreshEntity(friendly)) {
+                throw new AssertionError("Failed to add friendly ship for hostile target-acquire test.");
+            }
 
-        rangeGoal.start();
-        Entity selected = hostile.getEntityTarget();
-        if (!(selected instanceof BasicEntityShip)) {
-            throw new AssertionError("Hostile acquired unexpected target type. expected=friendly ship actual="
-                    + (selected == null ? "null" : selected.getType().toShortString()));
-        }
+            invokeNoArgProtected(hostile, "clearAITargetTasks");
+            invokeNoArgProtected(hostile, "setAITargetList");
 
-        hostile.discard();
-        friendly.discard();
-        helper.succeed();
+            GoalSelector selector = extractTargetSelector(hostile);
+            ShipRangeTargetGoal rangeGoal = null;
+            for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
+                if (wrappedGoal.getGoal() instanceof ShipRangeTargetGoal goal) {
+                    rangeGoal = goal;
+                    break;
+                }
+            }
+
+            if (rangeGoal == null) {
+                throw new AssertionError("Hostile target selector has no ShipRangeTargetGoal instance.");
+            }
+
+            if (!rangeGoal.canUse()) {
+                throw new AssertionError("Hostile ShipRangeTargetGoal failed to acquire nearby friendly ship.");
+            }
+
+            rangeGoal.start();
+            Entity selected = hostile.getEntityTarget();
+            if (!(selected instanceof BasicEntityShip)) {
+                throw new AssertionError("Hostile acquired unexpected target type. expected=friendly ship actual="
+                        + (selected == null ? "null" : selected.getType().toShortString()));
+            }
+
+            helper.succeed();
+        });
     }
 
     // 2026/04/20：GitHub Copilotによって追加
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_friendly_range_target_goal_acquires_hostile_ship")
     public static void friendlyRangeTargetGoalAcquiresHostileShip(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
 
-        Entity friendlyEntity = ModEntities.BB_KONGOU.get().create(level);
-        Entity hostileEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
+            Entity friendlyEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            Entity hostileEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
 
-        if (!(friendlyEntity instanceof BasicEntityShip friendly)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in friendly target-acquire test.");
-        }
-        if (!(hostileEntity instanceof BasicEntityShipHostile hostile)) {
-            throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in friendly target-acquire test.");
-        }
-
-        // Position relative to this test's own structure. Absolute world
-        // coordinates are shared by every test in the file, and because game
-        // tests run concurrently the ship would otherwise find other tests'
-        // entities stacked at the identical spot - at distance 0, so they win
-        // the nearest-target sort and the assertion fails for the wrong reason.
-        Vec3 friendlyPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
-        Vec3 hostilePos = helper.absoluteVec(new Vec3(4.5D, 1.0D, 0.5D));
-
-        // The test structure sits underground, so carve an air pocket first:
-        // the target selector checks line of sight, and entities buried in
-        // deepslate can never see each other.
-        BlockPos clearFrom = BlockPos.containing(
-                Math.min(friendlyPos.x, hostilePos.x) - 1D, friendlyPos.y - 1D, friendlyPos.z - 1D);
-        BlockPos clearTo = BlockPos.containing(
-                Math.max(friendlyPos.x, hostilePos.x) + 1D, friendlyPos.y + 3D, friendlyPos.z + 1D);
-        for (BlockPos pos : BlockPos.betweenClosed(clearFrom, clearTo)) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-        }
-
-        friendly.moveTo(friendlyPos.x, friendlyPos.y, friendlyPos.z, 0F, 0F);
-        hostile.moveTo(hostilePos.x, hostilePos.y, hostilePos.z, 0F, 0F);
-
-        if (!level.addFreshEntity(friendly)) {
-            throw new AssertionError("Failed to add friendly ship for friendly target-acquire test.");
-        }
-        if (!level.addFreshEntity(hostile)) {
-            throw new AssertionError("Failed to add hostile ship for friendly target-acquire test.");
-        }
-
-        invokeNoArgProtected(friendly, "clearAITargetTasks");
-        invokeNoArgProtected(friendly, "setAITargetList");
-
-        GoalSelector selector = extractTargetSelector(friendly);
-        ShipRangeTargetGoal rangeGoal = null;
-        for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
-            if (wrappedGoal.getGoal() instanceof ShipRangeTargetGoal goal) {
-                rangeGoal = goal;
-                break;
+            if (!(friendlyEntity instanceof BasicEntityShip friendly)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in friendly target-acquire test.");
             }
-        }
+            if (!(hostileEntity instanceof BasicEntityShipHostile hostile)) {
+                throw new AssertionError("BB_KIRISHIMA_MOB is not BasicEntityShipHostile in friendly target-acquire test.");
+            }
 
-        if (rangeGoal == null) {
-            throw new AssertionError("Friendly target selector has no ShipRangeTargetGoal instance.");
-        }
+            // Position relative to this test's own structure. Absolute world
+            // coordinates are shared by every test in the file, and because game
+            // tests run concurrently the ship would otherwise find other tests'
+            // entities stacked at the identical spot - at distance 0, so they win
+            // the nearest-target sort and the assertion fails for the wrong reason.
+            Vec3 friendlyPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
+            Vec3 hostilePos = helper.absoluteVec(new Vec3(4.5D, 1.0D, 0.5D));
 
-        if (!rangeGoal.canUse()) {
-            throw new AssertionError("Friendly ShipRangeTargetGoal failed to acquire nearby hostile ship.");
-        }
+            // The test structure sits underground, so carve an air pocket first:
+            // the target selector checks line of sight, and entities buried in
+            // deepslate can never see each other.
+            BlockPos clearFrom = BlockPos.containing(
+                    Math.min(friendlyPos.x, hostilePos.x) - 1D, friendlyPos.y - 1D, friendlyPos.z - 1D);
+            BlockPos clearTo = BlockPos.containing(
+                    Math.max(friendlyPos.x, hostilePos.x) + 1D, friendlyPos.y + 3D, friendlyPos.z + 1D);
+            for (BlockPos pos : BlockPos.betweenClosed(clearFrom, clearTo)) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            }
 
-        rangeGoal.start();
-        Entity selected = friendly.getEntityTarget();
-        if (!(selected instanceof BasicEntityShipHostile)) {
-            throw new AssertionError("Friendly acquired unexpected target type. expected=hostile ship actual="
-                    + (selected == null ? "null" : selected.getType().toShortString())
-                    + (selected != null ? " id=" + selected.getId() : "")
-                    + " selfId=" + friendly.getId());
-        }
+            friendly.moveTo(friendlyPos.x, friendlyPos.y, friendlyPos.z, 0F, 0F);
+            hostile.moveTo(hostilePos.x, hostilePos.y, hostilePos.z, 0F, 0F);
 
-        friendly.discard();
-        hostile.discard();
-        helper.succeed();
+            if (!level.addFreshEntity(friendly)) {
+                throw new AssertionError("Failed to add friendly ship for friendly target-acquire test.");
+            }
+            if (!level.addFreshEntity(hostile)) {
+                throw new AssertionError("Failed to add hostile ship for friendly target-acquire test.");
+            }
+
+            invokeNoArgProtected(friendly, "clearAITargetTasks");
+            invokeNoArgProtected(friendly, "setAITargetList");
+
+            GoalSelector selector = extractTargetSelector(friendly);
+            ShipRangeTargetGoal rangeGoal = null;
+            for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
+                if (wrappedGoal.getGoal() instanceof ShipRangeTargetGoal goal) {
+                    rangeGoal = goal;
+                    break;
+                }
+            }
+
+            if (rangeGoal == null) {
+                throw new AssertionError("Friendly target selector has no ShipRangeTargetGoal instance.");
+            }
+
+            if (!rangeGoal.canUse()) {
+                throw new AssertionError("Friendly ShipRangeTargetGoal failed to acquire nearby hostile ship.");
+            }
+
+            rangeGoal.start();
+            Entity selected = friendly.getEntityTarget();
+            if (!(selected instanceof BasicEntityShipHostile)) {
+                throw new AssertionError("Friendly acquired unexpected target type. expected=hostile ship actual="
+                        + (selected == null ? "null" : selected.getType().toShortString())
+                        + (selected != null ? " id=" + selected.getId() : "")
+                        + " selfId=" + friendly.getId());
+            }
+
+            helper.succeed();
+        });
     }
 
     // 2026/04/11：GitHub Copilotによって確認済み
@@ -2894,35 +2957,34 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena")
     public static void rangeTargetStopClearsOnlyItsOwnTarget(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity friendlyEntity = ModEntities.BB_KONGOU.get().create(level);
-        Entity hostileEntity = ModEntities.BB_KIRISHIMA_MOB.get().create(level);
-        Entity replacement = EntityType.ZOMBIE.create(level);
-        if (!(friendlyEntity instanceof BasicEntityShip friendly)
-                || !(hostileEntity instanceof BasicEntityShipHostile hostile)
-                || !(replacement instanceof Mob replacementMob)) {
-            throw new AssertionError("Failed to create entities for target-goal stop test.");
-        }
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity friendlyEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            Entity hostileEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
+            Entity replacement = entities.add(EntityType.ZOMBIE.create(level));
+            if (!(friendlyEntity instanceof BasicEntityShip friendly)
+                    || !(hostileEntity instanceof BasicEntityShipHostile hostile)
+                    || !(replacement instanceof Mob replacementMob)) {
+                throw new AssertionError("Failed to create entities for target-goal stop test.");
+            }
 
-        ShipRangeTargetGoal goal = new ShipRangeTargetGoal(friendly);
-        setRangeGoalTarget(goal, hostile);
-        friendly.setTarget(hostile);
-        goal.stop();
-        if (friendly.getTarget() != null) {
-            throw new AssertionError("Range target goal left its own stopped target on the mob.");
-        }
+            ShipRangeTargetGoal goal = new ShipRangeTargetGoal(friendly);
+            setRangeGoalTarget(goal, hostile);
+            friendly.setTarget(hostile);
+            goal.stop();
+            if (friendly.getTarget() != null) {
+                throw new AssertionError("Range target goal left its own stopped target on the mob.");
+            }
 
-        setRangeGoalTarget(goal, hostile);
-        friendly.setTarget(replacementMob);
-        goal.stop();
-        if (friendly.getTarget() != replacementMob) {
-            throw new AssertionError("Range target goal cleared a replacement target selected elsewhere.");
-        }
+            setRangeGoalTarget(goal, hostile);
+            friendly.setTarget(replacementMob);
+            goal.stop();
+            if (friendly.getTarget() != replacementMob) {
+                throw new AssertionError("Range target goal cleared a replacement target selected elsewhere.");
+            }
 
-        friendly.discard();
-        hostile.discard();
-        replacement.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
@@ -2955,67 +3017,67 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena")
     public static void craneOwnerUuidPersistsAndRejectsAnotherPlayer(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        FakePlayer owner = FakePlayerFactory.get(level,
-                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000016"), "shincolle_crane_owner"));
-        FakePlayer other = FakePlayerFactory.get(level,
-                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000017"), "shincolle_crane_other"));
-        CapaTeitoku ownerCapa = owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        CapaTeitoku otherCapa = other.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (ownerCapa == null || otherCapa == null) {
-            throw new AssertionError("Crane ownership test players have no Teitoku capability.");
-        }
-        ownerCapa.setPlayerUID(9401);
-        otherCapa.setPlayerUID(9402);
-        owner.getAbilities().instabuild = false;
-        other.getAbilities().instabuild = false;
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer owner = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000016"), "shincolle_crane_owner"));
+            FakePlayer other = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000017"), "shincolle_crane_other"));
+            CapaTeitoku ownerCapa = owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            CapaTeitoku otherCapa = other.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (ownerCapa == null || otherCapa == null) {
+                throw new AssertionError("Crane ownership test players have no Teitoku capability.");
+            }
+            ownerCapa.setPlayerUID(9401);
+            otherCapa.setPlayerUID(9402);
+            owner.getAbilities().instabuild = false;
+            other.getAbilities().instabuild = false;
 
-        BlockPos cranePos = helper.absolutePos(new BlockPos(2, 2, 2));
-        level.setBlock(cranePos, ModBlocks.CRANE.get().defaultBlockState(), 3);
-        if (!(level.getBlockEntity(cranePos) instanceof TileEntityCrane crane)) {
-            throw new AssertionError("Crane block did not create its block entity.");
-        }
-        if (!crane.claimOrVerifyOwner(owner) || crane.claimOrVerifyOwner(other)) {
-            throw new AssertionError("Crane claim did not bind the authenticated owner UUID.");
-        }
-        if (!crane.canUse(owner) || (!other.hasPermissions(2) && crane.canUse(other))) {
-            throw new AssertionError("Crane access control did not enforce its owner UUID.");
-        }
+            BlockPos cranePos = helper.absolutePos(new BlockPos(2, 2, 2));
+            level.setBlock(cranePos, ModBlocks.CRANE.get().defaultBlockState(), 3);
+            if (!(level.getBlockEntity(cranePos) instanceof TileEntityCrane crane)) {
+                throw new AssertionError("Crane block did not create its block entity.");
+            }
+            if (!crane.claimOrVerifyOwner(owner) || crane.claimOrVerifyOwner(other)) {
+                throw new AssertionError("Crane claim did not bind the authenticated owner UUID.");
+            }
+            if (!crane.canUse(owner) || (!other.hasPermissions(2) && crane.canUse(other))) {
+                throw new AssertionError("Crane access control did not enforce its owner UUID.");
+            }
 
-        CompoundTag saved = crane.getUpdateTag();
-        TileEntityCrane loaded = new TileEntityCrane(cranePos, ModBlocks.CRANE.get().defaultBlockState());
-        loaded.load(saved);
-        if (!owner.getUUID().equals(loaded.getOwnerUUID()) || loaded.getPlayerUID() != 9401) {
-            throw new AssertionError("Crane owner identity did not survive NBT save/load.");
-        }
-        if (loaded.claimOrVerifyOwner(other)) {
-            throw new AssertionError("Reloaded crane could be claimed by another player.");
-        }
+            CompoundTag saved = crane.getUpdateTag();
+            TileEntityCrane loaded = new TileEntityCrane(cranePos, ModBlocks.CRANE.get().defaultBlockState());
+            loaded.load(saved);
+            if (!owner.getUUID().equals(loaded.getOwnerUUID()) || loaded.getPlayerUID() != 9401) {
+                throw new AssertionError("Crane owner identity did not survive NBT save/load.");
+            }
+            if (loaded.claimOrVerifyOwner(other)) {
+                throw new AssertionError("Reloaded crane could be claimed by another player.");
+            }
 
-        Entity otherShipEntity = ModEntities.BB_KONGOU.get().create(level);
-        Entity ownerShipEntity = ModEntities.BB_HIEI.get().create(level);
-        if (!(otherShipEntity instanceof BasicEntityShip otherShip)
-                || !(ownerShipEntity instanceof BasicEntityShip ownerShip)) {
-            throw new AssertionError("Failed to create ships for crane ownership filter test.");
-        }
-        otherShip.setOwnerUUID(other.getUUID());
-        otherShip.setPlayerUID(9402);
-        ownerShip.setOwnerUUID(owner.getUUID());
-        ownerShip.setPlayerUID(9401);
-        otherShip.moveTo(cranePos.getX() + 0.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
-        ownerShip.moveTo(cranePos.getX() + 1.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(otherShip) || !level.addFreshEntity(ownerShip)) {
-            throw new AssertionError("Failed to add ships for crane ownership filter test.");
-        }
-        invokeNoArgProtected(crane, "checkCraningShip");
-        if (crane.getDockedShip() != ownerShip) {
-            throw new AssertionError("Crane selected another player's ship as its transfer destination.");
-        }
+            Entity otherShipEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            Entity ownerShipEntity = entities.add(ModEntities.BB_HIEI.get().create(level));
+            if (!(otherShipEntity instanceof BasicEntityShip otherShip)
+                    || !(ownerShipEntity instanceof BasicEntityShip ownerShip)) {
+                throw new AssertionError("Failed to create ships for crane ownership filter test.");
+            }
+            otherShip.setOwnerUUID(other.getUUID());
+            otherShip.setPlayerUID(9402);
+            ownerShip.setOwnerUUID(owner.getUUID());
+            ownerShip.setPlayerUID(9401);
+            otherShip.moveTo(cranePos.getX() + 0.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
+            ownerShip.moveTo(cranePos.getX() + 1.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(otherShip) || !level.addFreshEntity(ownerShip)) {
+                throw new AssertionError("Failed to add ships for crane ownership filter test.");
+            }
+            invokeNoArgProtected(crane, "checkCraningShip");
+            if (crane.getDockedShip() != ownerShip) {
+                throw new AssertionError("Crane selected another player's ship as its transfer destination.");
+            }
 
-        otherShip.discard();
-        ownerShip.discard();
 
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
@@ -3053,202 +3115,207 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena")
     public static void shipOwnerTransferUpdatesUuidAndNumericOwnerTogether(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("BB_KONGOU is not BasicEntityShip in owner-transfer test.");
-        }
-        FakePlayer newOwner = FakePlayerFactory.get(level,
-                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000019"), "shincolle_new_owner"));
-        CapaTeitoku capa = newOwner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (capa == null) {
-            throw new AssertionError("Owner-transfer test player has no Teitoku capability.");
-        }
-        capa.setPlayerUID(9601);
-        ship.setOwnerUUID(UUID.fromString("00000000-0000-0000-0000-000000000099"));
-        ship.setPlayerUID(1234);
-        if (!level.addFreshEntity(ship) || !ServerDataManager.changeShipOwner(ship, newOwner)) {
-            throw new AssertionError("Server owner transfer failed.");
-        }
-        // FakePlayer is not registered in ServerLevel's normal player lookup,
-        // so TamableAnimal#isOwnedBy cannot resolve it even when the persisted
-        // UUID is correct. Assert the two authoritative owner fields directly.
-        if (!newOwner.getUUID().equals(ship.getOwnerUUID()) || ship.getPlayerUID() != 9601) {
-            throw new AssertionError("Owner transfer left identity inconsistent. expectedUuid=" + newOwner.getUUID()
-                    + " actualUuid=" + ship.getOwnerUUID() + " expectedUid=9601 actualUid=" + ship.getPlayerUID()
-                    + " vanillaOwned=" + ship.isOwnedBy(newOwner));
-        }
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("BB_KONGOU is not BasicEntityShip in owner-transfer test.");
+            }
+            FakePlayer newOwner = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000019"), "shincolle_new_owner"));
+            CapaTeitoku capa = newOwner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null) {
+                throw new AssertionError("Owner-transfer test player has no Teitoku capability.");
+            }
+            capa.setPlayerUID(9601);
+            ship.setOwnerUUID(UUID.fromString("00000000-0000-0000-0000-000000000099"));
+            ship.setPlayerUID(1234);
+            if (!level.addFreshEntity(ship) || !ServerDataManager.changeShipOwner(ship, newOwner)) {
+                throw new AssertionError("Server owner transfer failed.");
+            }
+            // FakePlayer is not registered in ServerLevel's normal player lookup,
+            // so TamableAnimal#isOwnedBy cannot resolve it even when the persisted
+            // UUID is correct. Assert the two authoritative owner fields directly.
+            if (!newOwner.getUUID().equals(ship.getOwnerUUID()) || ship.getPlayerUID() != 9601) {
+                throw new AssertionError("Owner transfer left identity inconsistent. expectedUuid=" + newOwner.getUUID()
+                        + " actualUuid=" + ship.getOwnerUUID() + " expectedUid=9601 actualUid=" + ship.getPlayerUID()
+                        + " vanillaOwned=" + ship.isOwnedBy(newOwner));
+            }
 
-        int shipUid = ship.getShipUID();
-        ship.discard();
-        ServerDataManager.removeShipData(shipUid);
-        helper.succeed();
+            int shipUid = ship.getShipUID();
+            ServerDataManager.removeShipData(shipUid);
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void shipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship) || !level.addFreshEntity(ship)) {
-            throw new AssertionError("Could not create and add BB_KONGOU for MOV floor test.");
-        }
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship) || !level.addFreshEntity(ship)) {
+                throw new AssertionError("Could not create and add BB_KONGOU for MOV floor test.");
+            }
 
-        AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
-        float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
-        float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
-        if (moraleMov != 0F || potionMov != 0F) {
-            throw new AssertionError("Unexpected initial MOV contributions. morale=" + moraleMov
-                    + " potion=" + potionMov);
-        }
+            AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
+            float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
+            float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
+            if (moraleMov != 0F || potionMov != 0F) {
+                throw new AssertionError("Unexpected initial MOV contributions. morale=" + moraleMov
+                        + " potion=" + potionMov);
+            }
 
-        float rawMov = 0.4F;
-        float equipMov = -0.7F;
-        attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
-        attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
-        ship.calcShipAttributes(0, false);
+            float rawMov = 0.4F;
+            float equipMov = -0.7F;
+            attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
+            attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
+            ship.calcShipAttributes(0, false);
 
-        float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
-        float expected = rawMov * BasicEntityShip.MIN_MOV_RATIO;
-        AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (movement == null || Math.abs(buffedMov) > 1.0E-5F
-                || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
-            throw new AssertionError("Friendly MOV floor not applied. raw=" + rawMov + " equip=" + equipMov
-                    + " buffed=" + buffedMov + " expected=" + expected
-                    + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
-        }
+            float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
+            float expected = rawMov * BasicEntityShip.MIN_MOV_RATIO;
+            AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
+            if (movement == null || Math.abs(buffedMov) > 1.0E-5F
+                    || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
+                throw new AssertionError("Friendly MOV floor not applied. raw=" + rawMov + " equip=" + equipMov
+                        + " buffed=" + buffedMov + " expected=" + expected
+                        + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
+            }
 
-        ship.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void hostileShipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity entity = ModEntities.BB_YAMATO_MOB.get().create(level);
-        if (!(entity instanceof BasicEntityShipHostile ship) || !level.addFreshEntity(ship)) {
-            throw new AssertionError("Could not create and add BB_YAMATO_MOB for MOV floor test.");
-        }
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity entity = entities.add(ModEntities.BB_YAMATO_MOB.get().create(level));
+            if (!(entity instanceof BasicEntityShipHostile ship) || !level.addFreshEntity(ship)) {
+                throw new AssertionError("Could not create and add BB_YAMATO_MOB for MOV floor test.");
+            }
 
-        AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
-        float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
-        float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
-        if (moraleMov != 0F || potionMov != 0F) {
-            throw new AssertionError("Unexpected initial hostile MOV contributions. morale=" + moraleMov
-                    + " potion=" + potionMov);
-        }
+            AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
+            float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
+            float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
+            if (moraleMov != 0F || potionMov != 0F) {
+                throw new AssertionError("Unexpected initial hostile MOV contributions. morale=" + moraleMov
+                        + " potion=" + potionMov);
+            }
 
-        float rawMov = 0.4F;
-        float equipMov = -0.7F;
-        attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
-        attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
-        ship.calcShipAttributes(0, false);
+            float rawMov = 0.4F;
+            float equipMov = -0.7F;
+            attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
+            attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
+            ship.calcShipAttributes(0, false);
 
-        float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
-        float expected = rawMov * BasicEntityShip.MIN_MOV_RATIO;
-        AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (movement == null || Math.abs(buffedMov) > 1.0E-5F
-                || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
-            throw new AssertionError("Hostile MOV floor not applied. raw=" + rawMov + " equip=" + equipMov
-                    + " buffed=" + buffedMov + " expected=" + expected
-                    + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
-        }
+            float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
+            float expected = rawMov * BasicEntityShip.MIN_MOV_RATIO;
+            AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
+            if (movement == null || Math.abs(buffedMov) > 1.0E-5F
+                    || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
+                throw new AssertionError("Hostile MOV floor not applied. raw=" + rawMov + " equip=" + equipMov
+                        + " buffed=" + buffedMov + " expected=" + expected
+                        + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
+            }
 
-        ship.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void shipMovementAboveFloorPreservesEquipMov(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        Entity entity = ModEntities.BB_KONGOU.get().create(level);
-        if (!(entity instanceof BasicEntityShip ship) || !level.addFreshEntity(ship)) {
-            throw new AssertionError("Could not create and add BB_KONGOU for MOV regression test.");
-        }
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (!(entity instanceof BasicEntityShip ship) || !level.addFreshEntity(ship)) {
+                throw new AssertionError("Could not create and add BB_KONGOU for MOV regression test.");
+            }
 
-        AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
-        float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
-        float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
-        if (moraleMov != 0F || potionMov != 0F) {
-            throw new AssertionError("Unexpected initial MOV contributions. morale=" + moraleMov
-                    + " potion=" + potionMov);
-        }
+            AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
+            float moraleMov = attrs.getAttrsMorale(ID.Attrs.MOV);
+            float potionMov = attrs.getAttrsPotion(ID.Attrs.MOV);
+            if (moraleMov != 0F || potionMov != 0F) {
+                throw new AssertionError("Unexpected initial MOV contributions. morale=" + moraleMov
+                        + " potion=" + potionMov);
+            }
 
-        float rawMov = 0.4F;
-        float equipMov = -0.05F;
-        float expected = rawMov + equipMov;
-        attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
-        attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
-        ship.calcShipAttributes(0, false);
+            float rawMov = 0.4F;
+            float equipMov = -0.05F;
+            float expected = rawMov + equipMov;
+            attrs.setAttrsRaw(ID.Attrs.MOV, rawMov);
+            attrs.setAttrsEquip(ID.Attrs.MOV, equipMov);
+            ship.calcShipAttributes(0, false);
 
-        float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
-        AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (movement == null || Math.abs(buffedMov - expected) > 1.0E-5F
-                || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
-            throw new AssertionError("Friendly MOV above floor changed unexpectedly. raw=" + rawMov
-                    + " equip=" + equipMov + " buffed=" + buffedMov + " expected=" + expected
-                    + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
-        }
+            float buffedMov = attrs.getAttrsBuffed(ID.Attrs.MOV);
+            AttributeInstance movement = ship.getAttribute(Attributes.MOVEMENT_SPEED);
+            if (movement == null || Math.abs(buffedMov - expected) > 1.0E-5F
+                    || Math.abs(movement.getBaseValue() - expected) > 1.0E-5D) {
+                throw new AssertionError("Friendly MOV above floor changed unexpectedly. raw=" + rawMov
+                        + " equip=" + equipMov + " buffed=" + buffedMov + " expected=" + expected
+                        + " actual=" + (movement == null ? "missing" : movement.getBaseValue()));
+            }
 
-        ship.discard();
-        helper.succeed();
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
     public static void targetClassPacketRequiresObservedNearbyEntity(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        FakePlayer player = FakePlayerFactory.get(level,
-                new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000020"), "shincolle_target_class"));
-        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        Entity cow = EntityType.COW.create(level);
-        if (capa == null || cow == null) {
-            throw new AssertionError("Failed to create target-class packet test state.");
-        }
-        int uid = 9701;
-        capa.setPlayerUID(uid);
-        HashMap<Integer, String> oversizedLegacyList = new HashMap<>();
-        for (int i = 0; i < 100; i++) {
-            String name = "LegacyClass" + i;
-            oversizedLegacyList.put(name.hashCode(), name);
-        }
-        ServerDataManager.setPlayerTargetClass(uid, oversizedLegacyList);
-        HashMap<Integer, String> sanitized = ServerDataManager.getPlayerTargetClass(uid);
-        if (sanitized == null || sanitized.size() != ServerDataManager.MAX_CUSTOM_TARGET_CLASSES) {
-            throw new AssertionError("Oversized target-class state was not capped during migration.");
-        }
-        ServerDataManager.setPlayerTargetClass(uid, new HashMap<>());
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer player = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000020"), "shincolle_target_class"));
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            Entity cow = entities.add(EntityType.COW.create(level));
+            if (capa == null || cow == null) {
+                throw new AssertionError("Failed to create target-class packet test state.");
+            }
+            int uid = 9701;
+            capa.setPlayerUID(uid);
+            HashMap<Integer, String> oversizedLegacyList = new HashMap<>();
+            for (int i = 0; i < 100; i++) {
+                String name = "LegacyClass" + i;
+                oversizedLegacyList.put(name.hashCode(), name);
+            }
+            ServerDataManager.setPlayerTargetClass(uid, oversizedLegacyList);
+            HashMap<Integer, String> sanitized = ServerDataManager.getPlayerTargetClass(uid);
+            if (sanitized == null || sanitized.size() != ServerDataManager.MAX_CUSTOM_TARGET_CLASSES) {
+                throw new AssertionError("Oversized target-class state was not capped during migration.");
+            }
+            ServerDataManager.setPlayerTargetClass(uid, new HashMap<>());
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
 
-        Vec3 playerPos = helper.absoluteVec(new Vec3(1.5D, 2D, 1.5D));
-        Vec3 cowPos = helper.absoluteVec(new Vec3(3.5D, 2D, 1.5D));
-        for (BlockPos pos : BlockPos.betweenClosed(
-                BlockPos.containing(playerPos.x - 1D, playerPos.y - 1D, playerPos.z - 1D),
-                BlockPos.containing(cowPos.x + 1D, cowPos.y + 3D, cowPos.z + 1D))) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-        }
-        player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0F, 0F);
-        cow.moveTo(cowPos.x, cowPos.y, cowPos.z, 0F, 0F);
-        if (!level.addFreshEntity(cow)) {
-            throw new AssertionError("Failed to add observed entity for target-class packet test.");
-        }
+            Vec3 playerPos = helper.absoluteVec(new Vec3(1.5D, 2D, 1.5D));
+            Vec3 cowPos = helper.absoluteVec(new Vec3(3.5D, 2D, 1.5D));
+            for (BlockPos pos : BlockPos.betweenClosed(
+                    BlockPos.containing(playerPos.x - 1D, playerPos.y - 1D, playerPos.z - 1D),
+                    BlockPos.containing(cowPos.x + 1D, cowPos.y + 3D, cowPos.z + 1D))) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            }
+            player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0F, 0F);
+            cow.moveTo(cowPos.x, cowPos.y, cowPos.z, 0F, 0F);
+            if (!level.addFreshEntity(cow)) {
+                throw new AssertionError("Failed to add observed entity for target-class packet test.");
+            }
 
-        C2SGUIInputPacket forged = new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
-                new int[]{player.getId(), 0, cow.getId()}, "Zombie");
-        invokePacketHandler(forged, "handleSetTarClass", player);
-        if (ServerDataManager.hasPlayerTargetClass(uid, "Zombie")) {
-            throw new AssertionError("Packet persisted a class name that did not match its target entity.");
-        }
+            C2SGUIInputPacket forged = new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                    new int[]{player.getId(), 0, cow.getId()}, "Zombie");
+            invokePacketHandler(forged, "handleSetTarClass", player);
+            if (ServerDataManager.hasPlayerTargetClass(uid, "Zombie")) {
+                throw new AssertionError("Packet persisted a class name that did not match its target entity.");
+            }
 
-        String observedClass = cow.getClass().getSimpleName();
-        C2SGUIInputPacket observed = new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
-                new int[]{player.getId(), 0, cow.getId()}, observedClass);
-        invokePacketHandler(observed, "handleSetTarClass", player);
-        if (!ServerDataManager.hasPlayerTargetClass(uid, observedClass)) {
-            throw new AssertionError("Packet rejected an observed nearby target class.");
-        }
+            String observedClass = cow.getClass().getSimpleName();
+            C2SGUIInputPacket observed = new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                    new int[]{player.getId(), 0, cow.getId()}, observedClass);
+            invokePacketHandler(observed, "handleSetTarClass", player);
+            if (!ServerDataManager.hasPlayerTargetClass(uid, observedClass)) {
+                throw new AssertionError("Packet rejected an observed nearby target class.");
+            }
 
-        ServerDataManager.setPlayerTargetClass(uid, observedClass);
-        cow.discard();
-        helper.succeed();
+            ServerDataManager.setPlayerTargetClass(uid, observedClass);
+            helper.succeed();
+        });
     }
 
     @GameTest(template = "arena")
@@ -3401,35 +3468,37 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
-    private static void assertLightCruiserGoalPriority(ServerLevel level, EntityType<?> type, String id) {
-        Entity entity = type.create(level);
-        if (!(entity instanceof BasicEntityShip ship)) {
-            throw new AssertionError("Entity is not BasicEntityShip in light cruiser AI test: " + id);
+    private static void assertLightCruiserGoalPriority(GameTestHelper helper, ServerLevel level,
+                                                       EntityType<?> type, String id) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(type.create(level));
+            if (!(entity instanceof BasicEntityShip ship)) {
+                throw new AssertionError("Entity is not BasicEntityShip in light cruiser AI test: " + id);
+            }
+
+            ship.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(ship)) {
+                throw new AssertionError("Failed to add entity for light cruiser AI test: " + id);
+            }
+
+            invokeNoArgProtected(ship, "clearAITasks");
+            invokeNoArgProtected(ship, "setAIList");
+
+            GoalSelector selector = extractGoalSelector(ship);
+            int skillPriority = findGoalPriority(selector, ShipSkillAttackGoal.class);
+            int rangePriority = findGoalPriority(selector, ShipRangeAttackGoal.class);
+
+            if (skillPriority != 0) {
+                throw new AssertionError("SkillAttack goal priority mismatch for " + id + ". expected=0 actual="
+                        + skillPriority);
+            }
+
+            if (rangePriority != 11) {
+                throw new AssertionError("RangeAttack goal priority mismatch for " + id + ". expected=11 actual="
+                        + rangePriority);
+            }
         }
 
-        ship.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(ship)) {
-            throw new AssertionError("Failed to add entity for light cruiser AI test: " + id);
-        }
-
-        invokeNoArgProtected(ship, "clearAITasks");
-        invokeNoArgProtected(ship, "setAIList");
-
-        GoalSelector selector = extractGoalSelector(ship);
-        int skillPriority = findGoalPriority(selector, ShipSkillAttackGoal.class);
-        int rangePriority = findGoalPriority(selector, ShipRangeAttackGoal.class);
-
-        if (skillPriority != 0) {
-            throw new AssertionError("SkillAttack goal priority mismatch for " + id + ". expected=0 actual="
-                    + skillPriority);
-        }
-
-        if (rangePriority != 11) {
-            throw new AssertionError("RangeAttack goal priority mismatch for " + id + ". expected=11 actual="
-                    + rangePriority);
-        }
-
-        ship.discard();
     }
 
     private static int findGoalPriority(GoalSelector selector, Class<? extends Goal> goalClass) {
@@ -3727,12 +3796,13 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
-    private static void assertCanCreate(ServerLevel level, EntityType<?> type, String id) {
-        Entity entity = type.create(level);
-        if (entity == null) {
-            throw new AssertionError("EntityType#create returned null: " + id);
+    private static void assertCanCreate(GameTestHelper helper, ServerLevel level, EntityType<?> type, String id) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(type.create(level));
+            if (entity == null) {
+                throw new AssertionError("EntityType#create returned null: " + id);
+            }
         }
-        entity.discard();
     }
 
     private static void assertEggIconForShipClass(int shipClass, int expectedIcon) {
@@ -3759,23 +3829,24 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
-    private static void assertCanSpawnAndTick(ServerLevel level, EntityType<?> type, String id) {
-        Entity entity = type.create(level);
-        if (entity == null) {
-            throw new AssertionError("EntityType#create returned null: " + id);
-        }
+    private static void assertCanSpawnAndTick(GameTestHelper helper, ServerLevel level,
+                                              EntityType<?> type, String id) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(type.create(level));
+            if (entity == null) {
+                throw new AssertionError("EntityType#create returned null: " + id);
+            }
 
-        entity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-        if (!level.addFreshEntity(entity)) {
-            throw new AssertionError("Failed to add entity to level: " + id);
-        }
+            entity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            if (!level.addFreshEntity(entity)) {
+                throw new AssertionError("Failed to add entity to level: " + id);
+            }
 
-        try {
-            entity.tick();
-        } catch (Throwable t) {
-            throw new AssertionError("Entity tick failed on dedicated server: " + id, t);
-        } finally {
-            entity.discard();
+            try {
+                entity.tick();
+            } catch (Throwable t) {
+                throw new AssertionError("Entity tick failed on dedicated server: " + id, t);
+            }
         }
     }
 

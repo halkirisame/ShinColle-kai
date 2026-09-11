@@ -3,7 +3,6 @@ package com.lulan.shincolle.ai.path;
 import com.lulan.shincolle.entity.IShipNavigator;
 
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.ai.navigation.AmphibiousPathNavigation;
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.level.Level;
@@ -38,7 +37,7 @@ public final class ShipNavigation {
                 ? new FlyingPathNavigation(mob, level)
                 // Amphibious pathing covers both the water surface and land,
                 // which is how ship girls and abyssals actually travel.
-                : new AmphibiousPathNavigation(mob, level);
+                : new ShipPathNavigation(mob, level);
 
         navigation.setMaxVisitedNodesMultiplier(VISITED_NODES_MULTIPLIER);
         return navigation;

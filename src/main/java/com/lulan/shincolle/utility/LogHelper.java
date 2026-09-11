@@ -26,6 +26,12 @@ public class LogHelper {
      * Logs a verification diagnostic, but only while debugMode is on.
      * Callers that build an expensive message should check {@link #diagEnabled()}
      * first so the message is never assembled when diagnostics are off.
+     * <p>
+     * These lines are parsed by the dev-only verification HUD, which decides pass
+     * and fail from them. Adding, removing or reordering a field here breaks its
+     * match patterns silently: the run still finishes and simply reports the wrong
+     * verdict. Tell whoever maintains that tool when the format of a "DIAG:" line
+     * changes, and say where the new field sits relative to the existing ones.
      */
     public static void diag(Object object) {
         if (diagEnabled()) {

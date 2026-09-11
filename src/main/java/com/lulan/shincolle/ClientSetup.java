@@ -8,6 +8,7 @@ import com.lulan.shincolle.client.render.*;
 import com.lulan.shincolle.client.render.block.RenderDesk;
 import com.lulan.shincolle.client.render.block.RenderLargeShipyard;
 import com.lulan.shincolle.client.render.block.RenderSmallShipyard;
+import com.lulan.shincolle.client.ClientShipLevelCaps;
 import com.lulan.shincolle.equipdata.ClientEquipData;
 import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.init.*;
@@ -503,6 +504,7 @@ public class ClientSetup {
 
     private static void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientEquipData.clear();
+        ClientShipLevelCaps.clear();
     }
 
     /**
