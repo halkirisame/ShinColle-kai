@@ -6,11 +6,14 @@ import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
+import com.lulan.shincolle.entity.ShipLevelCapSummary;
+import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.MarriageRing;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.network.S2CEquipDataSyncPacket;
 import com.lulan.shincolle.network.S2CGUISyncPacket;
+import com.lulan.shincolle.network.S2CShipLevelCapPacket;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.server.ServerDataManager;
@@ -18,12 +21,14 @@ import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.TeamHelper;
 
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.OnDatapackSyncEvent;
@@ -33,6 +38,7 @@ import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +54,9 @@ import java.util.List;
  */
 @Mod.EventBusSubscriber(modid = Reference.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ServerEventHandler {
+
+    /** Marks, in a player's persisted NBT, that the first-login guide book was already given. */
+    static final String GUIDE_BOOK_GIVEN_TAG = Reference.MOD_ID + ":guide_book_given";
 
     /**
      * Initialize ServerDataManager when the overworld level loads.
@@ -144,7 +153,41 @@ public class ServerEventHandler {
      */
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        updatePlayerCacheOnServer(event.getEntity());
+        updatePlayerCacheOnServer(event.getEntity(), true);
+        if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+            giveGuideBookOnFirstLogin(serverPlayer, ConfigHandler.giveGuideBookOnFirstJoin());
+        }
+    }
+
+    /**
+     * Give the player one guide book ({@code DeskItemBook}) the first time they log in.
+     * <p>
+     * The given-once marker lives under {@link Player#PERSISTED_NBT_TAG} so it survives
+     * death/respawn. No marker is written while {@code giveBookEnabled} is false, so
+     * turning the setting back on later still gives the book on the next login.
+     *
+     * @param player          the logging-in server player
+     * @param giveBookEnabled current value of {@code ConfigHandler.giveGuideBookOnFirstJoin()},
+     *                        passed in rather than read here so tests can exercise both
+     *                        branches without touching the live {@code ConfigValue}
+     */
+    static void giveGuideBookOnFirstLogin(ServerPlayer player, boolean giveBookEnabled) {
+        if (!giveBookEnabled) {
+            return;
+        }
+
+        CompoundTag persisted = player.getPersistentData().getCompound(Player.PERSISTED_NBT_TAG);
+        if (persisted.getBoolean(GUIDE_BOOK_GIVEN_TAG)) {
+            return;
+        }
+
+        ItemStack book = new ItemStack(ModItems.DESK_ITEM_BOOK.get());
+        if (!player.getInventory().add(book)) {
+            player.drop(book, false);
+        }
+
+        persisted.putBoolean(GUIDE_BOOK_GIVEN_TAG, true);
+        player.getPersistentData().put(Player.PERSISTED_NBT_TAG, persisted);
     }
 
     /** Send the authoritative equipment snapshot on login and after every datapack reload. */
@@ -188,7 +231,7 @@ public class ServerEventHandler {
      */
     @SubscribeEvent
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-        updatePlayerCacheOnServer(event.getEntity());
+        updatePlayerCacheOnServer(event.getEntity(), true);
     }
 
     /**
@@ -196,7 +239,7 @@ public class ServerEventHandler {
      */
     @SubscribeEvent
     public static void onPlayerChangeDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-        updatePlayerCacheOnServer(event.getEntity());
+        updatePlayerCacheOnServer(event.getEntity(), true);
     }
 
     /** Send custom ship state when a client begins tracking an existing entity. */
@@ -231,7 +274,7 @@ public class ServerEventHandler {
             Player player = event.getEntity();
             CapaTeitoku capa = ServerDataManager.getTeitokuCapability(player);
             if (capa != null && capa.getPlayerUID() > 0) {
-                updatePlayerCacheOnServer(player);
+                updatePlayerCacheOnServer(player, false);
                 LogHelper.info("player logged out: " + player.getGameProfile().getName()
                         + " uid=" + capa.getPlayerUID());
             }
@@ -282,8 +325,11 @@ public class ServerEventHandler {
         }
     }
 
-    private static void updatePlayerCacheOnServer(Player player) {
+    private static void updatePlayerCacheOnServer(Player player, boolean synchronizeLevelCaps) {
         if (player != null && !player.level().isClientSide()) {
+            if (synchronizeLevelCaps && player instanceof ServerPlayer serverPlayer) {
+                sendShipLevelCaps(serverPlayer, captureCurrentShipLevelCaps());
+            }
             ServerDataManager.updatePlayerID(player);
             CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
             if (capa != null && capa.getPlayerUID() > 0) {
@@ -293,6 +339,25 @@ public class ServerEventHandler {
                 syncPlayerCapability(serverPlayer, capa);
             }
         }
+    }
+
+    /** Broadcast the latest common-config level caps after a live server config reload. */
+    public static void broadcastCurrentShipLevelCaps() {
+        ShipLevelCapSummary snapshot = captureCurrentShipLevelCaps();
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            server.execute(() -> ModNetworking.sendToAll(new S2CShipLevelCapPacket(snapshot)));
+        }
+    }
+
+    private static ShipLevelCapSummary captureCurrentShipLevelCaps() {
+        int unmarriedCap = ConfigHandler.maxLevelUnmarried;
+        int absoluteCap = ConfigHandler.maxLevel;
+        return new ShipLevelCapSummary(unmarriedCap, absoluteCap);
+    }
+
+    private static void sendShipLevelCaps(ServerPlayer player, ShipLevelCapSummary summary) {
+        ModNetworking.sendToPlayer(new S2CShipLevelCapPacket(summary), player);
     }
 
     /**

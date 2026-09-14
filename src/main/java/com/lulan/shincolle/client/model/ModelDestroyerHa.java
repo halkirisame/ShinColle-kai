@@ -249,8 +249,10 @@ public class ModelDestroyerHa extends ShipModelBaseAdv<Entity> {
         // Reversing the translation/scale order back to match 1.10.2 to prevent
         // hovering.
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.translate(offsetX, offsetY, offsetZ);
         poseStack.scale(scale, scale, scale);
+        this.applyLegacyPoseTranslation(poseStack);
         this.Back.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBack.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -285,8 +287,6 @@ public class ModelDestroyerHa extends ShipModelBaseAdv<Entity> {
             case ID.Emotion.O_O:
             case ID.Emotion.HUNGRY:
                 if (ent.getFaceTick() <= 0) {
-                    // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.5F;
                     this.setFace(2);
                 }
                 break;
@@ -314,8 +314,11 @@ public class ModelDestroyerHa extends ShipModelBaseAdv<Entity> {
 
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
+        if (ent.getShipDepth(0) > 0D) {
+            this.translateLegacyPose(0F, Mth.cos(f2 * 0.125F) * 0.05F + 0.025F, 0F);
+        }
         // [PORT] 1.10.2 -> 1.20.1: motionStopPos applied +0.5Y in NoFuel state.
-        this.offsetY += 0.5F;
+        this.translateLegacyPose(0F, 0.5F, 0F);
 
         // [PORT] 1.10.2 -> 1.20.1: legacy dead pose uses face index 2.
         this.setFace(2);
@@ -352,7 +355,7 @@ public class ModelDestroyerHa extends ShipModelBaseAdv<Entity> {
 
         // [PORT] 1.10.2 -> 1.20.1: restore legacy water bobbing translation.
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
         }
 
         this.Back.xRot = -0.1F;
@@ -382,7 +385,7 @@ public class ModelDestroyerHa extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSitting()) {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 this.setFace(1);
-                this.offsetY += 0.4F;
+                this.translateLegacyPose(0F, 0.4F, 0F);
                 this.Back.xRot = -0.8F;
                 this.NeckBack.xRot = -0.2618F;
                 this.Head.xRot = -0.2618F;
@@ -394,7 +397,7 @@ public class ModelDestroyerHa extends ShipModelBaseAdv<Entity> {
                 this.TailBack.xRot = 0.35F;
                 this.TailEnd1.xRot = 0.35F;
             } else {
-                this.offsetY += 0.5F;
+                this.translateLegacyPose(0F, 0.5F, 0F);
                 this.Back.xRot = 0F;
                 this.Back.zRot = -1.5708F;
                 this.NeckBack.xRot = 0.1745F;

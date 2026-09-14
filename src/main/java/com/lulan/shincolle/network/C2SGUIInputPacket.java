@@ -48,7 +48,11 @@ import java.util.function.Supplier;
  * Ported from 1.10.2 C2SGUIPackets.
  */
 public class C2SGUIInputPacket {
-    private static final int MAX_VALUES = 7;
+    // The widest payload is SetMove, which carries eight values since TASK-098 added the
+    // arrival-release flag. Raise this whenever a command grows: the decoder rejects a
+    // longer array and the server drops the sender's connection, which no GameTest sees
+    // because they hand the packet object straight to the handler without serializing it.
+    private static final int MAX_VALUES = 8;
     private static final int MAX_STRING_LENGTH = 128;
     // simple GUI button clicks
     public static final byte ShipBtn = 0;
@@ -806,10 +810,14 @@ public class C2SGUIInputPacket {
 
     /**
      * Add a ship entity to the player's currently selected team.
-     * values: 0:player eid, 1:(unused dim), 2:entity id
+     * values: 0:player eid, 1:(unused dim), 2:entity id, 3:(optional) team input active
      */
     private void handleAddTeam(ServerPlayer player) {
-        if (values.length < 3 || !hasPointerInHand(player))
+        if (values.length < 3 || values.length > 4 || !hasPointerInHand(player))
+            return;
+        // Configurable input is resolved on the client. Keep the legacy three-value
+        // packet's sneak requirement; an explicit inactive/invalid flag never acts.
+        if (values.length == 4 ? values[3] != 1 : !player.isShiftKeyDown())
             return;
         ServerLevel level = player.serverLevel();
         Entity entity = level.getEntity(values[2]);
@@ -826,9 +834,19 @@ public class C2SGUIInputPacket {
         int teamId = capa.getSelectTeam();
         int shipUid = ship.getStateMinor(ID.M.ShipUID);
         int existingSlot = findTeamSlotByUID(capa, teamId, shipUid);
+        ItemStack pointer = player.getMainHandItem().getItem() == ModItems.POINTER.get()
+                ? player.getMainHandItem() : player.getOffhandItem();
+
+        if (existingSlot >= 0 && !capa.isShipSelected(teamId, existingSlot)) {
+            if (PointerItem.baseMode(PointerItem.getMode(pointer)) == PointerItem.MODE_SINGLE) {
+                capa.clearShipSelection(teamId);
+            }
+            capa.setShipSelected(teamId, existingSlot, true);
+            ModNetworking.sendToPlayer(S2CGUISyncPacket.syncShipsInTeam(capa, teamId), player);
+            return;
+        }
 
         if (existingSlot >= 0) {
-            // [PORT] 1.10.2 -> 1.20.1: AddTeam acts as toggle; existing member is removed.
             capa.setTeamMember(teamId, existingSlot, 0);
             capa.setTeamSID(teamId, existingSlot, 0);
             capa.setShipSelected(teamId, existingSlot, false);
@@ -842,11 +860,20 @@ public class C2SGUIInputPacket {
 
             capa.setTeamMember(teamId, insertSlot, shipUid);
             capa.setTeamSID(teamId, insertSlot, ship.getId());
+            int mode = PointerItem.baseMode(PointerItem.getMode(pointer));
+            if (mode == PointerItem.MODE_SINGLE) {
+                capa.clearShipSelection(teamId);
+            }
+            capa.setShipSelected(teamId, insertSlot, true);
             ship.setStateMinor(ID.M.FormatType, capa.getFormatID(teamId));
             ship.setStateMinor(ID.M.FormatPos, insertSlot);
         }
 
-        selectFirstTeamMemberIfNeeded(capa, teamId);
+        Component shipLabel = Component.translatable("chat.shincolle_kai.pointer.ship_label",
+                Component.translatable("shiptype.shincolle_kai." + ship.getShipType()), ship.getDisplayName());
+        player.displayClientMessage(Component.translatable(existingSlot >= 0
+                ? "chat.shincolle_kai.pointer.team_removed" : "chat.shincolle_kai.pointer.team_added",
+                shipLabel), true);
 
         // [PORT] 1.10.2 -> 1.20.1: changing team members clears formation selection.
         capa.setFormatID(teamId, 0);
@@ -903,7 +930,14 @@ public class C2SGUIInputPacket {
                 continue;
             }
             ship.setEntitySit(false);
-            ship.setEntityTarget(livingTarget);
+            Entity manualTarget = ship.getManualTarget();
+            if (manualTarget != null && manualTarget.getId() == livingTarget.getId()) {
+                ship.setManualTarget(null);
+                ship.setEntityTarget(null);
+            } else {
+                ship.setManualTarget(livingTarget);
+                ship.setEntityTarget(livingTarget);
+            }
             ship.applyEmotesReaction(5);
         }
         markOutOfFuel(player, outOfFuel, target.getX(),
@@ -998,7 +1032,8 @@ public class C2SGUIInputPacket {
     /**
      * Order all ships in the selected team to start moving (unsit) and set guard
      * position.
-     * values: 0:player eid, 1:(unused dim), 2:mode, 3:guardType, 4:x, 5:y, 6:z
+     * values: 0:player eid, 1:(unused dim), 2:mode, 3:guardType, 4:x, 5:y, 6:z,
+     * 7:(optional) release on arrival. Legacy commands remain persistent guards.
      */
     private void handleSetMove(ServerPlayer player) {
         if (values.length < 7 || !hasPointerInHand(player))
@@ -1012,6 +1047,7 @@ public class C2SGUIInputPacket {
         int teamId = capa.getSelectTeam();
         int mode = Mth.clamp(values[2], 0, 2);
         int guardType = Mth.clamp(values[3], 0, 1);
+        boolean releaseOnArrival = values.length > 7 && values[7] == 1;
         int gx = values[4];
         int gy = values[5];
         int gz = values[6];
@@ -1109,8 +1145,11 @@ public class C2SGUIInputPacket {
                 }
                 ship.applyEmotesReaction(5);
             } else {
-                FormationHelper.applyShipGuard(ship, gx, gy, gz, false, guardType);
+                boolean changeArrivalMode = values.length > 7 && ship.hasGuardDestination()
+                        && ship.shouldReleaseGuardOnArrival() != releaseOnArrival;
+                FormationHelper.applyShipGuard(ship, gx, gy, gz, changeArrivalMode, guardType);
             }
+            ship.setReleaseGuardOnArrival(releaseOnArrival);
             ship.sendSyncPacketGuard();
         }
 
@@ -1330,18 +1369,7 @@ public class C2SGUIInputPacket {
             return;
         }
 
-        int oldMode = PointerItem.getMode(pointer);
         PointerItem.setMode(pointer, mode);
-
-        if (mode % 3 == PointerItem.MODE_SINGLE && oldMode % 3 != PointerItem.MODE_SINGLE) {
-            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-            if (capa != null) {
-                int teamId = capa.getSelectTeam();
-                capa.clearShipSelection(teamId);
-                selectFirstTeamMemberIfNeeded(capa, teamId);
-                ModNetworking.sendToPlayer(S2CGUISyncPacket.syncShipsInTeam(capa, teamId), player);
-            }
-        }
     }
 
     /**

@@ -5,7 +5,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.IntUnaryOperator;
 
 /** Pure Stage 2 eligibility, priority, canonical-ordering, and selection pipeline. */
 public final class TargetCandidateSelector {
@@ -24,7 +23,7 @@ public final class TargetCandidateSelector {
             List<TargetCandidate> candidates,
             TargetPredicateKind kind,
             TargetPredicatePolicy policy,
-            IntUnaryOperator boundedIndexSource) {
+            AiRandom boundedIndexSource) {
         return select(observedAtTick, source, candidates, kind, policy, boundedIndexSource,
                 TargetSelectionProfiler.NONE);
     }
@@ -35,7 +34,7 @@ public final class TargetCandidateSelector {
             List<TargetCandidate> candidates,
             TargetPredicateKind kind,
             TargetPredicatePolicy policy,
-            IntUnaryOperator boundedIndexSource,
+            AiRandom boundedIndexSource,
             TargetSelectionProfiler profiler) {
         if (observedAtTick < 0L) {
             throw new IllegalArgumentException("Observed tick must be non-negative");
@@ -72,7 +71,7 @@ public final class TargetCandidateSelector {
         }
         int selectedIndex = 0;
         if (highestTierSize > 2) {
-            selectedIndex = boundedIndexSource.applyAsInt(RANDOM_POOL_SIZE);
+            selectedIndex = boundedIndexSource.nextBoundedInt(RANDOM_POOL_SIZE);
             if (selectedIndex < 0 || selectedIndex >= RANDOM_POOL_SIZE) {
                 throw new IllegalArgumentException("Bounded index source returned an invalid index");
             }

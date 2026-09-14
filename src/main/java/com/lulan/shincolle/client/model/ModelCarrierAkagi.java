@@ -675,8 +675,10 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -729,7 +731,8 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
         // [PORT] 1.10.2 -> 1.20.1: preserve legacy dead-pose grounding offset.
-        this.offsetY += 0.53F + 0.25F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.53F + 0.25F * ent.getScaleLevel(), 0F);
+
 
         this.setFaceHungry(ent);
 
@@ -745,7 +748,7 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
         this.Skirt01.xRot = -0.2F;
         this.Skirt02.xRot = -0.3F;
         // arm
-        // this.ArmRight02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
 
         int state = ent.getStateEmotion(ID.S.State);
 
@@ -764,23 +767,23 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
 
         // leg
         this.LegLeft02.yRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
         this.LegRight02.yRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
 
         // equip
         this.EquipE01.xRot = 0.05F;
         this.EquipE01.yRot = -0.2F;
         this.EquipE01.zRot = 0F;
-        // this.EquipE01.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.EquipE01, 0F);
         this.EquipE02.xRot = -0.4887F;
         this.EquipE05.xRot = 0.4538F;
         this.EquipD02.xRot = 0.25F;
         this.EquipD02.yRot = 1.6755F;
         this.EquipD02.zRot = 3.1416F;
-        // this.EquipD02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.EquipD02, 0F);
         this.EquipS01.xRot = -0.95F;
 
         // 頭部
@@ -825,13 +828,13 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
         this.LegLeft01.zRot = 0.09F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.xRot = -1.2217F;
         this.LegRight01.yRot = -0.5236F;
         this.LegRight01.zRot = 0F;
         this.LegRight02.xRot = 1.0472F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
     }
 
     @Override
@@ -850,7 +853,8 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -877,10 +881,8 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
         this.Skirt01.xRot = -0.14F;
         this.Skirt02.xRot = -0.0873F;
         // cloth
-        // NOTE 1.20.1: offset not supported in new model API: this.ClothHL02_1.offsetY
-        // = 0F;
-        // NOTE 1.20.1: offset not supported in new model API: this.ClothHL03_1.offsetY
-        // = 0F;
+        setLegacyPartOffsetY(this.ClothHL02_1, 0F);
+        setLegacyPartOffsetY(this.ClothHL03_1, 0F);
         // hair
         this.Hair01.xRot = angleX * 0.04F + 0.23F;
         this.Hair01.zRot = 0F;
@@ -903,7 +905,7 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -angleX * 0.03F + 0.21F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
 
         int state = ent.getStateEmotion(ID.S.State);
         boolean fbag = EmotionHelper.checkModelState(3, state);
@@ -926,30 +928,30 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.1396F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
 
         // equip
         this.EquipE01.xRot = 0.05F;
         this.EquipE01.yRot = 0F;
         this.EquipE01.zRot = 0F;
-        // this.EquipE01.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.EquipE01, 0F);
         this.EquipE02.xRot = -0.4887F;
         this.EquipE05.xRot = 0.4538F;
         this.EquipD01.xRot = 0F;
         this.EquipD02.xRot = -0.05F;
         this.EquipD02.yRot = 1.6755F;
         this.EquipD02.zRot = 3.1416F;
-        // this.EquipD02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.EquipD02, 0F);
         this.EquipS01.xRot = -0.28F;
 
         // ear
@@ -980,11 +982,12 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
 
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // [PORT] 1.10.2 -> 1.20.1: GlStateManager.translate(0, 0.1, 0)
-            this.offsetY += 0.1F;
+            this.translateLegacyPose(0F, 0.1F, 0F);
+
 
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.1F;
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.8378F;
@@ -1004,7 +1007,8 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 setFace(1);
                 // [PORT] 1.10.2 -> 1.20.1: GlStateManager.translate(0, 0.43, 0)
-                this.offsetY += 0.43F;
+                this.translateLegacyPose(0F, 0.43F, 0F);
+
 
                 // head
                 int nodf2 = (int) f2 % 60;
@@ -1036,16 +1040,16 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 1.2217F;
                 this.LegLeft02.yRot = 1.2217F;
                 this.LegLeft02.zRot = -1.0472F;
-                // this.LegLeft02.offsetX = 0.17F;
-                // this.LegLeft02.offsetY = -0.03F;
-                // this.LegLeft02.offsetZ = 0.2F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0.17F);
+                this.setLegacyPartOffsetY(this.LegLeft02, -0.03F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.2F);
                 this.LegRight01.zRot = 0.14F;
                 this.LegRight02.xRot = 1.2217F;
                 this.LegRight02.yRot = -1.2217F;
                 this.LegRight02.zRot = 1.0472F;
-                // this.LegRight02.offsetX = -0.17F;
-                // this.LegRight02.offsetY = -0.03F;
-                // this.LegRight02.offsetZ = 0.2F;
+                this.setLegacyPartOffsetX(this.LegRight02, -0.17F);
+                this.setLegacyPartOffsetY(this.LegRight02, -0.03F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.2F);
                 // tail
                 this.Tail01.xRot += 1.7F;
                 this.Tail02.xRot += 0.15F;
@@ -1057,14 +1061,15 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
                 this.EquipE01.yRot = 1.7F;
                 this.EquipE01.zRot = 0.15F;
                 this.EquipD02.xRot = 0.2F;
-                // this.EquipD02.offsetY = -0.5F;
+                this.setLegacyPartOffsetY(this.EquipD02, -0.5F);
             } else {
                 // [PORT] 1.10.2 -> 1.20.1: GlStateManager.translate(0, 0.36, 0)
-                this.offsetY += 0.36F;
+                this.translateLegacyPose(0F, 0.36F, 0F);
+
 
                 // Body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.36F;
+
                 this.Head.xRot += 0.1047F;
                 this.BodyMain.xRot = -0.1396F;
                 this.Butt.xRot = 0.1396F;
@@ -1078,12 +1083,12 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
                 addk2 = -1.0472F;
                 this.LegLeft01.yRot = 0.0524F;
                 this.LegLeft01.zRot = 0F;
-                // this.LegLeft02.offsetZ = 0.38F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.38F);
                 this.LegLeft02.xRot = 2.5831F;
                 this.LegLeft02.zRot = 0.0175F;
                 this.LegRight01.yRot = -0.0524F;
                 this.LegRight01.zRot = 0F;
-                // this.LegRight02.offsetZ = 0.38F;
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.38F);
                 this.LegRight02.xRot = 2.5831F;
                 this.LegRight02.zRot = -0.0175F;
                 // tail
@@ -1094,7 +1099,7 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
                 this.EquipE01.yRot = 1.7F;
                 this.EquipE01.zRot = -0.2F;
                 this.EquipD02.xRot = 0.2F;
-                // this.EquipD02.offsetY = -0.5F;
+                this.setLegacyPartOffsetY(this.EquipD02, -0.5F);
             }
         } // end if sitting
 
@@ -1113,10 +1118,8 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
             this.BodyMain.xRot = -0.05F;
             this.BodyMain.yRot = 1.4F;
             // cloth
-            // NOTE 1.20.1: offset not supported in new model API: this.ClothHL02_1.offsetY
-            // = -0.17F;
-            // NOTE 1.20.1: offset not supported in new model API: this.ClothHL03_1.offsetY
-            // = -0.2F;
+            setLegacyPartOffsetY(this.ClothHL02_1, -0.17F);
+            setLegacyPartOffsetY(this.ClothHL03_1, -0.2F);
             // arm
             this.ArmLeft01.xRot = -1.5708F;
             this.ArmLeft01.yRot = -1.35F;
@@ -1127,7 +1130,7 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
             this.ArmRight02.zRot = -2.44F + 0.15F * parTick; // -2.44~-1.57
             if (this.ArmRight02.zRot > -1.57F)
                 this.ArmRight02.zRot = -1.57F;
-            // this.ArmRight02.offsetX = 0.31F;
+            this.setLegacyPartOffsetX(this.ArmRight02, 0.31F);
             // leg
             addk1 = -0.35F;
             addk2 = -0.23F;
@@ -1141,7 +1144,7 @@ public class ModelCarrierAkagi extends ShipModelBaseAdv<Entity> {
             this.EquipD02.zRot = 1.7453F;
             this.EquipE01.xRot = 0.2618F;
             this.EquipE01.zRot = -0.23F;
-            // this.EquipE01.offsetX = -0.15F;
+            this.setLegacyPartOffsetX(this.EquipE01, -0.15F);
             this.EquipE02.xRot = -0.7F + 0.1F * parTick; // -0.7~-0.49
             if (this.EquipE02.xRot > -0.49F)
                 this.EquipE02.xRot = -0.49F;

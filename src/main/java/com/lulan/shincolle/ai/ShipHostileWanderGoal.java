@@ -3,7 +3,8 @@ package com.lulan.shincolle.ai;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.entity.ai.util.RandomPos;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 
@@ -36,7 +37,24 @@ public class ShipHostileWanderGoal extends Goal {
         if (this.ship.isPassenger()) {
             return false;
         }
-        return this.ship.getRandom().nextInt(180) == 0;
+        if (this.ship.getRandom().nextInt(180) != 0) {
+            return false;
+        }
+        Vec3 target = RandomPos.generateRandomPos(() -> {
+            BlockPos direction = RandomPos.generateRandomDirection(
+                    this.ship.getRandom(), this.rangeXZ, this.rangeY);
+            BlockPos candidate = this.ship.blockPosition().offset(direction);
+            return this.ship.level().hasChunkAt(candidate)
+                    && this.ship.getNavigation().isStableDestination(candidate)
+                    ? candidate : null;
+        }, ignored -> 0D);
+        if (target == null) {
+            return false;
+        }
+        this.targetX = target.x;
+        this.targetY = target.y;
+        this.targetZ = target.z;
+        return true;
     }
 
     @Override
@@ -46,20 +64,6 @@ public class ShipHostileWanderGoal extends Goal {
 
     @Override
     public void start() {
-        Level level = this.ship.level();
-        for (int i = 0; i < 10; i++) {
-            double x = this.ship.getX() + (this.ship.getRandom().nextInt(rangeXZ * 2 + 1) - rangeXZ);
-            double y = this.ship.getY() + (this.ship.getRandom().nextInt(rangeY * 2 + 1) - rangeY);
-            double z = this.ship.getZ() + (this.ship.getRandom().nextInt(rangeXZ * 2 + 1) - rangeXZ);
-
-            BlockPos pos = BlockPos.containing(x, y, z);
-            if (level.isLoaded(pos)) {
-                this.targetX = x;
-                this.targetY = y;
-                this.targetZ = z;
-                ship.getNavigation().moveTo(this.targetX, this.targetY, this.targetZ, this.speed);
-                return;
-            }
-        }
+        this.ship.getNavigation().moveTo(this.targetX, this.targetY, this.targetZ, this.speed);
     }
 }

@@ -166,8 +166,17 @@ public final class TaskSideRoutingGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_cooking_output_extraction_failure_drops_without_item_loss")
     public static void cookingOutputExtractionFailureDropsWithoutItemLoss(GameTestHelper helper) {
+        BlockPos shipPosition = helper.absolutePos(new BlockPos(3, 2, 2));
+        helper.startSequence().thenWaitUntil(() ->
+                helper.assertTrue(helper.getLevel().isPositionEntityTicking(shipPosition),
+                        "Waiting for the cooking fixture's entity chunk to tick"))
+                .thenExecute(() -> verifyCookingOutputExtractionFailureDropsWithoutItemLoss(helper))
+                .thenSucceed();
+    }
+
+    private static void verifyCookingOutputExtractionFailureDropsWithoutItemLoss(GameTestHelper helper) {
         CookingFixture fixture = createFixture(helper);
         try {
             CapaShipInventory inventory = fixture.ship().getCapaShipInventory();
@@ -180,20 +189,20 @@ public final class TaskSideRoutingGameTests {
 
             DivergentExtractHandler handler = new DivergentExtractHandler(output);
             boolean moved = invokeMoveMatchingOutputToShip(handler, inventory, fixture.ship(), output.copyWithCount(1));
+            List<ItemEntity> droppedItems = fixture.level().getEntitiesOfClass(ItemEntity.class,
+                    fixture.ship().getBoundingBox().inflate(2.0D),
+                    entity -> ItemStack.isSameItemSameTags(entity.getItem(), output));
+            droppedItems.forEach(fixture.entities()::add);
 
             helper.assertTrue(moved, "A safely dropped extracted output must count as a completed move");
             helper.assertTrue(handler.getStackInSlot(0).isEmpty(),
                     "The inconsistent handler did not perform its real extraction");
-            int droppedCount = fixture.level().getEntitiesOfClass(ItemEntity.class,
-                            fixture.ship().getBoundingBox().inflate(2.0D),
-                            entity -> ItemStack.isSameItemSameTags(entity.getItem(), output))
-                    .stream().mapToInt(entity -> entity.getItem().getCount()).sum();
+            int droppedCount = droppedItems.stream().mapToInt(entity -> entity.getItem().getCount()).sum();
             helper.assertTrue(droppedCount == 2,
                     "Extracted output must be dropped intact when cargo rejects the real stack");
         } finally {
             fixture.close();
         }
-        helper.succeed();
     }
 
     private static boolean invokeMoveMatchingOutputToShip(IItemHandler handler, CapaShipInventory inventory,
@@ -210,36 +219,43 @@ public final class TaskSideRoutingGameTests {
     }
 
     private static CookingFixture createFixture(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        BlockPos waypointPos = helper.absolutePos(new BlockPos(2, 2, 2));
-        BlockPos furnacePos = helper.absolutePos(new BlockPos(3, 2, 2));
-        level.setBlock(waypointPos, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);
-        level.setBlock(furnacePos, Blocks.FURNACE.defaultBlockState(), 3);
-        BlockEntity waypointEntity = level.getBlockEntity(waypointPos);
-        BlockEntity furnaceEntity = level.getBlockEntity(furnacePos);
-        if (!(waypointEntity instanceof TileEntityWaypoint waypoint)
-                || !(furnaceEntity instanceof AbstractFurnaceBlockEntity furnace)) {
-            throw new AssertionError("Failed to create TaskSide cooking fixtures.");
-        }
-        waypoint.setPairedChest(furnacePos);
+        GameTestEntities entities = GameTestEntities.open(helper);
+        try {
+            ServerLevel level = helper.getLevel();
+            BlockPos waypointPos = helper.absolutePos(new BlockPos(2, 2, 2));
+            BlockPos furnacePos = helper.absolutePos(new BlockPos(3, 2, 2));
+            level.setBlock(waypointPos, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);
+            level.setBlock(furnacePos, Blocks.FURNACE.defaultBlockState(), 3);
+            BlockEntity waypointEntity = level.getBlockEntity(waypointPos);
+            BlockEntity furnaceEntity = level.getBlockEntity(furnacePos);
+            if (!(waypointEntity instanceof TileEntityWaypoint waypoint)
+                    || !(furnaceEntity instanceof AbstractFurnaceBlockEntity furnace)) {
+                throw new AssertionError("Failed to create TaskSide cooking fixtures.");
+            }
+            waypoint.setPairedChest(furnacePos);
 
-        BasicEntityShip ship = ModEntities.BB_KONGOU.get().create(level);
-        if (ship == null) {
-            throw new AssertionError("Failed to create ship for TaskSide test.");
+            BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            if (ship == null) {
+                throw new AssertionError("Failed to create ship for TaskSide test.");
+            }
+            ship.moveTo(furnacePos.getX() + 0.5D, furnacePos.getY(), furnacePos.getZ() + 0.5D);
+            level.addFreshEntity(ship);
+            ship.setGuardedPos(waypointPos.getX(), waypointPos.getY(), waypointPos.getZ(),
+                    level.dimension(), 1);
+            ship.setStateFlag(ID.F.CanFollow, false);
+            return new CookingFixture(level, waypointPos, furnacePos, ship, furnace, entities);
+        } catch (RuntimeException | Error failure) {
+            entities.close();
+            throw failure;
         }
-        ship.moveTo(furnacePos.getX() + 0.5D, furnacePos.getY(), furnacePos.getZ() + 0.5D);
-        level.addFreshEntity(ship);
-        ship.setGuardedPos(waypointPos.getX(), waypointPos.getY(), waypointPos.getZ(),
-                level.dimension(), 1);
-        ship.setStateFlag(ID.F.CanFollow, false);
-        return new CookingFixture(level, waypointPos, furnacePos, ship, furnace);
     }
 
     private record CookingFixture(ServerLevel level, BlockPos waypointPos, BlockPos furnacePos,
-                                  BasicEntityShip ship, AbstractFurnaceBlockEntity furnace) implements AutoCloseable {
+                                  BasicEntityShip ship, AbstractFurnaceBlockEntity furnace,
+                                  GameTestEntities entities) implements AutoCloseable {
         @Override
         public void close() {
-            this.ship.discard();
+            this.entities.close();
             this.level.removeBlock(this.waypointPos, false);
             this.level.removeBlock(this.furnacePos, false);
         }

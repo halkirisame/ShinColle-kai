@@ -742,8 +742,10 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -797,7 +799,8 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.66F;
+        this.translateLegacyPose(0F, 0.66F, 0F);
+
         this.setFaceHungry(ent);
 
         // body
@@ -812,15 +815,15 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.zRot = 1.2F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 0.6F;
-        // this.ArmLeft02.offsetX = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = -2.9F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -1.2F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = -0.6F;
-        // this.ArmRight02.offsetX = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.xRot = -0.05F;
         this.LegLeft01.yRot = 0F;
@@ -828,18 +831,18 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0.8F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.xRot = -0.05F;
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = 0.4F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = -0.8F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         this.EquipLBase.xRot = 0.3F;
         this.EquipLBase.yRot = 1.8F;
@@ -866,7 +869,8 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -882,7 +886,7 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
         // body
         this.Ahoke.zRot = angleX * 0.03F + 0.3F;
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY -= 0.12F;
+
         this.BodyMain.xRot = -0.1047F;
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
@@ -904,30 +908,30 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.yRot = 0F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 0F;
-        // this.ArmLeft02.offsetX = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = angleAdd1 * 0.4F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.0873F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.0873F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         this.EquipLBase.xRot = 0F;
         this.EquipLBase.yRot = 0F;
@@ -958,7 +962,8 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
             setFace(1);
             // body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.12F;
+            this.translateLegacyPose(0F, 0.12F, 0F);
+
             this.BodyMain.xRot = 1.0471975511965976F;
             this.BodyMain.yRot = 0.0F;
             this.BodyMain.zRot = 0.0F;
@@ -980,11 +985,13 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
         }
 
         if (ent.getIsSprinting() || f1 > 0.9F) {
-            if (spStand)
+            if (spStand) {
+                this.translateLegacyPose(0F, -0.12F, 0F);
+            }
 
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY -= 0.12F;
+
             this.BodyMain.xRot = -0.1F;
             this.BodyMain.yRot = 0F;
             this.BodyMain.zRot = 0F;
@@ -999,13 +1006,13 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
             this.ArmLeft01.yRot = 0F;
             this.ArmLeft02.xRot = -1F;
             this.ArmLeft02.zRot = 0F;
-            // this.ArmLeft02.offsetX = 0F;
-            // this.ArmLeft02.offsetZ = 0F;
+            this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+            this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
             this.ArmRight01.yRot = 0F;
             this.ArmRight02.xRot = -1F;
             this.ArmRight02.zRot = 0F;
-            // this.ArmRight02.offsetX = 0F;
-            // this.ArmRight02.offsetZ = 0F;
+            this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+            this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
             // leg
             addk1 = angleAdd1 * 0.7F - 0.28F;
             addk2 = angleAdd2 * 0.7F - 0.21F;
@@ -1026,11 +1033,14 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
         this.Head.zRot = EmotionHelper.getHeadTiltAngle(ent, f2);
 
         if (ent.getIsSneaking()) {
-            if (spStand)
+            this.translateLegacyPose(0F, 0.09F, 0F);
+            if (spStand) {
+                this.translateLegacyPose(0F, -0.12F, 0F);
+            }
 
                 // Body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY -= 0.12F;
+
             this.Head.xRot -= 0.6283F;
             this.BodyMain.xRot = 0.8727F;
             // arm
@@ -1051,12 +1061,12 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
             }
             this.ArmLeft01.yRot = 0F;
             this.ArmLeft02.zRot = 0F;
-            // this.ArmLeft02.offsetX = 0F;
-            // this.ArmLeft02.offsetZ = 0F;
+            this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+            this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
             this.ArmRight01.yRot = 0F;
             this.ArmRight02.zRot = 0F;
-            // this.ArmRight02.offsetX = 0F;
-            // this.ArmRight02.offsetZ = 0F;
+            this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+            this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
             // leg
             addk1 -= 1.1F;
             addk2 -= 1.1F;
@@ -1067,14 +1077,17 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
 
         // 坐下動作
         if (ent.getIsSitting() || ent.getIsRiding()) {
-            if (spStand)
+            if (spStand) {
+                this.translateLegacyPose(0F, -0.12F, 0F);
+            }
 
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY -= 0.12F;
+
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.25F;
+                this.translateLegacyPose(0F, 0.25F, 0F);
+
                 this.BodyMain.xRot = -0.10471975511965977F;
                 this.BodyMain.yRot = -0.3490658503988659F;
                 this.BodyMain.zRot = 0.0F;
@@ -1109,7 +1122,8 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
                     showWeapon) {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.52F;
+                this.translateLegacyPose(0F, 0.52F, 0F);
+
                 this.BodyMain.xRot = 0.7853981633974483F;
                 this.Butt.xRot = 0.2617993877991494F;
                 this.Head.xRot = 0.5235987755982988F;
@@ -1143,10 +1157,11 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
                 this.EquipRBase.xRot = 1.2217304763960306F;
                 this.EquipRBase.yRot = 0.0F;
                 this.EquipRBase.zRot = 0.0F;
-            } else if (!this.EquipLBase.visible) {
+            } else if (this.EquipLBase.visible) {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.2F;
+                this.translateLegacyPose(0F, 0.2F, 0F);
+
                 this.BodyMain.xRot = 0.18203784098300857F;
                 this.Butt.xRot = 0.2617993877991494F;
                 this.Head.xRot -= 0.20943951023931953F;
@@ -1184,6 +1199,7 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
                 this.EquipLBase.visible = false;
                 this.EquipRBase.visible = false;
                 // body
+                this.translateLegacyPose(0F, 0.35F, 0F);
                 this.BodyMain.xRot = 0.27314402793711257F;
                 this.Butt.xRot = 0.2617993877991494F;
                 this.Head.xRot -= 0.41887902047863906F;
@@ -1208,7 +1224,7 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 2.321986036853256F;
                 this.LegLeft02.yRot = 0.0F;
                 this.LegLeft02.zRot = 0.0F;
-                // this.LegLeft02.offsetZ = 0.375F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.375F);
                 this.LegRight01.yRot = 0.0F;
                 this.LegRight01.zRot = -0.08726646259971647F;
                 this.LegRight02.xRot = 1.5707963267948966F;
@@ -1219,7 +1235,9 @@ public class ModelBattleshipRu extends ShipModelBaseAdv<Entity> {
 
         // 攻擊動作: 設為30~50會有揮刀動作, 設為100則沒有揮刀動作
         if (ent.getAttackTick() > 0) {
-            if (spStand)
+            if (spStand) {
+                this.translateLegacyPose(0F, -0.12F, 0F);
+            }
 
                 // body
                 this.BodyMain.xRot = -0.1047F;

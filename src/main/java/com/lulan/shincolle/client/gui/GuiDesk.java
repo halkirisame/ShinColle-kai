@@ -19,6 +19,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -29,10 +30,13 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * GUI screen for the admiral's desk block.
@@ -65,6 +69,8 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     private static final int LISTCLICK_TARGET = 2;
     private static final int LISTCLICK_ALLY = 3;
     private static final int LISTCLICK_BAN = 4;
+    /** Gallery pages have no page title, so the description starts on the title row (0.8x-scaled units). */
+    private static final int GALLERY_TEXT_Y = 40;
 
     private static final int TEAMSTATE_MAIN = 0;
     private static final int TEAMSTATE_CREATE = 1;
@@ -125,6 +131,25 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
     private static final float GUI_SCALE = 1.25F;
     private static final float GUI_SCALE_INV = 1.0F / GUI_SCALE;
+    /** Set by the optional JEI integration. Returns true when the click was handled. */
+    private static volatile Predicate<ItemStack> bookIconClickHandler;
+
+    public record BookIconHit(ItemStack stack, Rect2i screenArea) {
+    }
+
+    public static void setBookIconClickHandler(@Nullable Predicate<ItemStack> handler) {
+        bookIconClickHandler = handler;
+    }
+
+    static int scaledCenteredOrigin(int screenSize, float scale, int imageSize) {
+        int scaledScreen = Mth.floor(screenSize / scale);
+        return Math.max(0, (scaledScreen - imageSize) / 2);
+    }
+
+    static Rect2i scaledIconArea(int leftPos, int topPos, int iconX, int iconY) {
+        return new Rect2i(Mth.floor((leftPos + iconX) * GUI_SCALE),
+                Mth.floor((topPos + iconY) * GUI_SCALE), Mth.ceil(16 * GUI_SCALE), Mth.ceil(16 * GUI_SCALE));
+    }
 
     public GuiDesk(ContainerDesk menu, Inventory playerInv, Component title) {
         super(menu, playerInv, title);
@@ -183,6 +208,8 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     @Override
     protected void init() {
         super.init();
+        this.leftPos = scaledCenteredOrigin(this.width, GUI_SCALE, this.imageWidth);
+        this.topPos = scaledCenteredOrigin(this.height, GUI_SCALE, this.imageHeight);
 
         // Create text input field for team create/rename
         this.textField = new EditBox(this.font, this.leftPos + 10, this.topPos + 24, 153, 12, Component.empty());
@@ -190,6 +217,29 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         this.textField.setVisible(false);
         this.textField.setFocused(false);
         this.addWidget(this.textField);
+    }
+
+    /**
+     * Screen-space rectangle actually covered by the 1.25x-scaled desk GUI.
+     */
+    public Rect2i getScaledScreenBounds() {
+        return new Rect2i(Mth.floor(this.leftPos * GUI_SCALE), Mth.floor(this.topPos * GUI_SCALE),
+                Mth.ceil(this.imageWidth * GUI_SCALE), Mth.ceil(this.imageHeight * GUI_SCALE));
+    }
+
+    public Optional<BookIconHit> getBookIconUnderMouse(double mouseX, double mouseY) {
+        if (this.guiFunc != 2) {
+            return Optional.empty();
+        }
+
+        int localX = (int) (mouseX * GUI_SCALE_INV) - this.leftPos;
+        int localY = (int) (mouseY * GUI_SCALE_INV) - this.topPos;
+        GuiBook.BookIcon icon = GuiBook.getHoveredIcon(bookChapNum, bookPageNum, localX, localY);
+        if (icon == null || icon.stack() == null || icon.stack().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new BookIconHit(icon.stack(),
+                scaledIconArea(this.leftPos, this.topPos, icon.x(), icon.y())));
     }
 
     @Override
@@ -541,10 +591,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     }
 
     private void drawBookText(GuiGraphics g) {
-        // Draw chapter/page indicator
-        String str = Component.translatable("gui.shincolle_kai.book.chap" + bookChapNum + ".title").getString();
-        g.drawString(this.font, str, 10, 27, Enums.EnumColors.WHITE.getValue(), true);
-
         // Chapters 4/5 page>0: entity gallery mode
         if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
             drawEntityGallery(g);
@@ -621,12 +667,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         String key = "gui.shincolle_kai.book.chap" + bookChapNum + ".text" + bookPageNum + "d1";
         String text = Component.translatable(key).getString();
         if (!text.equals(key)) {
-            var pose = g.pose();
-            pose.pushPose();
-            pose.scale(0.8F, 0.8F, 0.8F);
-            g.drawWordWrap(this.font, Component.literal(text),
-                    GuiBook.PageTRX, GuiBook.PageTY, GuiBook.PageWidth, 0x000000);
-            pose.popPose();
+            GuiBook.drawBookString(g, this.font, text, GuiBook.PageTRX, GALLERY_TEXT_Y);
         }
 
         // Render entity model
@@ -908,6 +949,15 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 handleRadarClick(radarBtn);
                 break;
             case 2: // Book
+                if (button == 0 || button == 1) {
+                    Predicate<ItemStack> handler = bookIconClickHandler;
+                    if (handler != null) {
+                        Optional<BookIconHit> hit = getBookIconUnderMouse(mouseX, mouseY);
+                        if (hit.isPresent() && handler.test(hit.get().stack())) {
+                            return true;
+                        }
+                    }
+                }
                 int bookBtn = GuiHelper.getButton(ID.Gui.ADMIRALDESK, 2, xClick, yClick);
                 handleBookClick(bookBtn, button);
                 break;

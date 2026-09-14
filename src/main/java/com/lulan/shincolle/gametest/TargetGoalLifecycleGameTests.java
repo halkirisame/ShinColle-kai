@@ -2,12 +2,14 @@ package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.ShipRangeTargetGoal;
 import com.lulan.shincolle.ai.ShipRevengeTargetGoal;
+import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.utility.TargetHelper;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -16,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
@@ -28,6 +31,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.lang.reflect.Field;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -38,50 +42,92 @@ public final class TargetGoalLifecycleGameTests {
     private TargetGoalLifecycleGameTests() {
     }
 
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_friendly_revenge_target_survives_multiple_attackers")
     public static void friendlyRevengeTargetSurvivesMultipleAttackers(GameTestHelper helper) {
-        verifyRevengeRetention(helper, createFriendlyShip(helper, new Vec3(1.5D, 2D, 1.5D)));
-    }
-
-    @GameTest(template = "arena")
-    public static void hostileRevengeTargetSurvivesMultipleAttackers(GameTestHelper helper) {
-        verifyRevengeRetention(helper, createHostileShip(helper, new Vec3(1.5D, 2D, 1.5D)));
-    }
-
-    @GameTest(template = "arena")
-    public static void friendlyRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
-        BasicEntityShip ship = createFriendlyShip(helper, new Vec3(1.5D, 2D, 1.5D));
-        Zombie target = createZombie(helper, new Vec3(7.5D, 2D, 1.5D), true);
-        verifySightLossRetention(helper, ship, target);
-    }
-
-    @GameTest(template = "arena")
-    public static void hostileRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
-        BasicEntityShipHostile ship = createHostileShip(helper, new Vec3(1.5D, 2D, 1.5D));
-        BasicEntityShip target = createFriendlyShip(helper, new Vec3(7.5D, 2D, 1.5D));
-        target.setNoAi(true);
-        if (!helper.getLevel().addFreshEntity(target)) {
-            throw new AssertionError("Failed to add a friendly range target.");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            verifyRevengeRetention(helper, entities,
+                    createFriendlyShip(helper, entities, new Vec3(1.5D, 2D, 1.5D)));
         }
-        verifySightLossRetention(helper, ship, target);
     }
 
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_hostile_revenge_target_survives_multiple_attackers")
+    public static void hostileRevengeTargetSurvivesMultipleAttackers(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            verifyRevengeRetention(helper, entities,
+                    createHostileShip(helper, entities, new Vec3(1.5D, 2D, 1.5D)));
+        }
+    }
+
+    @GameTest(template = "arena", batch = "isolated_friendly_range_target_survives_transient_sight_loss")
+    public static void friendlyRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
+        Vec3 shipPosition = helper.absoluteVec(new Vec3(1.5D, 2D, 1.5D));
+        Vec3 targetPosition = helper.absoluteVec(new Vec3(7.5D, 2D, 1.5D));
+        waitForRangeFixtureChunks(helper, shipPosition, targetPosition,
+                () -> verifyFriendlyRangeTargetSurvivesTransientSightLoss(helper));
+    }
+
+    private static void verifyFriendlyRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = createFriendlyShip(helper, entities, new Vec3(1.5D, 2D, 1.5D));
+            Zombie target = createZombie(helper, entities, new Vec3(7.5D, 2D, 1.5D), true);
+            verifySightLossRetention(helper, ship, target);
+        }
+    }
+
+    @GameTest(template = "arena", batch = "isolated_hostile_range_target_survives_transient_sight_loss")
+    public static void hostileRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
+        Vec3 shipPosition = helper.absoluteVec(new Vec3(1.5D, 2D, 1.5D));
+        Vec3 targetPosition = helper.absoluteVec(new Vec3(7.5D, 2D, 1.5D));
+        waitForRangeFixtureChunks(helper, shipPosition, targetPosition,
+                () -> verifyHostileRangeTargetSurvivesTransientSightLoss(helper));
+    }
+
+    private static void verifyHostileRangeTargetSurvivesTransientSightLoss(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShipHostile ship = createHostileShip(helper, entities, new Vec3(1.5D, 2D, 1.5D));
+            BasicEntityShip target = createFriendlyShip(helper, entities, new Vec3(7.5D, 2D, 1.5D));
+            target.setNoAi(true);
+            if (!helper.getLevel().addFreshEntity(target)) {
+                throw new AssertionError("Failed to add a friendly range target.");
+            }
+            verifySightLossRetention(helper, ship, target);
+        }
+    }
+
+    private static void waitForRangeFixtureChunks(GameTestHelper helper, Vec3 shipPosition,
+                                                  Vec3 targetPosition, Runnable verification) {
+        // Spatial queries omit entities in HIDDEN sections even when addFreshEntity succeeds.
+        helper.startSequence().thenWaitUntil(() -> {
+            helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(shipPosition)),
+                    "Waiting for the range host's chunk to tick entities");
+            helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(targetPosition)),
+                    "Waiting for the range target's chunk to tick entities");
+        }).thenExecute(verification).thenSucceed();
+    }
+
+    @GameTest(template = "arena", batch = "isolated_friendly_revenge_target_releases_invalid_targets")
     public static void friendlyRevengeTargetReleasesInvalidTargets(GameTestHelper helper) {
-        verifyInvalidTargetRelease(helper, createFriendlyShip(helper, new Vec3(1.5D, 2D, 1.5D)),
-                UUID.fromString("00000000-0000-0000-0000-000000000021"));
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            verifyInvalidTargetRelease(helper, entities,
+                    createFriendlyShip(helper, entities, new Vec3(1.5D, 2D, 1.5D)),
+                    UUID.fromString("00000000-0000-0000-0000-000000000021"));
+        }
     }
 
-    @GameTest(template = "arena")
+    @GameTest(template = "arena", batch = "isolated_hostile_revenge_target_releases_invalid_targets")
     public static void hostileRevengeTargetReleasesInvalidTargets(GameTestHelper helper) {
-        verifyInvalidTargetRelease(helper, createHostileShip(helper, new Vec3(1.5D, 2D, 1.5D)),
-                UUID.fromString("00000000-0000-0000-0000-000000000022"));
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            verifyInvalidTargetRelease(helper, entities,
+                    createHostileShip(helper, entities, new Vec3(1.5D, 2D, 1.5D)),
+                    UUID.fromString("00000000-0000-0000-0000-000000000022"));
+        }
     }
 
-    private static void verifyRevengeRetention(GameTestHelper helper, IShipAttackBase host) {
+    private static void verifyRevengeRetention(GameTestHelper helper, GameTestEntities entities,
+                                               IShipAttackBase host) {
         Mob ship = (Mob) host;
-        Zombie first = createZombie(helper, new Vec3(3.5D, 2D, 1.5D), false);
-        Zombie second = createZombie(helper, new Vec3(1.5D, 2D, 3.5D), false);
+        Zombie first = createZombie(helper, entities, new Vec3(3.5D, 2D, 1.5D), false);
+        Zombie second = createZombie(helper, entities, new Vec3(1.5D, 2D, 3.5D), false);
         GoalSelector selector = installOnlyTargetGoal(ship, new ShipRevengeTargetGoal(host));
 
         queueRevengeTarget(host, ship, first, 1);
@@ -104,6 +150,22 @@ public final class TargetGoalLifecycleGameTests {
     private static void verifySightLossRetention(GameTestHelper helper, Mob ship, Entity target) {
         IShipAttackBase host = (IShipAttackBase) ship;
         host.setStateFlag(ID.F.OnSightChase, true);
+        // A passing acquisition must not depend on which foreign fixture happens
+        // to win the nearest/random candidate selection in the shared world.
+        int range = ShipAiCompatibilityRules.targetSearchRange(
+                host.getAttrs().getAttackRange(), host.getStateMinor(ID.M.FollowMax));
+        var searchBox = ship.getBoundingBox().inflate(
+                range, ShipAiCompatibilityRules.targetSearchVerticalInflation(range), range);
+        Predicate<Entity> selectorPredicate = ship instanceof BasicEntityShipHostile
+                ? new TargetHelper.SelectorForHostile(ship) : new TargetHelper.Selector(ship);
+        var candidates = helper.getLevel().getEntitiesOfClass(
+                LivingEntity.class, searchBox, selectorPredicate::test);
+        helper.assertTrue(candidates.size() == 1 && candidates.get(0) == target,
+                "Range fixture contains foreign or missing candidates: "
+                        + candidates.stream().map(TargetGoalLifecycleGameTests::describe).toList());
+        com.mojang.logging.LogUtils.getLogger().info(
+                "TASK-105 range fixture: host={}, target={}, range={}, searchBox={}",
+                ship.position(), target.position(), range, searchBox);
         GoalSelector selector = installOnlyTargetGoal(ship, new ShipRangeTargetGoal(host));
 
         selector.tick();
@@ -120,26 +182,27 @@ public final class TargetGoalLifecycleGameTests {
         ship.getSensing().tick();
         selector.tick();
         assertTarget(helper, ship, target, "Range target was not retained after sight returned.");
-        target.discard();
-        helper.succeed();
     }
 
-    private static void verifyInvalidTargetRelease(GameTestHelper helper, IShipAttackBase host,
+    private static void verifyInvalidTargetRelease(GameTestHelper helper, GameTestEntities entities,
+                                                    IShipAttackBase host,
                                                     UUID playerUuid) {
         Mob ship = (Mob) host;
         host.getAttrs().getAttrsBuffed()[ID.Attrs.HIT] = 4F;
         GoalSelector selector = installOnlyTargetGoal(ship, new ShipRevengeTargetGoal(host));
-        Zombie dead = createZombie(helper, new Vec3(3.5D, 2D, 1.5D), false);
-        Zombie distant = createZombie(helper, new Vec3(1.5D, 2D, 3.5D), false);
+        Zombie dead;
+        Zombie distant = createZombie(helper, entities, new Vec3(1.5D, 2D, 3.5D), false);
         ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
                 new GameProfile(playerUuid, "shincolle_target_lifecycle"));
         moveTo(helper, player, new Vec3(3.5D, 2D, 3.5D));
         player.getAbilities().invulnerable = false;
 
-        queueRevengeTarget(host, ship, dead, 1);
-        selector.tick();
-        assertTarget(helper, ship, dead, "Revenge goal did not acquire the death-check target.");
-        dead.discard();
+        try (GameTestEntities deadEntities = GameTestEntities.open(helper)) {
+            dead = createZombie(helper, deadEntities, new Vec3(3.5D, 2D, 1.5D), false);
+            queueRevengeTarget(host, ship, dead, 1);
+            selector.tick();
+            assertTarget(helper, ship, dead, "Revenge goal did not acquire the death-check target.");
+        }
         selector.tick();
         assertStoppedAndUntargeted(helper, selector, ship, "Revenge goal retained a dead target.");
 
@@ -162,8 +225,9 @@ public final class TargetGoalLifecycleGameTests {
         helper.succeed();
     }
 
-    private static BasicEntityShip createFriendlyShip(GameTestHelper helper, Vec3 relativePos) {
-        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
+    private static BasicEntityShip createFriendlyShip(GameTestHelper helper, GameTestEntities entities,
+                                                      Vec3 relativePos) {
+        Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
         if (!(entity instanceof BasicEntityShip ship)) {
             throw new AssertionError("Failed to create a friendly ship for target lifecycle testing.");
         }
@@ -171,8 +235,9 @@ public final class TargetGoalLifecycleGameTests {
         return ship;
     }
 
-    private static BasicEntityShipHostile createHostileShip(GameTestHelper helper, Vec3 relativePos) {
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
+    private static BasicEntityShipHostile createHostileShip(GameTestHelper helper, GameTestEntities entities,
+                                                            Vec3 relativePos) {
+        Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
         if (!(entity instanceof BasicEntityShipHostile ship)) {
             throw new AssertionError("Failed to create a hostile ship for target lifecycle testing.");
         }
@@ -180,8 +245,9 @@ public final class TargetGoalLifecycleGameTests {
         return ship;
     }
 
-    private static Zombie createZombie(GameTestHelper helper, Vec3 relativePos, boolean addToLevel) {
-        Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+    private static Zombie createZombie(GameTestHelper helper, GameTestEntities entities,
+                                       Vec3 relativePos, boolean addToLevel) {
+        Zombie zombie = entities.add(EntityType.ZOMBIE.create(helper.getLevel()));
         if (zombie == null) {
             throw new AssertionError("Failed to create a zombie for target lifecycle testing.");
         }

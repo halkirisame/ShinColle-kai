@@ -46,7 +46,9 @@ public class BlockVolCore extends BasicBlockContainer {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> type) {
-        return level.isClientSide ? null
-                : createTickerHelper(type, ModBlockEntities.VOL_CORE.get(), TileEntityVolCore::serverTick);
+        if (level.isClientSide) {
+            return createTickerHelper(type, ModBlockEntities.VOL_CORE.get(), TileEntityVolCore::clientTick);
+        }
+        return createTickerHelper(type, ModBlockEntities.VOL_CORE.get(), TileEntityVolCore::serverTick);
     }
 }

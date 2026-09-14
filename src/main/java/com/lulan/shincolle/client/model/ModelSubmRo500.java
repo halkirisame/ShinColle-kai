@@ -360,10 +360,12 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         // [PORT] 1.10.2 -> 1.20.1: preserve legacy slight Y compression to match
         // grounding.
         poseStack.scale(scale, scale * 0.95F, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -401,7 +403,8 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
-        this.offsetY += 0.55F + 0.29F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.55F + 0.29F * ent.getScaleLevel(), 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -431,8 +434,8 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0F;
         this.LegRight02.xRot = 0F;
         // equip
-        // this.EquipBase1.offsetZ = 0F;
-        // this.EquipBase2.offsetY = 0F;
+        this.setLegacyPartOffsetZ(this.EquipBase1, 0F);
+        this.setLegacyPartOffsetY(this.EquipBase2, 0F);
         this.EquipBase2.xRot = 0.3142F;
     }
 
@@ -448,12 +451,13 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleAdd1 - 0.122F;
         addk2 = angleAdd2 - 0.122F;
 
@@ -498,8 +502,8 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0F;
         this.LegRight02.xRot = 0F;
         // equip
-        // this.EquipBase1.offsetZ = 0F;
-        // this.EquipBase2.offsetY = 0F;
+        this.setLegacyPartOffsetZ(this.EquipBase1, 0F);
+        this.setLegacyPartOffsetY(this.EquipBase2, 0F);
         this.EquipBase2.xRot = 0.3142F;
 
         if (ent.getIsSprinting() || f1 > 0.9F) { // 奔跑動作
@@ -531,7 +535,8 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.1F;
+            this.translateLegacyPose(0F, 0.1F, 0F);
+
             this.Head.xRot -= 0.8727F;
             this.BodyMain.xRot = 1.0472F;
             // hair
@@ -543,10 +548,14 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
 
         if (ent.getIsSitting() || ent.getIsRiding()) { // 騎乘動作
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
-                ((IShipFloating) ent).getShipDepth();
+                if (((IShipFloating) ent).getShipDepth() > 0) {
+                    this.translateLegacyPose(0F, -0.21F, 0F);
+                } else {
+                    this.translateLegacyPose(0F, 0.43F, 0F);
+                }
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY -= 0.21F;
+
                 this.Head.xRot += 0.35F;
                 this.BodyMain.xRot = -0.7F;
                 // arm
@@ -562,14 +571,18 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = angleX2 * 0.4F + 0.8F;
                 this.LegRight02.xRot = -angleX2 * 0.4F + 0.8F;
                 // equip
-                // this.EquipBase1.offsetZ = -0.9F;
+                this.setLegacyPartOffsetZ(this.EquipBase1, -0.9F);
                 this.EquipBase2.visible = true;
                 this.EquipBase2.xRot = 0.7F;
             } else {
-                ((IShipFloating) ent).getShipDepth();
+                if (((IShipFloating) ent).getShipDepth() > 0) {
+                    this.translateLegacyPose(0F, -0.22F, 0F);
+                } else {
+                    this.translateLegacyPose(0F, 0.41F, 0F);
+                }
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY -= 0.22F;
+
                 this.Head.xRot += 0.2F;
                 this.BodyMain.xRot = -0.7F;
                 // arm
@@ -583,8 +596,8 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
                 this.LegLeft01.yRot = -0.3491F;
                 this.LegRight01.yRot = 0.3491F;
                 // equip
-                // this.EquipBase1.offsetZ = -0.15F;
-                // this.EquipBase2.offsetY = -0.15F;
+                this.setLegacyPartOffsetZ(this.EquipBase1, -0.15F);
+                this.setLegacyPartOffsetY(this.EquipBase2, -0.15F);
             }
         } // end if sitting
 

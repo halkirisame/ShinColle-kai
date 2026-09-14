@@ -306,8 +306,10 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -343,7 +345,8 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.62F;
+        this.translateLegacyPose(0F, 0.62F, 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -397,12 +400,13 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleRun - 0.35F;
         addk2 = angleRun2 - 0.087F;
 
@@ -480,7 +484,8 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // leg move parm
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             addk1 -= 0.52F;
             addk2 -= 1F;
             // Body
@@ -501,7 +506,8 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // leg move parm
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.65F;
+                this.translateLegacyPose(0F, 0.65F, 0F);
+
                 addk1 = -0.087F;
                 addk2 = 0.174F;
                 // hair
@@ -526,7 +532,8 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
             } else {
                 // leg move parm
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.51F;
+                this.translateLegacyPose(0F, 0.51F, 0F);
+
                 addk1 = -1.0472F;
                 addk2 = -1.3F;
                 // hair

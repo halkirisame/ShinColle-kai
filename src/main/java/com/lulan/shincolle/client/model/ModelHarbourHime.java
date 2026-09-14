@@ -362,8 +362,10 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -392,7 +394,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.74F;
+        this.translateLegacyPose(0F, 0.74F, 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -408,8 +411,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 1.0472F;
-        // this.Butt.offsetZ = -0.05F;
-        // this.Skirt.offsetY = -0.1F;
+        this.setLegacyPartOffsetZ(this.Butt, -0.05F);
+        this.setLegacyPartOffsetY(this.Skirt, -0.1F);
         // hair
         this.Hair01.xRot = 0.35F;
         this.Hair01.zRot = 0F;
@@ -441,8 +444,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
         this.ArmRight06.zRot = -0.26F;
         this.ArmRight07.xRot = -0.2618F;
         // leg
-        // this.LegLeft02.offsetZ = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         this.LegLeft01.xRot = -1.7F;
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.05F;
@@ -477,12 +480,13 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D || ent.getShipDepth(1) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleAdd1 * 0.6F - 0.21F;
         addk2 = angleAdd2 * 0.6F - 0.21F;
 
@@ -501,8 +505,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.3142F;
-        // this.Butt.offsetZ = 0F;
-        // this.Skirt.offsetY = 0F;
+        this.setLegacyPartOffsetZ(this.Butt, 0F);
+        this.setLegacyPartOffsetY(this.Skirt, 0F);
         // hair
         this.Hair01.xRot = angleX * 0.03F + 0.21F + headX;
         this.Hair01.zRot = 0F;
@@ -530,8 +534,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
         this.ArmRight06.zRot = -angleX * 0.1F - 0.26F;
         this.ArmRight07.xRot = -0.2618F;
         // leg
-        // this.LegLeft02.offsetZ = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.05F;
         this.LegLeft02.xRot = 0F;
@@ -573,7 +577,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.1F;
+            this.translateLegacyPose(0F, 0.1F, 0F);
+
             this.Head.xRot -= 0.6283F;
             this.BodyMain.xRot = 0.8727F;
             // arm
@@ -601,7 +606,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                 setFace(2);
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.57F;
+                this.translateLegacyPose(0F, 0.57F, 0F);
+
                 this.Head.xRot = this.Head.xRot * 0.5F + 0.55F;
                 this.Head.yRot = this.Head.yRot * 0.5F - 0.2F;
                 this.BodyMain.xRot = -0.61F;
@@ -640,11 +646,12 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
             } else {
                 // head
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.4F;
+                this.translateLegacyPose(0F, 0.4F, 0F);
+
                 this.Head.xRot -= 0.25F;
                 // arm
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.5F;
+
                 this.ArmLeft01.xRot = -0.44F;
                 this.ArmLeft01.yRot = 0.44F;
                 this.ArmLeft01.zRot = 0F;
@@ -658,8 +665,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                 // leg
                 addk1 = -1.2217F;
                 addk2 = -1.2217F;
-                // this.LegLeft02.offsetZ = 0.37F;
-                // this.LegRight02.offsetZ = 0.37F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.37F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.37F);
                 this.LegLeft01.yRot = 0.14F;
                 this.LegRight01.yRot = -0.14F;
                 this.LegLeft02.xRot = 2.53F;
@@ -673,6 +680,7 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                     if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                         setFace(2);
                         // body
+                        this.translateLegacyPose(0F, 0.57F, 0F);
                         this.Head.xRot = this.Head.xRot * 0.5F + 0.55F;
                         this.Head.yRot = this.Head.yRot * 0.5F - 0.2F;
                         this.BodyMain.xRot = -0.61F;
@@ -711,7 +719,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                     } else {
                         // body
                         // [PORT] Restored from 1.10.2 GlStateManager.translate
-                        this.offsetY += 0.41F;
+                        this.translateLegacyPose(0F, 0.41F, 0F);
+
                         this.Head.xRot -= 0.35F;
                         // hair
                         this.Hair01.xRot += 0.35F;
@@ -728,8 +737,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                         // leg
                         addk1 = -1.2217F;
                         addk2 = -1.2217F;
-                        // this.LegLeft02.offsetZ = 0.37F;
-                        // this.LegRight02.offsetZ = 0.37F;
+                        this.setLegacyPartOffsetZ(this.LegLeft02, 0.37F);
+                        this.setLegacyPartOffsetZ(this.LegRight02, 0.37F);
                         this.LegLeft01.yRot = 0.14F;
                         this.LegRight01.yRot = -0.14F;
                         this.LegLeft02.xRot = 2.53F;
@@ -762,6 +771,7 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                     setFace(2);
                     // body
+                    this.translateLegacyPose(0F, 0.37F, 0F);
                     this.Head.xRot = this.Head.xRot * 0.5F + 0.55F;
                     this.Head.yRot = this.Head.yRot * 0.5F - 0.2F;
                     this.BodyMain.xRot = -0.61F;
@@ -799,6 +809,7 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                     this.Hair03.zRot = -0.35F;
                 } else {
                     // arm
+                    this.translateLegacyPose(0F, 0.5F, 0F);
                     this.ArmLeft01.xRot = -0.44F;
                     this.ArmLeft01.yRot = 0.44F;
                     this.ArmLeft01.zRot = 0F;
@@ -812,8 +823,8 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
                     // leg
                     addk1 = -1.2217F;
                     addk2 = -1.2217F;
-                    // this.LegLeft02.offsetZ = 0.37F;
-                    // this.LegRight02.offsetZ = 0.37F;
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.37F);
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.37F);
                     this.LegLeft01.yRot = 0.14F;
                     this.LegRight01.yRot = -0.14F;
                     this.LegLeft02.xRot = 2.53F;

@@ -333,10 +333,12 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         // [PORT] 1.10.2 -> 1.20.1: preserve legacy slight Y compression to match
         // grounding.
         poseStack.scale(scale, scale * 0.95F, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -373,7 +375,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
-        this.offsetY += 0.41F + 0.19F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.41F + 0.19F * ent.getScaleLevel(), 0F);
+
         this.setFaceHungry(ent);
 
         // leg
@@ -400,8 +403,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
         this.ArmRight01.yRot = -0.35F;
         this.ArmRight01.zRot = 0.12F;
         this.ArmRight03.zRot = -1.57F;
-        // this.ArmRight03.offsetX = -0.153F;
-        // this.ArmRight03.offsetY = 0.1F;
+        this.setLegacyPartOffsetX(this.ArmRight03, -0.153F);
+        this.setLegacyPartOffsetY(this.ArmRight03, 0.1F);
         // hair
         this.Hair01.xRot = 0.05F;
         this.Ear1.zRot = -0.2618F;
@@ -421,12 +424,13 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleAdd1 - 0.2118F;
         addk2 = angleAdd2 - 0.1118F;
 
@@ -459,8 +463,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = angleX * 0.06F + 0.16F;
         this.ArmRight03.zRot = 0F;
-        // this.ArmRight03.offsetX = 0F;
-        // this.ArmRight03.offsetY = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight03, 0F);
+        this.setLegacyPartOffsetY(this.ArmRight03, 0F);
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.035F;
@@ -483,7 +487,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.1F;
+            this.translateLegacyPose(0F, 0.1F, 0F);
+
             this.Head.xRot -= 0.8727F;
             this.BodyMain.xRot = 1.0472F;
             // hair
@@ -501,7 +506,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.41F;
+                this.translateLegacyPose(0F, 0.41F, 0F);
+
                 this.Head.xRot += 0.2618F;
                 this.BodyMain.xRot = 0.35F;
                 // hair
@@ -514,8 +520,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
                 this.ArmRight01.xRot = -0.96F;
                 this.ArmRight01.yRot = -0.35F;
                 this.ArmRight03.zRot = -1.57F;
-                // this.ArmRight03.offsetX = -0.153F;
-                // this.ArmRight03.offsetY = 0.1F;
+                this.setLegacyPartOffsetX(this.ArmRight03, -0.153F);
+                this.setLegacyPartOffsetY(this.ArmRight03, 0.1F);
                 // hair
                 this.Hair01.xRot -= 0.25F;
                 // leg
@@ -528,7 +534,8 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
             } else {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.4F;
+                this.translateLegacyPose(0F, 0.4F, 0F);
+
                 this.Head.xRot -= 0.7F;
                 this.BodyMain.xRot = 0.5236F;
                 // hair

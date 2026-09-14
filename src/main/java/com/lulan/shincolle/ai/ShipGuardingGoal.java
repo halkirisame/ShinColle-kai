@@ -1,23 +1,30 @@
 package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
+import com.lulan.shincolle.ai.domain.AiRandomStream;
+import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipAircraftAttack;
 import com.lulan.shincolle.entity.IShipCannonAttack;
 import com.lulan.shincolle.entity.IShipGuardian;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.FormationHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.TargetHelper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.List;
 
 /**
@@ -62,6 +69,8 @@ public class ShipGuardingGoal extends Goal {
     private int nextAttrTick;
     private int nextFindTargetTick;
     private int nextGuardPosTick;
+    private double diagPrevX;
+    private double diagPrevZ;
 
     public ShipGuardingGoal(IShipGuardian host) {
         this.host = host;
@@ -95,36 +104,32 @@ public class ShipGuardingGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (host == null)
-            return false;
-
-        // not sitting, not riding, not in follow mode, not being craned, has grudge
-        if (host.getIsRiding() || host.getIsSitting() ||
-                host.getStateFlag(ID.F.CanFollow) ||
-                host.getStateMinor(ID.M.CraneState) >= 1 ||
-                host.getStateMinor(ID.M.NumGrudge) <= 0) {
+        if (isGuardBlocked()) {
             return false;
         }
 
         // check if guard target exists
-        return checkGuardTarget();
+        if (releaseCompletedMove()) {
+            return false;
+        }
+        return !host.getIsRiding() && checkGuardTarget();
     }
 
     @Override
     public boolean canContinueToUse() {
-        if (host == null)
-            return false;
-
-        // not sitting, not riding, not in follow mode, not being craned, has grudge
-        if (host.getIsRiding() || host.getIsSitting() ||
-                host.getStateFlag(ID.F.CanFollow) ||
-                host.getStateMinor(ID.M.CraneState) >= 1 ||
-                host.getStateMinor(ID.M.NumGrudge) <= 0) {
+        if (isGuardBlocked()) {
             this.stop();
             return false;
         }
 
         // still outside min range, keep going
+        if (releaseCompletedMove()) {
+            return false;
+        }
+        if (host.getIsRiding()) {
+            this.stop();
+            return false;
+        }
         if (this.distSq > this.minDistSq) {
             return true;
         }
@@ -156,6 +161,17 @@ public class ShipGuardingGoal extends Goal {
 
     @Override
     public void tick() {
+        if (isGuardBlocked()) {
+            this.stop();
+            return;
+        }
+        if (releaseCompletedMove()) {
+            return;
+        }
+        if (host.getIsRiding()) {
+            this.stop();
+            return;
+        }
         // ===== Attack while moving =====
         // Active when: is ship entity, not passive AI, guard type > 0
         if (isMoving && ship != null &&
@@ -227,7 +243,7 @@ public class ShipGuardingGoal extends Goal {
         }
 
         // reached min distance, stop moving
-        if (this.distSq <= this.minDistSq) {
+        if (!isTemporaryBlockMove() && this.distSq <= this.minDistSq) {
             this.isMoving = false;
             if (this.shipNavigator != null) {
                 this.shipNavigator.stop();
@@ -240,6 +256,14 @@ public class ShipGuardingGoal extends Goal {
             if (this.shipNavigator != null) {
                 this.isMoving = this.shipNavigator.moveTo(pos[0], pos[1], pos[2], 1D);
             }
+        }
+
+        // TASK-093: one line per tick while a guard move is active, so the reason a
+        // ship never reaches its move order can be read off a real session instead of
+        // inferred. Guarded by debugMode; see
+        // docs/specs/ship_move_order_circling_investigation_2026-09-08.md.
+        if (LogHelper.diagEnabled()) {
+            logMoveProgress();
         }
 
         // look toward guard position
@@ -269,6 +293,96 @@ public class ShipGuardingGoal extends Goal {
             LogHelper.debug("DEBUG: guard AI: stuck time exceeded, teleport to target.");
             applyTeleportToGuardPos();
         }
+    }
+
+    /**
+     * TASK-093 movement diagnostic. Reports whether the path advances, how far the
+     * ship is from the node it is steering at, and how far it actually moved.
+     */
+    private void logMoveProgress() {
+        double step = Math.hypot(this.hostEntity.getX() - this.diagPrevX,
+                this.hostEntity.getZ() - this.diagPrevZ);
+        this.diagPrevX = this.hostEntity.getX();
+        this.diagPrevZ = this.hostEntity.getZ();
+
+        String node = "none";
+        Path path = this.shipNavigator == null ? null : this.shipNavigator.getPath();
+        if (path != null) {
+            // getNextNodePos() indexes the node list directly, so it throws once the path
+            // is done and the index has run past the last node. Report the counts either way.
+            boolean done = path.isDone();
+            node = path.getNextNodeIndex() + "/" + path.getNodeCount() + " done=" + done;
+            if (!done) {
+                Vec3i next = path.getNextNodePos();
+                node += "@" + next.getX() + "," + next.getY() + "," + next.getZ()
+                        + " dx=" + fmt(Math.abs(this.hostEntity.getX() - (next.getX() + 0.5D)))
+                        + " dy=" + fmt(Math.abs(this.hostEntity.getY() - next.getY()))
+                        + " dz=" + fmt(Math.abs(this.hostEntity.getZ() - (next.getZ() + 0.5D)));
+            }
+        }
+
+        LogHelper.diag("DIAG: guard move ship=" + this.hostEntity
+                + " pos=" + fmt(this.hostEntity.getX()) + "," + fmt(this.hostEntity.getY())
+                + "," + fmt(this.hostEntity.getZ())
+                + " goal=" + fmt(pos[0]) + "," + fmt(pos[1]) + "," + fmt(pos[2])
+                + " distSq=" + fmt(this.distSq) + " maxDistSq=" + fmt(this.maxDistSq)
+                + " step=" + fmt(step)
+                + " yaw=" + fmt(this.hostEntity.getYRot())
+                + " speed=" + fmt(this.hostEntity.getSpeed())
+                + " dm=" + fmt(this.hostEntity.getDeltaMovement().x)
+                + "," + fmt(this.hostEntity.getDeltaMovement().z)
+                + " node=[" + node + "]"
+                + " liquid=" + EntityHelper.checkEntityIsInLiquid(this.hostEntity)
+                + " ground=" + this.hostEntity.onGround()
+                + " moving=" + this.isMoving + " find=" + this.findCooldown
+                + " tpT=" + this.checkTP_T + " tpD=" + this.checkTP_D);
+    }
+
+    private static String fmt(double value) {
+        return String.format(Locale.ROOT, "%.3f", value);
+    }
+
+    private boolean isTemporaryBlockMove() {
+        return this.host instanceof BasicEntityShip basicShip && basicShip.shouldReleaseGuardOnArrival();
+    }
+
+    /** Riding blocks the ship's own movement, but not completion of its vehicle's move. */
+    private boolean isGuardBlocked() {
+        return this.host == null || this.host.getIsSitting()
+                || this.host.getStateFlag(ID.F.CanFollow)
+                || this.host.getStateMinor(ID.M.CraneState) >= 1
+                || this.host.getStateMinor(ID.M.NumGrudge) <= 0;
+    }
+
+    /** Complete only the current reachable path, never a missing or abandoned path. */
+    private boolean releaseCompletedMove() {
+        if (!isTemporaryBlockMove() || !this.host.isGuardedInCurrentDimension()
+                || this.shipNavigator == null) {
+            return false;
+        }
+        // FormationHelper sends mounted move orders to this vehicle, not to the ship.
+        PathNavigation moveNavigator = this.shipNavigator;
+        if (this.host.getIsRiding()) {
+            if (!(this.hostEntity.getVehicle() instanceof BasicEntityMount mount)) {
+                return false;
+            }
+            moveNavigator = mount.getNavigation();
+        }
+        Path path = moveNavigator.getPath();
+        BlockPos destination = new BlockPos(this.host.getGuardedPos(0), this.host.getGuardedPos(1),
+                this.host.getGuardedPos(2));
+        if (path == null || !path.isDone() || !path.canReach() || !path.getTarget().equals(destination)) {
+            return false;
+        }
+        this.host.setGuardedPos(-1, -1, -1, 0, 0);
+        this.host.setGuardedEntity(null);
+        this.host.setStateFlag(ID.F.CanFollow, true);
+        moveNavigator.stop();
+        this.stop();
+        BasicEntityShip basicShip = (BasicEntityShip) this.host;
+        basicShip.sendSyncPacketFlags();
+        basicShip.sendSyncPacketGuard();
+        return true;
     }
 
     /**
@@ -335,7 +449,9 @@ public class ShipGuardingGoal extends Goal {
 
         // pick target: random from top 3 if available, else nearest
         if (list.size() > 2) {
-            this.attackTarget = list.get(this.hostEntity.level().random.nextInt(3));
+            int index = AiRandomSource.forEntity(this.hostEntity, AiRandomStream.TARGET_SELECTION)
+                    .nextBoundedInt(3);
+            this.attackTarget = list.get(index);
         } else if (!list.isEmpty()) {
             this.attackTarget = list.get(0);
         }
@@ -488,6 +604,6 @@ public class ShipGuardingGoal extends Goal {
         this.distSq = dx * dx + dy * dy + dz * dz;
 
         // needs to move if outside max range
-        return this.distSq > this.maxDistSq;
+        return isTemporaryBlockMove() || this.distSq > this.maxDistSq;
     }
 }

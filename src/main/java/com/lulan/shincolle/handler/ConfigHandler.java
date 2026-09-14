@@ -314,6 +314,10 @@ public class ConfigHandler {
         return COMMON.useWakamoto.get();
     }
 
+    public static boolean giveGuideBookOnFirstJoin() {
+        return COMMON.giveGuideBookOnFirstJoin.get();
+    }
+
     public static boolean canTimekeeping() {
         return COMMON.canTimekeeping.get();
     }
@@ -479,6 +483,7 @@ public class ConfigHandler {
         public final BooleanValue mobShipsAttackPlayer;
         public final BooleanValue depthHadalVortex;
         public final BooleanValue useWakamoto;
+        public final BooleanValue giveGuideBookOnFirstJoin;
 
         public final IntValue bossCooldown;
         public final IntValue closeGuiDistance;
@@ -602,6 +607,11 @@ public class ConfigHandler {
             useWakamoto = builder
                     .comment("Enable Wakamoto sound for mounts")
                     .define("useWakamoto", true);
+
+            giveGuideBookOnFirstJoin = builder
+                    .comment("Give each player one ShinColle-kai guide book on their first login. "
+                            + "Players who already received it are not given another.")
+                    .define("giveGuideBookOnFirstJoin", true);
 
             bossCooldown = builder
                     .comment("Boss spawn cooldown in ticks (4800 = 4 minutes)")

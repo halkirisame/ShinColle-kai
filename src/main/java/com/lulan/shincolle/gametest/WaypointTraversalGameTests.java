@@ -28,14 +28,13 @@ public final class WaypointTraversalGameTests {
         ServerLevel level = helper.getLevel();
         BlockPos first = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos second = helper.absolutePos(new BlockPos(7, 2, 2));
-        BasicEntityShip ship = null;
 
-        try {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             TileEntityWaypoint firstWaypoint = placeWaypoint(level, first);
             placeWaypoint(level, second);
             firstWaypoint.setNextWaypoint(second);
 
-            ship = createArrivedShip(level, first);
+            BasicEntityShip ship = createArrivedShip(level, entities, first);
             helper.assertTrue(EntityHelper.updateWaypointMove(ship),
                     "An arrived linked waypoint must advance the ship guard target");
             assertGuardTarget(helper, ship, second, "Linked waypoint did not become the next guard target");
@@ -48,12 +47,8 @@ public final class WaypointTraversalGameTests {
             assertGuardTarget(helper, ship, second, "An unlinked waypoint changed the guard target");
             helper.assertTrue(ship.getWpStayTime() == 0 && second.equals(ship.getLastWaypoint()),
                     "An unlinked waypoint retained stay progress or route history from the prior point");
-        } finally {
-            if (ship != null) {
-                ship.discard();
-            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "arena")
@@ -62,27 +57,22 @@ public final class WaypointTraversalGameTests {
         BlockPos current = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos previous = helper.absolutePos(new BlockPos(7, 2, 2));
         BlockPos reverse = helper.absolutePos(new BlockPos(2, 2, 7));
-        BasicEntityShip ship = null;
 
-        try {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             TileEntityWaypoint currentWaypoint = placeWaypoint(level, current);
             placeWaypoint(level, previous);
             placeWaypoint(level, reverse);
             currentWaypoint.setNextWaypoint(previous);
             currentWaypoint.setLastWaypoint(reverse);
 
-            ship = createArrivedShip(level, current);
+            BasicEntityShip ship = createArrivedShip(level, entities, current);
             ship.setLastWaypoint(previous);
             helper.assertTrue(EntityHelper.updateWaypointMove(ship),
                     "A reverse-link waypoint must choose its explicit last link");
             assertGuardTarget(helper, ship, reverse,
                     "Traversal reused the previous waypoint instead of following the last link");
-        } finally {
-            if (ship != null) {
-                ship.discard();
-            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "arena")
@@ -127,14 +117,13 @@ public final class WaypointTraversalGameTests {
         ServerLevel level = helper.getLevel();
         BlockPos first = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos second = helper.absolutePos(new BlockPos(7, 2, 2));
-        BasicEntityShip ship = null;
 
-        try {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             TileEntityWaypoint firstWaypoint = placeWaypoint(level, first);
             placeWaypoint(level, second);
             firstWaypoint.setNextWaypoint(second);
             firstWaypoint.setWpStayTime(1); // 100 ticks
-            ship = createArrivedShip(level, first);
+            BasicEntityShip ship = createArrivedShip(level, entities, first);
             ship.setStateMinor(ID.M.WpStay, 6); // 1200 ticks: longer setting wins
 
             for (int i = 0; i < 75; i++) {
@@ -146,12 +135,8 @@ public final class WaypointTraversalGameTests {
             helper.assertTrue(EntityHelper.updateWaypointMove(ship),
                     "Traversal did not advance after the longer stay setting elapsed");
             assertGuardTarget(helper, ship, second, "Traversal did not use the linked destination after waiting");
-        } finally {
-            if (ship != null) {
-                ship.discard();
-            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     private static TileEntityWaypoint placeWaypoint(ServerLevel level, BlockPos pos) {
@@ -163,8 +148,9 @@ public final class WaypointTraversalGameTests {
         return waypoint;
     }
 
-    private static BasicEntityShip createArrivedShip(ServerLevel level, BlockPos destination) {
-        BasicEntityShip ship = ModEntities.BB_KONGOU.get().create(level);
+    private static BasicEntityShip createArrivedShip(ServerLevel level, GameTestEntities entities,
+                                                     BlockPos destination) {
+        BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(level));
         if (ship == null) {
             throw new AssertionError("Failed to create ship for waypoint traversal test.");
         }

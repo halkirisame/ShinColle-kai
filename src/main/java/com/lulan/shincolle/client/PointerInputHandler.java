@@ -9,6 +9,8 @@ import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.ParticleHelper;
+import com.lulan.shincolle.utility.PointerInputModifiers;
+import com.lulan.shincolle.utility.PointerInputModifiers.Action;
 import com.lulan.shincolle.utility.TeamHelper;
 
 import net.minecraft.client.Minecraft;
@@ -18,6 +20,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGuiEvent;
@@ -36,8 +39,8 @@ import java.util.Set;
  * - Player list key (TAB by default) on main-hand pointer: toggle caress mode (0-2 <-> 3-5)
  * <p>
  * Adds the mode switch itself:
- * - Shift + mouse wheel: step through single / group / formation in both directions
- * - Shift held: draw the three modes at the top left with the current one marked
+ * - Mode modifier + mouse wheel: step through single / group / formation in both directions
+ * - Mode modifier held (default: sneak): draw the three modes with the current one marked
  * <p>
  * Also draws where your ships have been told to go. The destination already lives on the
  * ship ({@code ID.M.GuardX/Y/Z}) and is already synced ({@code S2CEntitySyncPacket.syncGuard}),
@@ -63,7 +66,7 @@ public class PointerInputHandler {
     }
 
     /**
-     * Shift + wheel steps the pointer mode instead of the hotbar.
+     * Configured mode modifier + wheel steps the pointer mode instead of the hotbar.
      * <p>
      * Scrolling up moves to the previous mode, matching the vanilla hotbar where scrolling
      * up lowers the selected index. The event is cancelled so the hotbar does not move at
@@ -101,7 +104,7 @@ public class PointerInputHandler {
         event.setCanceled(true);
     }
 
-    /** Draw the mode carousel while shift is held with a pointer in hand. */
+    /** Draw the mode carousel while the mode modifier is active with a pointer in hand. */
     @SubscribeEvent
     public static void onRenderGui(RenderGuiEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
@@ -164,7 +167,8 @@ public class PointerInputHandler {
         if (player == null || mc.level == null || mc.screen != null) {
             return ItemStack.EMPTY;
         }
-        if (!player.isShiftKeyDown() || mc.options.keySprint.isDown() || player.isSprinting()) {
+        if (!PointerInputModifiers.isDown(Action.CYCLE_MODE, player)
+                || mc.options.keySprint.isDown() || player.isSprinting()) {
             return ItemStack.EMPTY;
         }
         return getPointerInUse(player);
@@ -257,10 +261,19 @@ public class PointerInputHandler {
 
             BlockPos destination = new BlockPos((int) Math.floor(destX), destY, (int) Math.floor(destZ));
             if (markedDestinations.add(destination)) {
-                ParticleHelper.spawnWaypointMarkerAt(mc.level, destX, destY + 0.5D, destZ);
+                Vec3 markerOrigin = waypointMarkerOrigin(destination);
+                ParticleHelper.spawnWaypointMarkerAt(mc.level, markerOrigin.x, markerOrigin.y, markerOrigin.z);
             }
             ParticleHelper.spawnGuardLineTo(ship, destX, destY + 0.2D, destZ);
         }
+    }
+
+    /**
+     * Returns the block-surface origin expected by {@code ParticleTeam} markers.
+     * The particle renderer supplies its own small vertical clearance.
+     */
+    static Vec3 waypointMarkerOrigin(BlockPos destination) {
+        return Vec3.atBottomCenterOf(destination);
     }
 
     private static void handleSprintTeamSwitch(LocalPlayer player, Minecraft mc) {

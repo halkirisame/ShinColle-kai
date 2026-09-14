@@ -135,6 +135,7 @@ public class EntityBattleshipYamato extends BasicEntityShipSmall {
             EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), this.level());
             beam.initBeam(this, beamVector.x, beamVector.y, beamVector.z, atk);
             this.level().addFreshEntity(beam);
+            triggerAttackAnimation();
 
             this.setStateEmotion(ID.S.Phase, 0, true);
             applyEmotesReaction(3);

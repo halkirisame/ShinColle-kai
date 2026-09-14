@@ -28,6 +28,7 @@ import java.util.Set;
 
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
+@SuppressWarnings("try")
 public final class ChestLootInjectionGameTests {
 
     private static final List<ResourceLocation> TARGET_TABLES = List.of(
@@ -50,93 +51,100 @@ public final class ChestLootInjectionGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void configuredTreasureTablesReceiveShinColleLoot(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        LootParams params = chestParams(level);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ServerLevel level = helper.getLevel();
+            LootParams params = chestParams(level);
 
-        for (ResourceLocation tableId : TARGET_TABLES) {
-            LootTable table = level.getServer().getLootData().getLootTable(tableId);
-            boolean found = false;
-            for (long seed = 0; seed < 256 && !found; seed++) {
-                found = table.getRandomItems(params, seed).stream()
-                        .anyMatch(ChestLootInjectionGameTests::isShinColleItem);
+            for (ResourceLocation tableId : TARGET_TABLES) {
+                LootTable table = level.getServer().getLootData().getLootTable(tableId);
+                boolean found = false;
+                for (long seed = 0; seed < 256 && !found; seed++) {
+                    found = table.getRandomItems(params, seed).stream()
+                            .anyMatch(ChestLootInjectionGameTests::isShinColleItem);
+                }
+                if (!found) {
+                    throw new AssertionError("No ShinColle loot was injected into " + tableId);
+                }
             }
-            if (!found) {
-                throw new AssertionError("No ShinColle loot was injected into " + tableId);
-            }
+
+            helper.succeed();
         }
-
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void unrelatedTreasureTableDoesNotReceiveShinColleLoot(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        LootTable table = level.getServer().getLootData().getLootTable(BuiltInLootTables.SHIPWRECK_MAP);
-        LootParams params = chestParams(level);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ServerLevel level = helper.getLevel();
+            LootTable table = level.getServer().getLootData().getLootTable(BuiltInLootTables.SHIPWRECK_MAP);
+            LootParams params = chestParams(level);
 
-        for (long seed = 0; seed < 256; seed++) {
-            if (table.getRandomItems(params, seed).stream()
-                    .anyMatch(ChestLootInjectionGameTests::isShinColleItem)) {
-                throw new AssertionError("ShinColle chest loot leaked into " + BuiltInLootTables.SHIPWRECK_MAP);
+            for (long seed = 0; seed < 256; seed++) {
+                if (table.getRandomItems(params, seed).stream()
+                        .anyMatch(ChestLootInjectionGameTests::isShinColleItem)) {
+                    throw new AssertionError("ShinColle chest loot leaked into " + BuiltInLootTables.SHIPWRECK_MAP);
+                }
             }
-        }
 
-        helper.succeed();
+            helper.succeed();
+        }
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void injectedEggsAndEquipmentHaveUsableVariants(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
-        LootParams params = chestParams(level);
-        LootTable dungeon = level.getServer().getLootData().getLootTable(BuiltInLootTables.SIMPLE_DUNGEON);
-        LootTable spawnBonus = level.getServer().getLootData().getLootTable(BuiltInLootTables.SPAWN_BONUS_CHEST);
-        LootTable mineshaft = level.getServer().getLootData().getLootTable(BuiltInLootTables.ABANDONED_MINESHAFT);
-        Set<String> eggVariants = new HashSet<>();
-        Map<ResourceLocation, Set<Integer>> equipmentVariants = new HashMap<>();
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ServerLevel level = helper.getLevel();
+            LootParams params = chestParams(level);
+            LootTable dungeon = level.getServer().getLootData().getLootTable(BuiltInLootTables.SIMPLE_DUNGEON);
+            LootTable spawnBonus = level.getServer().getLootData().getLootTable(BuiltInLootTables.SPAWN_BONUS_CHEST);
+            LootTable mineshaft = level.getServer().getLootData()
+                    .getLootTable(BuiltInLootTables.ABANDONED_MINESHAFT);
+            Set<String> eggVariants = new HashSet<>();
+            Map<ResourceLocation, Set<Integer>> equipmentVariants = new HashMap<>();
 
-        for (long seed = 0; seed < 1024; seed++) {
-            for (ItemStack stack : dungeon.getRandomItems(params, seed)) {
-                if (stack.getItem() instanceof ShipSpawnEgg) {
-                    eggVariants.add(eggVariant(stack));
-                }
-            }
-            for (ItemStack stack : spawnBonus.getRandomItems(params, seed)) {
-                if (stack.getItem() instanceof ShipSpawnEgg) {
-                    eggVariants.add(eggVariant(stack));
-                }
-            }
-
-            for (ItemStack stack : mineshaft.getRandomItems(params, seed)) {
-                if (stack.getItem() instanceof BasicEquip) {
-                    ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
-                    if (!stack.hasTag() || !stack.getTag().contains(BasicEquip.TAG_EQUIP_META)) {
-                        throw new AssertionError("Injected equipment has no EquipMeta: " + itemId);
+            for (long seed = 0; seed < 1024; seed++) {
+                for (ItemStack stack : dungeon.getRandomItems(params, seed)) {
+                    if (stack.getItem() instanceof ShipSpawnEgg) {
+                        eggVariants.add(eggVariant(stack));
                     }
-                    if (EquipDataRegistry.server().byItemVariant(itemId, BasicEquip.getEquipMeta(stack)) == null) {
-                        throw new AssertionError("Injected equipment variant is not registered: " + itemId
-                                + "#" + BasicEquip.getEquipMeta(stack));
+                }
+                for (ItemStack stack : spawnBonus.getRandomItems(params, seed)) {
+                    if (stack.getItem() instanceof ShipSpawnEgg) {
+                        eggVariants.add(eggVariant(stack));
                     }
-                    equipmentVariants.computeIfAbsent(itemId, ignored -> new HashSet<>())
-                            .add(BasicEquip.getEquipMeta(stack));
+                }
+
+                for (ItemStack stack : mineshaft.getRandomItems(params, seed)) {
+                    if (stack.getItem() instanceof BasicEquip) {
+                        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
+                        if (!stack.hasTag() || !stack.getTag().contains(BasicEquip.TAG_EQUIP_META)) {
+                            throw new AssertionError("Injected equipment has no EquipMeta: " + itemId);
+                        }
+                        if (EquipDataRegistry.server().byItemVariant(itemId, BasicEquip.getEquipMeta(stack)) == null) {
+                            throw new AssertionError("Injected equipment variant is not registered: " + itemId
+                                    + "#" + BasicEquip.getEquipMeta(stack));
+                        }
+                        equipmentVariants.computeIfAbsent(itemId, ignored -> new HashSet<>())
+                                .add(BasicEquip.getEquipMeta(stack));
+                    }
                 }
             }
-        }
 
-        Set<String> expectedEggVariants = Set.of("build:0", "build:1", "ship:0", "ship:15", "ship:46");
-        if (!eggVariants.equals(expectedEggVariants)) {
-            throw new AssertionError("Unexpected injected spawn egg variants: expected "
-                    + expectedEggVariants + " but saw " + eggVariants);
-        }
-        for (ResourceLocation itemId : List.of(
-                ForgeRegistries.ITEMS.getKey(ModItems.EQUIP_CANNON.get()),
-                ForgeRegistries.ITEMS.getKey(ModItems.EQUIP_AIRPLANE.get()),
-                ForgeRegistries.ITEMS.getKey(ModItems.EQUIP_TORPEDO.get()))) {
-            Set<Integer> variants = equipmentVariants.getOrDefault(itemId, Set.of());
-            if (variants.size() < 2) {
-                throw new AssertionError("Injected equipment stayed on one variant: " + itemId + " " + variants);
+            Set<String> expectedEggVariants = Set.of("build:0", "build:1", "ship:0", "ship:15", "ship:46");
+            if (!eggVariants.equals(expectedEggVariants)) {
+                throw new AssertionError("Unexpected injected spawn egg variants: expected "
+                        + expectedEggVariants + " but saw " + eggVariants);
             }
+            for (ResourceLocation itemId : List.of(
+                    ForgeRegistries.ITEMS.getKey(ModItems.EQUIP_CANNON.get()),
+                    ForgeRegistries.ITEMS.getKey(ModItems.EQUIP_AIRPLANE.get()),
+                    ForgeRegistries.ITEMS.getKey(ModItems.EQUIP_TORPEDO.get()))) {
+                Set<Integer> variants = equipmentVariants.getOrDefault(itemId, Set.of());
+                if (variants.size() < 2) {
+                    throw new AssertionError("Injected equipment stayed on one variant: " + itemId + " " + variants);
+                }
+            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     private static String eggVariant(ItemStack stack) {

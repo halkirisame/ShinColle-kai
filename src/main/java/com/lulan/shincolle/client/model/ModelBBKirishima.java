@@ -1075,8 +1075,10 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -1131,16 +1133,20 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         switch (ent.getScaleLevel()) {
             case 3:
                 // [PORT] 1.10.2 -> 1.20.1: preserve legacy dead-pose grounding offset.
-                this.offsetY += 1.42F;
+                this.translateLegacyPose(0F, 1.42F, 0F);
+
                 break;
             case 2:
-                this.offsetY += 1.29F;
+                this.translateLegacyPose(0F, 1.29F, 0F);
+
                 break;
             case 1:
-                this.offsetY += 1.05F;
+                this.translateLegacyPose(0F, 1.05F, 0F);
+
                 break;
             default:
-                this.offsetY += 0.7F;
+                this.translateLegacyPose(0F, 0.7F, 0F);
+
                 break;
         }
 
@@ -1152,8 +1158,8 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         this.Head.zRot = 0F;
         this.BodyMain.xRot = 1.4F;
         this.Butt.xRot = 0.21F;
-        // this.Butt.offsetY = 0F;
-        // this.Butt.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
+        this.setLegacyPartOffsetZ(this.Butt, 0F);
         // boob
         this.BoobL.xRot = -0.8F;
         this.BoobR.xRot = -0.8F;
@@ -1161,8 +1167,8 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         // cloth
         this.Skirt01.xRot = -0.087F;
         this.Skirt02.xRot = -0.087F;
-        // this.Skirt01.offsetY = 0F;
-        // this.Skirt01.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
+        this.setLegacyPartOffsetZ(this.Skirt01, 0F);
         this.SkirtB01.xRot = 0.087F;
         this.ClothA03.yRot = 0F;
         this.ClothA03a.yRot = 0F;
@@ -1180,18 +1186,18 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         this.Cloth02b2.xRot = 0.1745F;
         this.Cloth02a3.xRot = 0F;
         this.Cloth02b3.xRot = 0F;
-        // this.ClothA03.offsetY = 0F;
-        // this.ClothA04.offsetY = 0F;
-        // this.ClothA05.offsetY = 0F;
-        // this.ClothA03.offsetZ = 0F;
-        // this.ClothA04.offsetZ = 0F;
-        // this.ClothA05.offsetZ = 0F;
-        // this.ClothA03a.offsetY = 0F;
-        // this.ClothA04a.offsetY = 0F;
-        // this.ClothA05a.offsetY = 0F;
-        // this.ClothA03a.offsetZ = 0F;
-        // this.ClothA04a.offsetZ = 0F;
-        // this.ClothA05a.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.ClothA03, 0F);
+        this.setLegacyPartOffsetY(this.ClothA04, 0F);
+        this.setLegacyPartOffsetY(this.ClothA05, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA03, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA04, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA05, 0F);
+        this.setLegacyPartOffsetY(this.ClothA03a, 0F);
+        this.setLegacyPartOffsetY(this.ClothA04a, 0F);
+        this.setLegacyPartOffsetY(this.ClothA05a, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA03a, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA04a, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA05a, 0F);
         // hair
         this.Ahoke.zRot = 0.087F;
         // arm
@@ -1200,38 +1206,38 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.zRot = 0.84F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 1.0F;
-        // this.ArmLeft02.offsetX = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = 0F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = 0.2F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.xRot = -0.12F;
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = -0.05F;
-        // this.LegLeft01.offsetY = 0F;
-        // this.LegLeft01.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.LegLeft01, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft01, 0F);
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.xRot = -0.12F;
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = 0.26F;
-        // this.LegRight01.offsetY = 0F;
-        // this.LegRight01.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.LegRight01, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight01, 0F);
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = -0.4F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         this.EquipBase.visible = false;
     }
@@ -1253,7 +1259,8 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -1268,18 +1275,18 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         this.BoobL.xRot = angleX * 0.06F - 0.8F;
         this.BoobR.xRot = angleX * 0.06F - 0.8F;
         this.ClothB01.xRot = 0.96F - angleX * 0.08F;
-        // this.EquipGlass01.offsetZ = 0.06F;
+        this.setLegacyPartOffsetZ(this.EquipGlass01, 0.06F);
         // body
         this.BodyMain.xRot = -0.1047F;
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.35F;
-        // this.Butt.offsetY = 0F;
-        // this.Butt.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
+        this.setLegacyPartOffsetZ(this.Butt, 0F);
         this.Skirt01.xRot = -0.087F;
         this.Skirt02.xRot = -0.087F;
-        // this.Skirt01.offsetY = 0F;
-        // this.Skirt01.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
+        this.setLegacyPartOffsetZ(this.Skirt01, 0F);
         // cloth
         this.ClothA03.yRot = 0F;
         this.ClothA03a.yRot = 0F;
@@ -1298,56 +1305,56 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         this.Cloth02b2.xRot = 0.12F + angleX1 * 0.06F;
         this.Cloth02a3.xRot = -angleX2 * 0.06F;
         this.Cloth02b3.xRot = -angleX2 * 0.06F;
-        // this.ClothA03.offsetX = 0F;
-        // this.ClothA03.offsetY = 0F;
-        // this.ClothA03.offsetZ = 0F;
-        // this.ClothA04.offsetY = 0F;
-        // this.ClothA04.offsetZ = 0F;
-        // this.ClothA05.offsetY = 0F;
-        // this.ClothA05.offsetZ = 0F;
-        // this.ClothA03a.offsetX = 0F;
-        // this.ClothA03a.offsetY = 0F;
-        // this.ClothA03a.offsetZ = 0F;
-        // this.ClothA04a.offsetY = 0F;
-        // this.ClothA04a.offsetZ = 0F;
-        // this.ClothA05a.offsetY = 0F;
-        // this.ClothA05a.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ClothA03, 0F);
+        this.setLegacyPartOffsetY(this.ClothA03, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA03, 0F);
+        this.setLegacyPartOffsetY(this.ClothA04, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA04, 0F);
+        this.setLegacyPartOffsetY(this.ClothA05, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA05, 0F);
+        this.setLegacyPartOffsetX(this.ClothA03a, 0F);
+        this.setLegacyPartOffsetY(this.ClothA03a, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA03a, 0F);
+        this.setLegacyPartOffsetY(this.ClothA04a, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA04a, 0F);
+        this.setLegacyPartOffsetY(this.ClothA05a, 0F);
+        this.setLegacyPartOffsetZ(this.ClothA05a, 0F);
         // arm
         this.ArmLeft01.xRot = angleAdd2 * 0.25F + 0.3F;
         this.ArmLeft01.yRot = 0F;
         this.ArmLeft01.zRot = angleX * 0.03F - 0.25F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 0F;
-        // this.ArmLeft02.offsetX = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = angleAdd1 * 0.25F - 0.087F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -angleX * 0.03F + 0.25F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.0873F;
-        // this.LegLeft01.offsetY = 0F;
-        // this.LegLeft01.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.LegLeft01, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft01, 0F);
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.0873F;
-        // this.LegRight01.offsetY = 0F;
-        // this.LegRight01.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.LegRight01, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight01, 0F);
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         this.EquipCL1a1.xRot = this.Head.xRot * 0.8F - 0.21F;
         this.EquipCL1a1_1.xRot = this.Head.xRot * 0.7F - 0.23F;
@@ -1384,23 +1391,27 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
 
             switch (ent.getScaleLevel()) {
                 case 3:
+                    this.translateLegacyPose(0F, 0.28F, 0F);
                     break;
                 case 2:
+                    this.translateLegacyPose(0F, 0.24F, 0F);
                     break;
                 case 1:
+                    this.translateLegacyPose(0F, 0.2F, 0F);
                     break;
                 default:
+                    this.translateLegacyPose(0F, 0.14F, 0F);
                     break;
             }
 
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.2F;
+
             this.Head.xRot -= 0.6283F;
             this.BodyMain.xRot = 0.8727F;
             this.Skirt01.xRot = -0.34F;
-            // this.Skirt01.offsetY = -0.2F;
-            // this.Skirt01.offsetZ = 0.03F;
+            this.setLegacyPartOffsetY(this.Skirt01, -0.2F);
+            this.setLegacyPartOffsetZ(this.Skirt01, 0.03F);
             this.Skirt02.xRot = -0.27F;
             this.Cloth02a1.xRot = -1.23F;
             this.Cloth02b1.xRot = -1.23F;
@@ -1425,24 +1436,28 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
             if (ent.getTickExisted() % 512 > 256) {
                 switch (ent.getScaleLevel()) {
                     case 3:
+                        this.translateLegacyPose(0F, 1.09F, 0F);
                         break;
                     case 2:
+                        this.translateLegacyPose(0F, 1F, 0F);
                         break;
                     case 1:
+                        this.translateLegacyPose(0F, 0.82F, 0F);
                         break;
                     default:
+                        this.translateLegacyPose(0F, 0.55F, 0F);
                         break;
                 }
 
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.82F;
+
                 this.setFaceScorn(ent);
 
                 // Body
                 this.Head.xRot += 0.1F;
                 this.BodyMain.xRot = -0.1F;
                 this.Butt.xRot = -0.4F;
-                // this.Butt.offsetZ = 0.19F;
+                this.setLegacyPartOffsetZ(this.Butt, 0.19F);
                 this.Skirt01.xRot = -0.35F;
                 this.Skirt02.xRot = -0.19F;
                 this.Cloth02a1.xRot = 0.2F;
@@ -1469,35 +1484,39 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
                 // leg
                 addk1 = -2.57F;
                 addk2 = -2.57F;
-                // this.LegLeft01.offsetY = 0.25F;
-                // this.LegLeft01.offsetZ = -0.2F;
+                this.setLegacyPartOffsetY(this.LegLeft01, 0.25F);
+                this.setLegacyPartOffsetZ(this.LegLeft01, -0.2F);
                 this.LegLeft01.yRot = 0.11F;
                 this.LegLeft01.zRot = -0.12F;
                 this.LegLeft02.xRot = 2.75F;
                 this.LegLeft02.zRot = 0.02F;
-                // this.LegLeft02.offsetZ = 0.37F;
-                // this.LegRight01.offsetY = 0.25F;
-                // this.LegRight01.offsetZ = -0.2F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.37F);
+                this.setLegacyPartOffsetY(this.LegRight01, 0.25F);
+                this.setLegacyPartOffsetZ(this.LegRight01, -0.2F);
                 this.LegRight01.yRot = -0.11F;
                 this.LegRight01.zRot = 0.12F;
                 this.LegRight02.xRot = 2.75F;
                 this.LegRight02.zRot = -0.02F;
-                // this.LegRight02.offsetZ = 0.37F;
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.37F);
             } else {
                 switch (ent.getScaleLevel()) {
                     case 3:
+                        this.translateLegacyPose(0F, 0.63F, 0F);
                         break;
                     case 2:
+                        this.translateLegacyPose(0F, 0.56F, 0F);
                         break;
                     case 1:
+                        this.translateLegacyPose(0F, 0.46F, 0F);
                         break;
                     default:
+                        this.translateLegacyPose(0F, 0.31F, 0F);
                         break;
                 }
 
                 // Body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.46F;
+
                 this.Head.xRot += 0.14F;
                 this.BodyMain.xRot = -0.4363F;
                 // cloth
@@ -1549,7 +1568,7 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
             this.ArmRight01.zRot = -0.13962634015954636F;
             this.ArmRight02.xRot = -2.4F;
             this.ArmRight02.zRot = 0.0F;
-            // this.ArmRight02.offsetZ = -0.32F;
+            this.setLegacyPartOffsetZ(this.ArmRight02, -0.32F);
             this.ClothA03.yRot = 1.49F;
             // leg
             addk1 += 0.14F;
@@ -1577,7 +1596,7 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
             this.ArmRight01.zRot = -0.13962634015954636F;
             this.ArmRight02.xRot = -2.4F;
             this.ArmRight02.zRot = 0.0F;
-            // this.ArmRight02.offsetZ = -0.32F;
+            this.setLegacyPartOffsetZ(this.ArmRight02, -0.32F);
             this.ClothA03.yRot = 1.49F;
             // leg
             addk1 += 0.14F;
@@ -1612,18 +1631,18 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         float HandLs = Mth.sin(HandL);
         float HandRc = Mth.cos(HandR);
         float HandRs = Mth.sin(HandR);
-        // this.ClothA03.offsetY = HandLc * 0.1F;
-        // this.ClothA04.offsetY = HandLc * 0.2F;
-        // this.ClothA05.offsetY = HandLc * 0.25F;
-        // this.ClothA03.offsetZ = HandLs * -0.32F;
-        // this.ClothA04.offsetZ = HandLs * -0.32F;
-        // this.ClothA05.offsetZ = HandLs * -0.32F;
-        // this.ClothA03a.offsetY = HandRc * 0.1F;
-        // this.ClothA04a.offsetY = HandRc * 0.2F;
-        // this.ClothA05a.offsetY = HandRc * 0.25F;
-        // this.ClothA03a.offsetZ = HandRs * -0.32F;
-        // this.ClothA04a.offsetZ = HandRs * -0.32F;
-        // this.ClothA05a.offsetZ = HandRs * -0.32F;
+        this.setLegacyPartOffsetY(this.ClothA03, HandLc * 0.1F);
+        this.setLegacyPartOffsetY(this.ClothA04, HandLc * 0.2F);
+        this.setLegacyPartOffsetY(this.ClothA05, HandLc * 0.25F);
+        this.setLegacyPartOffsetZ(this.ClothA03, HandLs * -0.32F);
+        this.setLegacyPartOffsetZ(this.ClothA04, HandLs * -0.32F);
+        this.setLegacyPartOffsetZ(this.ClothA05, HandLs * -0.32F);
+        this.setLegacyPartOffsetY(this.ClothA03a, HandRc * 0.1F);
+        this.setLegacyPartOffsetY(this.ClothA04a, HandRc * 0.2F);
+        this.setLegacyPartOffsetY(this.ClothA05a, HandRc * 0.25F);
+        this.setLegacyPartOffsetZ(this.ClothA03a, HandRs * -0.32F);
+        this.setLegacyPartOffsetZ(this.ClothA04a, HandRs * -0.32F);
+        this.setLegacyPartOffsetZ(this.ClothA05a, HandRs * -0.32F);
 
         // leg motion
         this.LegLeft01.xRot = addk1;

@@ -2,6 +2,7 @@ package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.BasicEntityMount;
+import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipCannonAttack;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
@@ -209,7 +210,8 @@ public class ShipRangeAttackGoal extends Goal {
                 if (this.delayLight <= 0 && this.host.useAmmoLight() && this.host.hasAmmoLight()) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.fire_light");
                     LogHelper.diag("DIAG: attack fire ship=" + this.entity
-                            + " type=light target=" + this.target);
+                            + " type=light manual=" + this.isManualTarget()
+                            + " target=" + this.target);
                     this.host.attackEntityWithAmmo(this.target);
                     this.delayLight = this.maxDelayLight;
                     LogHelper.debug("DEBUG: range attack AI: " + this.entity
@@ -220,7 +222,8 @@ public class ShipRangeAttackGoal extends Goal {
                 if (this.delayHeavy <= 0 && this.host.useAmmoHeavy() && this.host.hasAmmoHeavy()) {
                     DebugProfiler.count(profiler, "shincolle.ai.range_attack.tick.fire_heavy");
                     LogHelper.diag("DIAG: attack fire ship=" + this.entity
-                            + " type=heavy target=" + this.target);
+                            + " type=heavy manual=" + this.isManualTarget()
+                            + " target=" + this.target);
                     this.host.attackEntityWithHeavyAmmo(this.target);
                     this.delayHeavy = this.maxDelayHeavy;
                     LogHelper.debug("DEBUG: range attack AI: " + this.entity
@@ -256,6 +259,16 @@ public class ShipRangeAttackGoal extends Goal {
                 && this.host.getStateFlag(ID.F.UseAmmoHeavy)
                 && this.host.hasAmmoHeavy();
         return canUseLight || canUseHeavy;
+    }
+
+    /**
+     * Whether the entity being fired at is the one the player designated with the
+     * pointer, as opposed to one this ship acquired on its own. Only player-owned
+     * ships carry a manual target; every other host reports false.
+     */
+    private boolean isManualTarget() {
+        return this.entity instanceof BasicEntityShip ship
+                && ship.getManualTarget() == this.target;
     }
 
     private void logDiagnosticState(String state) {

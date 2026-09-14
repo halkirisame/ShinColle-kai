@@ -487,8 +487,10 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain2.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
@@ -524,7 +526,8 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.48F;
+        this.translateLegacyPose(0F, 0.48F, 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -571,9 +574,9 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
         // equip
         if (this.EquipBase != null)
             this.EquipBase.xRot = 0F;
-        // this.EquipL01.offsetX = 0F;
-        // this.EquipL01.offsetY = 0F;
-        // this.EquipL01.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipL01, 0F);
+        this.setLegacyPartOffsetY(this.EquipL01, 0F);
+        this.setLegacyPartOffsetZ(this.EquipL01, 0F);
         if (this.EquipL01 != null)
             this.EquipL01.xRot = 0.2618F;
         if (this.EquipL01 != null)
@@ -582,9 +585,9 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
             this.EquipL01.zRot = 0F;
         if (this.EquipL05 != null)
             this.EquipL05.zRot = 0F;
-        // this.EquipR01.offsetX = 0F;
-        // this.EquipR01.offsetY = 0F;
-        // this.EquipR01.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipR01, 0F);
+        this.setLegacyPartOffsetY(this.EquipR01, 0F);
+        this.setLegacyPartOffsetZ(this.EquipR01, 0F);
         if (this.EquipR01 != null)
             this.EquipR01.xRot = 0.2618F;
         if (this.EquipR01 != null)
@@ -616,19 +619,19 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 1.2217F;
         this.LegLeft02.yRot = 1.2217F;
         this.LegLeft02.zRot = -1.0472F;
-        // this.LegLeft02.offsetX = 0.175F;
-        // this.LegLeft02.offsetY = -0.02F;
-        // this.LegLeft02.offsetZ = 0.1635F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0.175F);
+        this.setLegacyPartOffsetY(this.LegLeft02, -0.02F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0.1635F);
         this.LegRight01.zRot = 0.14F;
         this.LegRight02.xRot = 1.2217F;
         this.LegRight02.yRot = -1.2217F;
         this.LegRight02.zRot = 1.0472F;
-        // this.LegRight02.offsetX = -0.175F;
-        // this.LegRight02.offsetY = -0.05F;
-        // this.LegRight02.offsetZ = 0.1635F;
+        this.setLegacyPartOffsetX(this.LegRight02, -0.175F);
+        this.setLegacyPartOffsetY(this.LegRight02, -0.05F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0.1635F);
         // equip
-        // this.EquipL01.offsetY = 0.6F;
-        // this.EquipR01.offsetY = 0.6F;
+        this.setLegacyPartOffsetY(this.EquipL01, 0.6F);
+        this.setLegacyPartOffsetY(this.EquipR01, 0.6F);
     }
 
     @Override
@@ -646,12 +649,13 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D || ent.getShipDepth(1) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleAdd1 * 0.6F - 0.35F;
         addk2 = angleAdd2 * 0.6F - 0.07F;
 
@@ -693,27 +697,27 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.14F;
-        // this.LegLeft02.offsetX = 0;
-        // this.LegLeft02.offsetY = 0;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
         this.ShoesL04.xRot = -0.1F;
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.14F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
         // equip
         if (this.EquipBase != null)
             this.EquipBase.xRot = 0F;
-        // this.EquipL01.offsetX = 0F;
-        // this.EquipL01.offsetY = angleX * 0.125F;
-        // this.EquipL01.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipL01, 0F);
+        this.setLegacyPartOffsetY(this.EquipL01, angleX * 0.125F);
+        this.setLegacyPartOffsetZ(this.EquipL01, 0F);
         if (this.EquipL01 != null)
             this.EquipL01.xRot = 0.2618F;
         if (this.EquipL01 != null)
@@ -722,9 +726,9 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
             this.EquipL01.zRot = 0F;
         if (this.EquipL05 != null)
             this.EquipL05.zRot = 0F;
-        // this.EquipR01.offsetX = 0F;
-        // this.EquipR01.offsetY = -angleX * 0.125F;
-        // this.EquipR01.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipR01, 0F);
+        this.setLegacyPartOffsetY(this.EquipR01, -angleX * 0.125F);
+        this.setLegacyPartOffsetZ(this.EquipR01, 0F);
         if (this.EquipR01 != null)
             this.EquipR01.xRot = 0.2618F;
         if (this.EquipR01 != null)
@@ -758,7 +762,8 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 0.6283F;
             this.BodyMain.xRot = 0.8727F;
             this.Butt.xRot = -0.6283F;
@@ -785,6 +790,7 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 setFace(1);
                 // head
+                this.translateLegacyPose(0F, 0.48F, 0F);
                 int nodf2 = (int) f2 % 60;
                 this.Head.xRot = 0.3F;
                 if (nodf2 < 30) {
@@ -821,23 +827,24 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 1.2217F;
                 this.LegLeft02.yRot = 1.2217F;
                 this.LegLeft02.zRot = -1.0472F;
-                // this.LegLeft02.offsetX = 0.175F;
-                // this.LegLeft02.offsetY = -0.02F;
-                // this.LegLeft02.offsetZ = 0.1635F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0.175F);
+                this.setLegacyPartOffsetY(this.LegLeft02, -0.02F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.1635F);
                 this.LegRight01.zRot = 0.14F;
                 this.LegRight02.xRot = 1.2217F;
                 this.LegRight02.yRot = -1.2217F;
                 this.LegRight02.zRot = 1.0472F;
-                // this.LegRight02.offsetX = -0.175F;
-                // this.LegRight02.offsetY = -0.05F;
-                // this.LegRight02.offsetZ = 0.1635F;
+                this.setLegacyPartOffsetX(this.LegRight02, -0.175F);
+                this.setLegacyPartOffsetY(this.LegRight02, -0.05F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.1635F);
                 // equip
-                // this.EquipL01.offsetY = 0.6F;
-                // this.EquipR01.offsetY = 0.6F;
+                this.setLegacyPartOffsetY(this.EquipL01, 0.6F);
+                this.setLegacyPartOffsetY(this.EquipR01, 0.6F);
             } else {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.4F;
+                this.translateLegacyPose(0F, 0.4F, 0F);
+
                 this.Neck.xRot = 0.35F;
                 this.BodyMain.xRot = -0.6283F;
                 this.Butt.xRot = -0.6283F;
@@ -854,18 +861,18 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                 this.LegRight02.xRot = 0.8727F;
                 this.ShoesL04.xRot = angleX * 0.25F - 0.1F;
                 // equip
-                // this.EquipL01.offsetX = -1.9F;
-                // this.EquipL01.offsetY = 0.6F;
-                // this.EquipL01.offsetZ = 0.4F;
+                this.setLegacyPartOffsetX(this.EquipL01, -1.9F);
+                this.setLegacyPartOffsetY(this.EquipL01, 0.6F);
+                this.setLegacyPartOffsetZ(this.EquipL01, 0.4F);
                 if (this.EquipL01 != null)
                     this.EquipL01.xRot = 0F;
                 if (this.EquipL01 != null)
                     this.EquipL01.yRot = 1.57F;
                 if (this.EquipL05 != null)
                     this.EquipL05.zRot = -1F;
-                // this.EquipR01.offsetX = 1.9F;
-                // this.EquipR01.offsetY = -1.0F;
-                // this.EquipR01.offsetZ = -0.4F;
+                this.setLegacyPartOffsetX(this.EquipR01, 1.9F);
+                this.setLegacyPartOffsetY(this.EquipR01, -1.0F);
+                this.setLegacyPartOffsetZ(this.EquipR01, -0.4F);
                 if (this.EquipR01 != null)
                     this.EquipR01.xRot = -1.5708F;
                 if (this.EquipR01 != null)
@@ -884,6 +891,7 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                     if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                         setFace(1);
                         // head
+                        this.translateLegacyPose(0F, 0.48F, 0F);
                         int nodf2 = (int) f2 % 60;
                         this.Head.xRot = 0.3F;
                         if (nodf2 < 30) {
@@ -920,31 +928,32 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                         this.LegLeft02.xRot = 1.2217F;
                         this.LegLeft02.yRot = 1.2217F;
                         this.LegLeft02.zRot = -1.0472F;
-                        // this.LegLeft02.offsetX = 0.175F;
-                        // this.LegLeft02.offsetY = -0.02F;
-                        // this.LegLeft02.offsetZ = 0.1635F;
+                        this.setLegacyPartOffsetX(this.LegLeft02, 0.175F);
+                        this.setLegacyPartOffsetY(this.LegLeft02, -0.02F);
+                        this.setLegacyPartOffsetZ(this.LegLeft02, 0.1635F);
                         this.LegRight01.zRot = 0.14F;
                         this.LegRight02.xRot = 1.2217F;
                         this.LegRight02.yRot = -1.2217F;
                         this.LegRight02.zRot = 1.0472F;
-                        // this.LegRight02.offsetX = -0.175F;
-                        // this.LegRight02.offsetY = -0.05F;
-                        // this.LegRight02.offsetZ = 0.1635F;
+                        this.setLegacyPartOffsetX(this.LegRight02, -0.175F);
+                        this.setLegacyPartOffsetY(this.LegRight02, -0.05F);
+                        this.setLegacyPartOffsetZ(this.LegRight02, 0.1635F);
                         // equip
                         if (this.EquipBase != null)
                             this.EquipBase.xRot = -0.4F;
-                        // this.EquipL01.offsetX = -0.3F;
-                        // this.EquipL01.offsetY = 0.6F;
-                        // this.EquipL01.offsetZ = 0.6F;
+                        this.setLegacyPartOffsetX(this.EquipL01, -0.3F);
+                        this.setLegacyPartOffsetY(this.EquipL01, 0.6F);
+                        this.setLegacyPartOffsetZ(this.EquipL01, 0.6F);
                         if (this.EquipL01 != null)
                             this.EquipL01.yRot = 1.4F;
-                        // this.EquipR01.offsetX = 0.3F;
-                        // this.EquipR01.offsetY = 0.6F;
-                        // this.EquipR01.offsetZ = 0.6F;
+                        this.setLegacyPartOffsetX(this.EquipR01, 0.3F);
+                        this.setLegacyPartOffsetY(this.EquipR01, 0.6F);
+                        this.setLegacyPartOffsetZ(this.EquipR01, 0.6F);
                         if (this.EquipR01 != null)
                             this.EquipR01.yRot = -1.4F;
                     } else {
                         // body
+                        this.translateLegacyPose(0F, 0.64F, -0.11F);
                         this.Neck.xRot = 0.35F;
                         this.BodyMain.xRot = -0.6283F;
                         this.Butt.xRot = -0.6283F;
@@ -965,18 +974,19 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                         // equip
                         if (this.EquipBase != null)
                             this.EquipBase.xRot = 0.2F;
-                        // this.EquipL01.offsetX = -0.25F;
-                        // this.EquipL01.offsetY = 0.1F;
+                        this.setLegacyPartOffsetX(this.EquipL01, -0.25F);
+                        this.setLegacyPartOffsetY(this.EquipL01, 0.1F);
                         if (this.EquipL01 != null)
                             this.EquipL01.yRot = 1.4F;
-                        // this.EquipR01.offsetX = 0.25F;
-                        // this.EquipR01.offsetY = 0.1F;
+                        this.setLegacyPartOffsetX(this.EquipR01, 0.25F);
+                        this.setLegacyPartOffsetY(this.EquipR01, 0.1F);
                         if (this.EquipR01 != null)
                             this.EquipR01.yRot = -1.4F;
                     }
                 } // end if sitting
                 else {
                     // body
+                    this.translateLegacyPose(0F, 0.64F, -0.11F);
                     this.Neck.xRot = 0.35F;
                     this.BodyMain.xRot = -0.6283F;
                     this.Butt.xRot = -0.6283F;
@@ -997,14 +1007,14 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                     // equip
                     if (this.EquipBase != null)
                         this.EquipBase.xRot = -0.9F;
-                    // this.EquipL01.offsetX = -0.25F;
-                    // this.EquipL01.offsetY = 0.1F;
-                    // this.EquipL01.offsetZ = 0.45F;
+                    this.setLegacyPartOffsetX(this.EquipL01, -0.25F);
+                    this.setLegacyPartOffsetY(this.EquipL01, 0.1F);
+                    this.setLegacyPartOffsetZ(this.EquipL01, 0.45F);
                     if (this.EquipL01 != null)
                         this.EquipL01.yRot = 1.4F;
-                    // this.EquipR01.offsetX = 0.25F;
-                    // this.EquipR01.offsetY = 0.1F;
-                    // this.EquipR01.offsetZ = 0.45F;
+                    this.setLegacyPartOffsetX(this.EquipR01, 0.25F);
+                    this.setLegacyPartOffsetY(this.EquipR01, 0.1F);
+                    this.setLegacyPartOffsetZ(this.EquipR01, 0.45F);
                     if (this.EquipR01 != null)
                         this.EquipR01.yRot = -1.4F;
                 }
@@ -1013,6 +1023,7 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                     setFace(1);
                     // head
+                    this.translateLegacyPose(0F, 0.48F, 0F);
                     int nodf2 = (int) f2 % 60;
                     this.Head.xRot = 0.2F;
                     if (nodf2 < 30) {
@@ -1049,21 +1060,22 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                     this.LegLeft02.xRot = 1.2217F;
                     this.LegLeft02.yRot = 1.2217F;
                     this.LegLeft02.zRot = -1.0472F;
-                    // this.LegLeft02.offsetX = 0.175F;
-                    // this.LegLeft02.offsetY = -0.02F;
-                    // this.LegLeft02.offsetZ = 0.1635F;
+                    this.setLegacyPartOffsetX(this.LegLeft02, 0.175F);
+                    this.setLegacyPartOffsetY(this.LegLeft02, -0.02F);
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.1635F);
                     this.LegRight01.zRot = 0.14F;
                     this.LegRight02.xRot = 1.2217F;
                     this.LegRight02.yRot = -1.2217F;
                     this.LegRight02.zRot = 1.0472F;
-                    // this.LegRight02.offsetX = -0.175F;
-                    // this.LegRight02.offsetY = -0.05F;
-                    // this.LegRight02.offsetZ = 0.1635F;
+                    this.setLegacyPartOffsetX(this.LegRight02, -0.175F);
+                    this.setLegacyPartOffsetY(this.LegRight02, -0.05F);
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.1635F);
                     // equip
-                    // this.EquipL01.offsetY = 0.6F;
-                    // this.EquipR01.offsetY = 0.6F;
+                    this.setLegacyPartOffsetY(this.EquipL01, 0.6F);
+                    this.setLegacyPartOffsetY(this.EquipR01, 0.6F);
                 } else {
                     // body
+                    this.translateLegacyPose(0F, 0.39F, 0F);
                     this.Neck.xRot = 0.35F;
                     this.BodyMain.xRot = -0.6283F;
                     this.Butt.xRot = -0.6283F;
@@ -1080,18 +1092,18 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                     this.LegRight02.xRot = 0.8727F;
                     this.ShoesL04.xRot = angleX * 0.25F - 0.1F;
                     // equip
-                    // this.EquipL01.offsetX = -1.9F;
-                    // this.EquipL01.offsetY = 0.6F;
-                    // this.EquipL01.offsetZ = 0.4F;
+                    this.setLegacyPartOffsetX(this.EquipL01, -1.9F);
+                    this.setLegacyPartOffsetY(this.EquipL01, 0.6F);
+                    this.setLegacyPartOffsetZ(this.EquipL01, 0.4F);
                     if (this.EquipL01 != null)
                         this.EquipL01.xRot = 0F;
                     if (this.EquipL01 != null)
                         this.EquipL01.yRot = 1.57F;
                     if (this.EquipL05 != null)
                         this.EquipL05.zRot = -1F;
-                    // this.EquipR01.offsetX = 1.9F;
-                    // this.EquipR01.offsetY = -1.0F;
-                    // this.EquipR01.offsetZ = -0.4F;
+                    this.setLegacyPartOffsetX(this.EquipR01, 1.9F);
+                    this.setLegacyPartOffsetY(this.EquipR01, -1.0F);
+                    this.setLegacyPartOffsetZ(this.EquipR01, -0.4F);
                     if (this.EquipR01 != null)
                         this.EquipR01.xRot = -1.5708F;
                     if (this.EquipR01 != null)
@@ -1125,8 +1137,8 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
                     this.EquipBase.visible = true;
                 if (this.EquipBase != null)
                     this.EquipBase.xRot = -1.6F + f4 * ((float) Math.PI / 180F);
-                // this.EquipL01.offsetY = 0F;
-                // this.EquipR01.offsetY = 0F;
+                this.setLegacyPartOffsetY(this.EquipL01, 0F);
+                this.setLegacyPartOffsetY(this.EquipR01, 0F);
             }
         }
 

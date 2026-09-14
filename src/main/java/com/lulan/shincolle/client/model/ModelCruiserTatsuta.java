@@ -531,8 +531,10 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -577,7 +579,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
-        this.offsetY += 0.51F + 0.26F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.51F + 0.26F * ent.getScaleLevel(), 0F);
+
         this.setFaceHungry(ent);
 
         // body
@@ -589,11 +592,11 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
         this.Ahoke.zRot = 0.2617993877991494F;
         this.BodyMain.xRot = -0.2617993877991494F;
         this.Butt.xRot = -0.2617993877991494F;
-        // this.Butt.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
         this.Skirt01.xRot = -0.17453292519943295F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.20943951023931953F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // arm
         this.ArmLeft01.xRot = 0.4141592653589793F;
         this.ArmLeft01.yRot = 0.0F;
@@ -601,16 +604,16 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
         this.ArmLeft02.xRot = -0.10471975511965977F;
         this.ArmLeft02.yRot = 0.0F;
         this.ArmLeft02.zRot = 0.0F;
-        // this.ArmLeft02.offsetX = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = 0.3617993877991494F;
         this.ArmRight01.yRot = 0.0F;
         this.ArmRight01.zRot = 0.27314402793711257F;
         this.ArmRight02.xRot = -0.27314402793711257F;
         this.ArmRight02.yRot = 0.0F;
         this.ArmRight02.zRot = 0.0F;
-        // this.ArmRight02.offsetX = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // equip
         this.EquipSL00.xRot = -1.68352986419518F;
         this.EquipSL00.yRot = 0F;
@@ -619,7 +622,7 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
         this.EquipCR02.xRot = 1.63F;
         if (this.Cir00 != null)
             this.Cir00.yRot = 0F;
-        // this.CirBase.offsetY = 0.26F;
+        this.setLegacyPartOffsetY(this.CirBase, 0.26F);
         // leg
         this.LegLeft01.xRot = -1.7453292519943295F;
         this.LegLeft01.yRot = -0.5462880558742251F;
@@ -627,18 +630,18 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0.4363323129985824F;
         this.LegLeft02.yRot = 0.0F;
         this.LegLeft02.zRot = 0.0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.xRot = -1.5707963267948966F;
         this.LegRight01.yRot = 0.08726646259971647F;
         this.LegRight01.zRot = -0.17453292519943295F;
         this.LegRight02.xRot = 1.1344640137963142F;
         this.LegRight02.yRot = 0.0F;
         this.LegRight02.zRot = 0.0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
     }
 
     @Override
@@ -657,7 +660,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -678,49 +682,49 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
         this.Butt.xRot = 0.35F;
         this.Skirt01.xRot = -0.14F;
         this.Skirt02.xRot = -0.09F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // arm
         this.ArmLeft01.xRot = angleAdd2 * 0.25F + 0.2F;
         this.ArmLeft01.yRot = 0F;
         this.ArmLeft01.zRot = angleX * 0.03F - 0.25F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 0F;
-        // this.ArmLeft02.offsetX = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = 0F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -angleX * 0.03F + 0.25F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.0873F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.0873F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         if (this.Cir00 != null)
             this.Cir00.yRot = 0F;
-        // this.CirBase.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.CirBase, 0F);
         this.EquipSL00.xRot = -1.1F;
         this.EquipSL00.yRot = 0.4F;
         this.EquipSL00.zRot = 0F;
-        // this.EquipSL00.offsetX = 0F;
-        // this.EquipSL00.offsetY = 0F;
-        // this.EquipSL00.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipSL00, 0F);
+        this.setLegacyPartOffsetY(this.EquipSL00, 0F);
+        this.setLegacyPartOffsetZ(this.EquipSL00, 0F);
         this.EquipCL02.xRot = f4 * 0.015F + 0.7F;
         this.EquipCR02.xRot = f4 * 0.015F + 0.7F;
 
@@ -748,7 +752,7 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
             this.ArmRight01.zRot = -0.13962634015954636F;
             this.ArmRight02.xRot = -2.530727415391778F;
             this.ArmRight02.zRot = 0.0F;
-            // this.ArmRight02.offsetZ = -0.32F;
+            this.setLegacyPartOffsetZ(this.ArmRight02, -0.32F);
             // equip
             this.EquipSL00.xRot = -1.17F;
             this.EquipSL00.yRot = 1.45F;
@@ -773,7 +777,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
             // 奔跑動作
             // body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += this.scale * 0.1F;
+            this.translateLegacyPose(0F, this.scale * 0.1F, 0F);
+
             this.Head.xRot -= 0.6F;
             this.BodyMain.xRot = 0.9F;
             this.Butt.xRot -= 0.7F;
@@ -803,13 +808,14 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
             // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += this.scale * 0.06F;
+            this.translateLegacyPose(0F, this.scale * 0.06F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.4F;
             this.Skirt01.xRot = -0.12F;
             this.Skirt02.xRot = -0.16F;
-            // this.Skirt02.offsetY = -0.1F;
+            this.setLegacyPartOffsetY(this.Skirt02, -0.1F);
             // arm
             if (this.EquipSL00.visible) {
                 this.ArmLeft01.xRot = -0.6F;
@@ -837,7 +843,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.5F;
+                this.translateLegacyPose(0F, 0.5F, 0F);
+
                 this.Head.xRot = 0.0F;
                 this.Head.yRot += 1.2217304763960306F;
                 this.Head.zRot = -0.08726646259971647F;
@@ -852,15 +859,15 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.ArmLeft01.zRot = 0.0F;
                 this.ArmLeft02.xRot = 0.0F;
                 this.ArmLeft02.zRot = 0.0F;
-                // this.ArmLeft02.offsetX = 0F;
-                // this.ArmLeft02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+                this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
                 this.ArmRight01.xRot = -0.17453292519943295F;
                 this.ArmRight01.yRot = 0.0F;
                 this.ArmRight01.zRot = 0.2617993877991494F;
                 this.ArmRight02.xRot = 0.0F;
                 this.ArmRight02.zRot = 0.0F;
-                // this.ArmRight02.offsetX = 0F;
-                // this.ArmRight02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+                this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
                 // leg
                 addk1 = -1.57F;
                 addk2 = -1.4F;
@@ -879,11 +886,12 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.EquipSL00.xRot = 1.42F;
                 this.EquipSL00.yRot = -0.18F;
                 this.EquipSL00.zRot = 0.0F;
-                // this.EquipSL00.offsetY = 0.15F;
+                this.setLegacyPartOffsetY(this.EquipSL00, 0.15F);
             } else {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.47F;
+                this.translateLegacyPose(0F, 0.47F, 0F);
+
                 this.BodyMain.xRot = -0.3F;
                 this.Butt.xRot = -0.2F;
                 this.Skirt01.xRot = -0.26F;
@@ -895,16 +903,16 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 1.2217F;
                 this.LegLeft02.yRot = 1.2217F;
                 this.LegLeft02.zRot = -1.0472F;
-                // this.LegLeft02.offsetX = 0F;
-                // this.LegLeft02.offsetY = -0.06F;
-                // this.LegLeft02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+                this.setLegacyPartOffsetY(this.LegLeft02, -0.06F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
                 this.LegRight01.zRot = 0.14F;
                 this.LegRight02.xRot = 1.2217F;
                 this.LegRight02.yRot = -1.2217F;
                 this.LegRight02.zRot = 1.0472F;
-                // this.LegRight02.offsetX = 0F;
-                // this.LegRight02.offsetY = -0.06F;
-                // this.LegRight02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.LegRight02, 0F);
+                this.setLegacyPartOffsetY(this.LegRight02, -0.06F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0F);
                 // equip
                 if (this.Cir00 != null)
                     this.Cir00.yRot = f2 * 0.025F;
@@ -945,7 +953,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
             if (ent.getStateEmotion(ID.S.Phase) != 1) {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.05F + ent.getScaleLevel() * 0.02F;
+                this.translateLegacyPose(0F, 0.05F + ent.getScaleLevel() * 0.02F, 0F);
+
                 this.BodyMain.xRot = 0.17453292519943295F;
                 this.BodyMain.yRot = 0.0F;
                 this.BodyMain.zRot = 0.0F;
@@ -960,16 +969,16 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.ArmLeft02.xRot = 0.0F;
                 this.ArmLeft02.yRot = 0.0F;
                 this.ArmLeft02.zRot = 0.0F;
-                // this.ArmLeft02.offsetX = 0F;
-                // this.ArmLeft02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+                this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
                 this.ArmRight01.xRot = 0.5235987755982988F;
                 this.ArmRight01.yRot = 0.0F;
                 this.ArmRight01.zRot = 0.5235987755982988F;
                 this.ArmRight02.xRot = 0.0F;
                 this.ArmRight02.yRot = 0.0F;
                 this.ArmRight02.zRot = 0.0F;
-                // this.ArmRight02.offsetX = 0F;
-                // this.ArmRight02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+                this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
                 // leg
                 addk1 = -0.5235987755982988F;
                 addk2 = 0.2617993877991494F;
@@ -978,17 +987,17 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 0.36425021489121656F;
                 this.LegLeft02.yRot = 0.0F;
                 this.LegLeft02.zRot = 0.0F;
-                // this.LegLeft02.offsetX = 0F;
-                // this.LegLeft02.offsetY = 0F;
-                // this.LegLeft02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+                this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
                 this.LegRight01.yRot = 0.0F;
                 this.LegRight01.zRot = -0.08726646259971647F;
                 this.LegRight02.xRot = 0F;
                 this.LegRight02.yRot = 0F;
                 this.LegRight02.zRot = 0F;
-                // this.LegRight02.offsetX = 0F;
-                // this.LegRight02.offsetY = 0F;
-                // this.LegRight02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.LegRight02, 0F);
+                this.setLegacyPartOffsetY(this.LegRight02, 0F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0F);
                 // equip
                 this.EquipSL00.visible = true;
                 this.EquipSL00.xRot = -0.136659280431156F;
@@ -1009,6 +1018,7 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
             } else {
                 // 奔跑動作
                 // body
+                this.translateLegacyPose(0F, this.scale * 0.1F, 0F);
                 this.Head.xRot -= 0.6F;
                 this.BodyMain.xRot = 0.9F;
                 this.Butt.xRot -= 0.7F;
@@ -1021,8 +1031,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.ArmLeft02.xRot = 0.0F;
                 this.ArmLeft02.yRot = 0.0F;
                 this.ArmLeft02.zRot = 0.0F;
-                // this.ArmLeft02.offsetX = 0F;
-                // this.ArmLeft02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
+                this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
                 this.ArmRight01.xRot = 0.7F;
                 this.ArmRight01.yRot = 1.1F;
                 this.ArmRight01.zRot = 1F;
@@ -1030,8 +1040,8 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.ArmRight02.xRot = 0.0F;
                 this.ArmRight02.yRot = 0.0F;
                 this.ArmRight02.zRot = 0.0F;
-                // this.ArmRight02.offsetX = 0F;
-                // this.ArmRight02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.ArmRight02, 0F);
+                this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
                 // leg
                 addk1 = angleAdd1 - 0.28F; // LegLeft01
                 addk2 = angleAdd2 - 0.21F; // LegRight01
@@ -1040,17 +1050,17 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 0F;
                 this.LegLeft02.yRot = 0F;
                 this.LegLeft02.zRot = 0F;
-                // this.LegLeft02.offsetX = 0F;
-                // this.LegLeft02.offsetY = 0F;
-                // this.LegLeft02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+                this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
                 this.LegRight01.yRot = 0F;
                 this.LegRight01.zRot = 0F;
                 this.LegRight02.xRot = 0F;
                 this.LegRight02.yRot = 0F;
                 this.LegRight02.zRot = 0F;
-                // this.LegRight02.offsetX = 0F;
-                // this.LegRight02.offsetY = 0F;
-                // this.LegRight02.offsetZ = 0F;
+                this.setLegacyPartOffsetX(this.LegRight02, 0F);
+                this.setLegacyPartOffsetY(this.LegRight02, 0F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0F);
                 // equip
                 this.EquipSL00.xRot = -1.5F;
                 this.EquipSL00.yRot = 0.2F;
@@ -1109,9 +1119,9 @@ public class ModelCruiserTatsuta extends ShipModelBaseAdv<Entity> {
                 this.EquipSL00.xRot = 0.0F;
                 this.EquipSL00.yRot = 0.0F;
                 this.EquipSL00.zRot = -0.17453292519943295F;
-                // this.EquipSL00.offsetX = 0.32F + (50 - ent.getAttackTick()) * 0.22F;
-                // this.EquipSL00.offsetY = 2F + (50 - ent.getAttackTick()) * 5F;
-                // this.EquipSL00.offsetZ = -0.08F;
+                this.setLegacyPartOffsetX(this.EquipSL00, 0.32F + (50 - ent.getAttackTick()) * 0.22F);
+                this.setLegacyPartOffsetY(this.EquipSL00, 2F + (50 - ent.getAttackTick()) * 5F);
+                this.setLegacyPartOffsetZ(this.EquipSL00, -0.08F);
             }
         }
 

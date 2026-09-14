@@ -488,8 +488,10 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -557,7 +559,8 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.2F;
+        this.translateLegacyPose(0F, 0.2F, 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -568,16 +571,16 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.xRot = 0F;
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = -1.4835F;
-        // this.Head.offsetY = 0F;
-        // this.GlowHead.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Head, 0F);
+        this.setLegacyPartOffsetY(this.GlowHead, 0F);
         // arm
         this.ArmLeft01.xRot = -0.4F;
         this.ArmLeft01.zRot = 0.4537F;
-        // this.ArmLeft01.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.ArmLeft01, 0F);
         this.ArmLeft02.zRot = 0F;
         this.ArmRight01.xRot = -0.8F;
         this.ArmRight01.zRot = -0.05F;
-        // this.ArmRight01.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.ArmRight01, 0F);
         this.ArmRight02.zRot = 0F;
         // leg
         this.LegLeft01.xRot = 0.5F;
@@ -601,26 +604,26 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
         // hat state 4
         if (fh4) {
             this.HatBase.xRot = -1.8F;// -103
-            // this.HatBase.offsetY = 0.6F;
-            // this.HatBase.offsetZ = 0.07F;
+            this.setLegacyPartOffsetY(this.HatBase, 0.6F);
+            this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
         }
         // hat state 1
         else if (fh1) {
             this.HatBase.xRot = 1.37F;// 78
-            // this.HatBase.offsetY = -0.45F;
-            // this.HatBase.offsetZ = -0.2F;
+            this.setLegacyPartOffsetY(this.HatBase, -0.45F);
+            this.setLegacyPartOffsetZ(this.HatBase, -0.2F);
         }
         // hat state 3
         else if (fh3) {
             this.HatBase.xRot = -0.85F;// -48
-            // this.HatBase.offsetY = 0.33F;
-            // this.HatBase.offsetZ = 0.07F;
+            this.setLegacyPartOffsetY(this.HatBase, 0.33F);
+            this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
         }
         // no hat or hat state 2
         else {
             this.HatBase.xRot = 0F;
-            // this.HatBase.offsetY = 0F;
-            // this.HatBase.offsetZ = 0F;
+            this.setLegacyPartOffsetY(this.HatBase, 0F);
+            this.setLegacyPartOffsetZ(this.HatBase, 0F);
         }
 
         // tail head
@@ -689,7 +692,8 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -706,16 +710,16 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.xRot = 0F;
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
-        // this.Head.offsetY = 0F;
-        // this.GlowHead.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Head, 0F);
+        this.setLegacyPartOffsetY(this.GlowHead, 0F);
         // arm
         this.ArmLeft01.yRot = 0F;
         this.ArmLeft01.zRot = 0.21F;
-        // this.ArmLeft01.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.ArmLeft01, 0F);
         this.ArmLeft02.zRot = 0F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -0.21F;
-        // this.ArmRight01.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.ArmRight01, 0F);
         this.ArmRight02.zRot = 0F;
         // leg
         this.LegLeft01.yRot = 0F;
@@ -731,26 +735,26 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
         // hat state 4
         if (fh4) {
             this.HatBase.xRot = -1.8F;// -103
-            // this.HatBase.offsetY = 0.4F;
-            // this.HatBase.offsetZ = 0.07F;
+            this.setLegacyPartOffsetY(this.HatBase, 0.4F);
+            this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
         }
         // hat state 1
         else if (fh1) {
             this.HatBase.xRot = 1.37F;// 78
-            // this.HatBase.offsetY = -0.45F;
-            // this.HatBase.offsetZ = -0.2F;
+            this.setLegacyPartOffsetY(this.HatBase, -0.45F);
+            this.setLegacyPartOffsetZ(this.HatBase, -0.2F);
         }
         // hat state 3
         else if (fh3) {
             this.HatBase.xRot = -0.85F;// -48
-            // this.HatBase.offsetY = 0.33F;
-            // this.HatBase.offsetZ = 0.07F;
+            this.setLegacyPartOffsetY(this.HatBase, 0.33F);
+            this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
         }
         // no hat or hat state 2
         else {
             this.HatBase.xRot = 0F;
-            // this.HatBase.offsetY = 0F;
-            // this.HatBase.offsetZ = 0F;
+            this.setLegacyPartOffsetY(this.HatBase, 0F);
+            this.setLegacyPartOffsetZ(this.HatBase, 0F);
         }
 
         // equip: tail position
@@ -771,8 +775,8 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
 
         // tail body
         if (ft3) {
-            // this.TailBase.offsetY = -0.15F;
-            // this.TailBase.offsetZ = 0F;
+            this.setLegacyPartOffsetY(this.TailBase, -0.15F);
+            this.setLegacyPartOffsetZ(this.TailBase, 0F);
             this.Tail01.xRot = 0.26F;
             this.Tail01.yRot = 1.7F + cosf2[0] * 0.015F;
             this.Tail02.xRot = 0.61F;
@@ -810,8 +814,8 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
             this.Tail09_1.xRot = -0.09F;
             this.Tail09_1.yRot = 0.44F + cosf2[8] * 0.12F;
         } else if (ft1) {
-            // this.TailBase.offsetY = -0.15F;
-            // this.TailBase.offsetZ = 0F;
+            this.setLegacyPartOffsetY(this.TailBase, -0.15F);
+            this.setLegacyPartOffsetZ(this.TailBase, 0F);
             this.Tail01.xRot = -0.17F + cosf2[0] * 0.03F;
             this.Tail01.yRot = 1.3F + cosf2[0] * 0.03F;
             this.Tail02.xRot = 0.26F + cosf2[1] * 0.03F;
@@ -849,8 +853,8 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
             this.Tail09_1.xRot = 0.52F + cosf2[8] * 0.15F;
             this.Tail09_1.yRot = -0.17F + cosf2[8] * 0.15F;
         } else if (ft2) {
-            // this.TailBase.offsetY = -0.54F;
-            // this.TailBase.offsetZ = 0.86F;
+            this.setLegacyPartOffsetY(this.TailBase, -0.54F);
+            this.setLegacyPartOffsetZ(this.TailBase, 0.86F);
             this.Tail01.xRot = -0.17F + cosf2[0] * 0.03F;
             this.Tail01.yRot = 1.3F + cosf2[0] * 0.03F;
             this.Tail02.xRot = 0.26F + cosf2[1] * 0.03F;
@@ -918,8 +922,8 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
         // 潛行, 蹲下動作
         ent.getIsSneaking();
         // head
-        // this.Head.offsetY = 0.2F;
-        // this.GlowHead.offsetY = 0.2F;
+        this.setLegacyPartOffsetY(this.Head, 0.2F);
+        this.setLegacyPartOffsetY(this.GlowHead, 0.2F);
         // end if sneaking
 
         // 坐下, 騎乘動作
@@ -928,30 +932,31 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
                 // hat state 4
                 if (fh4) {
                     this.HatBase.xRot = -1.8F;// -103
-                    // this.HatBase.offsetY = 0.3F;
-                    // this.HatBase.offsetZ = 0.07F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0.3F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
                 }
                 // hat state 1
                 else if (fh1) {
                     this.HatBase.xRot = 1.37F;// 78
-                    // this.HatBase.offsetY = -0.45F;
-                    // this.HatBase.offsetZ = -0.2F;
+                    this.setLegacyPartOffsetY(this.HatBase, -0.45F);
+                    this.setLegacyPartOffsetZ(this.HatBase, -0.2F);
                 }
                 // hat state 3
                 else if (fh3) {
                     this.HatBase.xRot = -0.85F;// -48
-                    // this.HatBase.offsetY = 0.1F;
-                    // this.HatBase.offsetZ = 0.07F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0.1F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
                 }
                 // no hat or hat state 2
                 else {
                     this.HatBase.xRot = 0F;
-                    // this.HatBase.offsetY = 0F;
-                    // this.HatBase.offsetZ = 0F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0F);
                 }
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.21F;
+                this.translateLegacyPose(0F, 0.21F, 0F);
+
                 this.Head.xRot -= 0.2F;
                 this.Head.zRot -= 0.09F;
                 this.BodyMain.zRot = 0.09F;
@@ -959,12 +964,12 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
                 this.ArmLeft01.xRot = -1.31F;
                 this.ArmLeft01.yRot = 0.17F;
                 this.ArmLeft01.zRot = 0F;
-                // this.ArmLeft01.offsetZ = 0F;
+                this.setLegacyPartOffsetZ(this.ArmLeft01, 0F);
                 this.ArmLeft02.zRot = 0F;
                 this.ArmRight01.xRot = -1.22F;
                 this.ArmRight01.yRot = 1.05F;
                 this.ArmRight01.zRot = 0F;
-                // this.ArmRight01.offsetZ = 0F;
+                this.setLegacyPartOffsetZ(this.ArmRight01, 0F);
                 this.ArmRight02.zRot = 0F;
                 // leg
                 addk1 = 1.31F;
@@ -976,87 +981,89 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
             } else if (ent.getStateEmotion(ID.S.Emotion4) == ID.Emotion.BORED) {
                 // head
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.22F;
+                this.translateLegacyPose(0F, 0.22F, 0F);
+
                 this.Head.xRot = 1.5359F;
-                // this.Head.offsetY = 0.25F;
+                this.setLegacyPartOffsetY(this.Head, 0.25F);
                 this.GlowHead.xRot = 1.5359F;
-                // this.GlowHead.offsetY = 0.25F;
+                this.setLegacyPartOffsetY(this.GlowHead, 0.25F);
                 // arm
                 addk1 = 1.5359F;
                 addk2 = 1.5359F;
                 this.ArmLeft01.xRot = -1.5359F;
                 this.ArmLeft01.zRot = 0F;
-                // this.ArmLeft01.offsetZ = -0.18F;
+                this.setLegacyPartOffsetZ(this.ArmLeft01, -0.18F);
                 this.ArmRight01.xRot = -1.5359F;
                 this.ArmRight01.zRot = 0F;
-                // this.ArmRight01.offsetZ = -0.18F;
+                this.setLegacyPartOffsetZ(this.ArmRight01, -0.18F);
 
                 // hat state 4
                 if (fh4) {
                     this.HatBase.xRot = -1.8F;// -103
-                    // this.HatBase.offsetY = 0.6F;
-                    // this.HatBase.offsetZ = -0.3F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0.6F);
+                    this.setLegacyPartOffsetZ(this.HatBase, -0.3F);
                 }
                 // hat state 1
                 else if (fh1) {
                     this.HatBase.xRot = 1.37F;// 78
-                    // this.HatBase.offsetY = -0.45F;
-                    // this.HatBase.offsetZ = -0.2F;
+                    this.setLegacyPartOffsetY(this.HatBase, -0.45F);
+                    this.setLegacyPartOffsetZ(this.HatBase, -0.2F);
                 }
                 // hat state 3
                 else if (fh3) {
                     this.HatBase.xRot = -0.85F;// -48
-                    // this.HatBase.offsetY = 0.6F;
-                    // this.HatBase.offsetZ = 0.07F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0.6F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
                 }
                 // no hat or hat state 2
                 else {
                     this.HatBase.xRot = 0F;
-                    // this.HatBase.offsetY = 0F;
-                    // this.HatBase.offsetZ = 0F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0F);
                 }
             } else {
                 // hat state 4
                 if (fh4) {
                     this.HatBase.xRot = -1.8F;// -103
-                    // this.HatBase.offsetY = 0.2F;
-                    // this.HatBase.offsetZ = 0.07F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0.2F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
                 }
                 // hat state 1
                 else if (fh1) {
                     this.HatBase.xRot = 1.37F;// 78
-                    // this.HatBase.offsetY = -0.45F;
-                    // this.HatBase.offsetZ = -0.2F;
+                    this.setLegacyPartOffsetY(this.HatBase, -0.45F);
+                    this.setLegacyPartOffsetZ(this.HatBase, -0.2F);
                 }
                 // hat state 3
                 else if (fh3) {
                     this.HatBase.xRot = -0.85F;// -48
-                    // this.HatBase.offsetY = 0F;
-                    // this.HatBase.offsetZ = 0.07F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0.07F);
                 }
                 // no hat or hat state 2
                 else {
                     this.HatBase.xRot = 0F;
-                    // this.HatBase.offsetY = 0F;
-                    // this.HatBase.offsetZ = 0F;
+                    this.setLegacyPartOffsetY(this.HatBase, 0F);
+                    this.setLegacyPartOffsetZ(this.HatBase, 0F);
                 }
                 // head
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.22F;
+                this.translateLegacyPose(0F, 0.22F, 0F);
+
                 this.Head.xRot -= 0.5F;
                 this.GlowHead.xRot -= 0.5F;
-                // this.Head.offsetY = 0.25F;
-                // this.GlowHead.offsetY = 0.25F;
+                this.setLegacyPartOffsetY(this.Head, 0.25F);
+                this.setLegacyPartOffsetY(this.GlowHead, 0.25F);
                 // arm
                 addk1 = 1.5359F;
                 addk2 = 1.5359F;
                 this.ArmLeft01.xRot = -1.5359F;
                 this.ArmLeft01.zRot = 0F;
-                // this.ArmLeft01.offsetZ = -0.18F;
+                this.setLegacyPartOffsetZ(this.ArmLeft01, -0.18F);
                 this.ArmLeft02.zRot = 1.1868F;
                 this.ArmRight01.xRot = -1.5359F;
                 this.ArmRight01.zRot = 0F;
-                // this.ArmRight01.offsetZ = -0.18F;
+                this.setLegacyPartOffsetZ(this.ArmRight01, -0.18F);
                 this.ArmRight02.zRot = -1.1868F;
             }
         } // end if sitting

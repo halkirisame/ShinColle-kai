@@ -51,6 +51,9 @@ import java.util.UUID;
 public abstract class BasicEntityMount extends TamableAnimal
         implements IShipMount, IShipCannonAttack, IShipGuardian, IShipCustomTexture {
 
+    private static final int HOST_RESOLUTION_GRACE_TICKS = 100;
+    private int unresolvedHostTicks;
+
     /**
      * key input from player riding this mount
      */
@@ -108,6 +111,11 @@ public abstract class BasicEntityMount extends TamableAnimal
 
     public BasicEntityShip getHost() {
         return this.host;
+    }
+
+    // Also matches saved mounts whose host has not yet been resolved.
+    boolean hasHost(BasicEntityShip ship) {
+        return this.host == ship || ship.getUUID().equals(this.hostUuid);
     }
 
     public void setHost(BasicEntityShip ship) {
@@ -748,6 +756,19 @@ public abstract class BasicEntityMount extends TamableAnimal
     public void tick() {
         if (!this.level().isClientSide()) {
             this.resolveHost();
+            // Restore 1.10.2 onUpdate's orphan cleanup before AI or movement.
+            // Saved HostUUIDs get time to resolve after passenger/chunk loading.
+            boolean orphan;
+            if (this.host == null) {
+                orphan = this.hostUuid == null || ++this.unresolvedHostTicks >= HOST_RESOLUTION_GRACE_TICKS;
+            } else {
+                this.unresolvedHostTicks = 0;
+                orphan = !this.host.isAlive() || this.host.level() != this.level() || this.host.getVehicle() != this;
+            }
+            if (orphan) {
+                this.clearRider();
+                return;
+            }
             this.setNoAi(BasicEntityShip.stopAI);
         } else {
             this.resolveClientHost();

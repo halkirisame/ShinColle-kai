@@ -537,8 +537,10 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -567,7 +569,8 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
         // [PORT] 1.10.2 -> 1.20.1: preserve legacy dead-pose grounding offset.
-        this.offsetY += 0.51F + 0.24F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.51F + 0.24F * ent.getScaleLevel(), 0F);
+
 
         this.setFaceHungry(ent);
 
@@ -578,11 +581,11 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         this.Ahoke.yRot = 0.5236F;
         this.BodyMain.xRot = 1.55F;
         this.Butt.xRot = 0.21F;
-        // this.Butt.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
         this.Skirt01.xRot = -0.052F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.052F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // arm
         this.ArmLeft01.xRot = -3F;
         this.ArmLeft01.yRot = 0F;
@@ -591,9 +594,9 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -0.3F;
         this.ArmLeft02.zRot = 0F;
-        // this.ArmLeft02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.xRot = -0.2618F;
         this.LegLeft01.yRot = 0F;
@@ -604,15 +607,15 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
     }
 
     @Override
@@ -628,7 +631,8 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D || ent.getShipDepth(1) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -644,11 +648,11 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.21F;
-        // this.Butt.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
         this.Skirt01.xRot = -0.052F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.052F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // hair
         this.HairL01.xRot = -0.0524F;
         this.HairL01.zRot = 0.1396F;
@@ -664,30 +668,30 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.zRot = 0.2793F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 0F;
-        // this.ArmLeft02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = -0.2793F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -0.2793F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.1047F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.1047F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         this.EquipHead01.zRot = angleX * 0.2F - 1.5708F;
         this.EquipC02.yRot = 0.5F + this.Head.yRot * 0.5F;
@@ -727,14 +731,15 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.4F;
-            // this.Butt.offsetY = -0.19F;
+            this.setLegacyPartOffsetY(this.Butt, -0.19F);
             this.Skirt01.xRot = -0.12F;
             this.Skirt02.xRot = -0.4F;
-            // this.Skirt02.offsetY = -0.1F;
+            this.setLegacyPartOffsetY(this.Skirt02, -0.1F);
             // arm
             this.ArmLeft01.xRot = -0.6F;
             this.ArmLeft01.zRot = 0.2618F;
@@ -783,26 +788,27 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
                 if (ent.getIsSitting() && ent.getRidingState() != 3) {
                     // Body
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.275F;
+                    this.translateLegacyPose(0F, 0.275F, 0F);
+
                     this.Head.xRot -= 0.1F;
                     this.BodyMain.xRot = 0F;
                     this.Butt.xRot = -0.2F;
-                    // this.Butt.offsetY = -0.1F;
+                    this.setLegacyPartOffsetY(this.Butt, -0.1F);
                     this.Skirt01.xRot = -0.07F;
-                    // this.Skirt01.offsetY = -0.05F;
+                    this.setLegacyPartOffsetY(this.Skirt01, -0.05F);
                     this.Skirt02.xRot = -0.16F;
-                    // this.Skirt02.offsetY = -0.08F;
+                    this.setLegacyPartOffsetY(this.Skirt02, -0.08F);
                     // leg
                     addk1 = -0.65F;
                     addk2 = -0.65F;
                     this.LegLeft01.yRot = 0.1F;
                     this.LegLeft01.zRot = 0F;
-                    // this.LegLeft02.offsetZ = 0.375F;
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.375F);
                     this.LegLeft02.xRot = 2.45F;
                     this.LegLeft02.zRot = 0.0175F;
                     this.LegRight01.yRot = -0.1F;
                     this.LegRight01.zRot = 0F;
-                    // this.LegRight02.offsetZ = 0.375F;
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.375F);
                     this.LegRight02.xRot = 2.45F;
                     this.LegRight02.zRot = -0.0175F;
                 }
@@ -811,22 +817,22 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
             if (ent.getRidingState() == 1 || ent.getRidingState() == 3) {
                 // Body
                 this.Butt.xRot = -0.2F;
-                // this.Butt.offsetY = -0.1F;
+                this.setLegacyPartOffsetY(this.Butt, -0.1F);
                 this.Skirt01.xRot = -0.07F;
-                // this.Skirt01.offsetY = -0.1F;
+                this.setLegacyPartOffsetY(this.Skirt01, -0.1F);
                 this.Skirt02.xRot = -0.16F;
-                // this.Skirt02.offsetY = -0.15F;
+                this.setLegacyPartOffsetY(this.Skirt02, -0.15F);
                 // leg
                 addk1 = -0.95F;
                 addk2 = -0.95F;
                 this.LegLeft01.yRot = -0.5F;
                 this.LegLeft01.zRot = -0.1F;
-                // this.LegLeft02.offsetZ = 0.0F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.0F);
                 this.LegLeft02.xRot = 0.8F;
                 this.LegLeft02.zRot = 0.0175F;
                 this.LegRight01.yRot = 0.5F;
                 this.LegRight01.zRot = 0.1F;
-                // this.LegRight02.offsetZ = 0.0F;
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.0F);
                 this.LegRight02.xRot = 0.8F;
                 this.LegRight02.zRot = -0.0175F;
 
@@ -836,17 +842,18 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                     // head
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.375F;
+                    this.translateLegacyPose(0F, 0.375F, 0F);
+
                     this.Head.yRot -= 0.4F;
                     this.Head.zRot += 0.2F;
                     // body
                     this.BodyMain.xRot = -0.25F;
                     this.Butt.xRot = -0.2F;
-                    // this.Butt.offsetY = -0.1F;
+                    this.setLegacyPartOffsetY(this.Butt, -0.1F);
                     this.Skirt01.xRot = -0.07F;
-                    // this.Skirt01.offsetY = -0.1F;
+                    this.setLegacyPartOffsetY(this.Skirt01, -0.1F);
                     this.Skirt02.xRot = -0.16F;
-                    // this.Skirt02.offsetY = -0.15F;
+                    this.setLegacyPartOffsetY(this.Skirt02, -0.15F);
                     // arm
                     this.ArmLeft01.xRot = 0.35F;
                     this.ArmLeft01.zRot = -0.2618F;
@@ -860,26 +867,27 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
                     this.LegLeft02.xRot = 1.2217F;
                     this.LegLeft02.yRot = 1.2217F;
                     this.LegLeft02.zRot = -1.0472F;
-                    // this.LegLeft02.offsetX = 0.32F;
-                    // this.LegLeft02.offsetY = 0.05F;
-                    // this.LegLeft02.offsetZ = 0.35F;
+                    this.setLegacyPartOffsetX(this.LegLeft02, 0.32F);
+                    this.setLegacyPartOffsetY(this.LegLeft02, 0.05F);
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.35F);
                     this.LegRight01.zRot = 0.14F;
                     this.LegRight02.xRot = 1.2217F;
                     this.LegRight02.yRot = -1.2217F;
                     this.LegRight02.zRot = 1.0472F;
-                    // this.LegRight02.offsetX = -0.32F;
-                    // this.LegRight02.offsetY = 0.05F;
-                    // this.LegRight02.offsetZ = 0.35F;
+                    this.setLegacyPartOffsetX(this.LegRight02, -0.32F);
+                    this.setLegacyPartOffsetY(this.LegRight02, 0.05F);
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.35F);
                 } else {
                     // Body
+                    this.translateLegacyPose(0F, 0.275F, 0F);
                     this.Head.xRot -= 0.1F;
                     this.BodyMain.xRot = 0F;
                     this.Butt.xRot = -0.2F;
-                    // this.Butt.offsetY = -0.1F;
+                    this.setLegacyPartOffsetY(this.Butt, -0.1F);
                     this.Skirt01.xRot = -0.07F;
-                    // this.Skirt01.offsetY = -0.05F;
+                    this.setLegacyPartOffsetY(this.Skirt01, -0.05F);
                     this.Skirt02.xRot = -0.16F;
-                    // this.Skirt02.offsetY = -0.08F;
+                    this.setLegacyPartOffsetY(this.Skirt02, -0.08F);
                     // arm
                     this.ArmLeft01.xRot = -0.4F;
                     this.ArmLeft01.zRot = 0.2618F;
@@ -890,12 +898,12 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
                     addk2 = -0.65F;
                     this.LegLeft01.yRot = 0.1F;
                     this.LegLeft01.zRot = 0F;
-                    // this.LegLeft02.offsetZ = 0.375F;
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.375F);
                     this.LegLeft02.xRot = 2.45F;
                     this.LegLeft02.zRot = 0.0175F;
                     this.LegRight01.yRot = -0.1F;
                     this.LegRight01.zRot = 0F;
-                    // this.LegRight02.offsetZ = 0.375F;
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.375F);
                     this.LegRight02.xRot = 2.45F;
                     this.LegRight02.zRot = -0.0175F;
                 }
@@ -908,7 +916,7 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
             // Body
             this.BodyMain.xRot = 0.5F;
             this.Butt.xRot = -0.3F;
-            // this.Butt.offsetY = -0.15F;
+            this.setLegacyPartOffsetY(this.Butt, -0.15F);
             // arm
             this.ArmLeft01.xRot = -0.8F;
             this.ArmLeft01.yRot = 0.4712F;

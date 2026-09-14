@@ -48,6 +48,9 @@ def includeJEIRuntime = optionalRuntime('shincolleJEIRuntime')
 def includeCuriosRuntime = optionalRuntime('shincolleCuriosRuntime')
 def includeTinkersRuntime = optionalRuntime('shincolleTinkersRuntime')
 
+// Fixed seed for the flat GameTest world. See prepareGameTestWorld below.
+def gameTestLevelSeed = '105'
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
 
@@ -97,6 +100,7 @@ minecraft {
             property 'forge.enabledGameTestNamespaces', "${mod_id},minecraft"
             property 'forge.logging.console.level', 'info'
             property 'shincolle.publicationRoot', project.projectDir.absolutePath
+            property 'shincolle.gametestLevelSeed', gameTestLevelSeed
             jvmArgs '--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED'
             args '--nogui'
         }
@@ -121,6 +125,12 @@ sourceSets {
         resources.srcDir 'examples/java_addon/src/main/resources'
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
     }
+}
+
+// Machine-local build additions, applied only when the file exists outside this repository.
+def localBuildScript = file('../local.gradle')
+if (localBuildScript.isFile()) {
+    apply from: localBuildScript
 }
 
 tasks.named('check').configure {
@@ -183,6 +193,48 @@ tasks.register('prepareKubeJSSmokeResources', Sync) {
 
 tasks.matching { it.name == 'prepareRunKubeJSGameTestServer' }.configureEach {
     dependsOn tasks.named('prepareKubeJSSmokeResources')
+}
+
+// GameTest worlds must be flat with a fixed seed (TASK-105). The GameTest server reads
+// server.properties from its working directory. With the vanilla defaults (natural terrain,
+// random seed) the clearing before each test hollowed out real ground, and gravel or sand
+// above the hollow fell into test areas as falling-block entities that spatial queries counted.
+// level-type and seed only apply when a world is created, so the world is recreated every run.
+// GameTestWorldGameTests fails if this contract is broken.
+def prepareGameTestWorld = { File serverDir ->
+    serverDir.mkdirs()
+    def propertiesFile = new File(serverDir, 'server.properties')
+    def forced = [
+            'level-type'         : 'minecraft\\:flat',
+            'level-seed'         : gameTestLevelSeed,
+            'generate-structures': 'false',
+            'level-name'         : 'world',
+    ]
+    def written = [] as Set
+    def lines = (propertiesFile.isFile() ? propertiesFile.readLines('ISO-8859-1') : []).collect { String line ->
+        def separator = line.indexOf('=')
+        def key = (!line.startsWith('#') && separator > 0) ? line.substring(0, separator) : null
+        if (key != null && forced.containsKey(key)) {
+            written << key
+            return "${key}=${forced[key]}".toString()
+        }
+        return line
+    }
+    forced.each { key, value ->
+        if (!written.contains(key)) {
+            lines << "${key}=${value}".toString()
+        }
+    }
+    propertiesFile.write(lines.join('\n') + '\n', 'ISO-8859-1')
+    project.delete(new File(serverDir, 'world'))
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst { prepareGameTestWorld(project.file('.')) }
+}
+
+tasks.matching { it.name == 'runKubeJSGameTestServer' }.configureEach {
+    doFirst { prepareGameTestWorld(project.file('build/kubejs-gametest')) }
 }
 
 // Expand gradle.properties into mods.toml

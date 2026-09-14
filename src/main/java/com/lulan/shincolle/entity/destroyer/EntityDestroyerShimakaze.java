@@ -56,6 +56,11 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
     }
 
     @Override
+    public int getHiddenAppearanceBits() {
+        return 1;
+    }
+
+    @Override
     public void setAIList() {
         super.setAIList();
 
@@ -113,9 +118,7 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
             this.playSound(getCustomSound(1, this), this.getSoundVolume(), this.getVoicePitch());
         }
 
-        // send attack animation sync to clients
-        setStateTimer(ID.T.AttackTime, 20);
-        sendSyncPacketEmotion();
+        triggerAttackAnimation();
 
         // spawn rensouhou: check model state 0 to determine type
         if (EmotionHelper.checkModelState(0, this.getStateEmotion(ID.S.State))) {
@@ -159,9 +162,7 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
         float tarZ = (float) target.getZ();
         float tarHeightOff = target.getBbHeight() * 0.1F;
 
-        // send attack animation sync to clients
-        setStateTimer(ID.T.AttackTime2, 20);
-        sendSyncPacketEmotion();
+        triggerAttackAnimation();
 
         // get missile data
         MissileData md = this.getMissileData(2);
