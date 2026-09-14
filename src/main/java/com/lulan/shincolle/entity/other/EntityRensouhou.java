@@ -154,6 +154,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
     public boolean attackTarget(Entity target) {
         if (this.numAmmoLight <= 0) return false;
         this.numAmmoLight--;
+        triggerAttackAnimation();
 
         float atk = this.shipAttrs.getAttackDamage();
         if (target instanceof LivingEntity livingTarget) {
@@ -227,20 +228,22 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
 
     @Override
     public int getAttackTick() {
-        return 0;
+        return this.attackTime;
     }
 
     @Override
     public void setAttackTick(int par1) {
+        this.attackTime = par1;
     }
 
     @Override
     public int getAttackTick2() {
-        return 0;
+        return this.attackTime2;
     }
 
     @Override
     public void setAttackTick2(int par1) {
+        this.attackTime2 = par1;
     }
 
     @Override

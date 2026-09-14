@@ -893,6 +893,46 @@ public class Values {
             // page 1
             put(1, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0}));
+            // page 2
+            put(2, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 3
+            put(3, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 4
+            put(4, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 5: large shipyard (owner instruction 2026-09-14: the finished-structure
+            // picture from chap 2 page 3 (put(2003, ...)), stacked as two 1:1 pictures on
+            // the right page; no layer pictures, no chap0.text5d1 key)
+            put(5, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0},
+                    new int[]{1, 1, 29, 6, 0, 100, 188, 49, 49},
+                    new int[]{1, 1, 29, 63, 0, 150, 180, 50, 65}));
+            // page 6
+            put(6, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 7
+            put(7, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 8
+            put(8, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 9
+            put(9, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 10
+            put(10, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 11
+            put(11, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 12
+            put(12, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
+            // page 13
+            put(13, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0}));
 
             // chap 1: resources
             // page 0: grudge
@@ -1327,9 +1367,9 @@ public class Values {
         map.put(ID.Icon.XPBot, new ItemStack(Items.EXPERIENCE_BOTTLE));
         // Mod items
         map.put(ID.Icon.Grudge, new ItemStack(ModItems.GRUDGE.get()));
-        map.put(ID.Icon.GrudgeXP, new ItemStack(ModItems.GRUDGE.get()));
+        map.put(ID.Icon.GrudgeXP, new ItemStack(ModItems.GRUDGE_1.get()));
         map.put(ID.Icon.AbyssIG, new ItemStack(ModItems.ABYSS_METAL.get()));
-        map.put(ID.Icon.PolymIG, new ItemStack(ModItems.ABYSS_METAL.get()));
+        map.put(ID.Icon.PolymIG, new ItemStack(ModItems.POLYMETAL_NODULE.get()));
         map.put(ID.Icon.AmmoL, new ItemStack(ModItems.AMMO.get()));
         map.put(ID.Icon.AmmoLC, new ItemStack(ModItems.AMMO.get()));
         map.put(ID.Icon.AmmoH, new ItemStack(ModItems.AMMO.get()));

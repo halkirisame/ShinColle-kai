@@ -92,14 +92,64 @@ class CombatTargetFoundationTest {
     void spatialQueryRejectsInvalidBoundsAndNulls() {
         TargetHandle source = handle(UUID.randomUUID(), OVERWORLD);
         ObservationPosition center = new ObservationPosition(1D, 2D, 3D);
+        ObservationBounds size = new ObservationBounds(0.6F, 1.8F);
 
-        assertEquals(4D, new SpatialQuery(source, center, 4D, 2D).horizontalRange());
+        assertEquals(4D, new SpatialQuery(source, center, size, 4D, 2D).horizontalRange());
         assertThrows(IllegalArgumentException.class,
-                () -> new SpatialQuery(source, center, -1D, 2D));
+                () -> new SpatialQuery(source, center, size, -1D, 2D));
         assertThrows(IllegalArgumentException.class,
-                () -> new SpatialQuery(source, center, 1D, Double.NaN));
+                () -> new SpatialQuery(source, center, size, 1D, Double.NaN));
         assertThrows(NullPointerException.class,
-                () -> new SpatialQuery(null, center, 1D, 2D));
+                () -> new SpatialQuery(null, center, size, 1D, 2D));
+        assertThrows(NullPointerException.class,
+                () -> new SpatialQuery(source, center, null, 1D, 2D));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ObservationBounds(-1F, 1F));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ObservationBounds(1F, Float.NaN));
+    }
+
+    @Test
+    void searchBoundsInflateTheSourceBoxNotAPoint() {
+        // Upstream: getBoundingBox().inflate(h, v, h), where the box spans the position
+        // by half the width on X/Z and runs from the position to the full height on Y.
+        // Pinning it here keeps a point-centred box from silently coming back.
+        ObservationPosition center = new ObservationPosition(10D, 64D, -5D);
+        ObservationBounds size = new ObservationBounds(1.6F, 3.2F);
+        SearchBounds bounds = ShipAiCompatibilityRules.targetSearchBounds(center, size, 8D, 6D);
+
+        double halfWidth = 1.6F / 2.0F;
+        assertEquals(10D - halfWidth - 8D, bounds.minX());
+        assertEquals(10D + halfWidth + 8D, bounds.maxX());
+        assertEquals(-5D - halfWidth - 8D, bounds.minZ());
+        assertEquals(-5D + halfWidth + 8D, bounds.maxZ());
+        assertEquals(64D - 6D, bounds.minY());
+        assertEquals(64D + 3.2F + 6D, bounds.maxY());
+
+        // The vertical extent is asymmetric about the position by exactly the height.
+        assertEquals(3.2F, (bounds.maxY() - 64D) - (64D - bounds.minY()), 1e-9D);
+
+        assertEquals(bounds, new SpatialQuery(
+                handle(UUID.randomUUID(), OVERWORLD), center, size, 8D, 6D).bounds());
+    }
+
+    @Test
+    void searchBoundsRejectInvalidInput() {
+        ObservationPosition center = new ObservationPosition(0D, 0D, 0D);
+        ObservationBounds size = new ObservationBounds(1F, 1F);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> ShipAiCompatibilityRules.targetSearchBounds(center, size, -1D, 1D));
+        assertThrows(IllegalArgumentException.class,
+                () -> ShipAiCompatibilityRules.targetSearchBounds(center, size, 1D, Double.NaN));
+        assertThrows(IllegalArgumentException.class,
+                () -> ShipAiCompatibilityRules.targetSearchBounds(null, size, 1D, 1D));
+        assertThrows(IllegalArgumentException.class,
+                () -> ShipAiCompatibilityRules.targetSearchBounds(center, null, 1D, 1D));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SearchBounds(1D, 0D, 0D, 0D, 1D, 1D));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SearchBounds(0D, 0D, 0D, Double.NaN, 1D, 1D));
     }
 
     private static TargetPredicateFacts facts(boolean airplane, boolean abyssMissile, boolean submarine) {

@@ -72,6 +72,8 @@ public class LayerShipHeldItem<T extends BasicEntityShip> extends RenderLayer<T,
         // Only render for ShipModelBaseAdv models
         EntityModel<T> model = this.getParentModel();
         if (model instanceof ShipModelBaseAdv<?> advModel) {
+            // Upstream's outer setRotationAngles translation also remained active for layers.
+            advModel.applyLegacyPoseTranslation(poseStack);
             boolean isBlock = stack.getItem() instanceof BlockItem;
             ModelPart[] hand = advModel.getArmForSide(arm);
             float[] offset = advModel.getHeldItemOffset(entity, arm, isBlock ? 1 : 0);

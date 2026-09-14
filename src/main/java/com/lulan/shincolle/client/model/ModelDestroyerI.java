@@ -64,8 +64,7 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
     // Eye light pairs (3 emotion states, children of GlowPHead)
     private final ModelPart[] PEyeLightL = new ModelPart[3];
     private final ModelPart[] PEyeLightR = new ModelPart[3];
-    // Dynamic Y offset set by animation, applied in renderToBuffer
-    private float animOffsetY = 0F;
+    // Pose translation is stored in ShipModelBaseAdv.
 
     public ModelDestroyerI(ModelPart root) {
         super();
@@ -395,7 +394,8 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
         poseStack.pushPose();
 
         // Apply animation Y offset (before scale, matching original behavior)
-        poseStack.translate(0F, animOffsetY, 0F);
+        this.applyLegacyPoseTranslation(poseStack);
+        this.applyLegacyPoseTranslation(poseStack);
 
         // Original: GlStateManager.scale(0.45F, 0.4F, 0.4F)
         poseStack.scale(0.45F, 0.4F, 0.4F);
@@ -540,12 +540,15 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
 
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
+        if (ent.getShipDepth(0) > 0D) {
+            this.translateLegacyPose(0F, Mth.cos(f2 * 0.125F) * 0.05F + 0.025F, 0F);
+        }
         // Original: motionStopPos
         // Force distressed face for dead pose
         this.setFace(2);
 
-        // Translate up (original: GlStateManager.translate(0F, 0.75F, 0F))
-        this.animOffsetY = DEAD_POSE_OFFSET_Y;
+        // Original NoFuel movement: GlStateManager.translate(0F, 0.75F, 0F)
+        this.translateLegacyPose(0F, DEAD_POSE_OFFSET_Y, 0F);
 
         // Body collapsed forward
         this.PBack.xRot = 1.4835F;
@@ -578,8 +581,7 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
     public void applyNormalPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
         float angleZ = Mth.cos(f2 * 0.125F);
 
-        // Reset dynamic offset
-        this.animOffsetY = 0F;
+        // prepareMobModel resets pose translations before setupAnim.
 
         // Reset body
         this.PBack.xRot = 0F;
@@ -592,7 +594,7 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
 
         // Water floating bobbing
         if (ent.getShipDepth(0) > 0D) {
-            this.animOffsetY += angleZ * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleZ * 0.05F + 0.025F, 0F);
         }
 
         // Head watching / idle head motion
@@ -609,7 +611,7 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
             this.PBack.zRot = -0.31F;
 
             // Standing offset (original: GlStateManager.translate(0F, 0.42F, 0F))
-            this.animOffsetY += STANDING_OFFSET_Y;
+            this.translateLegacyPose(0F, STANDING_OFFSET_Y, 0F);
         }
     }
 
@@ -664,7 +666,7 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
     private void motionSit(IShipEmotion ent, float angleZ) {
         if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
             // Bored sitting - lying down pose
-            this.animOffsetY += SIT_BORED_OFFSET_Y;
+            this.translateLegacyPose(0F, SIT_BORED_OFFSET_Y, 0F);
             this.PBack.zRot = 0.6F;
             this.PNeck.zRot = -0.25F;
             this.PHead.zRot = -0.3F;
@@ -677,7 +679,7 @@ public class ModelDestroyerI extends ShipModelBaseAdv<Entity> {
             this.PJawBottom.zRot = -0.7F;
         } else {
             // Normal sitting - curled up
-            this.animOffsetY += SIT_NORMAL_OFFSET_Y;
+            this.translateLegacyPose(0F, SIT_NORMAL_OFFSET_Y, 0F);
             this.PBack.zRot = -0.8F;
             this.PNeck.zRot = -0.3F;
             this.PLegRight.zRot = -0.8F;

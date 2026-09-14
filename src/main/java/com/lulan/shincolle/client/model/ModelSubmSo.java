@@ -379,8 +379,10 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -445,7 +447,8 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
         this.setFaceHungry(ent);
         // body
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.1F;
+        this.translateLegacyPose(0F, angleX * 0.1F, 0F);
+
         this.Head.xRot = 0.5F;
         this.Head.yRot = 0F;
         this.BodyMain.xRot = 1.6F;
@@ -481,12 +484,13 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // head
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         this.Head.xRot = f4 * 0.014F + 0.1047F;
         this.Head.yRot = f3 * 0.01F;
         this.Head.zRot = 0F;
@@ -500,7 +504,7 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.21F;
-        // this.Butt.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.Butt, 0F);
         // hair
         this.Hair01.xRot = 0.209F;
         this.Hair01.zRot = 0F;
@@ -535,9 +539,9 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
             this.EquipT01a.xRot = 0.14F;
         if (this.EquipT01a != null)
             this.EquipT01a.zRot = 0F;
-        // this.EquipT01a.offsetX = 0F;
-        // this.EquipT01a.offsetY = 0F;
-        // this.EquipT01a.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipT01a, 0F);
+        this.setLegacyPartOffsetY(this.EquipT01a, 0F);
+        this.setLegacyPartOffsetZ(this.EquipT01a, 0F);
         if (this.EquipC01 != null)
             this.EquipC01.yRot = this.Head.yRot + 0.5F;
         if (this.EquipC02 != null)
@@ -547,7 +551,8 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSprinting() || f1 > 0.92F) { // 奔跑動作
             // body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 1.1F;
             this.BodyMain.xRot = 1.2566F;
             // 胸部
@@ -568,7 +573,7 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
                 this.EquipT01a.xRot = 1.2566F;
             if (this.EquipT01a != null)
                 this.EquipT01a.zRot = -0.1885F;
-            // this.EquipT01a.offsetX = -0.08F;
+            this.setLegacyPartOffsetX(this.EquipT01a, -0.08F);
         } // end is sprinting
 
         // head tilt angle
@@ -577,7 +582,8 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.8378F;
@@ -603,7 +609,8 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
                 // 潛水深度
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += angleX * 0.05F;
+                this.translateLegacyPose(0F, angleX * 0.05F, 0F);
+
                 this.Head.xRot *= 0.5F;
                 this.Head.yRot *= 0.75F;
                 this.Head.xRot += 0.5F;
@@ -621,7 +628,8 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
             } else {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.45F;
+                this.translateLegacyPose(0F, 0.45F, 0F);
+
                 this.Head.xRot -= 0.7F;
                 this.BodyMain.xRot = 0.5236F;
                 // arm
@@ -649,9 +657,9 @@ public class ModelSubmSo extends ShipModelBaseAdv<Entity> {
             this.ArmLeft01.yRot += fa * 20.0F * ((float) Math.PI / 180F);
             this.ArmLeft01.zRot += fb * 20.0F * ((float) Math.PI / 180F) + 0.4F;
             // equip
-            // this.EquipT01a.offsetX = 0.2F;
-            // this.EquipT01a.offsetY = 0.2F;
-            // this.EquipT01a.offsetZ = -0.5F;
+            this.setLegacyPartOffsetX(this.EquipT01a, 0.2F);
+            this.setLegacyPartOffsetY(this.EquipT01a, 0.2F);
+            this.setLegacyPartOffsetZ(this.EquipT01a, -0.5F);
         } // end attack
 
         // 鬢毛調整

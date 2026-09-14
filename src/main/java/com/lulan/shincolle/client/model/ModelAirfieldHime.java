@@ -416,8 +416,10 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -454,7 +456,8 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
         float headX;
         float headZ;
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.55F;
+        this.translateLegacyPose(0F, 0.55F, 0F);
+
         this.setFaceHungry(ent);
 
         // 移動頭部使其看人
@@ -490,7 +493,7 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
         this.Head.xRot += 0.14F;
         this.BodyMain.xRot = 0.4F;
         this.Butt.xRot = -0.4F;
-        // this.Butt.offsetZ = 0.19F;
+        this.setLegacyPartOffsetZ(this.Butt, 0.19F);
         this.BoobL.xRot -= 0.2F;
         this.BoobR.xRot -= 0.2F;
         // arm
@@ -548,12 +551,13 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D || ent.getShipDepth(1) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleAdd1;
         addk2 = angleAdd2 - 0.2F;
 
@@ -571,7 +575,7 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.xRot = -0.1745F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.3142F;
-        // this.Butt.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.Butt, 0F);
         // hair
         this.Hair01.xRot = angleX * 0.03F + 0.26F + headX;
         this.Hair01.zRot = 0F;
@@ -621,7 +625,8 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.07F;
+            this.translateLegacyPose(0F, 0.07F, 0F);
+
             this.Head.xRot -= 0.6283F;
             this.BodyMain.xRot = 0.8727F;
             // arm
@@ -640,10 +645,11 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
 
         if (ent.getIsSitting() && !ent.getIsRiding()) { // 騎乘動作
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.22F;
-            this.offsetZ += 0.2F;
+
+
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // Body
+                this.translateLegacyPose(0F, 0.27F, 0F);
                 this.Head.xRot += 0.14F;
                 this.BodyMain.xRot = -0.4363F;
                 this.BoobL.xRot -= 0.25F;
@@ -669,6 +675,7 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
                 this.Hair03.xRot += 0.25F;
             } else {
                 // Body
+                this.translateLegacyPose(0F, 0.37F, 0F);
                 this.Head.xRot += 0.14F;
                 this.BodyMain.xRot = -0.5236F;
                 this.BoobL.xRot -= 0.2F;
@@ -696,6 +703,7 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
             if (((net.minecraft.world.entity.Entity) ent).getVehicle() instanceof BasicEntityMount) {
                 if (ent.getIsSitting()) {
 
+                    this.translateLegacyPose(0F, 0.22F, 0.2F);
                     if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                         // Body
                         this.Head.xRot -= 0.3F;
@@ -765,6 +773,7 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
             else { // normal mount ex: cart
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                     // Body
+                    this.translateLegacyPose(0F, 0.27F, 0F);
                     this.Head.xRot += 0.14F;
                     this.BodyMain.xRot = -0.4363F;
                     this.BoobL.xRot -= 0.25F;
@@ -790,6 +799,7 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
                     this.Hair03.xRot += 0.25F;
                 } else {
                     // Body
+                    this.translateLegacyPose(0F, 0.37F, 0F);
                     this.Head.xRot += 0.14F;
                     this.BodyMain.xRot = -0.5236F;
                     this.BoobL.xRot -= 0.2F;
@@ -821,7 +831,8 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
                 if (EmotionHelper.checkModelState(2, ent.getStateEmotion(ID.S.State))) {
                     // Body
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.15F;
+                    this.translateLegacyPose(0F, 0.15F, 0F);
+
                     this.Head.yRot *= 0.8F;
                     this.Head.xRot = 0.4538F;
                     this.BodyMain.xRot = -1.0472F;

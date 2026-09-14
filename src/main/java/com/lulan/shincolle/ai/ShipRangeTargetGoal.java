@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.AiRandomStream;
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.*;
 import com.lulan.shincolle.reference.ID;
@@ -63,6 +64,10 @@ public class ShipRangeTargetGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        // Reject client calls before scanning or acquiring a server-only random source.
+        if (this.entity.level().isClientSide) {
+            return false;
+        }
         ProfilerFiller profiler = DebugProfiler.push(this.entity.level(), "shincolle.ai.range_target.can_use");
         try {
             if (this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0) {
@@ -148,11 +153,14 @@ public class ShipRangeTargetGoal extends Goal {
                 targets.sort(Comparator.comparingDouble(this.entity::distanceToSqr));
 
                 // pick nearest, or random from top 3
+                int drawnIndex = 0;
                 if (targets.size() > 2) {
-                    this.targetEntity = targets.get(this.entity.getRandom().nextInt(3));
-                } else {
-                    this.targetEntity = targets.get(0);
+                    drawnIndex = AiRandomSource.forEntity(this.entity, AiRandomStream.TARGET_SELECTION)
+                            .nextBoundedInt(3);
                 }
+                this.targetEntity = targets.get(drawnIndex);
+                TargetShadowComparison.compare(this.entity, this.targetEntity, this.range,
+                        drawnIndex, targets.size() > 2, profiler);
                 DebugProfiler.count(profiler, "shincolle.ai.range_target.can_use.success");
                 LogHelper.diag("DIAG: target select ship=" + this.entity
                         + " tier=" + targetTier + " target=" + this.targetEntity);
@@ -163,6 +171,7 @@ public class ShipRangeTargetGoal extends Goal {
                 return true;
             }
 
+            TargetShadowComparison.compare(this.entity, null, this.range, 0, false, profiler);
             DebugProfiler.count(profiler, "shincolle.ai.range_target.can_use.no_target");
             LogHelper.debug("DEBUG: range target AI: " + this.entity
                     + " no target found in range=" + this.range);

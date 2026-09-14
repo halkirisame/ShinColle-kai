@@ -32,55 +32,59 @@ public final class ShipAttributeTrackingSyncGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void friendlyFullSnapshotIgnoresAndPreservesDeltaFlags(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
-        if (!(entity instanceof BasicEntityShip ship) || !(ship.getAttrs() instanceof AttrsAdv attrs)) {
-            throw new AssertionError("Failed to create friendly ship with AttrsAdv");
-        }
-        ship.setId(4101);
-        fillDistinctValues(attrs);
-        setAllAttributeFlags(ship, false);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
+            if (!(entity instanceof BasicEntityShip ship) || !(ship.getAttrs() instanceof AttrsAdv attrs)) {
+                throw new AssertionError("Failed to create friendly ship with AttrsAdv");
+            }
+            ship.setId(4101);
+            fillDistinctValues(attrs);
+            setAllAttributeFlags(ship, false);
 
-        S2CEntitySyncPacket emptyDelta = S2CEntitySyncPacket.syncAttrs(ship);
-        assertEmptyDelta(emptyDelta);
+            S2CEntitySyncPacket emptyDelta = S2CEntitySyncPacket.syncAttrs(ship);
+            assertEmptyDelta(emptyDelta);
 
-        S2CEntitySyncPacket snapshot = S2CEntitySyncPacket.syncAllAttrs(ship);
-        assertFullSnapshot(snapshot, ship.getId(), attrs);
+            S2CEntitySyncPacket snapshot = S2CEntitySyncPacket.syncAllAttrs(ship);
+            assertFullSnapshot(snapshot, ship.getId(), attrs);
 
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsRaw, true);
-        S2CEntitySyncPacket delta = S2CEntitySyncPacket.syncAttrs(ship);
-        if (!ship.getUpdateFlag(ID.FlagUpdate.AttrsRaw)) {
-            throw new AssertionError("Delta factory must not consume a pending flag");
-        }
-        ShipAttributeSyncV2Codec.Snapshot decoded = ShipAttributeSyncV2Codec.decode(delta.getPayload());
-        if (decoded.fieldMask() != ShipAttributeSyncV2Codec.RAW_MASK) {
-            throw new AssertionError("Delta did not encode only the dirty raw layer");
-        }
-        S2CEntitySyncPacket.clearSyncedAttributeFlags(ship, decoded.fieldMask());
-        if (ship.getUpdateFlag(ID.FlagUpdate.AttrsRaw)) {
-            throw new AssertionError("Explicit successful-send cleanup did not clear the raw flag");
-        }
+            ship.setUpdateFlag(ID.FlagUpdate.AttrsRaw, true);
+            S2CEntitySyncPacket delta = S2CEntitySyncPacket.syncAttrs(ship);
+            if (!ship.getUpdateFlag(ID.FlagUpdate.AttrsRaw)) {
+                throw new AssertionError("Delta factory must not consume a pending flag");
+            }
+            ShipAttributeSyncV2Codec.Snapshot decoded = ShipAttributeSyncV2Codec.decode(delta.getPayload());
+            if (decoded.fieldMask() != ShipAttributeSyncV2Codec.RAW_MASK) {
+                throw new AssertionError("Delta did not encode only the dirty raw layer");
+            }
+            S2CEntitySyncPacket.clearSyncedAttributeFlags(ship, decoded.fieldMask());
+            if (ship.getUpdateFlag(ID.FlagUpdate.AttrsRaw)) {
+                throw new AssertionError("Explicit successful-send cleanup did not clear the raw flag");
+            }
 
-        ship.setUpdateFlag(ID.FlagUpdate.AttrsEquip, true);
-        S2CEntitySyncPacket.syncAllAttrs(ship);
-        if (!ship.getUpdateFlag(ID.FlagUpdate.AttrsEquip)) {
-            throw new AssertionError("Full snapshot must not consume a pending delta flag");
+            ship.setUpdateFlag(ID.FlagUpdate.AttrsEquip, true);
+            S2CEntitySyncPacket.syncAllAttrs(ship);
+            if (!ship.getUpdateFlag(ID.FlagUpdate.AttrsEquip)) {
+                throw new AssertionError("Full snapshot must not consume a pending delta flag");
+            }
+            helper.succeed();
         }
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void hostileFullSnapshotContainsEveryLayer(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
-        if (!(entity instanceof BasicEntityShipHostile hostile)
-                || !(hostile.getAttrs() instanceof AttrsAdv attrs)) {
-            throw new AssertionError("Failed to create hostile ship with AttrsAdv");
-        }
-        hostile.setId(4102);
-        fillDistinctValues(attrs);
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            if (!(entity instanceof BasicEntityShipHostile hostile)
+                    || !(hostile.getAttrs() instanceof AttrsAdv attrs)) {
+                throw new AssertionError("Failed to create hostile ship with AttrsAdv");
+            }
+            hostile.setId(4102);
+            fillDistinctValues(attrs);
 
-        S2CEntitySyncPacket snapshot = S2CEntitySyncPacket.syncAllAttrs(hostile);
-        assertFullSnapshot(snapshot, hostile.getId(), attrs);
-        helper.succeed();
+            S2CEntitySyncPacket snapshot = S2CEntitySyncPacket.syncAllAttrs(hostile);
+            assertFullSnapshot(snapshot, hostile.getId(), attrs);
+            helper.succeed();
+        }
     }
 
     private static void fillDistinctValues(AttrsAdv attrs) {

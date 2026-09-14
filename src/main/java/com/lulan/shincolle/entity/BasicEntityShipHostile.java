@@ -13,6 +13,7 @@ import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CAttackAnimationPacket;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.network.S2CSpawnParticlePacket;
 import com.lulan.shincolle.reference.ID;
@@ -38,7 +39,6 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Enemy;
@@ -375,7 +375,7 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         // watch + look idle
         this.goalSelector.addGoal(25,
-                new LookAtPlayerGoal(this, Player.class, 8.0F));
+                new ShipWatchClosestGoal(this, Player.class, 8.0F, 0.1F));
         this.goalSelector.addGoal(26, new RandomLookAroundGoal(this));
     }
 
@@ -570,7 +570,9 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         // client side
         else {
-            // Nothing extra to do here: super.tick() has already run the AI step.
+            if (StateTimer[ID.T.AttackTime] > 0) {
+                StateTimer[ID.T.AttackTime]--;
+            }
         }
 
         // both sides: prevent suffocation underwater
@@ -663,6 +665,7 @@ public abstract class BasicEntityShipHostile extends Mob
     public boolean doHurtTarget(Entity target) {
         float atk = getAttackBaseDamage(0, target);
         setCombatTick(this.tickCount);
+        triggerAttackAnimation();
         boolean isTargetHurt = target.hurt(this.damageSources().mobAttack(this), atk);
         if (isTargetHurt) {
             applyEmotesReaction(3);
@@ -958,6 +961,7 @@ public abstract class BasicEntityShipHostile extends Mob
      */
     public void applyParticleAtAttacker(int type, Entity target, Entity target2) {
         if (target != null && !this.level().isClientSide()) {
+            triggerAttackAnimation();
             double x = this.getX();
             double y = this.getY() + this.getBbHeight() * 0.5D;
             double z = this.getZ();
@@ -982,6 +986,16 @@ public abstract class BasicEntityShipHostile extends Mob
 
             ModNetworking.sendToAllTracking(
                     new S2CSpawnParticlePacket((byte) type, this.getId(), payload),
+                    this);
+        }
+    }
+
+    /** Notifies tracking clients that this entity started a standard attack. */
+    protected final void triggerAttackAnimation() {
+        if (!this.level().isClientSide()) {
+            ModNetworking.sendToAllTracking(
+                    new S2CAttackAnimationPacket(
+                            this.getId(), S2CAttackAnimationPacket.STANDARD_DURATION_TICKS),
                     this);
         }
     }

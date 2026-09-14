@@ -317,8 +317,10 @@ public class ModelDestroyerRo extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.Back.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBack.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -358,8 +360,6 @@ public class ModelDestroyerRo extends ShipModelBaseAdv<Entity> {
                 break;
             case ID.Emotion.BORED:
                 if (ent.getFaceTick() <= 0) {
-                    // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.45F;
                     this.setFace(1);
                 }
                 break;
@@ -382,8 +382,11 @@ public class ModelDestroyerRo extends ShipModelBaseAdv<Entity> {
 
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
+        if (ent.getShipDepth(0) > 0D) {
+            this.translateLegacyPose(0F, Mth.cos(f2 * 0.125F) * 0.05F + 0.025F, 0F);
+        }
         // [PORT] 1.10.2 -> 1.20.1: motionStopPos applied +0.45Y in NoFuel state.
-        this.offsetY += 0.45F;
+        this.translateLegacyPose(0F, 0.45F, 0F);
 
         this.setFace(1);
 
@@ -419,7 +422,7 @@ public class ModelDestroyerRo extends ShipModelBaseAdv<Entity> {
 
         // [PORT] 1.10.2 -> 1.20.1: restore legacy water bobbing translation.
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
         }
 
         this.Back.xRot = -0.2618F;
@@ -454,7 +457,7 @@ public class ModelDestroyerRo extends ShipModelBaseAdv<Entity> {
         }
 
         if (ent.getIsSitting()) {
-            this.offsetY += 0.45F;
+            this.translateLegacyPose(0F, 0.45F, 0F);
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 this.setFace(2);
                 this.Back.xRot = 0F;

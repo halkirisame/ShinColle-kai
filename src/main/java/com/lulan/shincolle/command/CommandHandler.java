@@ -23,6 +23,7 @@ public class CommandHandler {
         ShipCmdShipAttrs.register(event.getDispatcher());
         ShipCmdClearDrop.register(event.getDispatcher());
         ShipCmdShipInfo.register(event.getDispatcher());
+        ShipCmdSummonMount.register(event.getDispatcher());
         ShipCmdShipAI.register(event.getDispatcher());
         ShipCmdStopAI.register(event.getDispatcher());
         ShipCmdUpdateOwnerUID.register(event.getDispatcher());

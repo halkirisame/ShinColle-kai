@@ -1,5 +1,6 @@
 package com.lulan.shincolle.compat.jei;
 
+import com.lulan.shincolle.client.gui.GuiDesk;
 import com.lulan.shincolle.client.gui.GuiShipInventory;
 import com.lulan.shincolle.equip.ShipEquipSlots;
 import com.lulan.shincolle.equipdata.ClientEquipData;
@@ -15,8 +16,11 @@ import mezz.jei.api.gui.handlers.IGuiContainerHandler;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.subtypes.UidContext;
+import mezz.jei.api.recipe.IFocus;
+import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.ISubtypeRegistration;
+import mezz.jei.api.runtime.IClickableIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.renderer.Rect2i;
@@ -31,6 +35,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Tells JEI to keep its item list panel clear of the third-party equipment
@@ -59,15 +64,28 @@ public class ShinColleJeiPlugin implements IModPlugin {
     @Override
     public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
         runtime = jeiRuntime;
+        GuiDesk.setBookIconClickHandler(this::showRecipesFor);
         ClientEquipData.addInstallListener(equipmentSyncListener);
         synchronizeHiddenEquipment();
     }
 
     @Override
     public void onRuntimeUnavailable() {
+        GuiDesk.setBookIconClickHandler(null);
         ClientEquipData.removeInstallListener(equipmentSyncListener);
         trackedHiddenEquipment = Map.of();
         runtime = null;
+    }
+
+    private boolean showRecipesFor(ItemStack stack) {
+        IJeiRuntime currentRuntime = runtime;
+        if (currentRuntime == null || stack.isEmpty()) {
+            return false;
+        }
+        IFocus<ItemStack> focus = currentRuntime.getJeiHelpers().getFocusFactory()
+                .createFocus(RecipeIngredientRole.OUTPUT, VanillaTypes.ITEM_STACK, stack);
+        currentRuntime.getRecipesGui().show(focus);
+        return true;
     }
 
     @Override
@@ -131,6 +149,23 @@ public class ShinColleJeiPlugin implements IModPlugin {
 
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
+        IIngredientManager ingredientManager = registration.getJeiHelpers().getIngredientManager();
+        registration.addGuiContainerHandler(GuiDesk.class, new IGuiContainerHandler<>() {
+            @Override
+            public List<Rect2i> getGuiExtraAreas(GuiDesk screen) {
+                return List.of(screen.getScaledScreenBounds());
+            }
+
+            @Override
+            public Optional<IClickableIngredient<?>> getClickableIngredientUnderMouse(GuiDesk screen,
+                                                                                      double mouseX, double mouseY) {
+                return screen.getBookIconUnderMouse(mouseX, mouseY)
+                        .flatMap(hit -> ingredientManager.createClickableIngredient(
+                                VanillaTypes.ITEM_STACK, hit.stack(), hit.screenArea(), false))
+                        .map(ingredient -> ingredient);
+            }
+        });
+
         registration.addGuiContainerHandler(GuiShipInventory.class, new IGuiContainerHandler<>() {
             @Override
             public List<Rect2i> getGuiExtraAreas(GuiShipInventory screen) {

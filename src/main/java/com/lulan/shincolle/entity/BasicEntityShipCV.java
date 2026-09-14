@@ -240,6 +240,7 @@ public abstract class BasicEntityShipCV extends BasicEntityShip implements IShip
 
         // play sounds and particles
         applySoundAtAttacker(3, target);
+        triggerAttackAnimation();
         applyEmotesReaction(3);
 
         return true;
@@ -293,6 +294,7 @@ public abstract class BasicEntityShipCV extends BasicEntityShip implements IShip
 
         // play sounds and particles
         applySoundAtAttacker(4, target);
+        triggerAttackAnimation();
         applyEmotesReaction(3);
 
         return true;

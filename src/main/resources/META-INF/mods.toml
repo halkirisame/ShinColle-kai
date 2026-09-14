@@ -8,8 +8,11 @@ modId = "${mod_id}"
 version = "${mod_version}"
 displayName = "ShinColle-kai"
 displayURL = "https://github.com/halkirisame/ShinColle-kai"
+updateJSONURL = "https://raw.githubusercontent.com/halkirisame/ShinColle-kai/main/update.json"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
+logoFile = "icon.png"
+logoBlur = true
 
 [[dependencies.${ mod_id }]]
 modId = "forge"

@@ -3,9 +3,11 @@ package com.lulan.shincolle.client.gui;
 import com.lulan.shincolle.reference.Enums;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.Values;
+import com.lulan.shincolle.utility.BookTitleHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -27,7 +29,7 @@ import java.util.List;
  */
 public class GuiBook {
 
-    public static final int[] PageLimit = new int[]{1, 28, 6, 20, 26, 19, 4};
+    public static final int[] PageLimit = new int[]{13, 28, 6, 20, 26, 19, 4};
     private static final ResourceLocation BOOK_PIC_01 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/book/bookpic01.png");
     public static int PageLeftCurrent = 0;
@@ -76,6 +78,21 @@ public class GuiBook {
         }
 
         drawBookContent(cont);
+    }
+
+    /**
+     * Draw book body text with legacy line-break handling.
+     *
+     * @param graphics     the GuiGraphics context
+     * @param fontRenderer the font renderer
+     * @param str          body text
+     * @param x            x position
+     * @param y            y position
+     */
+    public static void drawBookString(GuiGraphics graphics, Font fontRenderer, String str, int x, int y) {
+        currentGraphics = graphics;
+        font = fontRenderer;
+        drawStringWithSpecialSymbol(str, x, y);
     }
 
     @SuppressWarnings("rawtypes")
@@ -140,15 +157,25 @@ public class GuiBook {
     }
 
     /**
+     * Resolve the lang key for the current page's title.
+     * <p>
+     * Chapter 0 has a title per page ({@code chap0.title<page>}) when one is
+     * translated, falling back to the chapter-wide {@code chap0.title} otherwise.
+     * Every other chapter always uses the per-page key {@code chap<chap>.title<page>}.
+     *
+     * @param chap chapter number
+     * @param page page number
+     * @return the lang key to translate for this page's title
+     */
+    static String titleKey(int chap, int page) {
+        return BookTitleHelper.titleKey(chap, page, I18n::exists);
+    }
+
+    /**
      * Draw title text centered at top of page.
      */
     private static void drawTitleText() {
-        String str;
-        if (numChap == 0) {
-            str = Component.translatable("gui.shincolle_kai.book.chap" + numChap + ".title").getString();
-        } else {
-            str = Component.translatable("gui.shincolle_kai.book.chap" + numChap + ".title" + numPage).getString();
-        }
+        String str = Component.translatable(titleKey(numChap, numPage)).getString();
 
         int strlen = (int) (font.width(str) * 0.5F);
 
@@ -203,7 +230,7 @@ public class GuiBook {
             currentGraphics.drawWordWrap(font, Component.literal(s), x, newY, PageWidth,
                     0x000000);
             // Estimate line height based on wrapped text
-            int lineCount = font.split(Component.literal(s), PageWidth).size();
+            int lineCount = Math.max(1, font.split(Component.literal(s), PageWidth).size());
             newY += lineCount * font.lineHeight;
         }
 
@@ -270,18 +297,11 @@ public class GuiBook {
         }
     }
 
-    /**
-     * Get the ItemStack being hovered over, if any.
-     * Checks all icon entries on the current page against mouse position.
-     *
-     * @param chap   chapter number
-     * @param page   page number
-     * @param mouseX mouse X relative to GUI left
-     * @param mouseY mouse Y relative to GUI top
-     * @return the hovered ItemStack, or null if not hovering over an icon
-     */
+    public record BookIcon(ItemStack stack, int x, int y) {
+    }
+
     @SuppressWarnings("rawtypes")
-    public static ItemStack getHoveredItem(int chap, int page, int mouseX, int mouseY) {
+    public static BookIcon getHoveredIcon(int chap, int page, int mouseX, int mouseY) {
         int index = getIndexID(chap, page);
         List cont = Values.BookList.get(index);
         if (cont == null)
@@ -302,11 +322,26 @@ public class GuiBook {
                 picX += offX;
 
                 if (mouseX >= picX && mouseX < picX + 16 && mouseY >= picY && mouseY < picY + 16) {
-                    return getItemStackForIcon(iconID);
+                    return new BookIcon(getItemStackForIcon(iconID), picX, picY);
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * Get the ItemStack being hovered over, if any.
+     * Checks all icon entries on the current page against mouse position.
+     *
+     * @param chap   chapter number
+     * @param page   page number
+     * @param mouseX mouse X relative to GUI left
+     * @param mouseY mouse Y relative to GUI top
+     * @return the hovered ItemStack, or null if not hovering over an icon
+     */
+    public static ItemStack getHoveredItem(int chap, int page, int mouseX, int mouseY) {
+        BookIcon icon = getHoveredIcon(chap, page, mouseX, mouseY);
+        return icon == null ? null : icon.stack();
     }
 
     /**

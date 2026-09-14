@@ -746,8 +746,10 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -788,7 +790,8 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
         // [PORT] 1.10.2 -> 1.20.1: preserve legacy dead-pose grounding offset.
-        this.offsetY += 0.53F + 0.23F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.53F + 0.23F * ent.getScaleLevel(), 0F);
+
 
         this.setFaceHungry(ent);
 
@@ -799,13 +802,13 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
         this.Ahoke.yRot = 0.5236F;
         this.BodyMain.xRot = 1.4F;
         this.Butt.xRot = 0.21F;
-        // this.Butt.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
         this.Skirt01.xRot = -0.052F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.052F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         this.Hair01.xRot = -0.07F;
-        // this.Hair01.offsetY = -0.2F;
+        this.setLegacyPartOffsetY(this.Hair01, -0.2F);
         // arm
         this.ArmLeft01.xRot = -2.8F;
         this.ArmLeft01.yRot = 0F;
@@ -814,9 +817,9 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -0.7F;
         this.ArmLeft02.zRot = 1.0F;
-        // this.ArmLeft02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
         this.ArmRight02.zRot = -1.0F;
-        // this.ArmRight02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.xRot = 0.1F;
         this.LegLeft01.yRot = 3.1415F;
@@ -827,15 +830,15 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = -0.4F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0.4F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
     }
 
     @Override
@@ -853,7 +856,8 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D || ent.getShipDepth(1) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -869,15 +873,15 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
         this.BodyMain.yRot = 0F;
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.21F;
-        // this.Butt.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
         this.Skirt01.xRot = -0.052F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.052F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // hair
         this.Hair01.xRot = angleX * 0.04F + 0.23F;
         this.Hair01.zRot = 0F;
-        // this.Hair01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Hair01, 0F);
         this.Hair02a1.xRot = -angleX1 * 0.1F + 0.21F;
         this.Hair02a1.zRot = 0F;
         this.Hair02b1.xRot = -angleX1 * 0.1F + 0.21F;
@@ -907,30 +911,30 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.zRot = angleX * 0.03F - 0.42F;
         this.ArmLeft02.xRot = 0F;
         this.ArmLeft02.zRot = 0F;
-        // this.ArmLeft02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = angleAdd1 * 0.25F - 0.0523F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -angleX * 0.03F + 0.42F;
         this.ArmRight02.xRot = 0F;
         this.ArmRight02.zRot = 0F;
-        // this.ArmRight02.offsetX = 0F;
+        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.yRot = 0F;
         this.LegLeft01.zRot = 0.1047F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.1047F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         this.EquipHead01.zRot = angleX * 0.2F - 1.5708F;
         this.EquipC02.yRot = 0.5F + this.Head.yRot * 0.5F;
@@ -970,14 +974,15 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.4F;
-            // this.Butt.offsetY = -0.19F;
+            this.setLegacyPartOffsetY(this.Butt, -0.19F);
             this.Skirt01.xRot = -0.12F;
             this.Skirt02.xRot = -0.4F;
-            // this.Skirt02.offsetY = -0.1F;
+            this.setLegacyPartOffsetY(this.Skirt02, -0.1F);
             // arm
             this.ArmLeft01.xRot = -0.6F;
             this.ArmLeft01.zRot = 0.2618F;
@@ -1009,7 +1014,8 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
 
             if (ent.getIsSitting()) {
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.525F;
+                this.translateLegacyPose(0F, 0.525F, 0F);
+
                 setFaceBored(ent);
                 // body
                 this.Head.xRot = -1.1F;
@@ -1018,7 +1024,7 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                 this.BodyMain.xRot = 1.4F;
                 // hair
                 this.Hair01.xRot -= 0.3F;
-                // this.Hair01.offsetY = -0.2F;
+                this.setLegacyPartOffsetY(this.Hair01, -0.2F);
                 // leg
                 addk1 = -0.1F;
                 addk2 = 0F;
@@ -1040,9 +1046,9 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                     this.ArmRight01.yRot = 0F;
                     this.ArmRight01.zRot = -0.7F;
                     this.ArmLeft02.zRot = 0F;
-                    // this.ArmLeft02.offsetX = 0F;
+                    this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
                     this.ArmRight02.zRot = 0F;
-                    // this.ArmRight02.offsetX = 0F;
+                    this.setLegacyPartOffsetX(this.ArmRight02, 0F);
                 } else {
                     // arm
                     this.ArmLeft01.xRot = -2.8F;
@@ -1052,15 +1058,16 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                     this.ArmRight01.yRot = 0F;
                     this.ArmRight01.zRot = -0.7F;
                     this.ArmLeft02.zRot = 1.0F;
-                    // this.ArmLeft02.offsetX = 0F;
+                    this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
                     this.ArmRight02.zRot = -1.0F;
-                    // this.ArmRight02.offsetX = 0F;
+                    this.setLegacyPartOffsetX(this.ArmRight02, 0F);
                 }
             }
         } else {
             // 騎乘動作
             if (ent.getIsSitting() || ent.getIsRiding()) {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
+                    this.translateLegacyPose(0F, 0.52F, 0F);
                     setFaceBored(ent);
                     // body
                     this.Head.xRot = -1.1F;
@@ -1069,7 +1076,7 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                     this.BodyMain.xRot = 1.4F;
                     // hair
                     this.Hair01.xRot -= 0.3F;
-                    // this.Hair01.offsetY = -0.2F;
+                    this.setLegacyPartOffsetY(this.Hair01, -0.2F);
                     // leg
                     addk1 = -0.1F;
                     addk2 = 0F;
@@ -1091,9 +1098,9 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                         this.ArmRight01.yRot = 0F;
                         this.ArmRight01.zRot = -0.7F;
                         this.ArmLeft02.zRot = 0F;
-                        // this.ArmLeft02.offsetX = 0F;
+                        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
                         this.ArmRight02.zRot = 0F;
-                        // this.ArmRight02.offsetX = 0F;
+                        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
                     } else {
                         // arm
                         this.ArmLeft01.xRot = -2.8F;
@@ -1103,21 +1110,22 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                         this.ArmRight01.yRot = 0F;
                         this.ArmRight01.zRot = -0.7F;
                         this.ArmLeft02.zRot = 1.0F;
-                        // this.ArmLeft02.offsetX = 0F;
+                        this.setLegacyPartOffsetX(this.ArmLeft02, 0F);
                         this.ArmRight02.zRot = -1.0F;
-                        // this.ArmRight02.offsetX = 0F;
+                        this.setLegacyPartOffsetX(this.ArmRight02, 0F);
                     }
                 } else {
                     // body
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.375F;
+                    this.translateLegacyPose(0F, 0.375F, 0F);
+
                     this.BodyMain.xRot = -0.25F;
                     this.Butt.xRot = -0.2F;
-                    // this.Butt.offsetY = -0.1F;
+                    this.setLegacyPartOffsetY(this.Butt, -0.1F);
                     this.Skirt01.xRot = -0.07F;
-                    // this.Skirt01.offsetY = -0.1F;
+                    this.setLegacyPartOffsetY(this.Skirt01, -0.1F);
                     this.Skirt02.xRot = -0.16F;
-                    // this.Skirt02.offsetY = -0.15F;
+                    this.setLegacyPartOffsetY(this.Skirt02, -0.15F);
                     // arm
                     this.ArmLeft01.xRot = 0.35F;
                     this.ArmLeft01.zRot = -0.2618F;
@@ -1131,17 +1139,17 @@ public class ModelDestroyerAkatsuki extends ShipModelBaseAdv<Entity> {
                     this.LegLeft02.xRot = 1.2217F;
                     this.LegLeft02.yRot = 1.2217F;
                     this.LegLeft02.zRot = -1.0472F;
-                    // this.LegLeft02.offsetX = 0.32F;
-                    // this.LegLeft02.offsetY = 0.05F;
-                    // this.LegLeft02.offsetZ = 0.35F;
+                    this.setLegacyPartOffsetX(this.LegLeft02, 0.32F);
+                    this.setLegacyPartOffsetY(this.LegLeft02, 0.05F);
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.35F);
                     this.LegRight01.yRot = 0F;
                     this.LegRight01.zRot = 0.14F;
                     this.LegRight02.xRot = 1.2217F;
                     this.LegRight02.yRot = -1.2217F;
                     this.LegRight02.zRot = 1.0472F;
-                    // this.LegRight02.offsetX = -0.32F;
-                    // this.LegRight02.offsetY = 0.05F;
-                    // this.LegRight02.offsetZ = 0.35F;
+                    this.setLegacyPartOffsetX(this.LegRight02, -0.32F);
+                    this.setLegacyPartOffsetY(this.LegRight02, 0.05F);
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.35F);
                 }
             } // end if sitting
         }

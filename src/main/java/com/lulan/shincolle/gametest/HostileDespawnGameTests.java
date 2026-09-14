@@ -53,15 +53,17 @@ public final class HostileDespawnGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void hostileShipsDespawnInPeaceful(GameTestHelper helper) {
-        Entity hostile = ModEntities.BB_KONGOU_MOB.get().create(helper.getLevel());
-        if (!(hostile instanceof BasicEntityShipHostile)) {
-            throw new AssertionError("Failed to create hostile ship");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity hostile = entities.add(ModEntities.BB_KONGOU_MOB.get().create(helper.getLevel()));
+            if (!(hostile instanceof BasicEntityShipHostile)) {
+                throw new AssertionError("Failed to create hostile ship");
+            }
+            if (!despawnsInPeaceful(hostile)) {
+                throw new AssertionError(
+                        "Hostile ships must despawn on Peaceful; the original extends EntityMob");
+            }
+            helper.succeed();
         }
-        if (!despawnsInPeaceful(hostile)) {
-            throw new AssertionError(
-                    "Hostile ships must despawn on Peaceful; the original extends EntityMob");
-        }
-        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
@@ -76,13 +78,15 @@ public final class HostileDespawnGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void friendlyShipsSurvivePeaceful(GameTestHelper helper) {
-        Entity friendly = ModEntities.BB_KONGOU.get().create(helper.getLevel());
-        if (!(friendly instanceof BasicEntityShip)) {
-            throw new AssertionError("Failed to create friendly ship");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity friendly = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
+            if (!(friendly instanceof BasicEntityShip)) {
+                throw new AssertionError("Failed to create friendly ship");
+            }
+            if (despawnsInPeaceful(friendly)) {
+                throw new AssertionError("Player-side ships must survive Peaceful");
+            }
+            helper.succeed();
         }
-        if (despawnsInPeaceful(friendly)) {
-            throw new AssertionError("Player-side ships must survive Peaceful");
-        }
-        helper.succeed();
     }
 }

@@ -5,9 +5,13 @@ import com.lulan.shincolle.api.attribute.CoreShipAttributes;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
 import com.lulan.shincolle.api.attribute.ShipAttributeValues;
+import com.lulan.shincolle.client.ClientShipLevelCaps;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
+import com.lulan.shincolle.entity.ShipLevelCapSummary;
+import com.lulan.shincolle.entity.battleship.EntityBattleshipTa;
+import com.lulan.shincolle.entity.destroyer.EntityDestroyerShimakaze;
 import com.lulan.shincolle.equip.ShipEquipSlots;
 import com.lulan.shincolle.item.ShipAttributeTooltipFormatter;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
@@ -288,14 +292,26 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * column ends.
      */
     private static final int APPEAR_X = 172;
+    private static final int APPEAR_LABEL_Y = 141;
     private static final int APPEAR_GRID_Y = 151;
 
     /**
      * Number of model-part toggles this ship exposes, capped at the 8 that fit on
      * one row. Every registered ship reports 0..8, so the cap never truncates.
      */
+    private static int[] appearanceBits(BasicEntityShip ship) {
+        int count = Mth.clamp(ship.getStateMinor(ID.M.NumState), 0, 8);
+        int firstBit = ship instanceof EntityBattleshipTa
+                || ship instanceof EntityDestroyerShimakaze ? 1 : 0;
+        int[] bits = new int[Math.max(0, count - firstBit)];
+        for (int i = 0; i < bits.length; i++) {
+            bits[i] = i + firstBit;
+        }
+        return bits;
+    }
+
     private static int appearanceCellCount(BasicEntityShip ship) {
-        return Mth.clamp(ship.getStateMinor(ID.M.NumState), 0, 8);
+        return appearanceBits(ship).length;
     }
 
     /**
@@ -305,13 +321,16 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * summon type, which is a combat setting rather than decoration.
      */
     private void renderAppearanceToggles(GuiGraphics graphics, BasicEntityShip ship) {
-        int count = appearanceCellCount(ship);
+        int[] bits = appearanceBits(ship);
         int state = ship.getStateEmotion(ID.S.State);
-        for (int i = 0; i < count; i++) {
+        String appearanceLabel = tr("gui.shincolle_kai.appearance_label", "Appearance");
+        graphics.drawString(this.font, appearanceLabel,
+                this.leftPos + APPEAR_X, this.topPos + APPEAR_LABEL_Y, 0x404040, false);
+        for (int i = 0; i < bits.length; i++) {
             drawToggleSprite(graphics,
                     this.leftPos + APPEAR_X + (i % APPEAR_COLS) * APPEAR_CELL,
                     this.topPos + APPEAR_GRID_Y + (i / APPEAR_COLS) * APPEAR_ROW_H,
-                    (state & (1 << i)) != 0);
+                    (state & (1 << bits[i])) != 0);
         }
 
         int heldY = this.topPos + appearanceHeldRelY(ship);
@@ -357,10 +376,12 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             int col = (relX - APPEAR_X) / APPEAR_CELL;
             if (col >= 0 && col < APPEAR_COLS) {
                 int idx = row * APPEAR_COLS + col;
-                if (idx < appearanceCellCount(ship)) {
-                    int state = ship.getStateEmotion(ID.S.State) ^ (1 << idx);
+                int[] bits = appearanceBits(ship);
+                if (idx < bits.length) {
+                    int bit = bits[idx];
+                    int state = ship.getStateEmotion(ID.S.State) ^ (1 << bit);
                     ship.setStateEmotion(ID.S.State, state, false);
-                    sendShipButton(ship, ID.B.ShipInv_ModelState01 + idx, state);
+                    sendShipButton(ship, ID.B.ShipInv_ModelState01 + bit, state);
                     return true;
                 }
             }
@@ -540,10 +561,11 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         String shipName = ship.hasCustomName() ? Objects.requireNonNull(ship.getCustomName()).getString() : ship.getName().getString();
         graphics.drawString(this.font, shipName, 8, 6, 0x000000, false);
 
-        // Level (right-aligned, gold for 150+)
+        // Level (right-aligned, gold at the server's absolute cap)
         int level = ship.getStateMinor(ID.M.ShipLevel);
         String levelStr = "Lv." + level;
-        int levelColor = level >= 150 ? 0xFFD700 : 0xFFFFFF;
+        ShipLevelCapSummary caps = ClientShipLevelCaps.current();
+        int levelColor = caps.isAbsoluteCapReached(level) ? 0xFFD700 : 0xFFFFFF;
         graphics.drawString(this.font, levelStr, this.imageWidth - 6 - this.font.width(levelStr), 6, levelColor, true);
 
         // HP Text

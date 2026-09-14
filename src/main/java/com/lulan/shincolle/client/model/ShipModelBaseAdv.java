@@ -2,6 +2,7 @@ package com.lulan.shincolle.client.model;
 
 import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.reference.ID;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -11,6 +12,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 
 import java.util.NoSuchElementException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 /**
  * Base model class for ShinColle ship entities (1.20.1 port).
@@ -47,6 +51,10 @@ public abstract class ShipModelBaseAdv<T extends Entity> extends EntityModel<T> 
     private float baseOffsetX = 0F;
     private float baseOffsetY = 0F;
     private float baseOffsetZ = 0F;
+    private float legacyPoseX;
+    private float legacyPoseY;
+    private float legacyPoseZ;
+    private final Set<ModelPart> legacyOffsetParts = Collections.newSetFromMap(new IdentityHashMap<>());
 
     public ShipModelBaseAdv() {
         super();
@@ -134,16 +142,66 @@ public abstract class ShipModelBaseAdv<T extends Entity> extends EntityModel<T> 
         return this.offsetY;
     }
 
+    /**
+     * Record upstream pose translation independently of the model's base placement.
+     * In 1.10.2 RenderLivingBase and model.render both called setRotationAngles.
+     * Models explicitly apply this translation in each original matrix scope;
+     * animation and emotion side effects themselves still execute only once.
+     */
+    protected final void translateLegacyPose(float x, float y, float z) {
+        this.legacyPoseX += x;
+        this.legacyPoseY += y;
+        this.legacyPoseZ += z;
+    }
+
+    /** Apply the recorded translation; zero for models that do not opt into it. */
+    public final void applyLegacyPoseTranslation(PoseStack poseStack) {
+        poseStack.translate(this.legacyPoseX, this.legacyPoseY, this.legacyPoseZ);
+    }
+
+    // Old ModelRenderer offsets were parent-space block units, before pivot/rotation.
+    // ModelPart's baked pivot is in pixels. Upstream ship poses do not animate pivots.
+    protected final void setLegacyPartOffsetX(ModelPart part, float value) {
+        this.legacyOffsetParts.add(part);
+        part.x = part.getInitialPose().x + value * 16F;
+    }
+
+    protected final void setLegacyPartOffsetY(ModelPart part, float value) {
+        this.legacyOffsetParts.add(part);
+        part.y = part.getInitialPose().y + value * 16F;
+    }
+
+    protected final void setLegacyPartOffsetZ(ModelPart part, float value) {
+        this.legacyOffsetParts.add(part);
+        part.z = part.getInitialPose().z + value * 16F;
+    }
+
+    protected final float getLegacyPartOffsetX(ModelPart part) {
+        return (part.x - part.getInitialPose().x) / 16F;
+    }
+
+    protected final float getLegacyPartOffsetY(ModelPart part) {
+        return (part.y - part.getInitialPose().y) / 16F;
+    }
+
+    protected final float getLegacyPartOffsetZ(ModelPart part) {
+        return (part.z - part.getInitialPose().z) / 16F;
+    }
+
     @Override
     public void prepareMobModel(T entity, float limbSwing, float limbSwingAmount, float partialTick) {
         super.prepareMobModel(entity, limbSwing, limbSwingAmount, partialTick);
         captureBaseOffsetsIfNeeded();
-        // [PORT] 1.10.2 -> 1.20.1: offsetY accumulates former
-        // GlStateManager.translate()
-        // conversions; reset each frame to avoid cross-frame drift.
-        // [REPRO?] visual verification pending: check NoFuel grounding on multiple ship
-        // classes.
+        // Keep constructor base placement and per-frame pose movement independent.
+        // Shared model instances must not carry offsets into the next entity/frame.
         resetOffsetsToBase();
+        this.legacyPoseX = this.legacyPoseY = this.legacyPoseZ = 0F;
+        for (ModelPart part : this.legacyOffsetParts) {
+            PartPose initial = part.getInitialPose();
+            part.x = initial.x;
+            part.y = initial.y;
+            part.z = initial.z;
+        }
     }
 
     private void captureBaseOffsetsIfNeeded() {

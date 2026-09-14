@@ -1,16 +1,16 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "A",
-    "G",
-    "A"
+    "  G",
+    " P ",
+    "P  "
   ],
   "key": {
-    "A": {
-      "item": "shincolle_kai:abyss_metal"
-    },
     "G": {
       "item": "shincolle_kai:grudge_block"
+    },
+    "P": {
+      "item": "shincolle_kai:polymetal_nodule"
     }
   },
   "result": {

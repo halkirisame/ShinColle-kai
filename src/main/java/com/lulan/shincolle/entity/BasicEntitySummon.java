@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CAttackAnimationPacket;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.utility.EntityHelper;
@@ -30,6 +31,8 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
     protected int numAmmoHeavy;
     protected int scaleLevel;
     protected boolean initScale;
+    protected int attackTime;
+    protected int attackTime2;
 
     protected BasicEntitySummon(EntityType<? extends BasicEntitySummon> type, Level level) {
         super(type, level);
@@ -176,6 +179,8 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
                 this.discard();
                 return;
             }
+        } else if (this.attackTime > 0) {
+            this.attackTime--;
         }
 
         // both sides: prevent drowning
@@ -191,6 +196,16 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             super.aiStep();
         } else {
             super.aiStep();
+        }
+    }
+
+    /** Notifies tracking clients that this summon started a standard attack. */
+    protected final void triggerAttackAnimation() {
+        if (!this.level().isClientSide()) {
+            ModNetworking.sendToAllTracking(
+                    new S2CAttackAnimationPacket(
+                            this.getId(), S2CAttackAnimationPacket.STANDARD_DURATION_TICKS),
+                    this);
         }
     }
 

@@ -1310,8 +1310,10 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -1368,7 +1370,8 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
-        this.offsetY += 0.58F + 0.22F * ent.getScaleLevel();
+        this.translateLegacyPose(0F, 0.58F + 0.22F * ent.getScaleLevel(), 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -1422,13 +1425,13 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
         this.LegLeft01.zRot = 0.09F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.xRot = -1.2217F;
         this.LegRight01.yRot = -0.5236F;
         this.LegRight01.zRot = 0F;
         this.LegRight02.xRot = 1.0472F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         this.AnchorL.xRot = -0.2F;
         this.AnchorR.xRot = -0.2F;
         this.AnchorR.zRot = 0.35F;
@@ -1453,7 +1456,8 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -1523,12 +1527,12 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
         this.LegLeft01.zRot = 0.1396F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.yRot = 0F;
         this.LegRight01.zRot = -0.1396F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         this.AnchorL.xRot = f1 * 0.5F - 0.2F;
         this.AnchorR.xRot = f1 * 0.5F - 0.2F;
         this.AnchorR.zRot = 0.35F;
@@ -1585,7 +1589,8 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.07F;
+            this.translateLegacyPose(0F, 0.07F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.8378F;
@@ -1620,7 +1625,8 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
             if (showCannon) {
                 // Body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.4F;
+                this.translateLegacyPose(0F, 0.4F, 0F);
+
                 this.Head.xRot -= 0.2F;
                 this.BodyMain.xRot = -0.1396F;
                 this.Butt.xRot = 0.1396F;
@@ -1643,19 +1649,20 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
                 addk2 = -1.0472F;
                 this.LegLeft01.yRot = 0.0524F;
                 this.LegLeft01.zRot = 0F;
-                // this.LegLeft02.offsetZ = 0.38F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.38F);
                 this.LegLeft02.xRot = 2.5831F;
                 this.LegLeft02.zRot = 0.0175F;
                 this.LegRight01.yRot = -0.0524F;
                 this.LegRight01.zRot = 0F;
-                // this.LegRight02.offsetZ = 0.38F;
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.38F);
                 this.LegRight02.xRot = 2.5831F;
                 this.LegRight02.zRot = -0.0175F;
                 this.EquipLCBase02_1.yRot = 0F;
             } else if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // Body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.5F;
+                this.translateLegacyPose(0F, 0.5F, 0F);
+
                 this.Head.xRot -= 0.21F;
                 this.Head.yRot -= 0.4363F;
                 this.BodyMain.xRot = 0.2618F;
@@ -1702,7 +1709,8 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
             } else {
                 // Body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.54F;
+                this.translateLegacyPose(0F, 0.54F, 0F);
+
                 this.Head.xRot += 0.1047F;
                 this.BodyMain.xRot = -0.1396F;
                 this.Butt.xRot = 0.1396F;
@@ -1734,12 +1742,12 @@ public class ModelBattleshipYamato extends ShipModelBaseAdv<Entity> {
                 addk2 = -1.4835F;
                 this.LegLeft01.yRot = 0.0524F;
                 this.LegLeft01.zRot = -1.4835F;
-                // this.LegLeft02.offsetZ = 0.38F;
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.38F);
                 this.LegLeft02.xRot = 2.1F;
                 this.LegLeft02.zRot = 0.0175F;
                 this.LegRight01.yRot = -0.0524F;
                 this.LegRight01.zRot = 1.4835F;
-                // this.LegRight02.offsetZ = 0.38F;
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.38F);
                 this.LegRight02.xRot = 1.9199F;
                 this.LegRight02.zRot = -0.0175F;
             }

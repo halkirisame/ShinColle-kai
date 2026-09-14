@@ -7,10 +7,11 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
-import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.tileentity.ITileGuardPoint;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
+import com.lulan.shincolle.utility.PointerInputModifiers;
+import com.lulan.shincolle.utility.PointerInputModifiers.Action;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -29,14 +30,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.*;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Pointer Item - command tool for controlling ship entities.
  * <p>
  * Left click:
- * entity(own ship): add to team / set focus
- * entity(other): register target class
- * air + sneak: cycle mode (single/group/formation)
+ * entity(own ship) + sneak: add / select / remove according to team state
+ * plain left click: reserved (no action)
  * air + sneak+sprint: clear team
  * air + sprint (formation mode): change formation
  * <p>
@@ -46,9 +47,10 @@ import java.util.List;
  * entity(non-owner): attack or move
  * entity + sprint: guard entity (move only)
  * block: move to position
- * air + sneak: open formation GUI
+ * block + sneak: guard position
+ * air/block + control: open formation GUI
  * <p>
- * Sneak + left click on own ship: remove from team
+ * Shift + wheel: cycle mode while preserving selection
  */
 public class PointerItem extends BasicItem {
 
@@ -163,21 +165,6 @@ public class PointerItem extends BasicItem {
                 range * range);
     }
 
-    /**
-     * Find a ship in the currently selected team by ship UID.
-     *
-     * @return slot index (0 to SLOT_NUM-1), or -1 if not found
-     */
-    private static int findShipInTeam(CapaTeitoku capa, int shipUID) {
-        int teamId = capa.getSelectTeam();
-        for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (capa.getTeamMember(teamId, i) == shipUID) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
     // ===== Right Click =====
 
     @Override
@@ -265,87 +252,39 @@ public class PointerItem extends BasicItem {
     }
 
     private boolean handleLeftClickClient(ItemStack stack, Player player) {
+        return handleLeftClick(stack, player, rayTraceEntities(player, 64.0), ModNetworking::sendToServer);
+    }
+
+    /** Resolve the hit through the same input path on the client and in server GameTests. */
+    private boolean handleLeftClick(ItemStack stack, Player player, EntityHitResult entityHit,
+                                    Consumer<C2SGUIInputPacket> sendPacket) {
         int mode = getMode(stack);
-        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (capa == null) {
-            return false;
+        boolean teamModifierDown = PointerInputModifiers.isDown(Action.TEAM_MANAGEMENT, player);
+        boolean isSprinting = player.isSprinting();
+        if (!teamModifierDown && !isSprinting) {
+            return true;
         }
 
-        boolean isSneaking = player.isShiftKeyDown();
-        boolean isSprinting = player.isSprinting();
-
-        // Ray trace for entities at 64 blocks
-        EntityHitResult entityHit = rayTraceEntities(player, 64.0);
-
         if (entityHit != null) {
-            Entity hitEntity = entityHit.getEntity();
-
-            // Ship or mount
-            BasicEntityShip ship = getShipFromEntity(hitEntity);
-
-            if (ship != null) {
-                // Is owner
-                if (TeamHelper.checkSameOwner(player, ship)) {
-                    int teamSlot = findShipInTeam(capa, ship.getStateMinor(ID.M.ShipUID));
-
-                    if (isSneaking) {
-                        // Sneak + left click: remove from team
-                        if (teamSlot >= 0) {
-                            // Send remove packet (toggle in AddTeam)
-                            ModNetworking.sendToServer(new C2SGUIInputPacket(
-                                    C2SGUIInputPacket.AddTeam,
-                                    new int[]{player.getId(), 0, ship.getId()}));
-                            return true;
-                        }
-                    } else {
-                        if (teamSlot >= 0) {
-                            // Already in team: set focus
-                            ModNetworking.sendToServer(new C2SGUIInputPacket(
-                                    C2SGUIInputPacket.SetSelect,
-                                    new int[]{player.getId(), 0, mode,
-                                            ship.getStateMinor(ID.M.ShipUID)}));
-                        } else {
-                            // Not in team: add to team
-                            ModNetworking.sendToServer(new C2SGUIInputPacket(
-                                    C2SGUIInputPacket.AddTeam,
-                                    new int[]{player.getId(), 0, ship.getId()}));
-
-                            // In single mode: auto-focus the added ship
-                            if (mode == MODE_SINGLE) {
-                                ModNetworking.sendToServer(new C2SGUIInputPacket(
-                                        C2SGUIInputPacket.SetSelect,
-                                        new int[]{player.getId(), 0, mode,
-                                                ship.getStateMinor(ID.M.ShipUID)}));
-                            }
-                        }
-                        return true;
-                    }
-                }
-            } else {
-                // Other entity: register target class
-                String tarName = hitEntity.getClass().getSimpleName();
-                player.sendSystemMessage(
-                        Component.translatable("chat.shincolle_kai.pointer.settargetclass", "  " + tarName));
-                ModNetworking.sendToServer(new C2SGUIInputPacket(
-                        C2SGUIInputPacket.SetTarClass,
-                        new int[]{player.getId(), 0, hitEntity.getId()},
-                        tarName));
-                return true;
+            BasicEntityShip ship = getShipFromEntity(entityHit.getEntity());
+            if (teamModifierDown && ship != null && TeamHelper.checkSameOwner(player, ship)) {
+                // The server resolves add/select/remove atomically from its current team state.
+                sendPacket.accept(new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
+                        new int[]{player.getId(), 0, ship.getId(), 1}));
             }
+            return true;
         }
 
         // Click on air
-        if (isSneaking) {
+        if (teamModifierDown) {
             if (isSprinting) {
-                // Sneak + Sprint: clear team
-                ModNetworking.sendToServer(new C2SGUIInputPacket(
+                // Team modifier + Sprint: clear team
+                sendPacket.accept(new C2SGUIInputPacket(
                         C2SGUIInputPacket.ClearTeam,
                         new int[]{player.getId(), 0}));
             }
-            // Sneak alone no longer cycles the mode; that moved to shift + mouse wheel
-            // (PointerInputHandler) so it can run in both directions and show which mode
-            // is selected. Sneak+sprint stayed here, and used to be easy to trigger by
-            // accident while aiming for a mode change.
+            // Team modifier alone does nothing on air. Mode cycling belongs to the
+            // separately configured wheel modifier in PointerInputHandler.
             return true;
         }
 
@@ -376,8 +315,8 @@ public class PointerItem extends BasicItem {
         if (entityHit != null) {
             Entity hitEntity = entityHit.getEntity();
 
-            // Sprint + right click on entity: guard entity (move only)
-            if (isSprinting) {
+            // Entity guard modifier + right click on entity: guard entity (move only)
+            if (PointerInputModifiers.isDown(Action.GUARD_ENTITY, player)) {
                 ModNetworking.sendToServer(new C2SGUIInputPacket(
                         C2SGUIInputPacket.GuardEntity,
                         new int[]{player.getId(), 0, mode, hitEntity.getId()}));
@@ -425,8 +364,8 @@ public class PointerItem extends BasicItem {
         }
 
         // No entity hit
-        if (isSneaking) {
-            // Sneak + right click on air: open formation GUI
+        if (PointerInputModifiers.isDown(Action.FORMATION_GUI, player)) {
+            // Formation modifier + right click on air or block: open formation GUI
             ModNetworking.sendToServer(new C2SGUIInputPacket(
                     C2SGUIInputPacket.OpenItemGUI,
                     new int[]{player.getId(), 0, 0}));
@@ -456,10 +395,11 @@ public class PointerItem extends BasicItem {
             }
 
             int guardType = isSprinting ? 0 : 1; // 0 = move only, 1 = move and attack
+            boolean guardPosition = PointerInputModifiers.isDown(Action.GUARD_POSITION, player);
 
             ModNetworking.sendToServer(new C2SGUIInputPacket(
                     C2SGUIInputPacket.SetMove,
-                    new int[]{player.getId(), 0, mode, guardType, x, y, z}));
+                    new int[]{player.getId(), 0, mode, guardType, x, y, z, guardPosition ? 0 : 1}));
 
             ParticleHelper.spawnMovingTargetMarkerAt(player.level(), x + 0.5D, y, z + 0.5D);
         }

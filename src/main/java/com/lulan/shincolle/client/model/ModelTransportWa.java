@@ -642,8 +642,10 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -689,6 +691,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         this.GlowEquipBase.xRot = this.EquipBase.xRot;
         this.GlowEquipBase.yRot = this.EquipBase.yRot;
         this.GlowEquipBase.zRot = this.EquipBase.zRot;
+        this.setLegacyPartOffsetY(this.GlowEquipBase, getLegacyPartOffsetY(this.EquipBase));
+        this.setLegacyPartOffsetZ(this.GlowEquipBase, getLegacyPartOffsetZ(this.EquipBase));
         this.GlowEquipTubeL01.xRot = this.EquipTubeL01.xRot;
         this.GlowEquipTubeL01.yRot = this.EquipTubeL01.yRot;
         this.GlowEquipTubeL01.zRot = this.EquipTubeL01.zRot;
@@ -701,7 +705,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.12F;
+        this.translateLegacyPose(0F, 0.12F, 0F);
+
         this.setFaceHungry(ent);
 
         // 頭部
@@ -716,7 +721,7 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         this.Cloth03.xRot = 0.17F;
         this.Cloth04.xRot = -0.8F;
         this.Butt.xRot = -1.1F;
-        // this.Butt.offsetZ = 0.1F;
+        this.setLegacyPartOffsetZ(this.Butt, 0.1F);
         // arm
         this.ArmLeft01.xRot = -0.35F;
         this.ArmLeft01.zRot = -2.6F;
@@ -731,8 +736,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         this.LegRight01.zRot = -0.1047F;
         // equip
         this.EquipBase.visible = true;
-        // this.EquipBase.offsetY = 0.45F;
-        // this.EquipBase.offsetZ = -0.85F;
+        this.setLegacyPartOffsetY(this.EquipBase, 0.45F);
+        this.setLegacyPartOffsetZ(this.EquipBase, -0.85F);
         this.EquipBase.xRot = -3.1F;
         this.EquipTubeL01.xRot = -0.3F;
         this.EquipTubeR01.xRot = -0.3F;
@@ -749,7 +754,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
@@ -766,8 +772,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         this.Ahoke.yRot = angleX * 0.25F + 0.7F;
         this.BodyMain.xRot = -0.1047F;
         this.Butt.xRot = 0.3142F;
-        // this.Butt.offsetY = 0F;
-        // this.Butt.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.Butt, 0F);
+        this.setLegacyPartOffsetZ(this.Butt, 0F);
         this.Cloth03.xRot = 0.1745F;
         this.Cloth04.xRot = angleX * 0.05F - 0.15F;
         // arm
@@ -783,8 +789,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         this.LegRight01.zRot = -0.1047F;
         // equip
         this.EquipBase.xRot = 0.05236F;
-        // this.EquipBase.offsetY = 0F;
-        // this.EquipBase.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.EquipBase, 0F);
+        this.setLegacyPartOffsetZ(this.EquipBase, 0F);
         this.EquipTubeL01.xRot = angleX * 0.08F - 0.35F;
         this.EquipTubeR01.xRot = -angleX * 0.08F - 0.35F;
 
@@ -795,8 +801,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
             // body
             this.Cloth04.xRot += 0.23F;
             this.Butt.xRot = 0.7F;
-            // this.Butt.offsetY = -0.1F;
-            // this.Butt.offsetZ = -0.05F;
+            this.setLegacyPartOffsetY(this.Butt, -0.1F);
+            this.setLegacyPartOffsetZ(this.Butt, -0.05F);
             // arm
             this.ArmLeft01.xRot += 0.2F;
             this.ArmLeft01.zRot -= 0.3F;
@@ -829,7 +835,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
             // 潛行, 蹲下動作
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             if (hideLeg) {
@@ -853,7 +860,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
             if (hideLeg) {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.54F;
+                    this.translateLegacyPose(0F, 0.54F, 0F);
+
                     setFace(3);
 
                     // body
@@ -874,7 +882,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
                     this.LegRight01.zRot = -0.03F;
                 } else {
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY -= 0.17F;
+                    this.translateLegacyPose(0F, -0.17F, 0F);
+
                     setFace(1);
 
                     // body
@@ -900,6 +909,7 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
                 }
             } else {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
+                    this.translateLegacyPose(0F, 0.53F, 0F);
                     setFace(3);
 
                     // body
@@ -923,7 +933,8 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
                 } else {
                     // body
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.42F;
+                    this.translateLegacyPose(0F, 0.42F, 0F);
+
                     this.Head.xRot -= 0.7F;
                     this.BodyMain.xRot = 0.5236F;
                     // arm
@@ -947,6 +958,7 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         // 攻擊動作
         if (ent.getAttackTick() > 40) {
             // Body
+            this.translateLegacyPose(0F, 0.08F, 0F);
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.7F;
             this.Butt.xRot = -0.8378F;

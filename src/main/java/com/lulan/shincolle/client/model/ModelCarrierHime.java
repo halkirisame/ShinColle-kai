@@ -520,8 +520,10 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -575,7 +577,8 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.49F;
+        this.translateLegacyPose(0F, 0.49F, 0F);
+
         this.setFaceHungry(ent);
 
         // head
@@ -592,9 +595,9 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = -0.14F;
         this.Skirt01.xRot = -0.1745F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.2618F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // hair
         this.Hair01.xRot = -0.1F;
         this.Hair01.zRot = 0F;
@@ -621,33 +624,33 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.yRot = 0F;
         this.ArmLeft01.zRot = -0.2618F;
         this.ArmLeft02.xRot = 0F;
-        // this.ArmLeft02.offsetY = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = 0.2F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = 0.2618F;
         this.ArmRight02.yRot = 0F;
         this.ArmRight02.zRot = 0F;
         this.ArmRight02.xRot = 0F;
-        // this.ArmRight02.offsetY = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.xRot = -0.9F;
         this.LegLeft01.zRot = -0.14F;
         this.LegLeft02.xRot = 1.2217F;
         this.LegLeft02.yRot = 1.2217F;
         this.LegLeft02.zRot = -1.0472F;
-        // this.LegLeft02.offsetX = 0.22F;
-        // this.LegLeft02.offsetY = -0.03F;
-        // this.LegLeft02.offsetZ = 0.2F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0.22F);
+        this.setLegacyPartOffsetY(this.LegLeft02, -0.03F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0.2F);
         this.LegRight01.xRot = -0.9F;
         this.LegRight01.zRot = 0.14F;
         this.LegRight02.xRot = 1.2217F;
         this.LegRight02.yRot = -1.2217F;
         this.LegRight02.zRot = 1.0472F;
-        // this.LegRight02.offsetX = -0.22F;
-        // this.LegRight02.offsetY = -0.03F;
-        // this.LegRight02.offsetZ = 0.2F;
+        this.setLegacyPartOffsetX(this.LegRight02, -0.22F);
+        this.setLegacyPartOffsetY(this.LegRight02, -0.03F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0.2F);
         // equip
         this.GlowBodyMain2.visible = false;
         // 鬢毛調整
@@ -678,12 +681,13 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
 
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D || ent.getShipDepth(1) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.05F + 0.025F;
+
         addk1 = angleAdd1 * 0.5F - 0.35F;
         addk2 = angleAdd2 * 0.5F - 0.1745F;
 
@@ -700,9 +704,9 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         this.BodyMain.zRot = 0F;
         this.Butt.xRot = 0.35F;
         this.Skirt01.xRot = -0.14F;
-        // this.Skirt01.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt01, 0F);
         this.Skirt02.xRot = -0.087F;
-        // this.Skirt02.offsetY = 0F;
+        this.setLegacyPartOffsetY(this.Skirt02, 0F);
         // hair
         this.Hair01.xRot = angleX * 0.03F + 0.21F;
         this.Hair01.zRot = 0F;
@@ -729,31 +733,31 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         this.ArmLeft01.yRot = 0F;
         this.ArmLeft01.zRot = angleX * 0.03F - 0.26F;
         this.ArmLeft02.xRot = 0F;
-        // this.ArmLeft02.offsetY = 0F;
-        // this.ArmLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.ArmLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmLeft02, 0F);
         this.ArmRight01.xRot = angleAdd1 * 0.25F;
         this.ArmRight01.yRot = 0F;
         this.ArmRight01.zRot = -angleX * 0.03F + 0.26F;
         this.ArmRight02.yRot = 0F;
         this.ArmRight02.zRot = 0F;
         this.ArmRight02.xRot = 0F;
-        // this.ArmRight02.offsetY = 0F;
-        // this.ArmRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetY(this.ArmRight02, 0F);
+        this.setLegacyPartOffsetZ(this.ArmRight02, 0F);
         // leg
         this.LegLeft01.zRot = 0.1F;
         this.LegLeft02.xRot = 0F;
         this.LegLeft02.yRot = 0F;
         this.LegLeft02.zRot = 0F;
-        // this.LegLeft02.offsetX = 0F;
-        // this.LegLeft02.offsetY = 0F;
-        // this.LegLeft02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetY(this.LegLeft02, 0F);
+        this.setLegacyPartOffsetZ(this.LegLeft02, 0F);
         this.LegRight01.zRot = -0.1F;
         this.LegRight02.xRot = 0F;
         this.LegRight02.yRot = 0F;
         this.LegRight02.zRot = 0F;
-        // this.LegRight02.offsetX = 0F;
-        // this.LegRight02.offsetY = 0F;
-        // this.LegRight02.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.LegRight02, 0F);
+        this.setLegacyPartOffsetY(this.LegRight02, 0F);
+        this.setLegacyPartOffsetZ(this.LegRight02, 0F);
         // equip
         if (this.EquipSL01 != null)
             this.EquipSL01.xRot = -1.57F;
@@ -761,24 +765,25 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
             this.EquipSL01.yRot = 0F;
         if (this.EquipSL01 != null)
             this.EquipSL01.zRot = 1.57F;
-        // this.EquipSL01.offsetX = 0F;
-        // this.EquipSL01.offsetY = 0F;
-        // this.EquipSL01.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipSL01, 0F);
+        this.setLegacyPartOffsetY(this.EquipSL01, 0F);
+        this.setLegacyPartOffsetZ(this.EquipSL01, 0F);
         if (this.EquipSR01 != null)
             this.EquipSR01.xRot = -1.57F;
         if (this.EquipSR01 != null)
             this.EquipSR01.yRot = 0F;
         if (this.EquipSR01 != null)
             this.EquipSR01.zRot = 1.57F;
-        // this.EquipSR01.offsetX = 0F;
-        // this.EquipSR01.offsetY = 0F;
-        // this.EquipSR01.offsetZ = 0F;
+        this.setLegacyPartOffsetX(this.EquipSR01, 0F);
+        this.setLegacyPartOffsetY(this.EquipSR01, 0F);
+        this.setLegacyPartOffsetZ(this.EquipSR01, 0F);
 
         // 奔跑動作
         if (ent.getIsSprinting() || f1 > 0.95F) {
             // body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 0.4F;
             this.BodyMain.xRot = 0.7F;
             this.Butt.xRot -= 0.7F;
@@ -802,13 +807,14 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) {
             // Body
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.Head.xRot -= 1.0472F;
             this.BodyMain.xRot = 1.0472F;
             this.Butt.xRot = -0.4F;
             this.Skirt01.xRot = -0.12F;
             this.Skirt02.xRot = -0.16F;
-            // this.Skirt02.offsetY = -0.1F;
+            this.setLegacyPartOffsetY(this.Skirt02, -0.1F);
             // hair
             this.Hair02.xRot -= 0.3F;
             this.Hair03.xRot -= 0.3F;
@@ -841,8 +847,9 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                     // Body
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.65F;
-                    this.offsetZ -= 0.27F;
+                    this.translateLegacyPose(0F, 0.65F, -0.27F);
+
+
                     this.Head.xRot = -1.2217F;
                     this.Head.yRot = 0F;
                     this.Head.zRot = 0F;
@@ -857,14 +864,14 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                     this.ArmLeft01.yRot = -0.1F;
                     this.ArmLeft01.zRot = -0.1F;
                     this.ArmLeft02.xRot = -2.5F;
-                    // this.ArmLeft02.offsetY = 0.1F;
-                    // this.ArmLeft02.offsetZ = -0.3F;
+                    this.setLegacyPartOffsetY(this.ArmLeft02, 0.1F);
+                    this.setLegacyPartOffsetZ(this.ArmLeft02, -0.3F);
                     this.ArmRight01.xRot = -2F;
                     this.ArmRight01.yRot = 0.1F;
                     this.ArmRight01.zRot = 0.1F;
                     this.ArmRight02.xRot = -2.5F;
-                    // this.ArmRight02.offsetY = 0.1F;
-                    // this.ArmRight02.offsetZ = -0.3F;
+                    this.setLegacyPartOffsetY(this.ArmRight02, 0.1F);
+                    this.setLegacyPartOffsetZ(this.ArmRight02, -0.3F);
                     // leg
                     addk1 = 0F;
                     addk2 = 0F;
@@ -875,16 +882,17 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                 } else {
                     // head
                     // [PORT] Restored from 1.10.2 GlStateManager.translate
-                    this.offsetY += 0.51F;
+                    this.translateLegacyPose(0F, 0.51F, 0F);
+
                     this.Head.yRot -= 0.4F;
                     this.Head.zRot += 0.2F;
                     // body
                     this.BodyMain.xRot = -0.25F;
                     this.Butt.xRot = -0.2F;
                     this.Skirt01.xRot = -0.13F;
-                    // this.Skirt01.offsetY = -0.05F;
+                    this.setLegacyPartOffsetY(this.Skirt01, -0.05F);
                     this.Skirt02.xRot = -0.13F;
-                    // this.Skirt02.offsetY = -0.05F;
+                    this.setLegacyPartOffsetY(this.Skirt02, -0.05F);
                     // arm
                     this.ArmLeft01.xRot = 0.35F;
                     this.ArmLeft01.zRot = -0.2618F;
@@ -897,16 +905,16 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                     this.LegLeft02.xRot = 1.2217F;
                     this.LegLeft02.yRot = 1.2217F;
                     this.LegLeft02.zRot = -1.0472F;
-                    // this.LegLeft02.offsetX = 0.22F;
-                    // this.LegLeft02.offsetY = -0.03F;
-                    // this.LegLeft02.offsetZ = 0.2F;
+                    this.setLegacyPartOffsetX(this.LegLeft02, 0.22F);
+                    this.setLegacyPartOffsetY(this.LegLeft02, -0.03F);
+                    this.setLegacyPartOffsetZ(this.LegLeft02, 0.2F);
                     this.LegRight01.zRot = 0.14F;
                     this.LegRight02.xRot = 1.2217F;
                     this.LegRight02.yRot = -1.2217F;
                     this.LegRight02.zRot = 1.0472F;
-                    // this.LegRight02.offsetX = -0.22F;
-                    // this.LegRight02.offsetY = -0.03F;
-                    // this.LegRight02.offsetZ = 0.2F;
+                    this.setLegacyPartOffsetX(this.LegRight02, -0.22F);
+                    this.setLegacyPartOffsetY(this.LegRight02, -0.03F);
+                    this.setLegacyPartOffsetZ(this.LegRight02, 0.2F);
                     // equip
                     if (this.EquipSL01 != null)
                         this.EquipSL01.xRot -= 0.06F;
@@ -918,13 +926,14 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
             } else {
                 // body
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.56F;
+                this.translateLegacyPose(0F, 0.56F, 0F);
+
                 this.BodyMain.xRot = -0.45F;
                 this.Butt.xRot = -0.2F;
                 this.Skirt01.xRot = -0.13F;
-                // this.Skirt01.offsetY = -0.05F;
+                this.setLegacyPartOffsetY(this.Skirt01, -0.05F);
                 this.Skirt02.xRot = -0.13F;
-                // this.Skirt02.offsetY = -0.05F;
+                this.setLegacyPartOffsetY(this.Skirt02, -0.05F);
                 // arm
                 this.ArmLeft01.xRot = 0.2F;
                 this.ArmLeft01.zRot = -1.1F;
@@ -937,9 +946,9 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 1.2217F;
                 this.LegLeft02.yRot = 1.2217F;
                 this.LegLeft02.zRot = -1.0472F;
-                // this.LegLeft02.offsetX = 0.22F;
-                // this.LegLeft02.offsetY = -0.03F;
-                // this.LegLeft02.offsetZ = 0.2F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0.22F);
+                this.setLegacyPartOffsetY(this.LegLeft02, -0.03F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.2F);
                 this.LegRight01.zRot = 0.14F;
                 this.LegRight02.xRot = 0.9F;
                 // equip
@@ -949,22 +958,23 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                     this.EquipSL01.yRot = 0.1F;
                 if (this.EquipSL01 != null)
                     this.EquipSL01.zRot = 1F;
-                // this.EquipSL01.offsetX = 0.24F;
-                // this.EquipSL01.offsetY = -0.5F;
-                // this.EquipSL01.offsetZ = 1F;
+                this.setLegacyPartOffsetX(this.EquipSL01, 0.24F);
+                this.setLegacyPartOffsetY(this.EquipSL01, -0.5F);
+                this.setLegacyPartOffsetZ(this.EquipSL01, 1F);
                 if (this.EquipSR01 != null)
                     this.EquipSR01.xRot = -1.2F;
                 if (this.EquipSR01 != null)
                     this.EquipSR01.yRot = -0.1F;
                 if (this.EquipSR01 != null)
                     this.EquipSR01.zRot = -1F;
-                // this.EquipSR01.offsetX = -0.24F;
-                // this.EquipSR01.offsetY = -0.5F;
-                // this.EquipSR01.offsetZ = 1F;
+                this.setLegacyPartOffsetX(this.EquipSR01, -0.24F);
+                this.setLegacyPartOffsetY(this.EquipSR01, -0.5F);
+                this.setLegacyPartOffsetZ(this.EquipSR01, 1F);
             }
         } else if (ent.getIsSitting() || ent.getIsRiding()) {
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // Body
+                this.translateLegacyPose(0F, 0.65F, 0F);
                 this.Head.xRot = -1.2217F;
                 this.Head.yRot = 0F;
                 this.Head.zRot = 0F;
@@ -979,14 +989,14 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                 this.ArmLeft01.yRot = -0.1F;
                 this.ArmLeft01.zRot = -0.1F;
                 this.ArmLeft02.xRot = -2.5F;
-                // this.ArmLeft02.offsetY = 0.1F;
-                // this.ArmLeft02.offsetZ = -0.3F;
+                this.setLegacyPartOffsetY(this.ArmLeft02, 0.1F);
+                this.setLegacyPartOffsetZ(this.ArmLeft02, -0.3F);
                 this.ArmRight01.xRot = -2F;
                 this.ArmRight01.yRot = 0.1F;
                 this.ArmRight01.zRot = 0.1F;
                 this.ArmRight02.xRot = -2.5F;
-                // this.ArmRight02.offsetY = 0.1F;
-                // this.ArmRight02.offsetZ = -0.3F;
+                this.setLegacyPartOffsetY(this.ArmRight02, 0.1F);
+                this.setLegacyPartOffsetZ(this.ArmRight02, -0.3F);
                 // leg
                 addk1 = 0F;
                 addk2 = 0F;
@@ -996,15 +1006,16 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                 this.GlowBodyMain2.visible = false;
             } else {
                 // head
+                this.translateLegacyPose(0F, 0.51F, 0F);
                 this.Head.yRot -= 0.4F;
                 this.Head.zRot += 0.2F;
                 // body
                 this.BodyMain.xRot = -0.25F;
                 this.Butt.xRot = -0.2F;
                 this.Skirt01.xRot = -0.13F;
-                // this.Skirt01.offsetY = -0.05F;
+                this.setLegacyPartOffsetY(this.Skirt01, -0.05F);
                 this.Skirt02.xRot = -0.13F;
-                // this.Skirt02.offsetY = -0.05F;
+                this.setLegacyPartOffsetY(this.Skirt02, -0.05F);
                 // arm
                 this.ArmLeft01.xRot = 0.35F;
                 this.ArmLeft01.zRot = -0.2618F;
@@ -1017,16 +1028,16 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
                 this.LegLeft02.xRot = 1.2217F;
                 this.LegLeft02.yRot = 1.2217F;
                 this.LegLeft02.zRot = -1.0472F;
-                // this.LegLeft02.offsetX = 0.22F;
-                // this.LegLeft02.offsetY = -0.03F;
-                // this.LegLeft02.offsetZ = 0.2F;
+                this.setLegacyPartOffsetX(this.LegLeft02, 0.22F);
+                this.setLegacyPartOffsetY(this.LegLeft02, -0.03F);
+                this.setLegacyPartOffsetZ(this.LegLeft02, 0.2F);
                 this.LegRight01.zRot = 0.14F;
                 this.LegRight02.xRot = 1.2217F;
                 this.LegRight02.yRot = -1.2217F;
                 this.LegRight02.zRot = 1.0472F;
-                // this.LegRight02.offsetX = -0.22F;
-                // this.LegRight02.offsetY = -0.03F;
-                // this.LegRight02.offsetZ = 0.2F;
+                this.setLegacyPartOffsetX(this.LegRight02, -0.22F);
+                this.setLegacyPartOffsetY(this.LegRight02, -0.03F);
+                this.setLegacyPartOffsetZ(this.LegRight02, 0.2F);
                 // equip
                 if (this.EquipSL01 != null)
                     this.EquipSL01.xRot -= 0.06F;

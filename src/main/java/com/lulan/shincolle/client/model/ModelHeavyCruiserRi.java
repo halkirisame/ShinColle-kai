@@ -376,8 +376,10 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -440,7 +442,8 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
 
         // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += 0.46F;
+        this.translateLegacyPose(0F, 0.46F, 0F);
+
         this.setFaceHungry(ent);
 
         // 移動頭部 使其看人, 不看人時持續擺動頭部
@@ -480,7 +483,8 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
             // [PORT] 1.10.2 -> 1.20.1: restore legacy water bobbing translation.
-            this.offsetY += angleZ * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleZ * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
@@ -527,7 +531,8 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSneaking()) {
             // 潛行動作
             // [PORT] Restored from 1.10.2 GlStateManager.translate
-            this.offsetY += 0.05F;
+            this.translateLegacyPose(0F, 0.05F, 0F);
+
             this.ArmLeft.xRot = 0.7F;
             this.ArmRight.xRot = 0.7F;
             this.BodyMain.xRot = 0.5F;
@@ -538,7 +543,8 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
         if (ent.getIsSitting() || ent.getIsRiding()) { // 騎乘動作
             if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
                 // [PORT] Restored from 1.10.2 GlStateManager.translate
-                this.offsetY += 0.44F;
+                this.translateLegacyPose(0F, 0.44F, 0F);
+
                 this.ArmLeft.xRot = 0.6F;
                 this.ArmRight.xRot = 0.6F;
                 this.ArmLeft.zRot = -0.6F;
@@ -553,6 +559,7 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
                 this.LegRight.yRot = 0.75F;
                 this.HeadTail0.xRot += 0.7F;
             } else {
+                this.translateLegacyPose(0F, 0.45F, 0F);
                 this.ArmLeft.xRot = -0.6F;
                 this.ArmLeft.zRot = 0.3F;
                 this.ArmRight.xRot = -0.6F;

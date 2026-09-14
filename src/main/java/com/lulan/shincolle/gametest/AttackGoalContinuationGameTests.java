@@ -37,79 +37,89 @@ public final class AttackGoalContinuationGameTests {
 
     @GameTest(template = "arena")
     public static void friendlyCannonGoalRetainsCooldownAcrossSightLoss(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KONGOU.get().create(helper.getLevel());
-        if (!(entity instanceof IShipCannonAttack host)) {
-            throw new AssertionError("Failed to create a friendly cannon ship.");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
+            if (!(entity instanceof IShipCannonAttack host)) {
+                throw new AssertionError("Failed to create a friendly cannon ship.");
+            }
+            verifyCannonContinuation(helper, host);
         }
-        verifyCannonContinuation(helper, host);
     }
 
     @GameTest(template = "arena")
     public static void hostileCannonGoalRetainsCooldownAcrossSightLoss(GameTestHelper helper) {
-        Entity entity = ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel());
-        if (!(entity instanceof IShipCannonAttack host)) {
-            throw new AssertionError("Failed to create a hostile cannon ship.");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            if (!(entity instanceof IShipCannonAttack host)) {
+                throw new AssertionError("Failed to create a hostile cannon ship.");
+            }
+            verifyCannonContinuation(helper, host);
         }
-        verifyCannonContinuation(helper, host);
     }
 
     @GameTest(template = "arena")
     public static void friendlyCarrierGoalContinuesAcrossSightLoss(GameTestHelper helper) {
-        Entity entity = ModEntities.CV_WO.get().create(helper.getLevel());
-        if (!(entity instanceof IShipAircraftAttack host)) {
-            throw new AssertionError("Failed to create a friendly carrier.");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(ModEntities.CV_WO.get().create(helper.getLevel()));
+            if (!(entity instanceof IShipAircraftAttack host)) {
+                throw new AssertionError("Failed to create a friendly carrier.");
+            }
+            verifyCarrierContinuation(helper, host);
         }
-        verifyCarrierContinuation(helper, host);
     }
 
     @GameTest(template = "arena")
     public static void hostileCarrierGoalContinuesAcrossSightLoss(GameTestHelper helper) {
-        Entity entity = ModEntities.CV_AKAGI_MOB.get().create(helper.getLevel());
-        if (!(entity instanceof IShipAircraftAttack host)) {
-            throw new AssertionError("Failed to create a hostile carrier.");
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            Entity entity = entities.add(ModEntities.CV_AKAGI_MOB.get().create(helper.getLevel()));
+            if (!(entity instanceof IShipAircraftAttack host)) {
+                throw new AssertionError("Failed to create a hostile carrier.");
+            }
+            verifyCarrierContinuation(helper, host);
         }
-        verifyCarrierContinuation(helper, host);
     }
 
     private static void verifyCannonContinuation(GameTestHelper helper, IShipCannonAttack host) {
         Mob ship = prepareHost(helper, host);
-        Zombie target = createTarget(helper);
-        ship.setTarget(target);
-        host.setAmmoLight(100_000);
-        host.setStateFlag(ID.F.AtkType_Light, true);
-        host.setStateFlag(ID.F.AtkType_Heavy, false);
-        host.setStateFlag(ID.F.UseAmmoLight, true);
-        host.setStateFlag(ID.F.UseAmmoHeavy, false);
+        CountingRangeAttackGoal goal;
+        GoalSelector selector;
+        try (GameTestEntities targetEntities = GameTestEntities.open(helper)) {
+            Zombie target = createTarget(helper, targetEntities);
+            ship.setTarget(target);
+            host.setAmmoLight(100_000);
+            host.setStateFlag(ID.F.AtkType_Light, true);
+            host.setStateFlag(ID.F.AtkType_Heavy, false);
+            host.setStateFlag(ID.F.UseAmmoLight, true);
+            host.setStateFlag(ID.F.UseAmmoHeavy, false);
 
-        CountingRangeAttackGoal goal = new CountingRangeAttackGoal(host);
-        GoalSelector selector = installOnlyAttackGoal(ship, goal);
-        advanceSelector(ship, selector, INITIAL_SELECTOR_TICKS);
+            goal = new CountingRangeAttackGoal(host);
+            selector = installOnlyAttackGoal(ship, goal);
+            advanceSelector(ship, selector, INITIAL_SELECTOR_TICKS);
 
-        assertGoalRunning(helper, selector, ShipRangeAttackGoal.class, true);
-        helper.assertTrue(goal.getStartCount() == 1,
-                "Cannon goal did not start exactly once. starts=" + goal.getStartCount());
-        int aimTime = readIntField(ShipRangeAttackGoal.class, goal, "aimTime");
-        int delayBeforeLoss = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
-        helper.assertTrue(delayBeforeLoss < aimTime,
-                "Cannon cooldown did not decrease before sight loss. delay=" + delayBeforeLoss
-                        + " aimTime=" + aimTime);
+            assertGoalRunning(helper, selector, ShipRangeAttackGoal.class, true);
+            helper.assertTrue(goal.getStartCount() == 1,
+                    "Cannon goal did not start exactly once. starts=" + goal.getStartCount());
+            int aimTime = readIntField(ShipRangeAttackGoal.class, goal, "aimTime");
+            int delayBeforeLoss = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
+            helper.assertTrue(delayBeforeLoss < aimTime,
+                    "Cannon cooldown did not decrease before sight loss. delay=" + delayBeforeLoss
+                            + " aimTime=" + aimTime);
 
-        setSightBarrier(helper, Blocks.STONE);
-        awaitInternalStop(helper, ship, selector, goal, ShipRangeAttackGoal.class);
-        int delayAfterLoss = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
-        helper.assertTrue(delayAfterLoss < delayBeforeLoss,
-                "Cannon cooldown did not advance while the lost-sight stop ran. before="
-                        + delayBeforeLoss + " after=" + delayAfterLoss);
-        verifyStillRunningWithoutRestart(helper, ship, selector, goal, ShipRangeAttackGoal.class);
+            setSightBarrier(helper, Blocks.STONE);
+            awaitInternalStop(helper, ship, selector, goal, ShipRangeAttackGoal.class);
+            int delayAfterLoss = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
+            helper.assertTrue(delayAfterLoss < delayBeforeLoss,
+                    "Cannon cooldown did not advance while the lost-sight stop ran. before="
+                            + delayBeforeLoss + " after=" + delayAfterLoss);
+            verifyStillRunningWithoutRestart(helper, ship, selector, goal, ShipRangeAttackGoal.class);
 
-        setSightBarrier(helper, Blocks.AIR);
-        awaitTargetReacquisition(helper, ship, selector, goal, ShipRangeAttackGoal.class, target);
-        int delayAfterReturn = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
-        helper.assertTrue(delayAfterReturn <= delayAfterLoss && delayAfterReturn < aimTime,
-                "Cannon cooldown rewound when sight returned. afterLoss=" + delayAfterLoss
-                        + " afterReturn=" + delayAfterReturn + " aimTime=" + aimTime);
-
-        target.discard();
+            setSightBarrier(helper, Blocks.AIR);
+            awaitTargetReacquisition(helper, ship, selector, goal, ShipRangeAttackGoal.class, target);
+            int delayAfterReturn = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
+            helper.assertTrue(delayAfterReturn <= delayAfterLoss && delayAfterReturn < aimTime,
+                    "Cannon cooldown rewound when sight returned. afterLoss=" + delayAfterLoss
+                            + " afterReturn=" + delayAfterReturn + " aimTime=" + aimTime);
+        }
         tickSelector(ship, selector);
         assertGoalRunning(helper, selector, ShipRangeAttackGoal.class, false);
         helper.succeed();
@@ -117,38 +127,40 @@ public final class AttackGoalContinuationGameTests {
 
     private static void verifyCarrierContinuation(GameTestHelper helper, IShipAircraftAttack host) {
         Mob ship = prepareHost(helper, host);
-        Zombie target = createTarget(helper);
-        ship.setTarget(target);
-        host.setAmmoLight(100_000);
-        host.setNumAircraftLight(6);
-        host.setStateFlag(ID.F.AtkType_AirLight, true);
-        host.setStateFlag(ID.F.AtkType_AirHeavy, false);
-        host.setStateFlag(ID.F.UseAirLight, true);
-        host.setStateFlag(ID.F.UseAirHeavy, false);
+        CountingCarrierAttackGoal goal;
+        GoalSelector selector;
+        try (GameTestEntities targetEntities = GameTestEntities.open(helper)) {
+            Zombie target = createTarget(helper, targetEntities);
+            ship.setTarget(target);
+            host.setAmmoLight(100_000);
+            host.setNumAircraftLight(6);
+            host.setStateFlag(ID.F.AtkType_AirLight, true);
+            host.setStateFlag(ID.F.AtkType_AirHeavy, false);
+            host.setStateFlag(ID.F.UseAirLight, true);
+            host.setStateFlag(ID.F.UseAirHeavy, false);
 
-        CountingCarrierAttackGoal goal = new CountingCarrierAttackGoal(host);
-        GoalSelector selector = installOnlyAttackGoal(ship, goal);
-        advanceSelector(ship, selector, INITIAL_SELECTOR_TICKS);
+            goal = new CountingCarrierAttackGoal(host);
+            selector = installOnlyAttackGoal(ship, goal);
+            advanceSelector(ship, selector, INITIAL_SELECTOR_TICKS);
 
-        assertGoalRunning(helper, selector, ShipCarrierAttackGoal.class, true);
-        helper.assertTrue(goal.getStartCount() == 1,
-                "Carrier goal did not start exactly once. starts=" + goal.getStartCount());
-        int delayBeforeLoss = readIntField(ShipCarrierAttackGoal.class, goal, "launchDelay");
-        helper.assertTrue(delayBeforeLoss < 20,
-                "Carrier launch delay did not decrease before sight loss. delay=" + delayBeforeLoss);
+            assertGoalRunning(helper, selector, ShipCarrierAttackGoal.class, true);
+            helper.assertTrue(goal.getStartCount() == 1,
+                    "Carrier goal did not start exactly once. starts=" + goal.getStartCount());
+            int delayBeforeLoss = readIntField(ShipCarrierAttackGoal.class, goal, "launchDelay");
+            helper.assertTrue(delayBeforeLoss < 20,
+                    "Carrier launch delay did not decrease before sight loss. delay=" + delayBeforeLoss);
 
-        setSightBarrier(helper, Blocks.STONE);
-        awaitInternalStop(helper, ship, selector, goal, ShipCarrierAttackGoal.class);
-        verifyStillRunningWithoutRestart(helper, ship, selector, goal, ShipCarrierAttackGoal.class);
+            setSightBarrier(helper, Blocks.STONE);
+            awaitInternalStop(helper, ship, selector, goal, ShipCarrierAttackGoal.class);
+            verifyStillRunningWithoutRestart(helper, ship, selector, goal, ShipCarrierAttackGoal.class);
 
-        setSightBarrier(helper, Blocks.AIR);
-        awaitTargetReacquisition(helper, ship, selector, goal, ShipCarrierAttackGoal.class, target);
-        int delayAfterReturn = readIntField(ShipCarrierAttackGoal.class, goal, "launchDelay");
-        helper.assertTrue(delayAfterReturn <= delayBeforeLoss,
-                "Carrier launch delay rewound when sight returned. before=" + delayBeforeLoss
-                        + " after=" + delayAfterReturn);
-
-        target.discard();
+            setSightBarrier(helper, Blocks.AIR);
+            awaitTargetReacquisition(helper, ship, selector, goal, ShipCarrierAttackGoal.class, target);
+            int delayAfterReturn = readIntField(ShipCarrierAttackGoal.class, goal, "launchDelay");
+            helper.assertTrue(delayAfterReturn <= delayBeforeLoss,
+                    "Carrier launch delay rewound when sight returned. before=" + delayBeforeLoss
+                            + " after=" + delayAfterReturn);
+        }
         tickSelector(ship, selector);
         assertGoalRunning(helper, selector, ShipCarrierAttackGoal.class, false);
         helper.succeed();
@@ -171,8 +183,8 @@ public final class AttackGoalContinuationGameTests {
         return ship;
     }
 
-    private static Zombie createTarget(GameTestHelper helper) {
-        Zombie target = EntityType.ZOMBIE.create(helper.getLevel());
+    private static Zombie createTarget(GameTestHelper helper, GameTestEntities entities) {
+        Zombie target = entities.add(EntityType.ZOMBIE.create(helper.getLevel()));
         if (target == null) {
             throw new AssertionError("Failed to create an attack target.");
         }

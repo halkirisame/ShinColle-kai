@@ -92,6 +92,16 @@ public class CapaShipSavedValues {
                     nbt.contains("CustomName", Tag.TAG_STRING));
         }
 
+        // clear appearance-state bits that this ship type does not support, so a saved
+        // value from before the appearance grid hid them cannot keep applying its effect
+        int hidden = ship.getHiddenAppearanceBits();
+        if (hidden != 0) {
+            int state = ship.getStateEmotion(ID.S.State);
+            if ((state & hidden) != 0) {
+                ship.setStateEmotion(ID.S.State, state & ~hidden, false);
+            }
+        }
+
         // load attrs bonus
         if (nbt.contains("AttrsBonus")) {
             byte[] bonus = nbt.getByteArray("AttrsBonus");

@@ -1,8 +1,8 @@
 package com.lulan.shincolle.ai.observation;
 
 import com.lulan.shincolle.ai.domain.DimensionKey;
-import com.lulan.shincolle.ai.domain.ObservationPosition;
 import com.lulan.shincolle.ai.domain.RawEntityObservation;
+import com.lulan.shincolle.ai.domain.SearchBounds;
 import com.lulan.shincolle.ai.domain.SpatialCandidateProfiler;
 import com.lulan.shincolle.ai.domain.SpatialCandidateProvider;
 import com.lulan.shincolle.ai.domain.SpatialQuery;
@@ -40,14 +40,10 @@ public final class MinecraftSpatialCandidateProvider implements SpatialCandidate
         if (!this.dimension.equals(query.source().dimension())) {
             throw new IllegalArgumentException("Spatial query source dimension does not match provider level");
         }
-        ObservationPosition center = query.center();
+        SearchBounds searched = query.bounds();
         AABB bounds = new AABB(
-                center.x() - query.horizontalRange(),
-                center.y() - query.verticalRange(),
-                center.z() - query.horizontalRange(),
-                center.x() + query.horizontalRange(),
-                center.y() + query.verticalRange(),
-                center.z() + query.horizontalRange());
+                searched.minX(), searched.minY(), searched.minZ(),
+                searched.maxX(), searched.maxY(), searched.maxZ());
         List<Entity> entities = this.level.getEntities((Entity) null, bounds, entity ->
                 !query.source().uuid().equals(entity.getUUID())
                         && !entity.isSpectator()

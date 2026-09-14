@@ -12,6 +12,8 @@ import com.lulan.shincolle.equip.curios.ShipEquipCurioCapabilityHandler;
 import com.lulan.shincolle.equip.tinkers.ShipTinkersIntegration;
 import com.lulan.shincolle.equipdata.EquipDataLoader;
 import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.handler.ServerEventHandler;
+import com.lulan.shincolle.handler.UpdateNotificationConfig;
 import com.lulan.shincolle.init.*;
 import com.lulan.shincolle.loot.ShinColleLootModifiers;
 import com.lulan.shincolle.network.ModNetworking;
@@ -57,6 +59,8 @@ public class ShinColle {
         // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ConfigHandler.COMMON_SPEC,
                 Reference.MOD_ID + "-common.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, UpdateNotificationConfig.CLIENT_SPEC,
+                Reference.MOD_ID + "-client.toml");
 
         // Register lifecycle event listeners
         modEventBus.addListener(this::commonSetup);
@@ -133,6 +137,7 @@ public class ShinColle {
     private void onConfigReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == ConfigHandler.COMMON_SPEC) {
             ConfigHandler.syncConfig();
+            ServerEventHandler.broadcastCurrentShipLevelCaps();
             LOGGER.info("ShinColle: Config reloaded.");
         }
     }

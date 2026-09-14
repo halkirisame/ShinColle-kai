@@ -579,8 +579,10 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
@@ -652,13 +654,9 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
 
     @Override
     public void applyDeadPose(float f, float f1, float f2, float f3, float f4, IShipEmotion ent) {
-        // [PORT] 1.10.2 -> 1.20.1: restore legacy dead-pose grounding offset.
-        // Model space has Y pointing down (LivingEntityRenderer scales by
-        // -1,-1,1), so a larger offsetY pushes the model further down. This has
-        // to match applyNormalPose's standing offset, otherwise the model jumps
-        // upward the moment the ship runs out of fuel: 1.13F left it floating
-        // about a block above the ground while face-down.
-        this.offsetY += 2.18F;
+        // Original NoFuel translation; differs from standing and applies in both matrix scopes.
+        this.translateLegacyPose(0F, 1.13F, 0F);
+
 
         this.setFaceHungry(ent);
 
@@ -734,10 +732,11 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
         float addk2;
 
         // [PORT] 1.10.2 -> 1.20.1: restore base standing height offset.
-        this.offsetY += 2.18F; // Was 0.63F in 1.10.2 but this caused her to float above ground
+        this.translateLegacyPose(0F, 0.63F, 0F);
         // 水上漂浮
         if (ent.getShipDepth(0) > 0D) {
-            this.offsetY += angleX * 0.05F + 0.025F;
+            this.translateLegacyPose(0F, angleX * 0.05F + 0.025F, 0F);
+
         }
 
         // leg move parm
@@ -826,7 +825,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
             // change run type base on tickExisted
             if (t2 > 700) { // run type 1
                 // 高度
-                this.offsetY += 0.05F;
+                this.translateLegacyPose(0F, 0.05F, 0F);
+
                 // 手臂晃動
                 this.ArmLeft01.xRot = Mth.cos(f * 0.8F) * 0.1F - 2.0944F;
                 this.ArmLeft01.yRot = -0.5236F;
@@ -884,7 +884,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
                 this.TailJaw1.xRot = angleX * 0.2F - 0.3F;
             } else if (t2 > 400) { // run type 2
                 // 高度
-                this.offsetY += 0.05F;
+                this.translateLegacyPose(0F, 0.05F, 0F);
+
                 // 手臂晃動
                 this.ArmLeft01.xRot = -1.0472F;
                 this.ArmLeft01.yRot = 0.2618F;
@@ -939,7 +940,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
                 this.TailJaw1.xRot = angleX * 0.15F - 0.3F;
             } else { // run type 3
                 // 高度
-                this.offsetY += 0.1F;
+                this.translateLegacyPose(0F, 0.1F, 0F);
+
                 // 手臂晃動
                 this.ArmLeft01.xRot = Mth.cos(f * 0.8F) * 0.1F + 0.6981F;
                 this.ArmLeft01.yRot = 0F;
@@ -1000,7 +1002,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
 
         if (ent.getIsSneaking()) { // 潛行, 蹲下動作
             // 高度
-            this.offsetY += 0.1F;
+            this.translateLegacyPose(0F, 0.1F, 0F);
+
             // 手臂晃動
             this.ArmLeft01.xRot = 0.5236F;
             this.ArmLeft01.yRot = 0F;
@@ -1059,7 +1062,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
 
             if ((ent.getTickExisted() & 1023) > 512) {
                 if (ent.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) {
-                    this.offsetY += 0.13F;
+                    this.translateLegacyPose(0F, 0.13F, 0F);
+
                     // Body
                     this.Head.xRot += 0.3F;
                     this.BodyMain.xRot = -0.3F;
@@ -1148,7 +1152,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
                     this.TailHead1.xRot = 0.2618F;
                     this.TailJaw1.xRot = angleX * 0.1F - 0.2618F;
                 } else {
-                    this.offsetY += 0.51F;
+                    this.translateLegacyPose(0F, 0.51F, 0F);
+
                     // Body
                     this.Head.xRot *= 0.8F;
                     this.Head.xRot -= 1.8F;
@@ -1206,7 +1211,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
             } else {
                 this.setFace(1);
                 // 高度
-                this.offsetY += 0.17F;
+                this.translateLegacyPose(0F, 0.17F, 0F);
+
                 // 手臂晃動
                 this.ArmLeft01.xRot = -1.7F;
                 this.ArmLeft01.yRot = -0.1F;
@@ -1266,7 +1272,8 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
         // 攻擊動作
         if (ent.getAttackTick() > 0) {
             // 高度
-            this.offsetY += 0.13F;
+            this.translateLegacyPose(0F, 0.13F, 0F);
+
             // 手臂晃動
             this.ArmLeft01.xRot = 0.5236F;
             this.ArmLeft01.yRot = 0F;

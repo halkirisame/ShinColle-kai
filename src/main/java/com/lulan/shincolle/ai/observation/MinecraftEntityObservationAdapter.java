@@ -3,6 +3,7 @@ package com.lulan.shincolle.ai.observation;
 import com.lulan.shincolle.ai.domain.CurrentTargetRawObservation;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.EntityTypeKey;
+import com.lulan.shincolle.ai.domain.ObservationBounds;
 import com.lulan.shincolle.ai.domain.ObservationPosition;
 import com.lulan.shincolle.ai.domain.RawEntityObservation;
 import com.lulan.shincolle.ai.domain.RelationIdentity;
@@ -17,6 +18,12 @@ import java.util.Objects;
 
 public final class MinecraftEntityObservationAdapter {
     private MinecraftEntityObservationAdapter() {
+    }
+
+    /** Size of an entity, so callers never read Minecraft dimensions themselves. */
+    public static ObservationBounds boundsOf(Entity entity) {
+        Objects.requireNonNull(entity, "entity");
+        return new ObservationBounds(entity.getBbWidth(), entity.getBbHeight());
     }
 
     public static RawEntityObservation observe(Entity entity) {

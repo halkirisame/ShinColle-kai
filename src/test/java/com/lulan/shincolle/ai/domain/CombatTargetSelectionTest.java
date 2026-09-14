@@ -225,6 +225,86 @@ class CombatTargetSelectionTest {
                 bound -> 0));
     }
 
+    @Test
+    void zeroOneAndTwoHighestTierCandidatesNeverDraw() {
+        for (int count = 0; count <= 2; count++) {
+            List<TargetCandidate> candidates = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                candidates.add(candidate(i + 1L, i + 1D, monster(), NEUTRAL));
+            }
+            AtomicInteger calls = new AtomicInteger();
+            AiRandom random = bound -> {
+                calls.incrementAndGet();
+                throw new AssertionError("Small pools must not draw");
+            };
+            TargetState state = TargetCandidateSelector.select(70L, SOURCE, candidates,
+                    TargetPredicateKind.FRIENDLY_AUTOMATIC, NO_FLAGS, random);
+            assertEquals(0, calls.get());
+            assertEquals(count == 0 ? Optional.empty() : Optional.of(handle(1L)), state.selectedTarget());
+        }
+    }
+
+    @Test
+    void equalDistancePermutationsConsumeOneDrawAndSelectSameCanonicalTarget() {
+        List<TargetCandidate> canonical = List.of(
+                candidate(0L, 1D, monster(), NEUTRAL),
+                candidate(1L, 1D, monster(), NEUTRAL),
+                candidate(Long.MIN_VALUE, 1D, monster(), NEUTRAL),
+                candidate(-2L, 1D, monster(), NEUTRAL));
+        for (int count : new int[]{3, 4}) {
+            for (int draw = 0; draw < 3; draw++) {
+                for (int rotation = 0; rotation < count; rotation++) {
+                    List<TargetCandidate> input = new ArrayList<>(canonical.subList(0, count));
+                    java.util.Collections.reverse(input);
+                    java.util.Collections.rotate(input, rotation);
+                    AtomicInteger calls = new AtomicInteger();
+                    int recordedDraw = draw;
+                    AiRandom random = bound -> {
+                        assertEquals(3, bound);
+                        calls.incrementAndGet();
+                        return recordedDraw;
+                    };
+                    TargetState state = TargetCandidateSelector.select(71L, SOURCE, input,
+                            TargetPredicateKind.FRIENDLY_AUTOMATIC, NO_FLAGS, random);
+                    assertEquals(1, calls.get());
+                    assertEquals(canonical.subList(0, count), state.orderedEligibleCandidates());
+                    assertEquals(canonical.get(draw).handle(), state.selectedTarget().orElseThrow());
+                }
+            }
+        }
+    }
+
+    @Test
+    void twoHighestTierCandidatesDoNotDrawDespiteLargerTotalPool() {
+        List<TargetCandidate> candidates = List.of(
+                candidate(1L, 1D, monster(), NEUTRAL),
+                candidate(2L, 2D, monster(), NEUTRAL),
+                candidate(3L, 30D, airplane(), BANNED),
+                candidate(4L, 40D, airplane(), BANNED));
+        AtomicInteger calls = new AtomicInteger();
+        TargetState state = TargetCandidateSelector.select(72L, SOURCE, candidates,
+                TargetPredicateKind.FRIENDLY_AUTOMATIC, policy(false, true, true, 0),
+                bound -> calls.getAndIncrement());
+        assertEquals(0, calls.get());
+        assertEquals(handle(3L), state.selectedTarget().orElseThrow());
+    }
+
+    @Test
+    void negativeRandomIndexIsRejectedAfterExactlyOneDraw() {
+        AtomicInteger calls = new AtomicInteger();
+        List<TargetCandidate> candidates = List.of(
+                candidate(1L, 1D, monster(), NEUTRAL),
+                candidate(2L, 2D, monster(), NEUTRAL),
+                candidate(3L, 3D, monster(), NEUTRAL));
+        assertThrows(IllegalArgumentException.class, () -> TargetCandidateSelector.select(
+                73L, SOURCE, candidates, TargetPredicateKind.FRIENDLY_AUTOMATIC, NO_FLAGS,
+                bound -> {
+                    calls.incrementAndGet();
+                    return -1;
+                }));
+        assertEquals(1, calls.get());
+    }
+
     private static boolean eligible(
             ClassifiedTargetObservation target,
             TargetPredicatePolicy policy) {
