@@ -182,22 +182,23 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.9.0 について
+## β版 v1.20.1-0.10.0 について
 
-**β版 `0.9.0`** です。CurseForgeでの配布はこのバージョンが初回になります。
+**β版 `0.10.0`** です。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
-一通り遊べます。KubeJS連携・装備datapack・Javaアドオン向けPublic APIはこの版が初出です。
-艦が攻撃・反撃しない不具合なども修正しました。
+一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
+案内します。説明書の誤りを直し、原典 1.10.2 と食い違っていたレシピや深海火山コアを
+原典どおりに戻しました。
 
 **ただし未完成の領域と既知の不具合があります。**`1.0.0` はそれらが解消された版の
 ために取ってあります。
 
 既知の不具合: 撫でても士気が上がらない / 艦が手持ちアイテムを表示しない /
-移動指示のマーカーが約0.8ブロック浮く。
+説明書の図鑑で一部の艦のモデルのプレビューが位置ずれ・上下反転する。
 
-未完成の領域: 艦娘タスクとクレーン(本フォークで未着手) / 艦ごとの固有戦闘演出 /
-艦AIの作り直し(新コードは本版ではゲーム側から到達しません)。
+未完成の領域: 艦娘タスクとクレーン(本フォークで未着手) / 艦ごとの特殊攻撃・固有演出 /
+艦AIの作り直し。
 
 変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
@@ -416,23 +417,23 @@ undetermined.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.9.0
+## About the beta release, v1.20.1-0.10.0
 
-This is the **beta, `0.9.0`** - the first build distributed through CurseForge.
+This is the **beta, `0.10.0`**.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
-a fleet, fight, level up and marry. This release is the debut of KubeJS integration,
-datapack equipment and the public Java addon API. Ships not attacking or retaliating,
-among other bugs, have been fixed.
+a fleet, fight, level up and marry. New players receive a guide book whose "Getting
+Started" chapter walks through the basics. The book's errors have been fixed, and recipes
+and the Abyssal Volcano Core now match ShinColle 1.10.2 again.
 
 **Some systems are known to be incomplete.** `1.0.0` is reserved for the release where
 they are closed.
 
-Known defects: petting does not raise morale; ships do not render a held item; a
-movement-order marker floats about 0.8 blocks above its destination.
+Known defects: petting does not raise morale; ships do not render a held item; some ship
+model previews in the book's ship gallery are misplaced or upside down.
 
 Incomplete systems: ship work tasks and the crane (untouched by this fork); per-ship
-combat effects; the ship AI rewrite (its new code is not reachable from gameplay here).
+special attacks and combat effects; the ship AI rewrite.
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
