@@ -45,7 +45,7 @@ public class ModWorldGen {
     public static void init() {
         ShinColle.LOGGER.info("ShinColle: World generation configured.");
         ShinColle.LOGGER.info(
-                "ShinColle:   - Polymetallic Ore: overworld, Y 3-50, trapezoid distribution, vein size 7, 7 per chunk");
+                "ShinColle:   - Polymetallic Ore: overworld, Y -61 to 50, trapezoid distribution, vein size 7, 20 per chunk");
         ShinColle.LOGGER
                 .info("ShinColle:   - Polymetallic Gravel: ocean floors, Y -64 to 55, disk radius 2-3, 4 per chunk");
     }
