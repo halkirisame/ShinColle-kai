@@ -219,11 +219,12 @@ public class MarriageRing extends BasicItem {
         Player player = ClientRuntimeHelper.getClientPlayer();
         if (player != null) {
             CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-
-            tooltip.add(Component.literal(
-                    ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.ringText").getString() + " "
-                            + capa.getMarriageNum()));
-            return;
+            if (capa != null) {
+                tooltip.add(Component.literal(
+                        ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.ringText").getString() + " "
+                                + capa.getMarriageNum()));
+                return;
+            }
         }
 
 

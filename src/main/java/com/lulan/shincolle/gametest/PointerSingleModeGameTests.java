@@ -229,6 +229,8 @@ public final class PointerSingleModeGameTests {
                 "Marriage ring living-entity hook did not consume a valid wedding interaction.");
         helper.assertTrue(ship.getStateFlag(com.lulan.shincolle.reference.ID.F.IsMarried),
                 "Marriage ring living-entity hook did not marry the owned ship.");
+        helper.assertTrue(context.capa().getMarriageNum() == 1,
+                "Marriage ring living-entity hook did not increment the admiral marriage count.");
         helper.succeed();
     }
 

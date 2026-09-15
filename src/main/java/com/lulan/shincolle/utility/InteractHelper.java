@@ -11,6 +11,7 @@ import com.lulan.shincolle.item.IShipCombatRation;
 import com.lulan.shincolle.item.IShipFoodItem;
 import com.lulan.shincolle.item.OwnerPaper;
 import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CGUISyncPacket;
 import com.lulan.shincolle.network.S2CSpawnParticlePacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
@@ -19,6 +20,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionUtils;
@@ -129,6 +131,9 @@ public class InteractHelper {
 
         capa.setMarriageNum(capa.getMarriageNum() + 1);
 
+        if (player instanceof ServerPlayer serverPlayer) {
+            ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerMisc(capa), serverPlayer);
+        }
 
         // play hearts effect
         ModNetworking.sendToAllTracking(
