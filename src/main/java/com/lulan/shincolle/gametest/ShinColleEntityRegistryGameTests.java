@@ -1212,23 +1212,31 @@ public final class ShinColleEntityRegistryGameTests {
                     "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
             assertStartInitializesThrottleFields(new ShipFollowOwnerGoal(ship), ship, 101,
                     "nextOwnerResolveTick", "nextParticleTick");
-            assertStartInitializesThrottleFields(new ShipRangeAttackGoal(ship), ship, 101,
+            ShipRangeAttackGoal rangeAttackGoal = new ShipRangeAttackGoal(ship);
+            assertGoalRunsEveryTick(rangeAttackGoal);
+            assertStartInitializesThrottleFields(rangeAttackGoal, ship, 101,
                     "nextAttrTick", "nextRepathTick");
-            assertStartInitializesThrottleFields(new ShipAttackOnCollideGoal(ship, 1.0D), ship, 101,
+            ShipAttackOnCollideGoal collideGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
+            assertGoalRunsEveryTick(collideGoal);
+            assertStartInitializesThrottleFields(collideGoal, ship, 101,
                     "nextRepathTick");
 
             Entity carrierEntity = entities.add(ModEntities.CV_AKAGI.get().create(level));
             if (!(carrierEntity instanceof com.lulan.shincolle.entity.IShipAircraftAttack carrier)) {
                 throw new AssertionError("CV_AKAGI is not IShipAircraftAttack in goal throttle parity test.");
             }
-            assertStartInitializesThrottleFields(new ShipCarrierAttackGoal(carrier), carrierEntity, 101,
+            ShipCarrierAttackGoal carrierAttackGoal = new ShipCarrierAttackGoal(carrier);
+            assertGoalRunsEveryTick(carrierAttackGoal);
+            assertStartInitializesThrottleFields(carrierAttackGoal, carrierEntity, 101,
                     "nextAttrTick", "nextRepathTick");
 
             Entity airplaneEntity = entities.add(ModEntities.AIRPLANE.get().create(level));
             if (!(airplaneEntity instanceof BasicEntityAirplane airplane)) {
                 throw new AssertionError("AIRPLANE is not BasicEntityAirplane in goal throttle parity test.");
             }
-            assertStartInitializesThrottleFields(new ShipAircraftAttackGoal(airplane), airplane, 101,
+            ShipAircraftAttackGoal aircraftAttackGoal = new ShipAircraftAttackGoal(airplane);
+            assertGoalRunsEveryTick(aircraftAttackGoal);
+            assertStartInitializesThrottleFields(aircraftAttackGoal, airplane, 101,
                     "nextCirclePathTick");
 
             int evenFires = countPickItemThrottleFires(ship, 2);
@@ -3756,6 +3764,13 @@ public final class ShinColleEntityRegistryGameTests {
                 throw new AssertionError(goal.getClass().getSimpleName() + "." + fieldName
                         + " should initialize to the current entity tick. expected=" + now + " actual=" + actual);
             }
+        }
+    }
+
+    private static void assertGoalRunsEveryTick(Goal goal) {
+        if (!goal.requiresUpdateEveryTick()) {
+            throw new AssertionError(goal.getClass().getSimpleName()
+                    + " must request every-tick updates for real-time attack delays.");
         }
     }
 

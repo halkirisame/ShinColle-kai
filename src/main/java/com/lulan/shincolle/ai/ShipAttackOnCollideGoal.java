@@ -69,6 +69,11 @@ public class ShipAttackOnCollideGoal extends Goal {
     }
 
     @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
+    }
+
+    @Override
     public void tick() {
         if (this.target == null || !this.target.isAlive()) {
             this.stop();
