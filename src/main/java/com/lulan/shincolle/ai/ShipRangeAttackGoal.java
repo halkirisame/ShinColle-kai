@@ -147,6 +147,11 @@ public class ShipRangeAttackGoal extends Goal {
     }
 
     @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
+    }
+
+    @Override
     public void tick() {
         ProfilerFiller profiler = DebugProfiler.push(this.entity.level(), "shincolle.ai.range_attack.tick");
         try {

@@ -81,6 +81,11 @@ public class ShipAircraftAttackGoal extends Goal {
     }
 
     @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
+    }
+
+    @Override
     public void tick() {
         if (this.target == null)
             return;
