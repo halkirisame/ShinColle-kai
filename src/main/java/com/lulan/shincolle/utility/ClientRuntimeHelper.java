@@ -5,7 +5,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
@@ -13,6 +12,8 @@ import java.lang.reflect.Method;
  * Uses reflection so common-side classes can stay dedicated-server safe.
  */
 public final class ClientRuntimeHelper {
+
+    private static final String CLIENT_ACCESS_CLASS = "com.lulan.shincolle.client.ClientRuntimeAccess";
 
     private ClientRuntimeHelper() {
     }
@@ -23,11 +24,7 @@ public final class ClientRuntimeHelper {
         }
 
         try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Method getInstance = mcClass.getMethod("getInstance");
-            Object mc = getInstance.invoke(null);
-            Field playerField = mcClass.getField("player");
-            Object playerObj = playerField.get(mc);
+            Object playerObj = invokeClientAccess("getPlayer");
             return playerObj instanceof Player player ? player : null;
         } catch (Throwable ignored) {
             return null;
@@ -40,11 +37,7 @@ public final class ClientRuntimeHelper {
         }
 
         try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Method getInstance = mcClass.getMethod("getInstance");
-            Object mc = getInstance.invoke(null);
-            Method getCameraEntity = mcClass.getMethod("getCameraEntity");
-            Object camera = getCameraEntity.invoke(mc);
+            Object camera = invokeClientAccess("getCameraEntity");
             return camera instanceof Entity entity ? entity : null;
         } catch (Throwable ignored) {
             return null;
@@ -57,11 +50,7 @@ public final class ClientRuntimeHelper {
         }
 
         try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Method getInstance = mcClass.getMethod("getInstance");
-            Object mc = getInstance.invoke(null);
-            Method getFrameTime = mcClass.getMethod("getFrameTime");
-            Object value = getFrameTime.invoke(mc);
+            Object value = invokeClientAccess("getFrameTime");
             return value instanceof Float f ? f : fallback;
         } catch (Throwable ignored) {
             return fallback;
@@ -74,12 +63,16 @@ public final class ClientRuntimeHelper {
         }
 
         try {
-            Class<?> screenClass = Class.forName("net.minecraft.client.gui.screens.Screen");
-            Method hasControlDown = screenClass.getMethod("hasControlDown");
-            Object result = hasControlDown.invoke(null);
+            Object result = invokeClientAccess("isControlDown");
             return result instanceof Boolean b && b;
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    private static Object invokeClientAccess(String methodName) throws ReflectiveOperationException {
+        Class<?> accessClass = Class.forName(CLIENT_ACCESS_CLASS);
+        Method method = accessClass.getMethod(methodName);
+        return method.invoke(null);
     }
 }

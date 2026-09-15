@@ -182,9 +182,9 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.10.1 について
+## β版 v1.20.1-0.10.2 について
 
-**β版 `0.10.1`** です。
+**β版 `0.10.2`** です。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
 一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
@@ -417,9 +417,9 @@ undetermined.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.10.1
+## About the beta release, v1.20.1-0.10.2
 
-This is the **beta, `0.10.1`**.
+This is the **beta, `0.10.2`**.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
 a fleet, fight, level up and marry. New players receive a guide book whose "Getting

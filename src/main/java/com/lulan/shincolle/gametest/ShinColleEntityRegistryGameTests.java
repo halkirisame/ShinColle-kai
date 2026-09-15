@@ -3176,6 +3176,135 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     @GameTest(template = "arena")
+    public static void shipOwnerUidResyncRepairsMatchingUuidOwner(GameTestHelper helper) {
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer player = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000020"), "uid_resync_owner"));
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null) {
+                throw new AssertionError("Owner UID resync test player has no Teitoku capability.");
+            }
+            capa.setPlayerUID(9601);
+
+            BasicEntityShip ship = createOwnerUidResyncShip(level, entities, player.getUUID(), 1234);
+            if (!ship.resyncOwnerUid(player) || ship.getPlayerUID() != 9601
+                    || !player.getName().getString().equals(ship.ownerName)) {
+                throw new AssertionError("Matching UUID owner did not repair the ship owner UID and name.");
+            }
+
+            ServerDataManager.removeShipData(ship.getShipUID());
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "arena")
+    public static void shipOwnerUidResyncRejectsDifferentUuid(GameTestHelper helper) {
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer player = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000021"), "uid_resync_other"));
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null) {
+                throw new AssertionError("Different-owner UID resync test player has no Teitoku capability.");
+            }
+            capa.setPlayerUID(9602);
+
+            BasicEntityShip ship = createOwnerUidResyncShip(level, entities,
+                    UUID.fromString("00000000-0000-0000-0000-000000000099"), 1234);
+            if (ship.resyncOwnerUid(player) || ship.getPlayerUID() != 1234) {
+                throw new AssertionError("A different UUID owner changed the ship owner UID.");
+            }
+
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "arena")
+    public static void shipOwnerUidResyncRejectsUnassignedPlayerUid(GameTestHelper helper) {
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer player = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000022"), "uid_resync_zero"));
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null) {
+                throw new AssertionError("Zero-UID resync test player has no Teitoku capability.");
+            }
+            capa.setPlayerUID(0);
+
+            BasicEntityShip ship = createOwnerUidResyncShip(level, entities, player.getUUID(), 1234);
+            if (ship.resyncOwnerUid(player) || ship.getPlayerUID() != 1234) {
+                throw new AssertionError("An unassigned player UID changed the ship owner UID.");
+            }
+
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "arena")
+    public static void shipOwnerUidResyncSkipsMatchingUid(GameTestHelper helper) {
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer player = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000023"), "uid_resync_same"));
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null) {
+                throw new AssertionError("Matching-UID resync test player has no Teitoku capability.");
+            }
+            capa.setPlayerUID(9603);
+
+            BasicEntityShip ship = createOwnerUidResyncShip(level, entities, player.getUUID(), 9603);
+            if (ship.resyncOwnerUid(player) || ship.getPlayerUID() != 9603) {
+                throw new AssertionError("An already matching owner UID was reported as changed.");
+            }
+
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "arena")
+    public static void shipInteractionResyncsOwnerUidBeforeWedding(GameTestHelper helper) {
+        withEntities(helper, entities -> {
+            ServerLevel level = helper.getLevel();
+            FakePlayer player = FakePlayerFactory.get(level,
+                    new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000024"), "uid_resync_wedding"));
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null) {
+                throw new AssertionError("Wedding UID resync test player has no Teitoku capability.");
+            }
+            capa.setPlayerUID(9604);
+            player.getAbilities().instabuild = false;
+            player.setShiftKeyDown(true);
+            ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get());
+            player.setItemInHand(InteractionHand.MAIN_HAND, ring);
+
+            BasicEntityShip ship = createOwnerUidResyncShip(level, entities, player.getUUID(), 1234);
+            InteractionResult result = ship.mobInteract(player, InteractionHand.MAIN_HAND);
+            if (!result.consumesAction() || ship.getPlayerUID() != 9604
+                    || !ship.getStateFlag(ID.F.IsMarried) || !ring.isEmpty()) {
+                throw new AssertionError("Owner UID resync did not allow wedding interaction to consume the ring.");
+            }
+
+            ServerDataManager.removeShipData(ship.getShipUID());
+            helper.succeed();
+        });
+    }
+
+    private static BasicEntityShip createOwnerUidResyncShip(ServerLevel level, GameTestEntities entities,
+                                                              UUID ownerUuid, int ownerUid) {
+        Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
+        if (!(entity instanceof BasicEntityShip ship)) {
+            throw new AssertionError("BB_KONGOU is not BasicEntityShip in owner UID resync test.");
+        }
+        ship.setOwnerUUID(ownerUuid);
+        ship.setPlayerUID(ownerUid);
+        if (!level.addFreshEntity(ship)) {
+            throw new AssertionError("Could not add BB_KONGOU for owner UID resync test.");
+        }
+        return ship;
+    }
+
+    @GameTest(template = "arena")
     public static void shipMovementFloorAppliesWhenEquipMovNegative(GameTestHelper helper) {
         withEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();

@@ -3314,6 +3314,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // server side
         if (!this.level().isClientSide()) {
+            this.resyncOwnerUid(player);
             ItemStack stack = player.getItemInHand(hand);
 
             // use item
@@ -3586,6 +3587,33 @@ public abstract class BasicEntityShip extends TamableAnimal
     // ========== Ship Cache Data ==========
 
     /**
+     * Re-align the numeric owner UID with the player's current UID when the player
+     * is this ship's vanilla UUID owner. Returns true when the UID was changed.
+     */
+    public boolean resyncOwnerUid(Player player) {
+        if (this.level().isClientSide() || player == null
+                || this.getOwnerUUID() == null || !this.getOwnerUUID().equals(player.getUUID())) {
+            return false;
+        }
+        CapaTeitoku capa = ServerDataManager.getTeitokuCapability(player);
+        if (capa == null) {
+            return false;
+        }
+        int uid = capa.getPlayerUID();
+        if (uid <= 0 || uid == this.getPlayerUID()) {
+            return false;
+        }
+
+        int old = this.getPlayerUID();
+        this.setPlayerUID(uid);
+        this.ownerName = player.getName().getString();
+        ServerDataManager.updateShipID(this);
+        this.sendSyncPacketAll();
+        LogHelper.info("resync ship owner uid: " + old + " -> " + uid + " on " + this);
+        return true;
+    }
+
+    /**
      * Register or update ship ID and owner ID in ServerDataManager.
      */
     public void updateShipCacheData(boolean forceUpdate) {
@@ -3595,6 +3623,8 @@ public abstract class BasicEntityShip extends TamableAnimal
             // update owner uid
             if (this.getPlayerUID() <= 0) {
                 ServerDataManager.updateShipOwnerID(this);
+            } else if (this.getOwner() instanceof Player owner) {
+                this.resyncOwnerUid(owner);
             }
 
             // update ship uid

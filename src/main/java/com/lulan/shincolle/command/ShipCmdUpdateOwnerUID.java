@@ -87,7 +87,7 @@ public class ShipCmdUpdateOwnerUID {
                     new AABB(level.getSharedSpawnPos()).inflate(30000000));
 
             for (BasicEntityShip ship : ships) {
-                if (playerName.equals(ship.ownerName)) {
+                if (playerName.equals(ship.ownerName) || player.getUUID().equals(ship.getOwnerUUID())) {
                     ship.setStateMinor(ID.M.PlayerUID, playerUID);
                     count++;
                 }
