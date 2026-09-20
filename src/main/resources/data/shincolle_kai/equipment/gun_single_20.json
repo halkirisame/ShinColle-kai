@@ -1,0 +1,21 @@
+{
+  "equip_id": 320,
+  "item": "shincolle_kai:equip_machinegun",
+  "variant": 3,
+  "equip_type": "gun_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "ammo",
+    "amount": 100,
+    "rare_mean": 4000
+  },
+  "roll_type": 20,
+  "stats": {
+    "shincolle_kai:mov": -0.04,
+    "shincolle_kai:aa": 25.0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GGG",
+    "GGG",
+    "GGG"
+  ],
+  "key": {
+    "G": {
+      "item": "shincolle_kai:grudge_block"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:grudge_heavy",
+    "count": 1
+  }
+}

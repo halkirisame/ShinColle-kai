@@ -1,0 +1,57 @@
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "${mod_license}"
+issueTrackerURL = "https://github.com/halkirisame/ShinColle-kai/issues"
+
+[[mods]]
+modId = "${mod_id}"
+version = "${mod_version}"
+displayName = "ShinColle-kai"
+displayURL = "https://github.com/halkirisame/ShinColle-kai"
+updateJSONURL = "https://raw.githubusercontent.com/halkirisame/ShinColle-kai/main/update.json"
+authors = "${mod_authors}"
+description = '''${mod_description}'''
+logoFile = "icon.png"
+logoBlur = true
+
+[[dependencies.${ mod_id }]]
+modId = "forge"
+mandatory = true
+versionRange = "${forge_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "minecraft"
+mandatory = true
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "curios"
+mandatory = false
+versionRange = "[5.0.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "tconstruct"
+mandatory = false
+versionRange = "[3.7.0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "kubejs"
+mandatory = false
+versionRange = "[2001.6.5,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${ mod_id }]]
+modId = "jei"
+mandatory = false
+versionRange = "[15.20.0.129,)"
+ordering = "AFTER"
+side = "CLIENT"

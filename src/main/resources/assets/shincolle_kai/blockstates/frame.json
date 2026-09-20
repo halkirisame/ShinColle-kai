@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "shincolle_kai:block/frame"
+    },
+    "facing=south": {
+      "model": "shincolle_kai:block/frame",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "shincolle_kai:block/frame",
+      "y": 270
+    },
+    "facing=east": {
+      "model": "shincolle_kai:block/frame",
+      "y": 90
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "equip_id": 829,
+  "item": "shincolle_kai:equip_ammo",
+  "variant": 8,
+  "equip_type": "ammo_hi",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "ammo",
+    "amount": 1000,
+    "rare_mean": 4000
+  },
+  "roll_type": 29,
+  "stats": {
+    "shincolle_kai:atk_h": 16.0,
+    "shincolle_kai:atk_ah": 16.0,
+    "shincolle_kai:spd": -0.3,
+    "shincolle_kai:mov": -0.01,
+    "shincolle_kai:hit": -2.0
+  }
+}

@@ -1,0 +1,44 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# IDEs
+.project
+.classpath
+.settings
+.idea
+*.iml
+*.iws
+*.ipr
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Build tools
+.gradle
+!gradle-wrapper.jar
+/target
+out
+build
+bin
+
+# Local files
+*.log
+*.swp
+*.bak
+__pycache__/
+run
+run-server
+*.ps1
+*.backup
+
+# Forge GameTest runtime state. Keep the tracked checkstyle configuration available.
+/config/*
+!/config/checkstyle/
+/world/
+/logs/
+/server.properties
+/src/generated/resources/.cache/

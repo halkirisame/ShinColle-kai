@@ -1,0 +1,58 @@
+package com.lulan.shincolle.item;
+
+import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.reference.unitclass.ResourceAmount;
+
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * Equipment Armor - armor equipment with 7 variants.
+ * meta:
+ * 0: armor
+ * 1: heavy armor
+ * 2: Anti-torpedo Bulge (S)
+ * 3: Anti-torpedo Bulge (M)
+ * 4: Anti-torpedo Bulge (L)
+ * 5: Anti-torpedo Belt Armor
+ * 6: Abyssal Protection Bulkhead
+ */
+public class EquipArmor extends BasicEquip {
+
+    public EquipArmor() {
+        super(7);
+    }
+
+    @Override
+    public int getItemEnchantability(ItemStack stack) {
+        switch (this.getEquipType(stack)) {
+            case ID.EquipType.ARMOR_LO:
+                return 9;
+            case ID.EquipType.ARMOR_HI:
+                return 20;
+            default:
+                return 9;
+        }
+    }
+
+    @Override
+    public ResourceAmount getResourceAmount(ItemStack stack) {
+        switch (this.getEquipType(stack)) {
+            case ID.EquipType.ARMOR_LO: // 80
+                return new ResourceAmount(
+                        itemRand.nextInt(3) + 3,
+                        itemRand.nextInt(4) + 4,
+                        itemRand.nextInt(2) + 2,
+                        itemRand.nextInt(2) + 2
+                );
+            case ID.EquipType.ARMOR_HI: // 500
+                return new ResourceAmount(
+                        itemRand.nextInt(15) + 35,
+                        itemRand.nextInt(20) + 45,
+                        itemRand.nextInt(10) + 25,
+                        itemRand.nextInt(5) + 15
+                );
+            default:
+                return ResourceAmount.ZERO;
+        }
+    }
+}

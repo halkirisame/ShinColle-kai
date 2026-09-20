@@ -1,0 +1,10 @@
+{
+  "type": "shincolle_kai:inject_loot_table",
+  "conditions": [
+    {
+      "condition": "forge:loot_table_id",
+      "loot_table_id": "minecraft:chests/end_city_treasure"
+    }
+  ],
+  "loot_table": "shincolle_kai:inject/end_city"
+}

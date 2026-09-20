@@ -1,0 +1,418 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'org.spongepowered.mixin' version '0.7.+'
+}
+
+// This mod declares no mixins of its own - the plugin is here because it
+// also sets up the SRG->MCP refmap remapping the dev run needs to resolve
+// OTHER mods' mixins (Curios' accessors fail outright without it).
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    // Output jar filename. The Forge mod id is "shincolle_kai"; the historical
+    // Java package com.lulan.shincolle remains unchanged.
+    archivesName = 'shincolle-kai'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+def includeKubeJSRuntime = providers.gradleProperty('shincolleKubeJSRuntime')
+        .map { Boolean.parseBoolean(it) }
+        .getOrElse(false)
+
+// Optional-mod runtime switches for standalone-startup verification.
+// Every integration sits behind a ModList.isLoaded() guard, so the mod must also
+// boot with none of these present. Default true keeps the normal dev run unchanged.
+//   -PshincolleMinimalRuntime=true   drop every optional mod at once
+//   -PshincolleCuriosRuntime=false   drop just Curios
+//   -PshincolleTinkersRuntime=false  drop just Tinkers' Construct (+ Mantle)
+def minimalRuntime = providers.gradleProperty('shincolleMinimalRuntime')
+        .map { Boolean.parseBoolean(it) }
+        .getOrElse(false)
+def optionalRuntime = { String property ->
+    if (minimalRuntime) {
+        return false
+    }
+    providers.gradleProperty(property).map { Boolean.parseBoolean(it) }.getOrElse(true)
+}
+def includeJEIRuntime = optionalRuntime('shincolleJEIRuntime')
+def includeCuriosRuntime = optionalRuntime('shincolleCuriosRuntime')
+def includeTinkersRuntime = optionalRuntime('shincolleTinkersRuntime')
+
+// Fixed seed for the flat GameTest world. See prepareGameTestWorld below.
+def gameTestLevelSeed = '105'
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        // Second client for multiplayer testing. Needs its own username and
+        // working directory: an offline-mode server kicks the first session
+        // when a second one logs in under the same name ("You logged in from
+        // another location"), and two clients sharing run/ fight over
+        // options.txt and saves/.
+        client2 {
+            parent runs.client
+            workingDirectory project.file('run-client2')
+            args '--username', 'Dev2'
+        }
+
+        server {
+            // Keep the dedicated server out of run/, so it can be started
+            // alongside runClient without the two fighting over saves/,
+            // options.txt and usercache.json. Needed to reproduce the
+            // dedicated-server case, where client and server are separate JVMs
+            // and do not share statics.
+            workingDirectory project.file('run-server')
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            workingDirectory project.file('.')
+            property 'forge.enabledGameTestNamespaces', "${mod_id},minecraft"
+            property 'forge.logging.console.level', 'info'
+            property 'shincolle.publicationRoot', project.projectDir.absolutePath
+            property 'shincolle.gametestLevelSeed', gameTestLevelSeed
+            jvmArgs '--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED'
+            args '--nogui'
+        }
+
+        kubeJSGameTestServer {
+            parent runs.gameTestServer
+            workingDirectory project.file('build/kubejs-gametest')
+            property 'shincolle.kubejsSmokeTest', 'true'
+        }
+
+        data {
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+sourceSets {
+    addonExample {
+        java.srcDir 'examples/java_addon/src/main/java'
+        resources.srcDir 'examples/java_addon/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
+}
+
+// Machine-local build additions, applied only when the file exists outside this repository.
+def localBuildScript = file('../local.gradle')
+if (localBuildScript.isFile()) {
+    apply from: localBuildScript
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('compileAddonExampleJava')
+}
+
+tasks.named('compileAddonExampleJava', JavaCompile).configure {
+    description = 'Compiles the copyable Java addon example against the current Public API.'
+    options.encoding = 'UTF-8'
+}
+
+tasks.register('validateAddonExampleApiBoundary') {
+    description = 'Rejects ShinColle internal-package references from the public Java addon example.'
+    def exampleSources = fileTree('examples/java_addon/src/main/java') {
+        include '**/*.java'
+    }
+    inputs.files(exampleSources)
+    doLast {
+        exampleSources.each { sourceFile ->
+            def forbidden = sourceFile.getText('UTF-8') =~ /com\.lulan\.shincolle\.(?!api(?:\.|;))/
+            if (forbidden.find()) {
+                throw new GradleException("Java addon example references a ShinColle internal package: ${sourceFile}")
+            }
+        }
+    }
+}
+
+tasks.register('validateAddonExampleIsolation') {
+    description = 'Ensures the Java addon example is not packaged into the ShinColle-kai release JAR.'
+    dependsOn tasks.named('jar')
+    def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    inputs.file(releaseJar)
+    doLast {
+        def leaked = zipTree(releaseJar.get().asFile).matching {
+            include 'example/shincolleaddon/**'
+            include 'data/shincolle_example/**'
+            include 'assets/shincolle_example/**'
+        }.files
+        if (!leaked.isEmpty()) {
+            throw new GradleException("Java addon example leaked into the release JAR: ${leaked}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('validateAddonExampleApiBoundary')
+    dependsOn tasks.named('validateAddonExampleIsolation')
+}
+
+tasks.register('prepareKubeJSSmokeResources', Sync) {
+    from 'src/kubejsTest'
+    from('gameteststructures') {
+        into 'gameteststructures'
+    }
+    from('src/main/resources') {
+        into 'src/main/resources'
+    }
+    into layout.buildDirectory.dir('kubejs-gametest')
+}
+
+tasks.matching { it.name == 'prepareRunKubeJSGameTestServer' }.configureEach {
+    dependsOn tasks.named('prepareKubeJSSmokeResources')
+}
+
+// GameTest worlds must be flat with a fixed seed. The GameTest server reads
+// server.properties from its working directory. With the vanilla defaults (natural terrain,
+// random seed) the clearing before each test hollowed out real ground, and gravel or sand
+// above the hollow fell into test areas as falling-block entities that spatial queries counted.
+// level-type and seed only apply when a world is created, so the world is recreated every run.
+// GameTestWorldGameTests fails if this contract is broken.
+def prepareGameTestWorld = { File serverDir ->
+    serverDir.mkdirs()
+    def propertiesFile = new File(serverDir, 'server.properties')
+    def forced = [
+            'level-type'         : 'minecraft\\:flat',
+            'level-seed'         : gameTestLevelSeed,
+            'generate-structures': 'false',
+            'level-name'         : 'world',
+    ]
+    def written = [] as Set
+    def lines = (propertiesFile.isFile() ? propertiesFile.readLines('ISO-8859-1') : []).collect { String line ->
+        def separator = line.indexOf('=')
+        def key = (!line.startsWith('#') && separator > 0) ? line.substring(0, separator) : null
+        if (key != null && forced.containsKey(key)) {
+            written << key
+            return "${key}=${forced[key]}".toString()
+        }
+        return line
+    }
+    forced.each { key, value ->
+        if (!written.contains(key)) {
+            lines << "${key}=${value}".toString()
+        }
+    }
+    propertiesFile.write(lines.join('\n') + '\n', 'ISO-8859-1')
+    project.delete(new File(serverDir, 'world'))
+}
+
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst { prepareGameTestWorld(project.file('.')) }
+}
+
+tasks.matching { it.name == 'runKubeJSGameTestServer' }.configureEach {
+    doFirst { prepareGameTestWorld(project.file('build/kubejs-gametest')) }
+}
+
+// Expand gradle.properties into mods.toml
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+        minecraft_version   : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        forge_version       : forge_version,
+        forge_version_range : forge_version_range,
+        loader_version_range: loader_version_range,
+        mod_id              : mod_id,
+        mod_version         : mod_version,
+        mod_authors         : mod_authors,
+        mod_description     : mod_description,
+        mod_license         : mod_license,
+    ]
+    inputs.properties(replaceProperties)
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+repositories {
+    maven { url 'https://maven.minecraftforge.net/' }
+    maven {
+        name = "Jared's maven"
+        url = 'https://maven.blamejared.com/'
+    }
+    // Sources for the dev-only verification mods below.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+    maven {
+        name = 'CurseForge'
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+    maven {
+        name = 'theillusivec4'
+        url = 'https://maven.theillusivec4.top/'
+        content { includeGroup 'top.theillusivec4.curios' }
+    }
+    maven {
+        name = 'Architectury'
+        url = 'https://maven.architectury.dev/'
+        content { includeGroup 'dev.architectury' }
+    }
+    maven {
+        name = 'Saps'
+        url = 'https://maven.saps.dev/minecraft/'
+        content { includeGroup 'dev.latvian.mods' }
+    }
+    maven {
+        name = 'Latvian Releases'
+        url = 'https://maven.latvian.dev/releases/'
+        content { includeGroup 'dev.latvian.mods' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+
+    // JEI - deobfuscated for dev environment
+    compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.20.0.129")
+    compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:15.20.0.129")
+    if (includeJEIRuntime) {
+        runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:15.20.0.129")
+    }
+
+    // Curios API - optional. Gives ship-girls a parallel set of equipment
+    // slots that other mods' items can occupy (see com.lulan.shincolle.equip).
+    // All curios-referencing code lives behind a ModList.isLoaded("curios")
+    // guard so the mod works standalone without it.
+    compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1:api")
+    if (includeCuriosRuntime) {
+        runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.14.1+1.20.1")
+    }
+
+    // Tinkers' Construct (+ its required Mantle) - optional. Lets a Curios
+    // ship-equip slot read a Tinkers tool's own material/modifier stats
+    // (see com.lulan.shincolle.equip.tinkers). All tconstruct-referencing
+    // code lives behind a ModList.isLoaded("tconstruct") guard, same as Curios.
+    compileOnly fg.deobf("curse.maven:mantle-74924:7414488")
+    compileOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+    if (includeTinkersRuntime) {
+        runtimeOnly fg.deobf("curse.maven:mantle-74924:7414488")
+        runtimeOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+    }
+
+    // KubeJS - optional scripting adapter. The integration class is discovered
+    // through kubejs.plugins.txt only when KubeJS is present. Keep the API on the
+    // compile classpath, and opt into a full dev runtime with
+    // -PshincolleKubeJSRuntime=true so standalone runs remain covered.
+    compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+    compileOnly fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
+    compileOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    if (includeKubeJSRuntime) {
+        runtimeOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+        runtimeOnly fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
+        runtimeOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    }
+
+    // ---- Verification mods (runClient only, never shipped) --------------------
+    // Dropping release jars into run/mods does not work in a dev run: those jars
+    // carry obfuscated names while the dev runtime uses readable ones. They have
+    // to come through fg.deobf so ForgeGradle remaps them.
+    //
+    //   Modrinth    runtimeOnly fg.deobf("maven.modrinth:<slug>:<version>")
+    //   CurseForge  runtimeOnly fg.deobf("curse.maven:<slug>-<projectId>:<fileId>")
+    //
+    // Jade (entity info under the crosshair) is off: its mixins into vanilla Font
+    // look up SRG names (m_253238_, m_6411_) that this dev run cannot resolve,
+    // because Jade's own refmap is never remapped to the Parchment names the dev
+    // environment uses. Both 11.8.0 and 11.13.3 die the same way, on different
+    // methods, so downgrading is not the answer. The thing to try next is passing
+    // mixin.env.remapRefMap / mixin.env.refMapRemappingFile to the run config.
+    // runtimeOnly fg.deobf("maven.modrinth:jade:11.8.0")
+    // Edits this mod's config (engageDistance and friends) in-game, no restart.
+    if (!minimalRuntime) {
+        runtimeOnly fg.deobf("maven.modrinth:forge-config-screens:v8.0.2-1.20.1-Forge")
+    }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+            'Specification-Title'     : mod_id,
+            'Specification-Vendor'    : mod_authors,
+            'Specification-Version'   : '1',
+            'Implementation-Title'    : project.name,
+            'Implementation-Version'  : project.jar.archiveVersion,
+            'Implementation-Vendor'   : mod_authors,
+            'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:all'
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}
+
+apply plugin: 'checkstyle'
+
+checkstyle {
+    toolVersion = '10.18.1'
+    configFile = file('config/checkstyle/checkstyle.xml')
+
+    // Cap warnings at what is already there so the count can fall but not rise.
+    // Errors still fail on the first one; this only governs the "warning" severity
+    // rules, which today means AvoidStarImport and nothing else.
+    //
+    // Measured 2026-08-26: main 66, addonExample 0, test 0. Lower the number when
+    // you clear some -- leaving it high lets the debt creep back silently.
+    maxWarnings = 66
+}
+
+tasks.named('checkstyleAddonExample', Checkstyle).configure { maxWarnings = 0 }
+tasks.named('checkstyleTest', Checkstyle).configure { maxWarnings = 0 }

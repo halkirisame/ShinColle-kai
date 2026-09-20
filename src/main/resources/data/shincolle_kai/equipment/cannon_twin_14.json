@@ -1,0 +1,24 @@
+{
+  "equip_id": 602,
+  "item": "shincolle_kai:equip_cannon",
+  "variant": 6,
+  "equip_type": "cannon_tw_hi",
+  "compatible": [
+    "cannon"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "ammo",
+    "amount": 1600,
+    "rare_mean": 1000
+  },
+  "roll_type": 2,
+  "stats": {
+    "shincolle_kai:atk_l": 9.0,
+    "shincolle_kai:spd": 0.2,
+    "shincolle_kai:mov": -0.18,
+    "shincolle_kai:hit": 2.0,
+    "shincolle_kai:dhit": 0.07,
+    "shincolle_kai:ammo": 0.2
+  }
+}

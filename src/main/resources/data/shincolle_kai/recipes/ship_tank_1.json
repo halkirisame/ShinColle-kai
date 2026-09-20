@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "OTO",
+    "OTO",
+    "OTO"
+  ],
+  "key": {
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "T": {
+      "item": "shincolle_kai:ship_tank"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:ship_tank_1",
+    "count": 1
+  }
+}

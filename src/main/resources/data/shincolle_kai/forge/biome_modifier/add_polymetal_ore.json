@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": "#minecraft:is_overworld",
+  "features": "shincolle_kai:polymetal_ore",
+  "step": "underground_ores"
+}

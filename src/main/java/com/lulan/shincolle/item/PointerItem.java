@@ -1,0 +1,522 @@
+package com.lulan.shincolle.item;
+
+import com.lulan.shincolle.capability.CapaTeitoku;
+import com.lulan.shincolle.capability.CapaTeitokuProvider;
+import com.lulan.shincolle.entity.BasicEntityMount;
+import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.network.C2SGUIInputPacket;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.tileentity.ITileGuardPoint;
+import com.lulan.shincolle.utility.ClientRuntimeHelper;
+import com.lulan.shincolle.utility.ParticleHelper;
+import com.lulan.shincolle.utility.PointerInputModifiers;
+import com.lulan.shincolle.utility.PointerInputModifiers.Action;
+import com.lulan.shincolle.utility.TeamHelper;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.*;
+
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Pointer Item - command tool for controlling ship entities.
+ * <p>
+ * Left click:
+ * entity(own ship) + sneak: add / select / remove according to team state
+ * plain left click: reserved (no action)
+ * air + sneak+sprint: clear team
+ * air + sprint (formation mode): change formation
+ * <p>
+ * Right click:
+ * entity(own ship): toggle sit
+ * entity(own ship)+sneak: open ship GUI
+ * entity(non-owner): attack or move
+ * entity + sprint: guard entity (move only)
+ * block: move to position
+ * block + sneak: guard position
+ * air/block + control: open formation GUI
+ * <p>
+ * Shift + wheel: cycle mode while preserving selection
+ */
+public class PointerItem extends BasicItem {
+
+    public static final int MODE_SINGLE = 0;
+    public static final int MODE_GROUP = 1;
+    public static final int MODE_FORMATION = 2;
+    // Client-side formation change state (static: only one local player on client)
+    private static boolean formatFlag = false;
+    private static int formatAddID = 0;
+    private static int formatCD = 0;
+
+    public PointerItem() {
+        super(new Properties().stacksTo(1));
+    }
+
+    /** Number of pointer modes: single, group, formation. */
+    public static final int MODE_COUNT = 3;
+
+    /** Offset added to a mode to put it in the caress band (3-5). */
+    private static final int CARESS_OFFSET = 3;
+
+    /**
+     * Step the pointer mode by one, wrapping at both ends.
+     * <p>
+     * The caress band (3-5) is preserved: stepping from a caress mode lands on another
+     * caress mode. {@code direction} is -1 for the previous mode and +1 for the next one.
+     * An out-of-range mode falls back to {@link #MODE_SINGLE}.
+     */
+    public static int cycleMode(int currentMode, int direction) {
+        int band = 0;
+        int index = currentMode;
+
+        if (currentMode >= CARESS_OFFSET && currentMode < CARESS_OFFSET + MODE_COUNT) {
+            band = CARESS_OFFSET;
+            index = currentMode - CARESS_OFFSET;
+        } else if (currentMode < 0 || currentMode >= MODE_COUNT) {
+            return MODE_SINGLE;
+        }
+
+        return band + Math.floorMod(index + direction, MODE_COUNT);
+    }
+
+    /** Strip the caress band so the result is always 0-2, for display and lookups. */
+    public static int baseMode(int mode) {
+        if (mode >= CARESS_OFFSET && mode < CARESS_OFFSET + MODE_COUNT) {
+            return mode - CARESS_OFFSET;
+        }
+        return (mode >= 0 && mode < MODE_COUNT) ? mode : MODE_SINGLE;
+    }
+
+    public static int toggleCaressMode(int currentMode) {
+        if (currentMode >= 0 && currentMode <= 2) {
+            return currentMode + 3;
+        } else if (currentMode >= 3 && currentMode <= 5) {
+            return currentMode - 3;
+        }
+        return MODE_SINGLE;
+    }
+
+    /**
+     * Get pointer mode from NBT
+     */
+    public static int getMode(ItemStack stack) {
+        if (stack.hasTag()) {
+            assert stack.getTag() != null;
+            return stack.getTag().getByte("Mode");
+        }
+        return MODE_SINGLE;
+    }
+
+    /**
+     * Set pointer mode in NBT
+     */
+    public static void setMode(ItemStack stack, int mode) {
+        stack.getOrCreateTag().putByte("Mode", (byte) mode);
+    }
+
+    /**
+     * Extract BasicEntityShip from an entity (handles mounts).
+     */
+    private static BasicEntityShip getShipFromEntity(Entity entity) {
+        if (entity instanceof BasicEntityShip ship) {
+            return ship;
+        }
+        if (entity instanceof BasicEntityMount mount) {
+            Entity host = mount.getHostEntity();
+            if (host instanceof BasicEntityShip ship) {
+                return ship;
+            }
+        }
+        return null;
+    }
+
+    // ===== Left Click =====
+
+    /**
+     * Ray trace for entities at extended range, excluding the player and vehicle.
+     */
+    private static EntityHitResult rayTraceEntities(Player player, double range) {
+        Vec3 eyePos = player.getEyePosition(1.0F);
+        Vec3 lookDir = player.getViewVector(1.0F);
+        Vec3 endPos = eyePos.add(lookDir.scale(range));
+        AABB searchBox = player.getBoundingBox().expandTowards(lookDir.scale(range)).inflate(1.0);
+
+        Entity vehicle = player.getVehicle();
+        Entity vehicleHost = (vehicle instanceof BasicEntityMount mount) ? mount.getHostEntity() : null;
+
+        return ProjectileUtil.getEntityHitResult(
+                player, eyePos, endPos, searchBox,
+                e -> !e.isSpectator() && e.isPickable()
+                        && e != player && e != vehicle && e != vehicleHost,
+                range * range);
+    }
+
+    // ===== Right Click =====
+
+    @Override
+    public boolean isFoil(ItemStack stack) {
+        return true;
+    }
+
+    // ===== Inventory Tick =====
+
+    /**
+     * Left click handler. Client side performs ray tracing and sends packets.
+     */
+    @Override
+    public boolean onEntitySwing(ItemStack stack, LivingEntity entity) {
+        if (!(entity instanceof Player player))
+            return true;
+        if (!player.level().isClientSide())
+            return true;
+
+        return handleLeftClickClient(stack, player);
+    }
+
+    // ===== Client-side Left Click Logic =====
+
+    /**
+     * Prevent this item from dealing damage to entities on left click.
+     */
+    @Override
+    public boolean onLeftClickEntity(ItemStack stack, Player player, Entity entity) {
+        return true;
+    }
+
+    /**
+     * Minecraft routes a right click on a living entity through this hook, not
+     * through {@link #use(Level, Player, InteractionHand)}.  The original
+     * pointer implementation only handled the latter, which made entity
+     * commands (most visibly ordering a team to attack a mob) silently do
+     * nothing in 1.20.1.
+     */
+    @Override
+    public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target,
+                                                   InteractionHand hand) {
+        if (!player.level().isClientSide()) {
+            return InteractionResult.PASS;
+        }
+
+        int mode = getMode(stack);
+        if (mode > MODE_FORMATION) {
+            return InteractionResult.SUCCESS;
+        }
+
+        handleRightClickClient(stack, player, mode);
+        return InteractionResult.SUCCESS;
+    }
+
+    // ===== Client-side Right Click Logic =====
+
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        int mode = getMode(stack);
+
+        if (mode > 2)
+            return InteractionResultHolder.success(stack);
+
+        if (level.isClientSide()) {
+            handleRightClickClient(stack, player, mode);
+        }
+
+        return InteractionResultHolder.pass(stack);
+    }
+
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean isSelected) {
+        if (!level.isClientSide() || !(entity instanceof Player player))
+            return;
+
+        // Formation change CD timer
+        if (PointerItem.formatFlag) {
+            PointerItem.formatCD--;
+            if (PointerItem.formatCD <= 0) {
+                sendFormationChange(player);
+            }
+        }
+    }
+
+    private boolean handleLeftClickClient(ItemStack stack, Player player) {
+        return handleLeftClick(stack, player, rayTraceEntities(player, 64.0), ModNetworking::sendToServer);
+    }
+
+    /** Resolve the hit through the same input path on the client and in server GameTests. */
+    private boolean handleLeftClick(ItemStack stack, Player player, EntityHitResult entityHit,
+                                    Consumer<C2SGUIInputPacket> sendPacket) {
+        int mode = getMode(stack);
+        boolean teamModifierDown = PointerInputModifiers.isDown(Action.TEAM_MANAGEMENT, player);
+        boolean isSprinting = player.isSprinting();
+        if (!teamModifierDown && !isSprinting) {
+            return true;
+        }
+
+        if (entityHit != null) {
+            BasicEntityShip ship = getShipFromEntity(entityHit.getEntity());
+            if (teamModifierDown && ship != null && TeamHelper.checkSameOwner(player, ship)) {
+                // The server resolves add/select/remove atomically from its current team state.
+                sendPacket.accept(new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
+                        new int[]{player.getId(), 0, ship.getId(), 1}));
+            }
+            return true;
+        }
+
+        // Click on air
+        if (teamModifierDown) {
+            if (isSprinting) {
+                // Team modifier + Sprint: clear team
+                sendPacket.accept(new C2SGUIInputPacket(
+                        C2SGUIInputPacket.ClearTeam,
+                        new int[]{player.getId(), 0}));
+            }
+            // Team modifier alone does nothing on air. Mode cycling belongs to the
+            // separately configured wheel modifier in PointerInputHandler.
+            return true;
+        }
+
+
+        // Sprint in formation mode: queue formation change
+        if (isSprinting && mode == MODE_FORMATION) {
+            PointerItem.formatFlag = true;
+            PointerItem.formatAddID++;
+            PointerItem.formatCD = 20;
+            return false;
+        }
+
+        return true;
+    }
+
+    // ===== Utility =====
+
+    private void handleRightClickClient(ItemStack stack, Player player, int mode) {
+        boolean isSneaking = player.isShiftKeyDown();
+        boolean isSprinting = player.isSprinting();
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return;
+        }
+        // Ray trace for entities at 64 blocks
+        EntityHitResult entityHit = rayTraceEntities(player, 64.0);
+
+        if (entityHit != null) {
+            Entity hitEntity = entityHit.getEntity();
+
+            // Entity guard modifier + right click on entity: guard entity (move only)
+            if (PointerInputModifiers.isDown(Action.GUARD_ENTITY, player)) {
+                ModNetworking.sendToServer(new C2SGUIInputPacket(
+                        C2SGUIInputPacket.GuardEntity,
+                        new int[]{player.getId(), 0, mode, hitEntity.getId()}));
+                return;
+            }
+
+            // Ship or mount
+            BasicEntityShip ship = getShipFromEntity(hitEntity);
+
+            if (ship != null) {
+                if (TeamHelper.checkSameOwner(player, ship)) {
+                    if (isSneaking) {
+                        // Sneak + right click on own ship: open ship GUI
+                        ModNetworking.sendToServer(new C2SGUIInputPacket(
+                                C2SGUIInputPacket.OpenShipGUI,
+                                new int[]{player.getId(), 0, ship.getId()}));
+                    } else {
+                        // Right click on own ship within mount range: let vanilla handle mounting
+                        if (hitEntity instanceof BasicEntityMount
+                                && player.distanceToSqr(hitEntity) <= 16D) {
+                            return;
+                        }
+                        // Right click on own ship: toggle sit
+                        ModNetworking.sendToServer(new C2SGUIInputPacket(
+                                C2SGUIInputPacket.SetSitting,
+                                new int[]{player.getId(), 0, mode, ship.getId()}));
+                    }
+                } else {
+                    // Not owner: attack or move depending on friendlyFire config
+                    handleAttackOrMove(player, hitEntity, mode);
+                }
+            } else {
+                // Other entity (player, mob)
+                if (hitEntity instanceof Player) {
+                    handleAttackOrMove(player, hitEntity, mode);
+                } else if (!hitEntity.isInvisible()) {
+                    // Non-player mob: attack
+                    ModNetworking.sendToServer(new C2SGUIInputPacket(
+                            C2SGUIInputPacket.AttackTarget,
+                            new int[]{player.getId(), 0, mode, hitEntity.getId()}));
+                    ParticleHelper.spawnAttackTargetMarker(hitEntity);
+                }
+            }
+            return;
+        }
+
+        // No entity hit
+        if (PointerInputModifiers.isDown(Action.FORMATION_GUI, player)) {
+            // Formation modifier + right click on air or block: open formation GUI
+            ModNetworking.sendToServer(new C2SGUIInputPacket(
+                    C2SGUIInputPacket.OpenItemGUI,
+                    new int[]{player.getId(), 0, 0}));
+            return;
+        }
+
+        // Ray trace for blocks (including liquids) at 64 blocks
+        HitResult blockHit = player.pick(64.0, 1.0F, true);
+
+        if (blockHit.getType() == HitResult.Type.BLOCK && blockHit instanceof BlockHitResult blockResult) {
+            var blockPos = blockResult.getBlockPos();
+            var direction = blockResult.getDirection();
+            int x = blockPos.getX();
+            int y = blockPos.getY();
+            int z = blockPos.getZ();
+
+            // Check if target is a waypoint/guard point or liquid
+            BlockState state = player.level().getBlockState(blockPos);
+            BlockEntity tile = player.level().getBlockEntity(blockPos);
+
+            // If not liquid and not a guard point, adjust position based on hit side
+            if (state.getFluidState().isEmpty() && !(tile instanceof ITileGuardPoint)) {
+                var offset = direction.getNormal();
+                x += offset.getX();
+                y += offset.getY();
+                z += offset.getZ();
+            }
+
+            int guardType = isSprinting ? 0 : 1; // 0 = move only, 1 = move and attack
+            boolean guardPosition = PointerInputModifiers.isDown(Action.GUARD_POSITION, player);
+
+            ModNetworking.sendToServer(new C2SGUIInputPacket(
+                    C2SGUIInputPacket.SetMove,
+                    new int[]{player.getId(), 0, mode, guardType, x, y, z, guardPosition ? 0 : 1}));
+
+            ParticleHelper.spawnMovingTargetMarkerAt(player.level(), x + 0.5D, y, z + 0.5D);
+        }
+    }
+
+    /**
+     * Attack or move-to based on friendly fire config and visibility.
+     */
+    private void handleAttackOrMove(Player player, Entity target, int mode) {
+        if (ConfigHandler.friendlyFire() && !target.isInvisible()) {
+            // Attack target
+            ModNetworking.sendToServer(new C2SGUIInputPacket(
+                    C2SGUIInputPacket.AttackTarget,
+                    new int[]{player.getId(), 0, mode, target.getId()}));
+            ParticleHelper.spawnAttackTargetMarker(target);
+        } else {
+            // Move to target position (include target coordinates)
+            ModNetworking.sendToServer(new C2SGUIInputPacket(
+                    C2SGUIInputPacket.SetMove,
+                    new int[]{player.getId(), 0, mode, 0,
+                            (int) target.getX(), (int) target.getY(), (int) target.getZ()}));
+            ParticleHelper.spawnMovingTargetMarker(target);
+        }
+    }
+
+    /**
+     * Send the queued formation change after the CD expires.
+     */
+    private void sendFormationChange(Player player) {
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+
+
+        int teamId = capa.getSelectTeam();
+        int fid = (capa.getFormatID(teamId) + PointerItem.formatAddID) % 6;
+
+        player.sendSystemMessage(Component.literal(
+                Component.translatable("chat.shincolle_kai.pointer.changeformation").getString() + " " +
+                        Component.translatable("gui.shincolle_kai.formation.format" + fid).getString()));
+
+        ModNetworking.sendToServer(new C2SGUIInputPacket(
+                C2SGUIInputPacket.SetFormation,
+                // [PORT] 1.10.2 -> 1.20.1: use selected team ID so pointer formation change
+                // applies to active team.
+                new int[]{player.getId(), teamId, fid}));
+
+
+        PointerItem.formatCD = 0;
+        PointerItem.formatAddID = 0;
+        PointerItem.formatFlag = false;
+    }
+
+    // ===== Tooltip =====
+
+    @Override
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
+        Player player = ClientRuntimeHelper.getClientPlayer();
+        if (player == null)
+            return;
+
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return;
+        }
+
+        int mode = getMode(stack);
+        int teamId = capa.getSelectTeam();
+        int fid = capa.getFormatID(teamId);
+
+        String formationName = "";
+        if (fid >= 0) {
+            formationName = ChatFormatting.GOLD
+                    + Component.translatable("gui.shincolle_kai.formation.format" + fid).getString();
+        }
+
+        // Show mode and formation name
+        String modeKey;
+        ChatFormatting modeColor;
+        switch (mode) {
+            case MODE_GROUP:
+                modeKey = "gui.shincolle_kai.pointer1";
+                modeColor = ChatFormatting.RED;
+                break;
+            case MODE_FORMATION:
+                modeKey = "gui.shincolle_kai.pointer2";
+                modeColor = ChatFormatting.GOLD;
+                break;
+            default:
+                modeKey = "gui.shincolle_kai.pointer0";
+                modeColor = ChatFormatting.AQUA;
+                break;
+        }
+
+        tooltip.add(Component.literal(modeColor + Component.translatable(modeKey).getString() + " : " + formationName));
+        tooltip.add(
+                Component.literal(ChatFormatting.GRAY + Component.translatable("gui.shincolle_kai.pointer3").getString()));
+
+        // Current team ID
+        tooltip.add(Component.literal(ChatFormatting.YELLOW + "" + ChatFormatting.UNDERLINE +
+                String.format("%s %d", Component.translatable("gui.shincolle_kai.pointer4").getString(), teamId + 1)));
+
+        // Team members
+        int j = 1;
+        for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
+            int sid = capa.getTeamSID(teamId, i);
+            if (sid > 0) {
+                int uid = capa.getTeamMember(teamId, i);
+                if (uid > 0) {
+                    tooltip.add(Component.literal(
+                            (capa.isShipSelected(teamId, i) ? ChatFormatting.WHITE : ChatFormatting.GRAY)
+                                    + String.format("%d: Ship #%d", j, uid)));
+                } else {
+                    tooltip.add(Component.literal(
+                            ChatFormatting.DARK_RED + "" + ChatFormatting.OBFUSCATED +
+                                    Component.translatable("gui.shincolle_kai.formation.nosignal").getString()));
+                }
+                j++;
+            }
+        }
+    }
+}

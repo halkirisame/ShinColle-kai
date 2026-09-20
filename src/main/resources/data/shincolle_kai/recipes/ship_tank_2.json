@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PCP",
+    "PCP",
+    "PCP"
+  ],
+  "key": {
+    "P": {
+      "item": "shincolle_kai:abyssium"
+    },
+    "C": {
+      "item": "shincolle_kai:ship_tank_1"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:ship_tank_2",
+    "count": 1
+  }
+}

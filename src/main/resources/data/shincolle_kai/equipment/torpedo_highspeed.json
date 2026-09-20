@@ -1,0 +1,25 @@
+{
+  "equip_id": 405,
+  "item": "shincolle_kai:equip_torpedo",
+  "variant": 4,
+  "equip_type": "torpedo_hi",
+  "compatible": [
+    "cannon"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "ammo",
+    "amount": 1200,
+    "rare_mean": 2500
+  },
+  "roll_type": 5,
+  "stats": {
+    "shincolle_kai:atk_h": 32.0,
+    "shincolle_kai:spd": 0.14,
+    "shincolle_kai:mov": -0.25,
+    "shincolle_kai:hit": 1.3,
+    "shincolle_kai:cri": 0.11,
+    "shincolle_kai:asm": 32.0,
+    "shincolle_kai:ammo": 0.25
+  }
+}

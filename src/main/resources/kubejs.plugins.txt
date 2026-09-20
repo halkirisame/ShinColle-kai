@@ -1,0 +1,1 @@
+com.lulan.shincolle.integration.kubejs.ShinColleKubeJSPlugin kubejs

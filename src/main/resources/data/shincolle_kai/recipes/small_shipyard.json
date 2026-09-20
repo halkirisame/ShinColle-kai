@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "G ",
+    "LO",
+    "OO"
+  ],
+  "key": {
+    "G": {
+      "item": "shincolle_kai:grudge"
+    },
+    "L": {
+      "item": "minecraft:lava_bucket"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:small_shipyard",
+    "count": 1
+  }
+}

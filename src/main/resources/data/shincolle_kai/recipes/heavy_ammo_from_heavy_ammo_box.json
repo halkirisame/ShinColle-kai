@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "shincolle_kai:ammo_3"
+    }
+  ],
+  "result": {
+    "item": "shincolle_kai:ammo_2",
+    "count": 9
+  }
+}

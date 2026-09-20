@@ -1,0 +1,22 @@
+{
+  "equip_id": 224,
+  "item": "shincolle_kai:equip_drum",
+  "variant": 2,
+  "equip_type": "drum_lo",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "misc",
+  "develop": {
+    "material": "abyss_metal",
+    "amount": 120,
+    "rare_mean": 2500
+  },
+  "roll_type": 24,
+  "stats": {
+    "shincolle_kai:mov": -0.25,
+    "shincolle_kai:xp": 0.5,
+    "shincolle_kai:hpres": 0.15
+  }
+}

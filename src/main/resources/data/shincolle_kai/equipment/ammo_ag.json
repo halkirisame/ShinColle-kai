@@ -1,0 +1,32 @@
+{
+  "equip_id": 629,
+  "item": "shincolle_kai:equip_ammo",
+  "variant": 6,
+  "equip_type": "ammo_hi",
+  "compatible": [
+    "cannon",
+    "aircraft"
+  ],
+  "enchant_type": "weapon",
+  "develop": {
+    "material": "ammo",
+    "amount": 1000,
+    "rare_mean": 3000
+  },
+  "roll_type": 29,
+  "stats": {
+    "shincolle_kai:atk_l": 2.0,
+    "shincolle_kai:atk_al": 2.0,
+    "shincolle_kai:spd": -0.1,
+    "shincolle_kai:mov": -0.02,
+    "shincolle_kai:hit": 2.0
+  },
+  "attack_effects": [
+    {
+      "effect": "minecraft:levitation",
+      "amplifier": 0,
+      "duration": 100,
+      "chance": 50
+    }
+  ]
+}
