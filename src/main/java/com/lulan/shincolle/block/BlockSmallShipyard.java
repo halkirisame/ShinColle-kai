@@ -1,14 +1,19 @@
 package com.lulan.shincolle.block;
 
+import com.lulan.shincolle.entity.other.BasicEntityItem;
 import com.lulan.shincolle.init.ModBlockEntities;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.tileentity.TileEntitySmallShipyard;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
@@ -79,6 +84,69 @@ public class BlockSmallShipyard extends BasicBlockFacingContainer {
                                                                   BlockEntityType<T> type) {
         return level.isClientSide ? null
                 : createTickerHelper(type, ModBlockEntities.SMALL_SHIPYARD.get(), TileEntitySmallShipyard::serverTick);
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (!state.is(newState.getBlock())) {
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof TileEntitySmallShipyard tile && !level.isClientSide()) {
+                int[] mats = new int[4];
+                boolean hasMats = false;
+                for (int i = 0; i < mats.length; i++) {
+                    mats[i] = tile.getMatStock(i);
+                    hasMats |= mats[i] != 0;
+                }
+                int fuel = tile.getPowerRemained();
+                CompoundTag fuelFluid = tile.writeFuelFluid();
+
+                ItemStack dropStack = new ItemStack(this);
+                if (hasMats || fuel != 0 || !fuelFluid.isEmpty()) {
+                    CompoundTag tag = dropStack.getOrCreateTag();
+                    tag.putIntArray("Mats", mats);
+                    tag.putInt("Fuel", fuel);
+                    tag.put("FuelFluid", fuelFluid);
+                }
+
+                BasicEntityItem dropEntity = new BasicEntityItem(
+                        ModEntities.BASIC_ENTITY_ITEM.get(),
+                        level,
+                        pos.getX() + 0.5D,
+                        pos.getY() + 0.25D,
+                        pos.getZ() + 0.5D,
+                        dropStack);
+                level.addFreshEntity(dropEntity);
+            }
+        }
+
+        super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof TileEntitySmallShipyard tile) {
+            CompoundTag tag = stack.getTag();
+            if (tag != null) {
+                if (tag.contains("Mats")) {
+                    int[] mats = tag.getIntArray("Mats");
+                    if (mats.length == 4) {
+                        for (int i = 0; i < mats.length; i++) {
+                            tile.setMatStock(i, mats[i]);
+                        }
+                    }
+                }
+                if (tag.contains("Fuel")) {
+                    tile.setPowerRemained(tag.getInt("Fuel"));
+                }
+                if (tag.contains("FuelFluid")) {
+                    tile.readFuelFluid(tag.getCompound("FuelFluid"));
+                }
+            }
+        }
     }
 
     @Override

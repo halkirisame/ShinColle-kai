@@ -621,7 +621,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
                 String.valueOf(ship.getStateMinor(ID.M.Kills)), lc, vc);
         textY += 21;
         drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.exp", "EXP") + ":",
-                ship.getStateMinor(ID.M.ExpCurrent) + "/" + ship.getStateMinor(ID.M.ExpNext), lc, vc);
+                ship.getStateMinor(ID.M.ExpCurrent) + "/" + ship.getExpNextValue(), lc, vc);
         textY += 21;
         drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.ammolight", "Ammo(L)") + ":",
                 String.valueOf(ship.getStateMinor(ID.M.NumAmmoLight)), lc, vc);

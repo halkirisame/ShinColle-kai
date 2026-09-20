@@ -20,5 +20,6 @@ public record TargetPredicateFacts(
         boolean hostileShip,
         boolean monsterOrSlime,
         boolean shipOwner,
+        boolean playerOwned,
         boolean customAttackClassListed) {
 }

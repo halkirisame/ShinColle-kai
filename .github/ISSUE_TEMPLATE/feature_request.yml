@@ -28,7 +28,7 @@ body:
     id: alternatives
     attributes:
       label: 代替案 / Alternative Proposal
-      description: 検討した他の解決策があれば記述してください / Please describe any other solutions you considered. 
+      description: 検討した他の解決策があれば記述してください / Please describe any other solutions you considered.
     validations:
       required: false
 

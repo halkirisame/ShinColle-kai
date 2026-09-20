@@ -14,6 +14,7 @@ public record TargetTraitClassification(
         boolean hostileShip,
         boolean monsterOrSlime,
         boolean shipOwner,
+        boolean playerOwned,
         boolean customAttackClassListed,
         Set<TargetTrait> traits) {
 

@@ -27,6 +27,7 @@ import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.server.ServerDataManager;
+import com.lulan.shincolle.utility.TeamHelper;
 import com.lulan.shincolle.utility.TargetHelper;
 
 import net.minecraft.resources.ResourceLocation;
@@ -96,6 +97,7 @@ public final class MinecraftTargetClassificationAdapter {
         boolean hostileShip = target instanceof BasicEntityShipHostile;
         boolean monsterOrSlime = target instanceof Monster || target instanceof Slime;
         boolean shipOwner = target instanceof IShipOwner;
+        boolean playerOwned = TeamHelper.getPlayerUID(target) > 0;
         Set<TargetTrait> registeredTraits = TargetTraits.traitsFor(target.getType());
         boolean antiAirEligible = airplane || abyssMissile
                 || registeredTraits.contains(TargetTrait.ANTI_AIR_ELIGIBLE);
@@ -121,7 +123,7 @@ public final class MinecraftTargetClassificationAdapter {
                 hostPresent, true, targetAlive, sameEntity, player, playerInvulnerable,
                 entityInvulnerable, invisible, hostDetectsInvisible, lineOfSightRequired,
                 hasLineOfSight, airplane, abyssMissile, submarine, friendlyShip, mount,
-                hostileShip, monsterOrSlime, shipOwner, customAttackClassListed);
+                hostileShip, monsterOrSlime, shipOwner, playerOwned, customAttackClassListed);
         EntityClassification entity = TargetEntityClassifier.classify(facts);
         RelationClassification relation = captureRequiredRelation(
                 kind, source, target, entity, facts, antiAirEligible,

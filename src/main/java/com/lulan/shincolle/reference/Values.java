@@ -1307,11 +1307,11 @@ public class Values {
             // page 1: vent
             put(2001, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0},
-                    new int[]{1, 0, 25, -12, 0, 0, 230, 50, 26}));
+                    new int[]{1, 0, 25, -7, 0, 0, 230, 50, 26}));
             // page 2: vent
             put(2002, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0},
-                    new int[]{1, 0, 25, -12, 0, 50, 230, 50, 26}));
+                    new int[]{1, 0, 25, -7, 0, 50, 230, 50, 26}));
             // page 3: vortex
             put(2003, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0},

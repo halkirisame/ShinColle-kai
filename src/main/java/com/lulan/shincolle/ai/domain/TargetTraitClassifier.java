@@ -47,6 +47,7 @@ public final class TargetTraitClassifier {
                 facts.hostileShip(),
                 facts.monsterOrSlime(),
                 facts.shipOwner(),
+                facts.playerOwned(),
                 facts.customAttackClassListed(),
                 traits);
     }
