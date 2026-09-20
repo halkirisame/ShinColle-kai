@@ -124,10 +124,45 @@ class TargetPredicateEvaluatorTest {
     }
 
     @Test
+    void friendlyAutomaticDoesNotTargetNeutralPlayerOwnedShipOwner() {
+        TargetPredicateFacts playerOwnedTarget = facts()
+                .shipOwner(true)
+                .playerOwned(true)
+                .build();
+
+        assertFalse(test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
+                playerOwnedTarget, NEUTRAL, policy()));
+    }
+
+    @Test
+    void friendlyAutomaticKeepsNeutralNonPlayerOwnedShipOwnerFallback() {
+        TargetPredicateFacts nonPlayerOwnedTarget = facts()
+                .shipOwner(true)
+                .playerOwned(false)
+                .build();
+
+        assertTrue(test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
+                nonPlayerOwnedTarget, NEUTRAL, policy()));
+    }
+
+    @Test
+    void friendlyAutomaticKeepsPvpFirstForBannedPlayerOwnedFriendlyShip() {
+        TargetPredicateFacts playerOwnedFriendlyShip = facts()
+                .friendlyShip(true)
+                .shipOwner(true)
+                .playerOwned(true)
+                .build();
+
+        assertTrue(test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
+                playerOwnedFriendlyShip, BANNED, policy(true, false, false)));
+    }
+
+    @Test
     void missileKeepsCurrentGenericOwnerFallbackUntilCutover() {
         TargetPredicateFacts missile = facts()
                 .abyssMissile(true)
                 .shipOwner(true)
+                .playerOwned(false)
                 .build();
 
         assertTrue(test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
@@ -138,7 +173,10 @@ class TargetPredicateEvaluatorTest {
 
     @Test
     void genericOwnerAndCustomClassUseCurrentAllianceRule() {
-        TargetPredicateFacts owner = facts().shipOwner(true).build();
+        TargetPredicateFacts owner = facts()
+                .shipOwner(true)
+                .playerOwned(false)
+                .build();
         TargetPredicateFacts custom = facts().customAttackClassListed(true).build();
 
         assertTrue(test(TargetPredicateKind.FRIENDLY_AUTOMATIC, owner, NEUTRAL, policy()));
@@ -292,6 +330,7 @@ class TargetPredicateEvaluatorTest {
         private boolean hostileShip;
         private boolean monsterOrSlime;
         private boolean shipOwner;
+        private boolean playerOwned;
         private boolean customAttackClassListed;
 
         FactsBuilder hostPresent(boolean value) {
@@ -364,6 +403,11 @@ class TargetPredicateEvaluatorTest {
             return this;
         }
 
+        FactsBuilder playerOwned(boolean value) {
+            playerOwned = value;
+            return this;
+        }
+
         FactsBuilder friendlyShip(boolean value) {
             friendlyShip = value;
             return this;
@@ -410,6 +454,7 @@ class TargetPredicateEvaluatorTest {
                     hostileShip,
                     monsterOrSlime,
                     shipOwner,
+                    playerOwned,
                     customAttackClassListed);
         }
     }

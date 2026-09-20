@@ -208,7 +208,7 @@ class TargetPerceptionDomainTest {
         TargetPredicateFacts facts = new TargetPredicateFacts(
                 true, true, true, false, false, false, false, false, false,
                 measuredLos, true, false, false, false, false, false, true,
-                true, false, false);
+                true, false, false, false);
         ClassifiedTargetObservation value = ClassifiedTargetObservation.classify(
                 facts, new RelationClassification(false, false, false));
         TargetLineOfSightObservation los = measuredLos

@@ -130,6 +130,6 @@ public final class CombatTargetFoundationGameTests {
     private static TargetPredicateFacts emptyTargetFacts() {
         return new TargetPredicateFacts(
                 true, true, true, false, false, false, false, false, false, false, true,
-                false, false, false, false, false, false, false, false, false);
+                false, false, false, false, false, false, false, false, false, false);
     }
 }

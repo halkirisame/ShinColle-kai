@@ -122,9 +122,9 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     // Entity gallery (book chapters 4-5)
     private net.minecraft.world.entity.LivingEntity galleryEntity;
     private int galleryShipClass = -1;
-    private float mRotateX = 0F;
+    private float mRotateX = -30F;
     private float mRotateY = 0F;
-    private int mScale = 50;
+    private int mScale = 30;
     // Team
     private int teamState = TEAMSTATE_MAIN;
     private int listFocus = LISTCLICK_TEAM;
@@ -295,12 +295,15 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 g.blit(TEX_BOOK, leftPos, topPos, 0, 0, 256, 192);
                 // Draw entity gallery background overlay for chap 4/5
                 if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
-                    g.blit(TEX_BOOK2, leftPos + 20, topPos + 48, 0, 0, 87, 130);
+                    int backgroundU = bookChapNum == 4 ? 0 : 105;
+                    g.blit(TEX_BOOK2, leftPos + 20, topPos + 48, backgroundU, 0, 87, 130);
                 }
-                // Page button hover
-                if (mouseX < leftPos + 137) {
+                // Page button hover only inside the same small arrow hitboxes used for clicks.
+                int pageButton = GuiHelper.getButton(ID.Gui.ADMIRALDESK, 2,
+                        mouseX - leftPos, mouseY - topPos);
+                if (pageButton == 0) {
                     g.blit(TEX_BOOK, leftPos + 53, topPos + 182, 0, 192, 18, 10);
-                } else {
+                } else if (pageButton == 1) {
                     g.blit(TEX_BOOK, leftPos + 175, topPos + 182, 0, 202, 18, 10);
                 }
                 break;
@@ -346,11 +349,14 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 case 2: // Book
                     g.blit(TEX_BOOK, 0, 0, 0, 0, 256, 192);
                     if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
-                        g.blit(TEX_BOOK2, 20, 48, 0, 0, 87, 130);
+                        int backgroundU = bookChapNum == 4 ? 0 : 105;
+                        g.blit(TEX_BOOK2, 20, 48, backgroundU, 0, 87, 130);
                     }
-                    if (mouseX < leftPos + 137) {
+                    int pageButton = GuiHelper.getButton(ID.Gui.ADMIRALDESK, 2,
+                            mouseX - leftPos, mouseY - topPos);
+                    if (pageButton == 0) {
                         g.blit(TEX_BOOK, 53, 182, 0, 192, 18, 10);
-                    } else {
+                    } else if (pageButton == 1) {
                         g.blit(TEX_BOOK, 175, 182, 0, 202, 18, 10);
                     }
                     break;
@@ -645,6 +651,9 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         Entity ent = type.create(mc.level);
         if (ent instanceof LivingEntity living) {
             galleryEntity = living;
+            if (living instanceof BasicEntityShip ship) {
+                ship.setStateFlag(ID.F.NoFuel, false);
+            }
         }
     }
 
@@ -703,23 +712,18 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         int iconX = iconData[1];
         int iconY = iconData[2];
 
-        int file = fileLineId / 100;
-        ResourceLocation tex = (file == 0) ? TEX_ICON1 : TEX_ICON2;
-
-        // Draw ship name kanji icon (11x39 or 11x59 depending on line)
-        int iconHeight = 39;
-        int line = fileLineId % 100;
-        if (file == 0 && (line <= 3)) {
-            iconHeight = 59;
-        }
-        if (file == 0 && line == 4) {
-            iconHeight = 71;
-        }
-
-        g.blit(tex, 110, 36, iconX, iconY, 11, iconHeight);
-
-        // Draw ship type icon
+        // The type glyph belongs in the round ribbon; the vertical name sits below it.
         drawShipTypeIcon(g);
+        ResourceLocation tex;
+        int offY;
+        if (fileLineId < 100) {
+            tex = TEX_ICON1;
+            offY = fileLineId == 4 ? -10 : 0;
+        } else {
+            tex = TEX_ICON2;
+            offY = fileLineId == 106 ? -10 : 10;
+        }
+        g.blit(tex, 30, 94 + offY, iconX, iconY, 11, 59);
     }
 
     /**
@@ -735,7 +739,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         if (typeIcon == null || typeIcon.length < 2)
             return;
 
-        g.blit(TEX_ICON0, 96, 36, typeIcon[0], typeIcon[1], 11, 29);
+        g.blit(TEX_ICON0, 23, 53, typeIcon[0], typeIcon[1], 28, 28);
     }
 
     private void drawTeamPic(GuiGraphics g) {
@@ -951,6 +955,16 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 handleRadarClick(radarBtn);
                 break;
             case 2: // Book
+                if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
+                    int galleryButton = GuiHelper.getButton(ID.Gui.ADMIRALDESK, 5, xClick, yClick);
+                    if (galleryButton >= 0) {
+                        if (galleryButton == 4) {
+                            rollGalleryEmotion();
+                        }
+                        // Model controls occupy the same lower-left area as the old page-wide hitbox.
+                        return true;
+                    }
+                }
                 if (button == 0 || button == 1) {
                     Predicate<ItemStack> handler = bookIconClickHandler;
                     if (handler != null) {
@@ -1007,11 +1021,11 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         if (this.guiFunc == 2 && (bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
             int localX = (int) (mouseX * GUI_SCALE_INV) - this.leftPos;
             int localY = (int) (mouseY * GUI_SCALE_INV) - this.topPos;
-            // Only drag within the model area (18,45 to 110,157)
-            if (localX >= 18 && localX <= 110 && localY >= 45 && localY <= 157) {
-                mRotateX += (float) dragX * 1.5F;
-                mRotateY += (float) dragY * 1.5F;
-                mRotateY = Mth.clamp(mRotateY, -60F, 60F);
+            // Preserve the original gallery drag area and sensitivity.
+            if (localX > 8 && localX < 117 && localY > 47 && localY < 154) {
+                mRotateX += (float) dragX * 3F;
+                mRotateY += (float) dragY * 2F;
+                mRotateY = Mth.clamp(mRotateY, -90F, 90F);
                 return true;
             }
         }
@@ -1054,6 +1068,23 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                     openShipGUI();
                 }
                 break;
+        }
+    }
+
+    /** Apply the original gallery emotion-button roll to the local preview entity. */
+    private void rollGalleryEmotion() {
+        if (!(galleryEntity instanceof BasicEntityShip ship)) {
+            return;
+        }
+
+        ship.setStateEmotion(ID.S.Emotion4,
+                ship.getRand().nextInt(2) == 0 ? ID.Emotion.BORED : ID.Emotion.NORMAL, false);
+        ship.setShiftKeyDown(ship.getRand().nextInt(5) == 0);
+        if (ship.getRand().nextInt(8) == 0) {
+            ship.setStateFlag(ID.F.NoFuel, true);
+        } else {
+            ship.setStateFlag(ID.F.NoFuel, false);
+            ship.setStateEmotion(ID.S.Emotion, ship.getRand().nextInt(10), false);
         }
     }
 

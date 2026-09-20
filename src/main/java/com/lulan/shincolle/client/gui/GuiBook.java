@@ -29,7 +29,7 @@ import java.util.List;
  */
 public class GuiBook {
 
-    public static final int[] PageLimit = new int[]{13, 28, 6, 20, 26, 19, 4};
+    public static final int[] PageLimit = new int[]{13, 28, 6, 19, 26, 19, 4};
     private static final ResourceLocation BOOK_PIC_01 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/book/bookpic01.png");
     public static int PageLeftCurrent = 0;

@@ -61,7 +61,7 @@ public final class TargetPredicateEvaluator {
         if (traits.customAttackClassListed() && !relation.allied()) {
             return true;
         }
-        return traits.shipOwner() && !relation.allied();
+        return traits.shipOwner() && !traits.playerOwned() && !relation.allied();
     }
 
     private static boolean testFriendlyRevenge(ClassifiedTargetObservation target) {

@@ -229,6 +229,18 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         }
     }
 
+    public CompoundTag writeFuelFluid() {
+        if (fuelTank.getFluidAmount() == 0) {
+            return new CompoundTag();
+        }
+        return fuelTank.writeToNBT(new CompoundTag());
+    }
+
+    public void readFuelFluid(CompoundTag tag) {
+        fuelTank.readFromNBT(tag);
+        setChanged();
+    }
+
     public int getMatBuild(int index) {
         return index >= 0 && index < matsBuild.length ? matsBuild[index] : 0;
     }

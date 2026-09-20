@@ -1078,28 +1078,54 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     // ========== Level / Experience ==========
 
-    public void setExpNext() {
+    /**
+     * Experience required to reach the next level, derived from the current level.
+     * ExpNext is never synced to the client, so any display code must derive it
+     * instead of reading the stale {@code StateMinor[ID.M.ExpNext]} field.
+     */
+    public int getExpNextValue() {
         int expMod = ConfigHandler.expModifier();
-        StateMinor[ID.M.ExpNext] = StateMinor[ID.M.ShipLevel] * expMod + expMod;
+        return StateMinor[ID.M.ShipLevel] * expMod + expMod;
+    }
+
+    public void setExpNext() {
+        StateMinor[ID.M.ExpNext] = getExpNextValue();
     }
 
     public void addShipExp(int exp) {
         exp = (int) ((float) exp * this.shipAttrs.getAttrsBuffed(ID.Attrs.XP));
 
-        if (ShipLevelRules.canGainExperience(StateMinor[ID.M.ShipLevel],
+        if (!ShipLevelRules.canGainExperience(StateMinor[ID.M.ShipLevel],
                 getStateFlag(ID.F.IsMarried), ConfigHandler.maxLevelUnmarried, ConfigHandler.maxLevel)) {
-            StateMinor[ID.M.ExpCurrent] += exp;
-            if (StateMinor[ID.M.ExpCurrent] >= StateMinor[ID.M.ExpNext]) {
-                // level up sound
-                if (this.random.nextInt(4) == 0) {
-                    this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                            SoundEvents.PLAYER_LEVELUP, this.getSoundSource(), 0.75F, 1F);
-                }
-                StateMinor[ID.M.ExpCurrent] -= StateMinor[ID.M.ExpNext];
-                int expMod = ConfigHandler.expModifier();
-                StateMinor[ID.M.ExpNext] = (StateMinor[ID.M.ShipLevel] + 2) * expMod;
-                setShipLevel(++StateMinor[ID.M.ShipLevel], true);
-            }
+            return;
+        }
+
+        // a ship that was never restored from NBT still carries ExpNext == 0,
+        // which would let any gain skip a level
+        if (StateMinor[ID.M.ExpNext] <= 0) {
+            setExpNext();
+        }
+
+        StateMinor[ID.M.ExpCurrent] += exp;
+
+        // a single gain can cover more than one level, and leftover experience
+        // above the new threshold must level the ship again instead of sitting
+        // in the bar until the next gain
+        boolean leveledUp = false;
+        while (StateMinor[ID.M.ExpCurrent] >= StateMinor[ID.M.ExpNext]
+                && ShipLevelRules.canGainExperience(StateMinor[ID.M.ShipLevel],
+                        getStateFlag(ID.F.IsMarried), ConfigHandler.maxLevelUnmarried,
+                        ConfigHandler.maxLevel)) {
+            StateMinor[ID.M.ExpCurrent] -= StateMinor[ID.M.ExpNext];
+            setShipLevel(++StateMinor[ID.M.ShipLevel], true);
+            setExpNext();
+            leveledUp = true;
+        }
+
+        if (leveledUp && this.random.nextInt(4) == 0) {
+            // level up sound
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.PLAYER_LEVELUP, this.getSoundSource(), 0.75F, 1F);
         }
     }
 

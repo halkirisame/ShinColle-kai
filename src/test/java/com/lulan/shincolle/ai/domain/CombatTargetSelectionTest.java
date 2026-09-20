@@ -416,6 +416,7 @@ class CombatTargetSelectionTest {
                 hostileShip,
                 monster,
                 shipOwner,
+                false,
                 custom,
                 traitSet);
     }

@@ -21,6 +21,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -417,6 +418,65 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
     }
 
+    private void releaseSelectedMaterial() {
+        int multiplier = ConfigHandler.easyMode() ? ResourceYieldPolicy.EASY_MODE_MULTIPLIER : 1;
+        int compressedAmount = 9 * multiplier;
+        int singleAmount = multiplier;
+        int stock = getMatStock(selectMat);
+        if (stock >= compressedAmount) {
+            if (insertOneReleased(compressedItem(selectMat))) {
+                matsStock[selectMat] -= compressedAmount;
+                setChanged();
+            }
+        } else if (stock >= singleAmount) {
+            if (insertOneReleased(singleItem(selectMat))) {
+                matsStock[selectMat] -= singleAmount;
+                setChanged();
+            }
+        }
+    }
+
+    private boolean insertOneReleased(@Nullable Item item) {
+        if (item == null) {
+            return false;
+        }
+        for (int slot = SLOT_INPUT_START; slot <= SLOT_INPUT_END; slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
+            if (stack.isEmpty()) {
+                inventory.setStackInSlot(slot, new ItemStack(item));
+                return true;
+            }
+            int limit = Math.min(stack.getMaxStackSize(), inventory.getSlotLimit(slot));
+            if (stack.is(item) && !stack.hasTag() && stack.getCount() < limit) {
+                stack.grow(1);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Nullable
+    private Item compressedItem(int material) {
+        return switch (material) {
+            case 0 -> ModItems.GRUDGE_BLOCK_ITEM.get();
+            case 1 -> ModItems.ABYSSIUM_BLOCK_ITEM.get();
+            case 2 -> ModItems.AMMO_1.get();
+            case 3 -> ModItems.POLYMETAL_BLOCK_ITEM.get();
+            default -> null;
+        };
+    }
+
+    @Nullable
+    private Item singleItem(int material) {
+        return switch (material) {
+            case 0 -> ModItems.GRUDGE.get();
+            case 1 -> ModItems.ABYSS_METAL.get();
+            case 2 -> ModItems.AMMO.get();
+            case 3 -> ModItems.POLYMETAL_NODULE.get();
+            default -> null;
+        };
+    }
+
     private void consumeFuelItem(int slot, ItemStack fuelStack) {
         if (powerRemained >= POWER_MAX) {
             return;
@@ -507,6 +567,9 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
 
         processInputSlots();
+        if (invMode == 1) {
+            releaseSelectedMaterial();
+        }
         decrFluidFuel();
 
         if (canBuild()) {
@@ -670,7 +733,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot != SLOT_OUTPUT) {
+            if (slot != SLOT_OUTPUT
+                    && !(invMode == 1 && slot >= SLOT_INPUT_START && slot <= SLOT_INPUT_END)) {
                 return ItemStack.EMPTY;
             }
             return inventory.extractItem(slot, amount, simulate);

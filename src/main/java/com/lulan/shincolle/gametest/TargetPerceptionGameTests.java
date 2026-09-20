@@ -178,6 +178,7 @@ public final class TargetPerceptionGameTests {
                 target.setPlayerUID(uid);
                 boolean sameOwner = uid == 75075;
                 boolean enemy = uid == -2;
+                boolean friendlyAutomaticExpected = enemy;
                 helper.assertTrue(TargetHelper.checkIsAlly(source, target) == sameOwner
                                 && TargetHelper.checkIsBanned(source, target) == enemy,
                         "Missile fixture relations differ from intended same/neutral/enemy states");
@@ -189,7 +190,7 @@ public final class TargetPerceptionGameTests {
                     helper.assertTrue(classified.relation().allied() == sameOwner,
                             "Missile lost the alliance relation needed by legacy predicates");
                     helper.assertTrue(TargetPredicateEvaluator.test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
-                                    classified, policy) == !sameOwner,
+                                    classified, policy) == friendlyAutomaticExpected,
                             "Legacy missile predicate changed for UID " + uid + " antiAir=" + antiAir);
                     helper.assertTrue(TargetEligibilityEvaluator.test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
                                     classified, policy) == (antiAir && enemy),
@@ -198,7 +199,8 @@ public final class TargetPerceptionGameTests {
                                     && profiler.classifications.get() == 1
                                     && profiler.lineOfSightQueries.get() == 0,
                             "Missile relation capture duplicated or skipped a required lookup");
-                    assertPublicPredicates(helper, source, target, sameOwner, false);
+                    assertPublicPredicates(helper, source, target, sameOwner,
+                            friendlyAutomaticExpected, false);
                 }
             }
             helper.succeed();
@@ -233,6 +235,7 @@ public final class TargetPerceptionGameTests {
                     target.setPlayerUID(uid);
                     boolean sameOwner = uid == 75075;
                     boolean enemy = uid == -2;
+                    boolean friendlyAutomaticExpected = enemy;
                     helper.assertTrue(TargetHelper.checkIsAlly(source, target) == sameOwner
                                     && TargetHelper.checkIsBanned(source, target) == enemy,
                             "Addon fixture relations differ from intended same/neutral/enemy states");
@@ -250,7 +253,7 @@ public final class TargetPerceptionGameTests {
                         CountingProfiler profiler = new CountingProfiler();
                         var classified = classify(source, target, policy, profiler).classification().value();
                         helper.assertTrue(TargetPredicateEvaluator.test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
-                                        classified, policy) == !sameOwner,
+                                        classified, policy) == friendlyAutomaticExpected,
                                 "Addon trait changed legacy ownership filtering: " + registered + " flags=" + flags);
                         helper.assertTrue(TargetEligibilityEvaluator.test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
                                         classified, policy) == (stageTwoEnabled && enemy),
@@ -260,7 +263,8 @@ public final class TargetPerceptionGameTests {
                                         && profiler.classifications.get() == 1
                                         && profiler.lineOfSightQueries.get() == 0,
                                 "Addon relation capture did not share the required lookups");
-                        assertPublicPredicates(helper, source, target, sameOwner, true);
+                        assertPublicPredicates(helper, source, target, sameOwner,
+                                friendlyAutomaticExpected, true);
                         if (sameOwner) {
                             ShipRangeTargetGoal goal = new ShipRangeTargetGoal(source);
                             if (goal.canUse()) {
@@ -277,8 +281,8 @@ public final class TargetPerceptionGameTests {
     }
 
     private static void assertPublicPredicates(GameTestHelper helper, BasicEntityShip source,
-            Entity target, boolean sameOwner, boolean friendlyShip) {
-        helper.assertTrue(new TargetHelper.Selector(source).test(target) == !sameOwner,
+            Entity target, boolean sameOwner, boolean friendlyAutomaticExpected, boolean friendlyShip) {
+        helper.assertTrue(new TargetHelper.Selector(source).test(target) == friendlyAutomaticExpected,
                 "Friendly automatic predicate changed ownership filtering");
         helper.assertTrue(new TargetHelper.RevengeSelector(source).test(target) == !sameOwner,
                 "Friendly revenge predicate changed ownership filtering");

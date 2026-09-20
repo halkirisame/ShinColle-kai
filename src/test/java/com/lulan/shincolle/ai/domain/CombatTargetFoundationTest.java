@@ -164,7 +164,8 @@ class CombatTargetFoundationTest {
             boolean hostileShip) {
         return new TargetPredicateFacts(
                 true, true, true, false, false, false, false, false, false, false, true,
-                airplane, abyssMissile, submarine, friendlyShip, false, hostileShip, false, false, false);
+                airplane, abyssMissile, submarine, friendlyShip, false, hostileShip, false,
+                false, false, false);
     }
 
     private static TargetHandle handle(UUID uuid, DimensionKey dimension) {

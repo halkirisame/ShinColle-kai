@@ -10,6 +10,7 @@ import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
+import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -34,6 +35,7 @@ import net.minecraftforge.registries.RegistryObject;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Ship Spawn Egg - used to spawn ship entities.
@@ -302,25 +304,26 @@ public class ShipSpawnEgg extends BasicItem {
      */
     private static void initShipFromEgg(BasicEntityShip ship, ItemStack eggStack, Player player) {
         CompoundTag nbt = eggStack.getTag();
+        boolean isSavedEgg = nbt != null && nbt.contains("StateMinor");
+        CapaTeitoku capa = player != null
+                ? player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null)
+                : null;
 
-        // [PORT] 1.10.2 -> 1.20.1: ensure spawned ship is tamed and linked to spawner.
-        if (player != null) {
+        // A fresh ship belongs to its spawner. A saved ship restores its original owner below.
+        if (!isSavedEgg && player != null) {
             ship.tame(player);
             ship.setOwnerUUID(player.getUUID());
+            if (capa != null) {
+                int playerUID = capa.getPlayerUID();
+                if (playerUID > 0) {
+                    ship.setPlayerUID(playerUID);
+                }
+            }
         }
         ship.setTarget(null);
 
-        // set owner
-        CapaTeitoku capa = player != null ? player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null) : null;
-        if (capa != null) {
-            int playerUID = capa.getPlayerUID();
-            if (playerUID > 0) {
-                ship.setPlayerUID(playerUID);
-            }
-        }
-
         // load saved ship data (from death egg)
-        if (nbt != null && nbt.contains("StateMinor")) {
+        if (isSavedEgg) {
             CapaShipSavedValues.loadNBTData(nbt, ship);
             // Death eggs carry the ship's inventory; give it back on respawn.
             if (nbt.contains(CapaShipInventory.InvName)) {
@@ -333,12 +336,7 @@ public class ShipSpawnEgg extends BasicItem {
                 ShipCuriosIntegration.loadEquipped(ship,
                         nbt.getList(BasicEntityShip.CURIOS_EGG_TAG, Tag.TAG_COMPOUND));
             }
-            if (ship.getPlayerUID() <= 0 && capa != null) {
-                int playerUID = capa.getPlayerUID();
-                if (playerUID > 0) {
-                    ship.setPlayerUID(playerUID);
-                }
-            }
+            restoreSavedEggOwner(ship, nbt, player, capa);
 
             // DIAG: death-egg verification. Enabled by the debugMode config.
             int restoredEquip = 0;
@@ -364,6 +362,37 @@ public class ShipSpawnEgg extends BasicItem {
         // set can drop flag
         ship.setStateFlag(ID.F.CanDrop, true);
         ship.tickCount = 0;
+    }
+
+    private static void restoreSavedEggOwner(BasicEntityShip ship, CompoundTag nbt, Player player,
+                                             CapaTeitoku playerCapa) {
+        UUID ownerUuid = null;
+        String ownerId = nbt.getString("owner");
+        if (!ownerId.isEmpty()) {
+            try {
+                ownerUuid = UUID.fromString(ownerId);
+            } catch (IllegalArgumentException ignored) {
+                // A malformed legacy owner must not prevent the saved ship from spawning.
+            }
+        }
+
+        int ownerUid = ship.getPlayerUID();
+        if (ownerUuid == null && ownerUid > 0) {
+            Player savedOwner = ServerDataManager.getPlayerByUID(ownerUid);
+            if (savedOwner != null) {
+                ownerUuid = savedOwner.getUUID();
+            }
+        } else if (ownerUuid == null && player != null) {
+            ownerUuid = player.getUUID();
+            if (playerCapa != null && playerCapa.getPlayerUID() > 0) {
+                ship.setPlayerUID(playerCapa.getPlayerUID());
+            }
+        }
+
+        if (ownerUuid != null) {
+            ship.setTame(true);
+            ship.setOwnerUUID(ownerUuid);
+        }
     }
 
     /**

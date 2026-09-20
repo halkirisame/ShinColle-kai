@@ -67,8 +67,9 @@ public class GuiHelper {
                             {140, 87, 252, 118}, {140, 119, 252, 150}, {140, 151, 252, 187},
                             // 6:openGUI
                             {7, 172, 55, 184}},
-                    // 0:left page 1:right page 2:chap 0 //2: book
-                    {{0, 25, 122, 193}, {123, 25, 240, 193}, {243, 34, 256, 45},
+                    // 0:left arrow 1:right arrow 2:chap 0 //2: book
+                    // Keep page turning near the arrows so gallery model controls and text are safe to click.
+                    {{45, 177, 80, 191}, {170, 177, 205, 191}, {243, 34, 256, 45},
                             // 3:chap 1 4:chap 2 5:chap 3
                             {243, 46, 256, 59}, {243, 60, 256, 71}, {243, 72, 256, 82},
                             // 6:chap 4 7:chap 5 8:chap 6

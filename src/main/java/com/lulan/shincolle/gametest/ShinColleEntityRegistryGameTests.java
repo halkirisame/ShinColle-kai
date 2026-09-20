@@ -2194,26 +2194,144 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "arena")
-    public static void largeShipyardOldFuelSlotAcceptsMaterial(GameTestHelper helper) {
+    @GameTest(template = "arena", batch = "resource_amount_config")
+    public static void largeShipyardInputAndReleaseModesHandleMaterials(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
         level.setBlock(shipyardPos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
         if (!(level.getBlockEntity(shipyardPos) instanceof TileMultiGrudgeHeavy shipyard)) {
-            throw new AssertionError("Large shipyard tile was not created for unified slot test.");
+            throw new AssertionError("Large shipyard tile was not created for inventory mode test.");
         }
 
-        int inputSlot = TileMultiGrudgeHeavy.SLOT_INPUT_START;
-        shipyard.getInventory().setStackInSlot(inputSlot, new ItemStack(ModItems.ABYSS_METAL.get()));
-        TileMultiGrudgeHeavy.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+        boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
+        try {
+            ConfigHandler.COMMON.easyMode.set(false);
+            assertEasyModeValue(false);
 
-        if (shipyard.getMatStock(1) <= 0) {
-            throw new AssertionError("Large shipyard old fuel slot did not add material stock.");
+            int firstInput = TileMultiGrudgeHeavy.SLOT_INPUT_START;
+            shipyard.getInventory().setStackInSlot(firstInput, new ItemStack(ModItems.ABYSS_METAL.get()));
+            TileMultiGrudgeHeavy.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+            if (shipyard.getMatStock(1) != 1) {
+                throw new AssertionError("Large shipyard old fuel slot did not add material stock.");
+            }
+            if (!shipyard.getInventory().getStackInSlot(firstInput).isEmpty()) {
+                throw new AssertionError("Large shipyard old fuel slot did not consume material input.");
+            }
+
+            shipyard.setMatStock(1, 0);
+            shipyard.setMatStock(0, 20);
+            shipyard.setSelectMat(0);
+            shipyard.setInvMode(1);
+            tickLargeShipyard(level, shipyard, 2);
+            assertStack(shipyard, firstInput, ModItems.GRUDGE_BLOCK_ITEM.get(), 2,
+                    "release mode compressed grudge");
+            if (shipyard.getMatStock(0) != 2) {
+                throw new AssertionError("Release mode did not deduct two compressed grudge outputs.");
+            }
+
+            tickLargeShipyard(level, shipyard, 2);
+            assertStack(shipyard, firstInput + 1, ModItems.GRUDGE.get(), 2,
+                    "release mode single grudge");
+            if (shipyard.getMatStock(0) != 0) {
+                throw new AssertionError("Release mode did not deduct two single grudge outputs.");
+            }
+
+            for (int slot = TileMultiGrudgeHeavy.SLOT_INPUT_START;
+                 slot <= TileMultiGrudgeHeavy.SLOT_INPUT_END; slot++) {
+                shipyard.getInventory().setStackInSlot(slot, new ItemStack(Items.DIRT, 64));
+            }
+            shipyard.setMatStock(0, 20);
+            tickLargeShipyard(level, shipyard, 1);
+            if (shipyard.getMatStock(0) != 20) {
+                throw new AssertionError("Blocked release mode consumed stock without an available slot.");
+            }
+
+            clearLargeShipyardInputs(shipyard);
+            shipyard.setMatStock(0, 0);
+            shipyard.setSelectMat(2);
+            shipyard.setMatStock(2, 9);
+            tickLargeShipyard(level, shipyard, 1);
+            assertStack(shipyard, firstInput, ModItems.AMMO_1.get(), 1,
+                    "release mode compressed ammunition");
+
+            clearLargeShipyardInputs(shipyard);
+            shipyard.setSelectMat(3);
+            shipyard.setMatStock(3, 10);
+            tickLargeShipyard(level, shipyard, 2);
+            assertStack(shipyard, firstInput, ModItems.POLYMETAL_BLOCK_ITEM.get(), 1,
+                    "release mode compressed polymetal");
+            assertStack(shipyard, firstInput + 1, ModItems.POLYMETAL_NODULE.get(), 1,
+                    "release mode single polymetal");
+
+            clearLargeShipyardInputs(shipyard);
+            shipyard.setMatStock(3, 0);
+            shipyard.setSelectMat(0);
+            shipyard.setMatStock(0, 9);
+            tickLargeShipyard(level, shipyard, 1);
+            tickLargeShipyard(level, shipyard, 3);
+            if (shipyard.getMatStock(0) != 0
+                    || !shipyard.getInventory().getStackInSlot(firstInput).is(ModItems.GRUDGE_BLOCK_ITEM.get())) {
+                throw new AssertionError("Release mode reabsorbed its own material output.");
+            }
+            shipyard.setInvMode(0);
+            tickLargeShipyard(level, shipyard, 1);
+            if (shipyard.getMatStock(0) != 9
+                    || !shipyard.getInventory().getStackInSlot(firstInput).isEmpty()) {
+                throw new AssertionError("Recycle mode did not resume material intake.");
+            }
+
+            IItemHandler handler = shipyard.getCapability(ForgeCapabilities.ITEM_HANDLER).orElseThrow(
+                    () -> new AssertionError("Large shipyard did not expose an item handler."));
+            shipyard.getInventory().setStackInSlot(firstInput, new ItemStack(ModItems.GRUDGE.get()));
+            shipyard.setInvMode(1);
+            if (!handler.extractItem(firstInput, 1, false).is(ModItems.GRUDGE.get())) {
+                throw new AssertionError("Release mode did not allow automated input-slot extraction.");
+            }
+            shipyard.getInventory().setStackInSlot(firstInput, new ItemStack(ModItems.GRUDGE.get()));
+            shipyard.setInvMode(0);
+            if (!handler.extractItem(firstInput, 1, false).isEmpty()) {
+                throw new AssertionError("Recycle mode allowed automated input-slot extraction.");
+            }
+
+            clearLargeShipyardInputs(shipyard);
+            shipyard.setMatStock(0, 90);
+            shipyard.setInvMode(1);
+            ConfigHandler.COMMON.easyMode.set(true);
+            assertEasyModeValue(true);
+            tickLargeShipyard(level, shipyard, 1);
+            assertStack(shipyard, firstInput, ModItems.GRUDGE_BLOCK_ITEM.get(), 1,
+                    "EasyMode compressed grudge release");
+            if (shipyard.getMatStock(0) != 0) {
+                throw new AssertionError("EasyMode release did not deduct 90 stock.");
+            }
+        } finally {
+            ConfigHandler.COMMON.easyMode.set(originalEasyMode);
         }
-        if (!shipyard.getInventory().getStackInSlot(inputSlot).isEmpty()) {
-            throw new AssertionError("Large shipyard old fuel slot did not consume material input.");
-        }
+        assertEasyModeValue(originalEasyMode);
         helper.succeed();
+    }
+
+    private static void tickLargeShipyard(ServerLevel level, TileMultiGrudgeHeavy shipyard, int ticks) {
+        for (int tick = 0; tick < ticks; tick++) {
+            TileMultiGrudgeHeavy.serverTick(level, shipyard.getBlockPos(),
+                    level.getBlockState(shipyard.getBlockPos()), shipyard);
+        }
+    }
+
+    private static void clearLargeShipyardInputs(TileMultiGrudgeHeavy shipyard) {
+        for (int slot = TileMultiGrudgeHeavy.SLOT_INPUT_START;
+             slot <= TileMultiGrudgeHeavy.SLOT_INPUT_END; slot++) {
+            shipyard.getInventory().setStackInSlot(slot, ItemStack.EMPTY);
+        }
+    }
+
+    private static void assertStack(TileMultiGrudgeHeavy shipyard, int slot, Item expectedItem,
+                                    int expectedCount, String description) {
+        ItemStack actual = shipyard.getInventory().getStackInSlot(slot);
+        if (!actual.is(expectedItem) || actual.getCount() != expectedCount) {
+            throw new AssertionError(description + " expected " + expectedItem + " x" + expectedCount
+                    + " but got " + actual + ".");
+        }
     }
 
     @GameTest(template = "arena")
