@@ -41,7 +41,7 @@ class PointerKeyMappingsTest {
     @Test
     void registersAllFiveHeldInputsWithLegacyDefaultsAndNoChordModifier() {
         Map<String, Integer> expected = Map.of(
-                "formation_gui", GLFW.GLFW_KEY_LEFT_CONTROL,
+                "formation_gui", GLFW.GLFW_KEY_LEFT_SHIFT,
                 "guard_position", GLFW.GLFW_KEY_LEFT_SHIFT,
                 "guard_entity", GLFW.GLFW_KEY_LEFT_CONTROL,
                 "team_management", GLFW.GLFW_KEY_LEFT_SHIFT,

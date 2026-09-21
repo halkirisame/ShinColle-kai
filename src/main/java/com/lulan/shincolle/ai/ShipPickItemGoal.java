@@ -120,7 +120,7 @@ public class ShipPickItemGoal extends Goal {
                             if (ShipAiCompatibilityRules.tryStartPickupVoiceCooldown(
                                     this.ship.getStateTimer(ID.T.SoundTime), this.ship.getRandom()::nextInt,
                                     cooldown -> this.ship.setStateTimer(ID.T.SoundTime, cooldown))) {
-                                this.ship.playSound(this.ship.getCustomSound(6, this.ship),
+                                this.ship.playVoice(this.ship.getCustomSound(6, this.ship),
                                         (float) ConfigHandler.volumeShip(), 1.0F);
                             }
 

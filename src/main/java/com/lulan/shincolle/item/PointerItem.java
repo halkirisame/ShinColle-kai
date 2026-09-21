@@ -37,6 +37,7 @@ import java.util.function.Consumer;
  * <p>
  * Left click:
  * entity(own ship) + sneak: add / select / remove according to team state
+ * block + sneak: guard position
  * plain left click: reserved (no action)
  * air + sneak+sprint: clear team
  * air + sprint (formation mode): change formation
@@ -47,8 +48,7 @@ import java.util.function.Consumer;
  * entity(non-owner): attack or move
  * entity + sprint: guard entity (move only)
  * block: move to position
- * block + sneak: guard position
- * air/block + control: open formation GUI
+ * air/block + sneak: open formation GUI
  * <p>
  * Shift + wheel: cycle mode while preserving selection
  */
@@ -252,7 +252,28 @@ public class PointerItem extends BasicItem {
     }
 
     private boolean handleLeftClickClient(ItemStack stack, Player player) {
-        return handleLeftClick(stack, player, rayTraceEntities(player, 64.0), ModNetworking::sendToServer);
+        EntityHitResult entityHit = rayTraceEntities(player, 64.0);
+        if (entityHit == null && PointerInputModifiers.isDown(Action.GUARD_POSITION, player)) {
+            HitResult blockHit = player.pick(64.0, 1.0F, true);
+            if (blockHit instanceof BlockHitResult blockResult) {
+                int mode = getMode(stack);
+                if (mode <= MODE_FORMATION) {
+                    var blockPos = blockResult.getBlockPos();
+                    BlockState state = player.level().getBlockState(blockPos);
+                    BlockEntity tile = player.level().getBlockEntity(blockPos);
+                    if (state.getFluidState().isEmpty() && !(tile instanceof ITileGuardPoint)) {
+                        blockPos = blockPos.relative(blockResult.getDirection());
+                    }
+                    ModNetworking.sendToServer(new C2SGUIInputPacket(C2SGUIInputPacket.SetMove,
+                            new int[]{player.getId(), 0, mode, player.isSprinting() ? 0 : 1,
+                                    blockPos.getX(), blockPos.getY(), blockPos.getZ(), 0}));
+                    ParticleHelper.spawnMovingTargetMarkerAt(player.level(),
+                            blockPos.getX() + 0.5D, blockPos.getY(), blockPos.getZ() + 0.5D);
+                }
+                return true;
+            }
+        }
+        return handleLeftClick(stack, player, entityHit, ModNetworking::sendToServer);
     }
 
     /** Resolve the hit through the same input path on the client and in server GameTests. */
@@ -395,11 +416,9 @@ public class PointerItem extends BasicItem {
             }
 
             int guardType = isSprinting ? 0 : 1; // 0 = move only, 1 = move and attack
-            boolean guardPosition = PointerInputModifiers.isDown(Action.GUARD_POSITION, player);
-
             ModNetworking.sendToServer(new C2SGUIInputPacket(
                     C2SGUIInputPacket.SetMove,
-                    new int[]{player.getId(), 0, mode, guardType, x, y, z, guardPosition ? 0 : 1}));
+                    new int[]{player.getId(), 0, mode, guardType, x, y, z, 1}));
 
             ParticleHelper.spawnMovingTargetMarkerAt(player.level(), x + 0.5D, y, z + 0.5D);
         }

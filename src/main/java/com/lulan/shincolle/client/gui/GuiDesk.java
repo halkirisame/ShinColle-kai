@@ -5,6 +5,7 @@ import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerDesk;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
@@ -23,9 +24,11 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.WalkAnimationState;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -37,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -247,6 +251,20 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     public void containerTick() {
         super.containerTick();
         this.tickGUI++;
+        if (this.galleryEntity != null) {
+            boolean galleryVisible = this.guiFunc == 2;
+            this.galleryEntity.tickCount = nextGalleryTickCount(this.galleryEntity.tickCount, galleryVisible);
+            if (galleryVisible) {
+                updateGalleryWalkAnimation(this.galleryEntity.walkAnimation, this.galleryEntity.isSprinting());
+                if (this.galleryEntity instanceof IShipEmotion ship) {
+                    int attackTick = ship.getAttackTick();
+                    int nextAttackTick = nextGalleryAttackTick(attackTick);
+                    if (nextAttackTick != attackTick) {
+                        ship.setAttackTick(nextAttackTick);
+                    }
+                }
+            }
+        }
         if (this.tempCD > 0)
             this.tempCD--;
         if (this.textField != null)
@@ -958,7 +976,9 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
                     int galleryButton = GuiHelper.getButton(ID.Gui.ADMIRALDESK, 5, xClick, yClick);
                     if (galleryButton >= 0) {
-                        if (galleryButton == 4) {
+                        if (galleryButton >= 1 && galleryButton <= 3) {
+                            handleGalleryModelControl(galleryButton);
+                        } else if (galleryButton == 4) {
                             rollGalleryEmotion();
                         }
                         // Model controls occupy the same lower-left area as the old page-wide hitbox.
@@ -1040,6 +1060,38 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         }
     }
 
+    /** Apply a sitting, running, or attack control to the local preview entity. */
+    private void handleGalleryModelControl(int control) {
+        if (!(galleryEntity instanceof IShipEmotion ship)) {
+            return;
+        }
+
+        handleGalleryModelControl(control, ship, ship.getRand(), galleryEntity.isSprinting(),
+                galleryEntity::setSprinting);
+    }
+
+    static void handleGalleryModelControl(int control, IShipEmotion ship, RandomSource random,
+            boolean sprinting, Consumer<Boolean> sprintSetter) {
+        switch (control) {
+            case 1:
+                ship.setEntitySit(!ship.getIsSitting());
+                ship.setStateEmotion(ID.S.Emotion,
+                        random.nextInt(2) == 0 ? ID.Emotion.BORED : ID.Emotion.NORMAL, false);
+                ship.setStateEmotion(ID.S.Emotion4,
+                        random.nextInt(2) == 0 ? ID.Emotion.BORED : ID.Emotion.NORMAL, false);
+                break;
+            case 2:
+                sprintSetter.accept(!sprinting);
+                break;
+            case 3:
+                ship.setAttackTick(50);
+                ship.setStateEmotion(ID.S.Phase, random.nextInt(4), false);
+                break;
+            default:
+                break;
+        }
+    }
+
     // ==================== Click Handlers ====================
 
     private void syncTileEntityC2S() {
@@ -1073,18 +1125,47 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
     /** Apply the original gallery emotion-button roll to the local preview entity. */
     private void rollGalleryEmotion() {
-        if (!(galleryEntity instanceof BasicEntityShip ship)) {
+        if (!(galleryEntity instanceof IShipEmotion ship)) {
             return;
         }
 
+        rollGalleryEmotion(ship, ship.getRand());
+    }
+
+    static void rollGalleryEmotion(IShipEmotion ship, RandomSource random) {
+        Consumer<Boolean> shiftSetter = ignored -> { };
+        if (ship instanceof Entity entity) {
+            shiftSetter = entity::setShiftKeyDown;
+        }
+        rollGalleryEmotion(ship, random, shiftSetter);
+    }
+
+    static void rollGalleryEmotion(IShipEmotion ship, RandomSource random, Consumer<Boolean> shiftSetter) {
         ship.setStateEmotion(ID.S.Emotion4,
-                ship.getRand().nextInt(2) == 0 ? ID.Emotion.BORED : ID.Emotion.NORMAL, false);
-        ship.setShiftKeyDown(ship.getRand().nextInt(5) == 0);
-        if (ship.getRand().nextInt(8) == 0) {
+                random.nextInt(2) == 0 ? ID.Emotion.BORED : ID.Emotion.NORMAL, false);
+        shiftSetter.accept(random.nextInt(5) == 0);
+        if (random.nextInt(8) == 0) {
             ship.setStateFlag(ID.F.NoFuel, true);
         } else {
             ship.setStateFlag(ID.F.NoFuel, false);
-            ship.setStateEmotion(ID.S.Emotion, ship.getRand().nextInt(10), false);
+            ship.setStateEmotion(ID.S.Emotion, random.nextInt(10), false);
+        }
+    }
+
+    static int nextGalleryTickCount(int currentTickCount, boolean galleryVisible) {
+        return galleryVisible ? currentTickCount + 1 : currentTickCount;
+    }
+
+    static int nextGalleryAttackTick(int currentAttackTick) {
+        return currentAttackTick > 0 ? currentAttackTick - 1 : currentAttackTick;
+    }
+
+    static void updateGalleryWalkAnimation(WalkAnimationState animation, boolean sprinting) {
+        if (sprinting) {
+            animation.update(1F, 0.4F);
+        } else {
+            animation.setSpeed(0F);
+            animation.update(0F, 1F);
         }
     }
 

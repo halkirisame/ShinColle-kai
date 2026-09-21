@@ -346,6 +346,13 @@ public abstract class BasicEntityShip extends TamableAnimal
         return (this.random.nextFloat() - this.random.nextFloat()) * 0.1F + 1F;
     }
 
+    public void playVoice(@Nullable SoundEvent sound, float volume, float pitch) {
+        if (sound == null || this.isSilent()) {
+            return;
+        }
+        this.level().playSound(null, this, sound, this.getSoundSource(), volume, pitch);
+    }
+
     @Nullable
     @Override
     protected SoundEvent getAmbientSound() {
@@ -360,10 +367,15 @@ public abstract class BasicEntityShip extends TamableAnimal
         return ModSounds.getCustomSound(2, this.getShipClass());
     }
 
+    @Override
+    protected void playHurtSound(DamageSource source) {
+        this.playVoice(this.getHurtSound(source), this.getSoundVolume(), this.getVoicePitch());
+    }
+
     @Nullable
     @Override
     protected SoundEvent getDeathSound() {
-        return ModSounds.getCustomSound(3, this.getShipClass());
+        return null;
     }
 
     @Override
@@ -388,7 +400,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
 
         if (sound != null) {
-            this.playSound(sound, this.getSoundVolume(), this.getVoicePitch());
+            this.playVoice(sound, this.getSoundVolume(), this.getVoicePitch());
         }
     }
 
@@ -1982,7 +1994,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     sound, this.getSoundSource(), volume, this.getVoicePitch() * 0.85F);
 
             if (this.random.nextInt(8) == 0) {
-                this.playSound(this.getCustomSound(1, this), this.getSoundVolume(), this.getVoicePitch());
+                this.playVoice(this.getCustomSound(1, this), this.getSoundVolume(), this.getVoicePitch());
             }
         }
     }
@@ -3457,6 +3469,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void die(DamageSource source) {
+        boolean wasDead = this.dead;
         this.setManualTarget(null);
         // The inventory is deliberately left alone: tickDeath() folds it into the
         // saved ship egg, so equipment and cargo come back with the ship instead
@@ -3469,6 +3482,10 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
 
         super.die(source);
+        if (!wasDead && this.dead) {
+            this.playVoice(ModSounds.getCustomSound(3, this.getShipClass()),
+                    this.getSoundVolume(), this.getVoicePitch());
+        }
         LogHelper.info("Ship died: class=" + this.getShipClass() + " source=" + source.getMsgId());
     }
 
@@ -3964,7 +3981,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             this.lastTimeSoundDayTime = dayTime;
             SoundEvent sound = ModSounds.getCustomSound(hour + 10, this.getShipClass());
             if (sound != null) {
-                this.playSound(sound, (float) ConfigHandler.volumeTimekeeping(), this.getVoicePitch());
+                this.playVoice(sound, (float) ConfigHandler.volumeTimekeeping(), this.getVoicePitch());
             }
         }
     }
@@ -4201,7 +4218,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     this.addMorale(baseMorale + this.random.nextInt(baseMorale + 1));
                     if (this.random.nextInt(6) == 0) {
                         this.pushAITarget();
-                        this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
+                        this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     }
                 } else {
                     switch (body) {
@@ -4212,7 +4229,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                                 applyParticleEmotion(27); // -w-
                             if (this.random.nextInt(8) == 0) {
                                 this.pushAITarget();
-                                this.playSound(this.getCustomSound(5, this), this.getSoundVolume(),
+                                this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(),
                                         this.getVoicePitch());
                             }
                             break;
@@ -4235,7 +4252,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     this.addMorale(this.random.nextInt(baseMorale + 1));
                     if (this.random.nextInt(2) == 0) {
                         this.pushAITarget();
-                        this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
+                        this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     } else if (this.aiTarget != null && this.random.nextInt(8) == 0) {
                         switch (this.random.nextInt(3)) {
                             case 0 -> attackEntityWithAmmo(this.aiTarget);
@@ -4250,7 +4267,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                             applyParticleEmotion(32);
                             if (this.random.nextInt(4) == 0) {
                                 this.pushAITarget();
-                                this.playSound(this.getCustomSound(5, this), this.getSoundVolume(),
+                                this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(),
                                         this.getVoicePitch());
                             }
                             break;
@@ -4271,7 +4288,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                     applyParticleEmotion(6); // angry
                     this.addMorale((baseMorale * 10 + this.random.nextInt(baseMorale * 5 + 1)) * -1);
                     this.pushAITarget();
-                    this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
+                    this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     if (this.aiTarget != null && this.random.nextInt(3) == 0) {
                         switch (this.random.nextInt(3)) {
                             case 0 -> attackEntityWithAmmo(this.aiTarget);
@@ -4289,7 +4306,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                                 applyParticleEmotion(32);
                             if (this.random.nextInt(2) == 0) {
                                 this.pushAITarget();
-                                this.playSound(this.getCustomSound(5, this), this.getSoundVolume(),
+                                this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(),
                                         this.getVoicePitch());
                             } else if (this.aiTarget != null && this.random.nextInt(5) == 0) {
                                 switch (this.random.nextInt(3)) {
@@ -4328,7 +4345,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 applyParticleEmotion(22); // x
             if (this.random.nextInt(2) == 0) {
                 this.pushAITarget();
-                this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
+                this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
             } else if (this.aiTarget != null && this.random.nextInt(4) == 0) {
                 switch (this.random.nextInt(3)) {
                     case 0 -> attackEntityWithAmmo(this.aiTarget);
@@ -4346,7 +4363,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                         applyParticleEmotion(5); // ...
                     if (this.random.nextInt(4) == 0) {
                         this.pushAITarget();
-                        this.playSound(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
+                        this.playVoice(this.getCustomSound(5, this), this.getSoundVolume(), this.getVoicePitch());
                     } else if (this.aiTarget != null && this.random.nextInt(8) == 0) {
                         switch (this.random.nextInt(3)) {
                             case 0 -> attackEntityWithAmmo(this.aiTarget);

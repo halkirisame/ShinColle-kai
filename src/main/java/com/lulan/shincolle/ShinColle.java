@@ -14,6 +14,7 @@ import com.lulan.shincolle.equipdata.EquipDataLoader;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.handler.ServerEventHandler;
 import com.lulan.shincolle.handler.UpdateNotificationConfig;
+import com.lulan.shincolle.handler.ShipSoundClientConfig;
 import com.lulan.shincolle.init.*;
 import com.lulan.shincolle.loot.ShinColleLootModifiers;
 import com.lulan.shincolle.network.ModNetworking;
@@ -61,6 +62,8 @@ public class ShinColle {
                 Reference.MOD_ID + "-common.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, UpdateNotificationConfig.CLIENT_SPEC,
                 Reference.MOD_ID + "-client.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ShipSoundClientConfig.CLIENT_SPEC,
+                Reference.MOD_ID + "-sound-client.toml");
 
         // Register lifecycle event listeners
         modEventBus.addListener(this::commonSetup);

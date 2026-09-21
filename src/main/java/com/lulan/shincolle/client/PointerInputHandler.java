@@ -26,6 +26,7 @@ import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import java.util.HashSet;
@@ -63,6 +64,18 @@ public class PointerInputHandler {
     private static final int ColorBackdrop = 0x90000000;
 
     private PointerInputHandler() {
+    }
+
+    /** Keep a guard command from also mining the clicked block. */
+    @SubscribeEvent
+    public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        if (!event.getLevel().isClientSide() || !(event.getEntity() instanceof LocalPlayer player)) {
+            return;
+        }
+        if (player.getMainHandItem().getItem() == ModItems.POINTER.get()
+                && PointerInputModifiers.isDown(Action.GUARD_POSITION, player)) {
+            event.setCanceled(true);
+        }
     }
 
     /**

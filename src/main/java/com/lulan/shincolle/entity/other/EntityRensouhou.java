@@ -64,6 +64,11 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
             }
 
             @Override
+            public boolean requiresUpdateEveryTick() {
+                return true;
+            }
+
+            @Override
             public void tick() {
                 Entity target = self.getEntityTarget();
                 if (target == null) return;
@@ -99,7 +104,9 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
     @Override
     protected void returnSummonResource() {
         if (this.host instanceof BasicEntityShip ship) {
-            // return remaining ammo to host
+            // Summoning costs four shots but grants the turret six attacks.
+            // Exclude the two bonus attacks when returning unused ammunition.
+            this.numAmmoLight = Math.max(0, this.numAmmoLight - 2);
             int ammoConsumption = ship.getAmmoConsumption();
             if (this.numAmmoLight > 0) {
                 ship.setStateMinor(ID.M.NumAmmoLight,
@@ -113,11 +120,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
         this.host = host;
         this.setScaleLevel(scaleLevel);
 
-        // without this the attack goal's canUse() (self.getTarget() != null)
-        // never passes and the turret just sits there
-        if (target instanceof LivingEntity livingTarget) {
-            this.setTarget(livingTarget);
-        }
+        LivingEntity initialTarget = target instanceof LivingEntity livingTarget ? livingTarget : null;
 
         if (host instanceof BasicEntityShip ship) {
             // position near host
@@ -145,6 +148,8 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
             this.numAmmoLight = 6;
             this.postInit();
             this.setAIList();
+            // setAIList clears the old target while rebuilding selectors.
+            this.setTarget(initialTarget);
         }
     }
 
@@ -157,14 +162,22 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
         triggerAttackAnimation();
 
         float atk = this.shipAttrs.getAttackDamage();
+        boolean hurt = false;
         if (target instanceof LivingEntity livingTarget) {
-            boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
+            hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
             Entity hostEntity = this.getHostEntity();
             if (hurt && hostEntity instanceof LivingEntity livingHost) {
                 ShipOnHitEffects.dispatch(livingHost, target, atk);
             }
-            return hurt;
         }
+        if (this.numAmmoLight <= 0) {
+            this.discard();
+        }
+        return hurt;
+    }
+
+    @Override
+    public boolean canFindTarget() {
         return false;
     }
 

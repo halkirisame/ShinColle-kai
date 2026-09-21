@@ -107,6 +107,8 @@ public abstract class BasicEntityShipHostile extends Mob
     protected int textureID;
     // riding state
     protected int ridingState;
+    // Transient pose state used by local previews; intentionally not saved or synchronized.
+    private boolean sitting;
     // scale level: 0=small mob, 1=large mob, 2=small boss, 3=large boss
     protected int scaleLevel;
     // boss bar
@@ -320,6 +322,13 @@ public abstract class BasicEntityShipHostile extends Mob
         return (this.random.nextFloat() - this.random.nextFloat()) * 0.1F + 1F;
     }
 
+    private void playVoice(@Nullable SoundEvent sound, float volume, float pitch) {
+        if (sound == null || this.isSilent()) {
+            return;
+        }
+        this.level().playSound(null, this, sound, this.getSoundSource(), volume, pitch);
+    }
+
     @Nullable
     @Override
     protected SoundEvent getAmbientSound() {
@@ -333,10 +342,24 @@ public abstract class BasicEntityShipHostile extends Mob
         return ModSounds.SHIP_HURT.get();
     }
 
+    @Override
+    protected void playHurtSound(DamageSource source) {
+        this.playVoice(this.getHurtSound(source), this.getSoundVolume(), this.getVoicePitch());
+    }
+
     @Nullable
     @Override
     protected SoundEvent getDeathSound() {
-        return ModSounds.SHIP_DEATH.get();
+        return null;
+    }
+
+    @Override
+    public void die(DamageSource source) {
+        boolean wasDead = this.dead;
+        super.die(source);
+        if (!wasDead && this.dead) {
+            this.playVoice(ModSounds.SHIP_DEATH.get(), this.getSoundVolume(), this.getVoicePitch());
+        }
     }
 
     // ========== Movement ==========
@@ -1194,7 +1217,7 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public boolean getIsSitting() {
-        return false;
+        return this.sitting;
     }
 
     public boolean getIsSneaking() {
@@ -1206,6 +1229,7 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void setEntitySit(boolean sit) {
+        this.sitting = sit;
     }
 
     public int getRidingState() {

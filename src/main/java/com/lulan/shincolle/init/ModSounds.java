@@ -16,7 +16,7 @@ import java.util.HashMap;
  * All 53 base SoundEvents are registered via DeferredRegister. Custom per-ship
  * sounds are also registered and stored in a HashMap for lookup at runtime.
  * <p>
- * Custom sound lookup: key = shipClass * 100 + soundType
+ * Custom sound lookup: key = (shipClass + voice ID offset) * 100 + soundType
  * soundType: 0=idle, 1=hit, 2=hurt, 3=dead, 4=marry, 5=knockback, 6=item,
  * 7=feed
  * soundType 10~33: time keeping sounds (10 + hour)
@@ -90,7 +90,7 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> SHIP_BELL = registerSound("ship_bell");
     public static final RegistryObject<SoundEvent> SHIP_JET = registerSound("ship_jet");
     public static final RegistryObject<SoundEvent> SHIP_HITMETAL = registerSound("ship_hitmetal");
-    // Ship class 54 custom sounds
+    // Spawn egg meta 54: Hibiki custom sounds
     private static final RegistryObject<SoundEvent> SHIP_IDLE_54 = registerSound("ship_idle_54");
 
     // ========== Custom Per-Ship Sounds ==========
@@ -100,19 +100,19 @@ public class ModSounds {
     private static final RegistryObject<SoundEvent> SHIP_HURT_54 = registerSound("ship_hurt_54");
     private static final RegistryObject<SoundEvent> SHIP_MARRY_54 = registerSound("ship_marry_54");
     private static final RegistryObject<SoundEvent> SHIP_ITEM_54 = registerSound("ship_item_54");
-    // Ship class 56 custom sounds
+    // Spawn egg meta 56: Inazuma custom sounds
     private static final RegistryObject<SoundEvent> SHIP_IDLE_56 = registerSound("ship_idle_56");
     private static final RegistryObject<SoundEvent> SHIP_HIT_56 = registerSound("ship_hit_56");
     private static final RegistryObject<SoundEvent> SHIP_HURT_56 = registerSound("ship_hurt_56");
     private static final RegistryObject<SoundEvent> SHIP_DEATH_56 = registerSound("ship_death_56");
     private static final RegistryObject<SoundEvent> SHIP_ITEM_56 = registerSound("ship_item_56");
-    // Ship class 60 custom sounds
+    // Spawn egg meta 60: Atago custom sounds
     private static final RegistryObject<SoundEvent> SHIP_IDLE_60 = registerSound("ship_idle_60");
     private static final RegistryObject<SoundEvent> SHIP_HIT_60 = registerSound("ship_hit_60");
-    // Ship class 62 custom sounds
+    // Spawn egg meta 62: Kongo custom sounds
     private static final RegistryObject<SoundEvent> SHIP_HIT_62 = registerSound("ship_hit_62");
     /**
-     * Custom sound map: key = shipClass * 100 + soundType
+     * Custom sound map: key = spawn egg meta * 100 + soundType
      * soundType: 0=idle, 1=hit, 2=hurt, 3=dead, 4=marry, 5=knockback, 6=item,
      * 7=feed
      * soundType 10~33: time keeping sounds (10 + hour)
@@ -122,24 +122,24 @@ public class ModSounds {
     // ========== Custom Sound Lookup ==========
 
     static {
-        // Ship class 54
+        // Spawn egg meta 54: Hibiki
         CUSTOM_SOUNDS.put(54 * 100, SHIP_IDLE_54); // idle
         CUSTOM_SOUNDS.put(54 * 100 + 2, SHIP_HURT_54); // hurt
         CUSTOM_SOUNDS.put(54 * 100 + 4, SHIP_MARRY_54); // marry
         CUSTOM_SOUNDS.put(54 * 100 + 6, SHIP_ITEM_54); // item
 
-        // Ship class 56
+        // Spawn egg meta 56: Inazuma
         CUSTOM_SOUNDS.put(56 * 100, SHIP_IDLE_56); // idle
         CUSTOM_SOUNDS.put(56 * 100 + 1, SHIP_HIT_56); // hit
         CUSTOM_SOUNDS.put(56 * 100 + 2, SHIP_HURT_56); // hurt
         CUSTOM_SOUNDS.put(56 * 100 + 3, SHIP_DEATH_56); // death
         CUSTOM_SOUNDS.put(56 * 100 + 6, SHIP_ITEM_56); // item
 
-        // Ship class 60
+        // Spawn egg meta 60: Atago
         CUSTOM_SOUNDS.put(60 * 100, SHIP_IDLE_60); // idle
         CUSTOM_SOUNDS.put(60 * 100 + 1, SHIP_HIT_60); // hit
 
-        // Ship class 62
+        // Spawn egg meta 62: Kongo
         CUSTOM_SOUNDS.put(62 * 100 + 1, SHIP_HIT_62); // hit
     }
 
@@ -158,7 +158,7 @@ public class ModSounds {
      * @return the SoundEvent, or null if no default exists for the type
      */
     public static @Nullable SoundEvent getCustomSound(int type, int shipClass) {
-        int key = shipClass * 100 + type;
+        int key = CustomSoundKey.forShipClass(type, shipClass);
         RegistryObject<SoundEvent> obj = CUSTOM_SOUNDS.get(key);
         return obj != null ? obj.get() : getDefaultSound(type);
     }
@@ -224,5 +224,22 @@ public class ModSounds {
             case 23 -> SHIP_TIME23.get();
             default -> null;
         };
+    }
+
+    static final class CustomSoundKey {
+
+        // Custom voice numbers are spawn egg meta values, which are ship class IDs + 2.
+        private static final int VOICE_ID_OFFSET = 2;
+
+        private CustomSoundKey() {
+        }
+
+        static int forShipClass(int type, int shipClass) {
+            return voiceId(shipClass) * 100 + type;
+        }
+
+        static int voiceId(int shipClass) {
+            return shipClass + VOICE_ID_OFFSET;
+        }
     }
 }

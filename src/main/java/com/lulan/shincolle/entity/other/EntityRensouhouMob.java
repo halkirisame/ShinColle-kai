@@ -64,6 +64,11 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
             }
 
             @Override
+            public boolean requiresUpdateEveryTick() {
+                return true;
+            }
+
+            @Override
             public void tick() {
                 Entity target = self.getEntityTarget();
                 if (target == null) return;
@@ -106,11 +111,7 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
         this.host = host;
         this.setScaleLevel(scaleLevel);
 
-        // without this the attack goal's canUse() (self.getTarget() != null)
-        // never passes and the turret just sits there
-        if (target instanceof LivingEntity livingTarget) {
-            this.setTarget(livingTarget);
-        }
+        LivingEntity initialTarget = target instanceof LivingEntity livingTarget ? livingTarget : null;
 
         if (host instanceof BasicEntityShipHostile hostile) {
             this.setPos(hostile.getX(), hostile.getY(), hostile.getZ());
@@ -135,6 +136,8 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
             this.numAmmoLight = 6;
             this.postInit();
             this.setAIList();
+            // setAIList clears the old target while rebuilding selectors.
+            this.setTarget(initialTarget);
         }
     }
 
@@ -144,14 +147,22 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
         triggerAttackAnimation();
 
         float atk = this.shipAttrs.getAttackDamage();
+        boolean hurt = false;
         if (target instanceof LivingEntity livingTarget) {
-            boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
+            hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
             Entity hostEntity = this.getHostEntity();
             if (hurt && hostEntity instanceof LivingEntity livingHost) {
                 ShipOnHitEffects.dispatch(livingHost, target, atk);
             }
-            return hurt;
         }
+        if (this.numAmmoLight <= 0) {
+            this.discard();
+        }
+        return hurt;
+    }
+
+    @Override
+    public boolean canFindTarget() {
         return false;
     }
 
