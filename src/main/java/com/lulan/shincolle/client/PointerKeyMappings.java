@@ -6,7 +6,6 @@ import com.lulan.shincolle.utility.PointerInputModifiers.Action;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -26,7 +25,7 @@ public final class PointerKeyMappings {
     private static final Map<Action, KeyMapping> MAPPINGS = new EnumMap<>(Action.class);
 
     static {
-        add(Action.FORMATION_GUI, "formation_gui", GLFW.GLFW_KEY_LEFT_CONTROL);
+        add(Action.FORMATION_GUI, "formation_gui", GLFW.GLFW_KEY_LEFT_SHIFT);
         add(Action.GUARD_POSITION, "guard_position", GLFW.GLFW_KEY_LEFT_SHIFT);
         add(Action.GUARD_ENTITY, "guard_entity", GLFW.GLFW_KEY_LEFT_CONTROL);
         add(Action.TEAM_MANAGEMENT, "team_management", GLFW.GLFW_KEY_LEFT_SHIFT);
@@ -55,8 +54,8 @@ public final class PointerKeyMappings {
         KeyMapping mapping = MAPPINGS.get(action);
         if (mapping.isDefault()) {
             // Preserve toggle sneak, remapped vanilla sneak/sprint, double-tap sprint,
-            // both control keys, and the macOS command-key convention until customized.
-            return action == Action.FORMATION_GUI ? Screen.hasControlDown()
+            // the vanilla sneak/sprint state until customized.
+            return action == Action.FORMATION_GUI ? player.isShiftKeyDown()
                     : PointerInputModifiers.legacyState(action, player);
         }
         if (mapping.isUnbound() || !mapping.isConflictContextAndModifierActive()) {

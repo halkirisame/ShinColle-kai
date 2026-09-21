@@ -32,6 +32,8 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidActionResult;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.IItemHandler;
@@ -44,13 +46,15 @@ import org.jetbrains.annotations.Nullable;
  * Slot layout:
  * 0-4: Unified material/fuel inputs
  * 5: Build output
+ * 6: Empty fluid-container output
  */
 public class TileEntitySmallShipyard extends BasicTileInventory implements MenuProvider, ITileFurnace {
 
-    public static final int SLOT_COUNT = 6;
+    public static final int SLOT_COUNT = 7;
     public static final int SLOT_INPUT_START = 0;
     public static final int SLOT_INPUT_END = 4;
     public static final int SLOT_OUTPUT = 5;
+    public static final int SLOT_CONTAINER_OUTPUT = 6;
     /**
      * Power added per Instant Construction Material
      */
@@ -329,7 +333,11 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
                     setChanged();
                 }
             } else if (!stack.is(ModItems.INSTANT_CON_MAT.get())) {
-                consumeFuelItem(slot, stack);
+                if (containsLava(stack)) {
+                    consumeLavaFluidContainer(slot, stack);
+                } else {
+                    consumeFuelItem(slot, stack);
+                }
             }
         }
     }
@@ -376,18 +384,97 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         setChanged();
     }
 
+    public boolean isLavaFuelContainer(ItemStack stack) {
+        if (stack.getCount() != 1) {
+            return false;
+        }
+        return getLavaAmount(stack) >= LAVA_BUCKET_MB;
+    }
+
+    private void consumeLavaFluidContainer(int slot, ItemStack containerStack) {
+        int drainAmount = Math.min(LAVA_BUCKET_MB, getLavaAmount(containerStack));
+        int fuelValue = getLavaFuelValue(drainAmount);
+        if (fuelValue <= 0 || powerRemained > POWER_MAX - fuelValue
+                || fuelTank.getSpace() < drainAmount) {
+            return;
+        }
+
+        FluidActionResult simulated = FluidUtil.tryEmptyContainer(containerStack.copy(), fuelTank,
+                drainAmount, null, false);
+        if (!simulated.isSuccess()) {
+            return;
+        }
+        boolean emptied = !containsLava(simulated.getResult());
+        if (emptied && !canAcceptLavaContainerOutput(simulated.getResult())) {
+            return;
+        }
+
+        FluidActionResult result = FluidUtil.tryEmptyContainer(containerStack.copy(), fuelTank,
+                drainAmount, null, true);
+        if (result.isSuccess()) {
+            if (containsLava(result.getResult())) {
+                inventory.setStackInSlot(slot, result.getResult());
+            } else {
+                inventory.setStackInSlot(slot, ItemStack.EMPTY);
+                addLavaContainerOutput(result.getResult());
+            }
+            setChanged();
+        }
+    }
+
+    private boolean containsLava(ItemStack stack) {
+        return getLavaAmount(stack) > 0;
+    }
+
+    private int getLavaAmount(ItemStack stack) {
+        return FluidUtil.getFluidContained(stack)
+                .filter(fluid -> fluid.getFluid() == Fluids.LAVA)
+                .map(fluid -> fluid.getAmount())
+                .orElse(0);
+    }
+
+    private int getLavaFuelValue(int amount) {
+        return (int) (LAVA_BUCKET_BURN_TIME * FUEL_MAGN * amount / LAVA_BUCKET_MB);
+    }
+
+    private boolean canAcceptLavaContainerOutput(ItemStack remainder) {
+        if (remainder.isEmpty()) {
+            return true;
+        }
+        ItemStack output = inventory.getStackInSlot(SLOT_CONTAINER_OUTPUT);
+        if (output.isEmpty()) {
+            return true;
+        }
+        int limit = Math.min(output.getMaxStackSize(), inventory.getSlotLimit(SLOT_CONTAINER_OUTPUT));
+        return ItemStack.isSameItemSameTags(output, remainder)
+                && output.getCount() <= limit - remainder.getCount();
+    }
+
+    private void addLavaContainerOutput(ItemStack remainder) {
+        if (remainder.isEmpty()) {
+            return;
+        }
+        ItemStack output = inventory.getStackInSlot(SLOT_CONTAINER_OUTPUT);
+        if (output.isEmpty()) {
+            inventory.setStackInSlot(SLOT_CONTAINER_OUTPUT, remainder.copy());
+        } else {
+            output.grow(remainder.getCount());
+        }
+    }
+
     /**
      * Consume one lava bucket's worth of fluid with the same power value as a
      * lava bucket placed in the existing fuel inventory slot.
      */
     private void decrFluidFuel() {
-        if (powerRemained >= POWER_MAX || fuelTank.getFluidAmount() < LAVA_BUCKET_MB) {
+        int drainAmount = Math.min(LAVA_BUCKET_MB, fuelTank.getFluidAmount());
+        if (powerRemained >= POWER_MAX || drainAmount <= 0) {
             return;
         }
 
-        int fuelValue = (int) (LAVA_BUCKET_BURN_TIME * FUEL_MAGN);
+        int fuelValue = getLavaFuelValue(drainAmount);
         if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
-            fuelTank.drain(LAVA_BUCKET_MB, IFluidHandler.FluidAction.EXECUTE);
+            fuelTank.drain(drainAmount, IFluidHandler.FluidAction.EXECUTE);
             powerRemained += fuelValue;
             setChanged();
         }
@@ -490,6 +577,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         return stack.getItem() instanceof ShipSpawnEgg
                 || stack.getItem() instanceof IShipResourceItem
                 || stack.is(ModItems.INSTANT_CON_MAT.get())
+                || isLavaFuelContainer(stack)
                 || ForgeHooks.getBurnTime(stack, null) > 0;
     }
 
@@ -683,7 +771,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot != SLOT_OUTPUT) {
+            if (slot != SLOT_OUTPUT && slot != SLOT_CONTAINER_OUTPUT) {
                 return ItemStack.EMPTY;
             }
             return inventory.extractItem(slot, amount, simulate);

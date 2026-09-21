@@ -24,8 +24,8 @@ import java.util.Arrays;
 
 /**
  * Container/Menu for Small Shipyard block.
- * 5 unified material/fuel slots + 1 output slot = 6 shipyard slots + player
- * inventory.
+ * 5 unified material/fuel slots + build output + empty-container output
+ * = 7 shipyard slots + player inventory.
  * <p>
  * ContainerData layout (synced server->client as scaled values):
  * 0: fuelPercent (0-1000, representing 0%-100.0% fuel)
@@ -39,8 +39,10 @@ import java.util.Arrays;
 public class ContainerSmallShipyard extends AbstractContainerMenu {
 
     public static final int INPUT_SLOT_COUNT = 5;
+    public static final int FUEL_SLOT = 4;
     public static final int OUTPUT_SLOT = 5;
-    public static final int SHIPYARD_SLOT_COUNT = 6;
+    public static final int CONTAINER_OUTPUT_SLOT = 6;
+    public static final int SHIPYARD_SLOT_COUNT = 7;
 
     public static final int DATA_FUEL_PERCENT = 0;
     public static final int DATA_BUILD_PERCENT = 1;
@@ -86,10 +88,13 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
         addSlot(new SlotSmallShipyard(handler, 1, 53, 29, false, tile));
         addSlot(new SlotSmallShipyard(handler, 2, 73, 29, false, tile));
         addSlot(new SlotSmallShipyard(handler, 3, 93, 29, false, tile));
-        addSlot(new SlotSmallShipyard(handler, 4, 8, 53, false, tile));
+        addSlot(new SlotSmallShipyard(handler, FUEL_SLOT, 8, 53, false, tile));
 
         // Output slot (5): no item placement
         addSlot(new SlotSmallShipyard(handler, OUTPUT_SLOT, 134, 44, true, tile));
+
+        // Empty fluid-container output (6), directly below the grudge input.
+        addSlot(new SlotSmallShipyard(handler, CONTAINER_OUTPUT_SLOT, 33, 53, true, tile));
 
         // Player inventory
         addPlayerInventory(playerInv, 8, 87);
@@ -179,7 +184,13 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
                     return ItemStack.EMPTY;
                 }
             } else {
-                if (!this.moveItemStackTo(slotStack, 0, OUTPUT_SLOT, false)) {
+                // The five input slots accept the same items, but slot 4 is the visual fuel slot.
+                // Quick-moved lava must stay there rather than appearing in a material slot.
+                if (tile != null && tile.isLavaFuelContainer(slotStack)) {
+                    if (!this.moveItemStackTo(slotStack, FUEL_SLOT, FUEL_SLOT + 1, false)) {
+                        return ItemStack.EMPTY;
+                    }
+                } else if (!this.moveItemStackTo(slotStack, 0, OUTPUT_SLOT, false)) {
                     return ItemStack.EMPTY;
                 }
             }

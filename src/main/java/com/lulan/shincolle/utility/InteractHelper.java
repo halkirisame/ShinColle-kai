@@ -52,7 +52,7 @@ public class InteractHelper {
             ship.calcShipAttributes(1, true);
 
             // play marriage sound
-            ship.playSound(ship.getCustomSound(4, ship), (float) ConfigHandler.volumeShip(), 1F);
+            ship.playVoice(ship.getCustomSound(4, ship), (float) ConfigHandler.volumeShip(), 1F);
             return true;
         }
 
@@ -140,7 +140,7 @@ public class InteractHelper {
                 new S2CSpawnParticlePacket((byte) 3, ship.getId(), new byte[0]), ship);
 
         // play marriage sound
-        ship.playSound(ship.getCustomSound(4, ship), (float) ConfigHandler.volumeShip(), 1F);
+        ship.playVoice(ship.getCustomSound(4, ship), (float) ConfigHandler.volumeShip(), 1F);
 
         // add morale
         ship.setMorale(16000);
@@ -197,8 +197,8 @@ public class InteractHelper {
             }
 
             // kaitai sound
-            ship.playSound(ModSounds.SHIP_KAITAI.get(), (float) ConfigHandler.volumeShip(), getSoundPitch(ship));
-            ship.playSound(ship.getCustomSound(3, ship), (float) ConfigHandler.volumeShip(), getSoundPitch(ship));
+            ship.playVoice(ModSounds.SHIP_KAITAI.get(), (float) ConfigHandler.volumeShip(), getSoundPitch(ship));
+            ship.playVoice(ship.getCustomSound(3, ship), (float) ConfigHandler.volumeShip(), getSoundPitch(ship));
         }
 
         // show emotes
@@ -274,7 +274,7 @@ public class InteractHelper {
 
         if (changeOwner) {
             // play marriage sound
-            ship.playSound(ship.getCustomSound(4, ship), (float) ConfigHandler.volumeShip(), 1F);
+            ship.playVoice(ship.getCustomSound(4, ship), (float) ConfigHandler.volumeShip(), 1F);
 
             // consume item
             if (!player.getAbilities().instabuild) {
@@ -410,7 +410,7 @@ public class InteractHelper {
             // play sound
             if (ship.getStateTimer(ID.T.SoundTime) <= 0) {
                 ship.setStateTimer(ID.T.SoundTime, 20 + ship.getRandom().nextInt(20));
-                ship.playSound(ship.getCustomSound(7, ship), (float) ConfigHandler.volumeShip(), getSoundPitch(ship));
+                ship.playVoice(ship.getCustomSound(7, ship), (float) ConfigHandler.volumeShip(), getSoundPitch(ship));
             }
 
             // apply potion effect

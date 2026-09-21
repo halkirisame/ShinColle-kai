@@ -14,6 +14,12 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
+**現在プレイ可能なβ版として公開し、継続して開発しています。**造船所を建てて艦を建造し、
+装備を整え、艦隊を指揮して戦い、育てて婚約するところまで一通り遊べます。
+未完成のシステムや既知の問題もありますが、通常のワールドで実際に遊びながら開発を進めています。
+
+質問・感想・動作報告は Discord へどうぞ: https://discord.gg/7mMJ47Sjbh
+
 ## 概要
 
 <!-- traceability: readme.gameplay.abyssal-side begin -->
@@ -78,7 +84,8 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 ## ShinColle-Reforgeとの違い
 
 深これ改は、1.20.1への移植で遊べなくなっていた致命的な不具合を、原作1.10.2のとおりに
-直すところから始めました。
+直すところから始めました。現在も1.10.2の実装とゲーム内の挙動を参照しながら、移植で欠落・変更された
+機能の復元と不具合の修正を続けています。
 
 **遊べなくなっていた不具合**
 
@@ -198,9 +205,9 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.10.3 について
+## β版 v1.20.1-0.11.0 について
 
-**β版 `0.10.3`** です。
+**β版 `0.11.0`** です。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
 一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
@@ -210,8 +217,7 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 **ただし未完成の領域と既知の不具合があります。**`1.0.0` はそれらが解消された版の
 ために取ってあります。
 
-既知の不具合: 撫でても士気が上がらない / 艦が手持ちアイテムを表示しない /
-説明書の図鑑で一部の艦のモデルのプレビューが位置ずれ・上下反転する。
+既知の不具合: 撫でても士気が上がらない / 艦が手持ちアイテムを表示しない。
 
 未完成の領域: 艦娘タスクとクレーン(本フォークで未着手) / 艦ごとの特殊攻撃・固有演出 /
 艦AIの作り直し。
@@ -225,12 +231,29 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 - [docs/java_addon_api.md](docs/java_addon_api.md) — Javaアドオン向けPublic APIの境界と例
 - [examples/](examples/) — 装備datapackとJavaアドオンの動くサンプル
 
-## 連絡先
+## 開発への協力
 
-本フォークについてのご要望・不具合報告は、こちらへお願いします。
+開発・検証への協力を歓迎しています。コードを書かなくても協力できることはたくさんあります。
 
-- issue: https://github.com/halkirisame/ShinColle-kai/issues
-- X: https://x.com/hal_kirisame
+- 不具合の報告
+- ゲーム内での動作確認
+- ShinColle 1.10.2 との挙動の比較
+- 再現条件の調査
+- UI・操作性についての改善提案
+- datapack / KubeJS / Javaアドオンの作成と検証
+
+「旧版ではこう動いていた」程度の情報でも助かります。気軽に相談したいときは Discord へどうぞ。
+再現手順がはっきりした不具合は GitHub Issues でも受け付けています。
+
+## コミュニティ・連絡先
+
+ShinColle-kai についての質問、感想、動作報告、開発の相談はこちらへどうぞ。
+
+- Discord: https://discord.gg/7mMJ47Sjbh
+- GitHub Issues: https://github.com/halkirisame/ShinColle-kai/issues — 不具合報告・技術的な問題
+- X: https://x.com/hal_kirisame — 更新情報・告知
+
+不具合かどうか分からない症状や、ちょっとした相談は Discord で構いません。
 
 **本家および移植版の作者へのお問い合わせはご遠慮ください。** 本フォークは両氏とは独立して保守されています。
 
@@ -255,6 +278,13 @@ ship attributes.
 It is a fork of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of PinkaLulan's
 ShinColle, fixing bugs left in that port and restoring behaviour lost in the move from
 1.10.2.
+
+**It is a playable beta under active development.** You can build a shipyard, construct
+ships, equip them, command a fleet in battle, level them up and marry them. Some systems
+are still incomplete and there are known issues, but development goes on while playing
+in ordinary worlds.
+
+Questions, feedback and test reports are welcome on Discord: https://discord.gg/7mMJ47Sjbh
 
 ## Overview
 
@@ -321,7 +351,8 @@ Optional integrations (all work fine when absent):
 ## Differences from ShinColle-Reforge
 
 ShinColle-kai started by fixing the game-breaking bugs left in the 1.20.1 port,
-following ShinColle 1.10.2.
+following ShinColle 1.10.2. It continues to restore features that were lost or changed in the
+port and to fix bugs, using the 1.10.2 code and in-game behaviour as the reference.
 
 **Game-breaking bugs fixed**
 
@@ -450,9 +481,9 @@ undetermined.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.10.3
+## About the beta release, v1.20.1-0.11.0
 
-This is the **beta, `0.10.3`**.
+This is the **beta, `0.11.0`**.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
 a fleet, fight, level up and marry. New players receive a guide book whose "Getting
@@ -462,8 +493,7 @@ and the Abyssal Volcano Core now match ShinColle 1.10.2 again.
 **Some systems are known to be incomplete.** `1.0.0` is reserved for the release where
 they are closed.
 
-Known defects: petting does not raise morale; ships do not render a held item; some ship
-model previews in the book's ship gallery are misplaced or upside down.
+Known defects: petting does not raise morale; ships do not render a held item.
 
 Incomplete systems: ship work tasks and the crane (untouched by this fork); per-ship
 special attacks and combat effects; the ship AI rewrite.
@@ -478,12 +508,29 @@ See [CHANGELOG.md](CHANGELOG.md) for the changes.
 - [docs/java_addon_api.md](docs/java_addon_api.md) — public API boundaries and examples
 - [examples/](examples/) — working samples: an equipment datapack and a Java addon
 
-## Contact
+## Helping with development
 
-For requests and bug reports about this fork, please use:
+Help with development and testing is welcome, and much of it needs no coding.
 
-- Issues: https://github.com/halkirisame/ShinColle-kai/issues
-- X: https://x.com/hal_kirisame
+- Reporting bugs
+- Testing in game
+- Comparing behaviour with ShinColle 1.10.2
+- Narrowing down how to reproduce a problem
+- Suggesting UI and usability improvements
+- Making and testing datapacks, KubeJS scripts and Java addons
+
+Even "this is how it worked in the old version" helps. Drop by Discord if you want to talk
+it over. Bugs with clear reproduction steps can also be filed on GitHub Issues.
+
+## Community and contact
+
+Questions, feedback, test reports and development discussion are welcome here:
+
+- Discord: https://discord.gg/7mMJ47Sjbh
+- GitHub Issues: https://github.com/halkirisame/ShinColle-kai/issues — bug reports and technical problems
+- X: https://x.com/hal_kirisame — news and announcements
+
+If you are not sure whether something is a bug, or just want to ask, Discord is fine.
 
 **Please do not contact the authors of the original mod or of the 1.20.1 port about this
 fork.** It is maintained independently of both.

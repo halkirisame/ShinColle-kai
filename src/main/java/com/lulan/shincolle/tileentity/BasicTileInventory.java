@@ -12,9 +12,11 @@ import net.minecraftforge.items.ItemStackHandler;
 public class BasicTileInventory extends BasicTileEntity {
 
     protected final ItemStackHandler inventory;
+    protected final int slotCount;
 
     public BasicTileInventory(BlockEntityType<?> type, BlockPos pos, BlockState state, int slots) {
         super(type, pos, state);
+        this.slotCount = slots;
         this.inventory = new ItemStackHandler(slots) {
             @Override
             protected void onContentsChanged(int slot) {
@@ -34,6 +36,11 @@ public class BasicTileInventory extends BasicTileEntity {
         super.load(tag);
         if (tag.contains("Inventory")) {
             inventory.deserializeNBT(tag.getCompound("Inventory"));
+            if (inventory.getSlots() < slotCount) {
+                CompoundTag resizedInventory = inventory.serializeNBT();
+                resizedInventory.putInt("Size", slotCount);
+                inventory.deserializeNBT(resizedInventory);
+            }
         }
     }
 

@@ -115,7 +115,7 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
 
         // play attack sound
         if (this.random.nextInt(10) > 7) {
-            this.playSound(getCustomSound(1, this), this.getSoundVolume(), this.getVoicePitch());
+            this.playVoice(getCustomSound(1, this), this.getSoundVolume(), this.getVoicePitch());
         }
 
         triggerAttackAnimation();

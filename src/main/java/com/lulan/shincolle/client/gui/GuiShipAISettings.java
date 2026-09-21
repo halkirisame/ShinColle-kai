@@ -262,6 +262,11 @@ public class GuiShipAISettings extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal("X"), b -> onClose())
                 .bounds(panelLeft + PANEL_WIDTH - 18, panelTop + 3, 14, 14)
                 .build());
+        this.addRenderableWidget(Button.builder(
+                        Component.literal(tr("gui.shincolle_kai.sound.tab", "Sound")),
+                        button -> this.minecraft.setScreen(new GuiShipSoundSettings(this)))
+                .bounds(panelLeft + PANEL_WIDTH - 80, panelTop + 3, 58, 14)
+                .build());
     }
 
     // ========== Geometry ==========

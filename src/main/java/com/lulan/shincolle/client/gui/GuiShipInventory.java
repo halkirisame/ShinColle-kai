@@ -266,8 +266,11 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         // Player inventory starts at x=8 with nine 18px columns, so it ends at
         // x=170. Blanking must not start left of that or it paints over the last
         // inventory column.
-        graphics.fill(this.leftPos + 171, this.topPos + 128,
-                this.leftPos + 256, this.topPos + 212, 0xFFC6C6C6);
+        // Preserve the texture's one-pixel outer frame on the top, right and
+        // bottom edges. Painting through x=256/y=212 erased that frame and
+        // made the lower-right corner look clipped.
+        graphics.fill(this.leftPos + 171, this.topPos + 129,
+                this.leftPos + 254, this.topPos + 212, 0xFFC6C6C6);
 
         graphics.fill(x, y, x + b[2], y + b[3], 0xFF8B8B8B);
         graphics.fill(x + 1, y + 1, x + b[2] - 1, y + b[3] - 1, 0xFFA6A6A6);
@@ -292,8 +295,8 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * column ends.
      */
     private static final int APPEAR_X = 172;
-    private static final int APPEAR_LABEL_Y = 141;
-    private static final int APPEAR_GRID_Y = 151;
+    private static final int APPEAR_LABEL_Y = 152;
+    private static final int APPEAR_GRID_Y = 162;
 
     /**
      * Number of model-part toggles this ship exposes, capped at the 8 that fit on
@@ -552,8 +555,6 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         BasicEntityShip ship = this.menu.getShip();
         if (ship == null) {
             graphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, 0x404040, false);
-            graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY,
-                    0x404040, false);
             return;
         }
 
@@ -584,8 +585,6 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
                 break;
         }
 
-        // Player inventory title (vanilla位置を維持)
-        graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, 121, 0x404040, false);
     }
 
     /**

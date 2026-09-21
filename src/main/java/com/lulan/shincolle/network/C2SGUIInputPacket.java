@@ -1344,12 +1344,25 @@ public class C2SGUIInputPacket {
 
         if (values[2] == 0) {// [PORT] 1.10.2 -> 1.20.1: OpenItemGUI is the pointer formation GUI entry
             // point.
+            CapaTeitoku capa = refreshPointerTeam(player);
             NetworkHooks.openScreen(player, new SimpleMenuProvider(
                     (containerId, playerInv, p) -> new ContainerFormation(containerId, playerInv),
                     Component.translatable("gui.shincolle_kai.formation.formation")));
+            if (capa != null) {
+                ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerFull(capa), player);
+            }
         } else {
             LogHelper.debug("C2SGUIInputPacket: unknown OpenItemGUI type=" + values[2]);
         }
+    }
+
+    /** Refresh the selected team's transient entity IDs from persistent ship UIDs. */
+    private static CapaTeitoku refreshPointerTeam(ServerPlayer player) {
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa != null) {
+            TeamHelper.updateTeamList(player, capa);
+        }
+        return capa;
     }
 
     /**

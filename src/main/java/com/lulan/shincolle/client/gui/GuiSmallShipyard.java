@@ -42,6 +42,9 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
         // Render background texture
         graphics.blit(TEXTURE, this.leftPos, this.topPos, 0, 0, BASE_GUI_WIDTH, this.imageHeight);
 
+        // Reuse a plain inventory-slot frame for the empty fluid-container output.
+        graphics.blit(TEXTURE, this.leftPos + 32, this.topPos + 52, 7, 86, 18, 18);
+
         graphics.fill(this.leftPos + 176, this.topPos, this.leftPos + this.imageWidth,
                 this.topPos + 123, 0xD0202020);
         int selected = Math.max(0, Math.min(this.menu.getSelectMat(), 3));

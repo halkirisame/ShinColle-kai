@@ -11,6 +11,7 @@ import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerFormation;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
+import com.lulan.shincolle.client.gui.inventory.ContainerSmallShipyard;
 import com.lulan.shincolle.crafting.EquipCalc;
 import com.lulan.shincolle.crafting.LargeRecipes;
 import com.lulan.shincolle.crafting.ResourceYieldPolicy;
@@ -101,6 +102,7 @@ import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -2057,6 +2059,125 @@ public final class ShinColleEntityRegistryGameTests {
         }
         if (shipyard.getPowerRemained() <= 0) {
             throw new AssertionError("Unified input did not convert coal into small shipyard power.");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "arena")
+    public static void smallShipyardAcceptsLavaContainersThroughFuelSlot(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos shipyardPos = helper.absolutePos(new BlockPos(2, 2, 2));
+        level.setBlock(shipyardPos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
+        if (!(level.getBlockEntity(shipyardPos) instanceof TileEntitySmallShipyard shipyard)) {
+            throw new AssertionError("Small shipyard tile was not created for lava bucket slot test.");
+        }
+
+        ItemStack lavaBucket = new ItemStack(Items.LAVA_BUCKET);
+        if (!shipyard.isItemValidForSlot(4, lavaBucket)) {
+            throw new AssertionError("Small shipyard fuel slot rejected a lava bucket.");
+        }
+        if (shipyard.isItemValidForSlot(4, new ItemStack(Items.WATER_BUCKET))) {
+            throw new AssertionError("Small shipyard fuel slot accepted a water bucket.");
+        }
+
+        FakePlayer player = FakePlayerFactory.get(level,
+                new GameProfile(UUID.fromString("8bca041a-83ae-48b3-9937-59dbfa4d7e52"), "shipyard_lava_slot"));
+        player.setPos(shipyardPos.getX() + 0.5, shipyardPos.getY() + 0.5, shipyardPos.getZ() + 0.5);
+        ContainerSmallShipyard menu = new ContainerSmallShipyard(1, player.getInventory(), shipyard);
+        if (menu.getSlot(ContainerSmallShipyard.CONTAINER_OUTPUT_SLOT).x != 33
+                || menu.getSlot(ContainerSmallShipyard.CONTAINER_OUTPUT_SLOT).y != 53) {
+            throw new AssertionError("Empty-container output is not directly below the grudge input.");
+        }
+        player.getInventory().setItem(9, lavaBucket);
+        menu.quickMoveStack(player, ContainerSmallShipyard.SHIPYARD_SLOT_COUNT);
+        if (!shipyard.getInventory().getStackInSlot(4).is(Items.LAVA_BUCKET)) {
+            throw new AssertionError("Small shipyard quick-move did not place the lava bucket in the fuel slot.");
+        }
+        for (int slot = 0; slot < ContainerSmallShipyard.FUEL_SLOT; slot++) {
+            if (!shipyard.getInventory().getStackInSlot(slot).isEmpty()) {
+                throw new AssertionError("Small shipyard quick-move placed lava in material slot " + slot);
+            }
+        }
+        TileEntitySmallShipyard.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+
+        ItemStack remainder = shipyard.getInventory()
+                .getStackInSlot(TileEntitySmallShipyard.SLOT_CONTAINER_OUTPUT);
+        if (!remainder.is(Items.BUCKET) || remainder.getCount() != 1) {
+            throw new AssertionError("Small shipyard did not send the empty bucket to the output slot: "
+                    + remainder);
+        }
+        if (!shipyard.getInventory().getStackInSlot(4).isEmpty()) {
+            throw new AssertionError("Small shipyard did not clear the lava input slot after consumption.");
+        }
+        if (!shipyard.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_OUTPUT).isEmpty()) {
+            throw new AssertionError("Empty bucket incorrectly occupied the build output slot.");
+        }
+        int expectedPower = (int) (20000 * shipyard.getFuelMagni());
+        if (shipyard.getPowerRemained() != expectedPower) {
+            throw new AssertionError("Small shipyard converted the lava bucket to the wrong power value. expected="
+                    + expectedPower + " actual=" + shipyard.getPowerRemained());
+        }
+
+        shipyard.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_CONTAINER_OUTPUT, ItemStack.EMPTY);
+        shipyard.setPowerRemained(0);
+        ItemStack lavaTank = new ItemStack(ModItems.SHIP_TANK.get());
+        IFluidHandlerItem tankHandler = lavaTank.getCapability(ForgeCapabilities.FLUID_HANDLER_ITEM).orElseThrow(
+                () -> new AssertionError("Ship tank did not expose an item fluid handler."));
+        if (tankHandler.fill(new FluidStack(Fluids.LAVA, 2500), IFluidHandler.FluidAction.EXECUTE) != 2500) {
+            throw new AssertionError("Could not prepare a ship tank with 2,500 mB of lava.");
+        }
+        if (!shipyard.isItemValidForSlot(4, lavaTank)) {
+            throw new AssertionError("Small shipyard fuel slot rejected a lava-filled fluid container.");
+        }
+
+        player.getInventory().setItem(10, lavaTank);
+        menu.quickMoveStack(player, ContainerSmallShipyard.SHIPYARD_SLOT_COUNT + 1);
+        if (!shipyard.getInventory().getStackInSlot(4).is(ModItems.SHIP_TANK.get())) {
+            throw new AssertionError("Small shipyard quick-move did not place the lava tank in the fuel slot.");
+        }
+        TileEntitySmallShipyard.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+
+        ItemStack retainedTank = shipyard.getInventory().getStackInSlot(4);
+        IFluidHandlerItem retainedTankHandler = retainedTank.getCapability(ForgeCapabilities.FLUID_HANDLER_ITEM)
+                .orElseThrow(() -> new AssertionError("Retained ship tank lost its item fluid handler."));
+        if (retainedTankHandler.getFluidInTank(0).getAmount() != 1500) {
+            throw new AssertionError("Small shipyard ejected a tank before draining all lava.");
+        }
+        if (!shipyard.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_CONTAINER_OUTPUT).isEmpty()) {
+            throw new AssertionError("Small shipyard output a tank that still contained lava.");
+        }
+
+        TileEntitySmallShipyard.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+        TileEntitySmallShipyard.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+
+        ItemStack drainedTank = shipyard.getInventory()
+                .getStackInSlot(TileEntitySmallShipyard.SLOT_CONTAINER_OUTPUT);
+        IFluidHandlerItem drainedTankHandler = drainedTank.getCapability(ForgeCapabilities.FLUID_HANDLER_ITEM)
+                .orElseThrow(() -> new AssertionError("Drained ship tank lost its item fluid handler."));
+        if (!drainedTankHandler.getFluidInTank(0).isEmpty()) {
+            throw new AssertionError("Small shipyard did not drain one bucket of lava from the fluid container.");
+        }
+        int expectedTankPower = (int) (20000 * shipyard.getFuelMagni() * 2.5F);
+        if (shipyard.getPowerRemained() != expectedTankPower) {
+            throw new AssertionError("Small shipyard converted the lava fluid container to the wrong power value. "
+                    + "expected=" + expectedTankPower + " actual=" + shipyard.getPowerRemained());
+        }
+
+        shipyard.getInventory().setStackInSlot(TileEntitySmallShipyard.SLOT_CONTAINER_OUTPUT, ItemStack.EMPTY);
+        shipyard.setPowerRemained(shipyard.getPowerMax());
+        player.getInventory().setItem(11, new ItemStack(Items.LAVA_BUCKET));
+        menu.quickMoveStack(player, ContainerSmallShipyard.SHIPYARD_SLOT_COUNT + 2);
+        TileEntitySmallShipyard.serverTick(level, shipyardPos, level.getBlockState(shipyardPos), shipyard);
+        if (!shipyard.getInventory().getStackInSlot(4).is(Items.LAVA_BUCKET)) {
+            throw new AssertionError("Full fuel storage did not retain one lava bucket in the fuel slot.");
+        }
+        if (!shipyard.getInventory().getStackInSlot(TileEntitySmallShipyard.SLOT_CONTAINER_OUTPUT).isEmpty()) {
+            throw new AssertionError("Full fuel storage emitted an empty bucket without consuming lava.");
+        }
+        for (int slot = 0; slot < ContainerSmallShipyard.FUEL_SLOT; slot++) {
+            if (!shipyard.getInventory().getStackInSlot(slot).isEmpty()) {
+                throw new AssertionError("Quick-moved lava entered material slot " + slot);
+            }
         }
         helper.succeed();
     }
