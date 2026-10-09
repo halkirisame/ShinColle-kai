@@ -1,6 +1,6 @@
 # 変更履歴 / Changelog
 
-## v1.20.1-0.12.0 (未リリース)
+## v1.20.1-0.12.0 (β版)
 
 - 艦の所有権を譲渡した直後、旧提督へ呼び戻される問題を修正しました。
 
@@ -119,7 +119,7 @@
 - 初回更新時に `config/shincolle_kai-common.toml` の `shipAiTargetAuthority` が一度NEWになります。旧AIを使う場合は初回更新後に `shipAiTargetAuthority = "LEGACY"` へ変更してワールドに入り直してください。その後の手動選択は保持されます。`shipAiNewDefaultApplied` は変更しないでください。
 - 公開Java APIとKubeJSの定義は維持しています。内部AIクラスへ直接依存するアドオンは互換保証の対象外です。
 
-### English summary — 0.12.0 (Unreleased)
+### English summary — 0.12.0 (Beta)
 
 - The redesigned ship AI (NEW) is now the default. Follow recall, vertical-separation notices, void rescue in the End, and Tenryuu, Tatsuta and Nagato's special attacks are implemented.
 - Fixes cover fishing, cargo capacity, ship tanks, text overlap, damage voices, level-up sounds and first-person petting-hand rendering. In-game visuals, sounds and the feel of the AI still need verification.
