@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.action.ActionKind;
 import com.lulan.shincolle.entity.IShipNavigator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
@@ -33,6 +34,7 @@ public class ShipOpenDoorGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return false;
         if (this.entity.horizontalCollision) {
             this.doorPositions.clear();
             // Scan the full collision volume. Four foot-level blocks miss
@@ -53,6 +55,7 @@ public class ShipOpenDoorGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return false;
         return this.closeDoor && this.waitTimer > 0;
     }
 
@@ -86,6 +89,7 @@ public class ShipOpenDoorGoal extends Goal {
 
     @Override
     public void tick() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return;
         --this.waitTimer;
     }
 }

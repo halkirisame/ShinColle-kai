@@ -1,5 +1,8 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.ai.ShipMovementGate;
+import com.lulan.shincolle.ai.domain.movement.MovementActivity;
+import com.lulan.shincolle.ai.domain.movement.MovementDecision;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.TeamHelper;
@@ -129,10 +132,18 @@ public class CombatRation extends BasicItem implements IShipCombatRation {
                             }
                         }
 
-                        s.getLookControl().setLookAt(player, 50F, 50F);
+                        if (!lookForbidden(s)) {
+                            s.getLookControl().setLookAt(player, 50F, 50F);
+                        }
                     }
                 }
             }
         }
+    }
+
+    /** NEW: an engaged ship keeps its head on its target, so the ration must not turn it to the player. */
+    private static boolean lookForbidden(BasicEntityShip ship) {
+        MovementDecision decision = ShipMovementGate.active() ? ShipMovementGate.decision(ship) : null;
+        return decision != null && !decision.allows(MovementActivity.IDLE_LOOK);
     }
 }

@@ -1,5 +1,7 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.handler.ConfigHandler;
+
 import com.lulan.shincolle.ai.ShipFleeGoal;
 import com.lulan.shincolle.ai.ShipGuardingGoal;
 import com.lulan.shincolle.ai.ShipManualTargetGoal;
@@ -84,6 +86,7 @@ public final class ShipAiFixtureGameTests {
             helper.assertTrue(target != null, "Failed to create invisible target.");
             move(helper, target, new Vec3(3.5D, 2D, 1.5D));
             target.setInvisible(true);
+            target.setPersistenceRequired();
             helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add invisible target.");
             ship.setStateFlag(ID.F.OnSightChase, false);
             TargetHelper.Selector selector = new TargetHelper.Selector(ship);
@@ -109,6 +112,7 @@ public final class ShipAiFixtureGameTests {
             move(helper, target, new Vec3(3.5D, 2D, 1.5D));
             target.setNoAi(true);
             target.setInvulnerable(true);
+            target.setPersistenceRequired();
             helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add attack target.");
             ship.setTarget(target);
             ship.setStateMinor(ID.M.NumGrudge, 100_000);
@@ -150,6 +154,7 @@ public final class ShipAiFixtureGameTests {
             helper.assertTrue(target != null, "Failed to create blocker target.");
             move(helper, target, new Vec3(3.5D, 2D, 1.5D));
             target.setNoAi(true);
+            target.setPersistenceRequired();
             helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add blocker target.");
             ship.setTarget(target);
             ship.setStateFlag(ID.F.AtkType_Light, true);
@@ -176,7 +181,8 @@ public final class ShipAiFixtureGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void noFuelClearsMovementAndTargetGoals(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
             GoalSelector goals = selector(ship, "goalSelector");
             GoalSelector targets = selector(ship, "targetSelector");
@@ -201,7 +207,8 @@ public final class ShipAiFixtureGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void passiveAiOmitsOnlyAutomaticRangeTarget(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
             GoalSelector targets = selector(ship, "targetSelector");
             targets.removeAllGoals(goal -> true);
@@ -244,8 +251,8 @@ public final class ShipAiFixtureGameTests {
             BasicEntityShipHostile hostile = hostile(helper, entities, new Vec3(8.5D, 2D, 1.5D), false);
             ServerPlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
                     UUID.fromString("00000000-0000-0000-0000-000000000069"), "shincolle_watch_closest"));
-            helper.getLevel().addNewPlayer(player);
             try {
+                helper.getLevel().addNewPlayer(player);
                 move(helper, player, new Vec3(3.5D, 2D, 1.5D));
                 ShipWatchClosestGoal direct = new ShipWatchClosestGoal(friendly, Player.class, 4F, 1F);
 
@@ -279,52 +286,62 @@ public final class ShipAiFixtureGameTests {
             timeoutTicks = 40)
     public static void watchClosestFindsElevatedPlayerWithinThreeDimensionalRange(GameTestHelper helper) {
         GameTestEntities entities = GameTestEntities.open(helper);
-        BasicEntityShipHostile ship = hostile(helper, entities, new Vec3(2.5D, 10D, 2.5D), true);
-        ship.setNoAi(true);
-        ship.setNoGravity(true);
-        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
-                UUID.fromString("00000000-0000-0000-0000-000000069001"), "shincolle_elevated_watch"));
-        double relativePlayerY = ship.getBoundingBox().maxY + 3.25D
-                - helper.absoluteVec(Vec3.ZERO).y;
-        move(helper, player, new Vec3(3.5D, relativePlayerY, 2.5D));
-        player.setNoGravity(true);
-        player.setInvisible(false);
-        helper.getLevel().addNewPlayer(player);
+        ServerPlayer player = null;
+        try {
+            BasicEntityShipHostile ship = hostile(helper, entities, new Vec3(2.5D, 10D, 2.5D), true);
+            ship.setNoAi(true);
+            ship.setNoGravity(true);
+            player = entities.add(FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+                    UUID.fromString("00000000-0000-0000-0000-000000069001"), "shincolle_elevated_watch")));
+            double relativePlayerY = ship.getBoundingBox().maxY + 3.25D
+                    - helper.absoluteVec(Vec3.ZERO).y;
+            move(helper, player, new Vec3(3.5D, relativePlayerY, 2.5D));
+            player.setNoGravity(true);
+            player.setInvisible(false);
+            helper.getLevel().addNewPlayer(player);
+            ServerPlayer activePlayer = player;
 
-        helper.runAfterDelay(5, () -> {
-            try {
-                helper.assertTrue(helper.getLevel().getEntitiesOfClass(Player.class,
-                        ship.getBoundingBox().inflate(16D)).contains(player),
-                        "Elevated player was not registered in the spatial index.");
-                helper.assertTrue(Math.abs(player.getY() - (ship.getBoundingBox().maxY + 3.25D)) < 0.0001D,
-                        "Elevated player feet were not 3.25 blocks above the ship bounding box.");
-                helper.assertTrue(ship.distanceToSqr(player) < 64D,
-                        "Elevated player fixture was outside the three-dimensional range.");
-                helper.assertTrue(!ship.getBoundingBox().inflate(8D, 3D, 8D)
-                                .intersects(player.getBoundingBox()),
-                        "Elevated player fixture still intersected the legacy vertical AABB.");
+            helper.runAfterDelay(5, () -> {
+                try {
+                    helper.assertTrue(helper.getLevel().getEntitiesOfClass(Player.class,
+                            ship.getBoundingBox().inflate(16D)).contains(activePlayer),
+                            "Elevated player was not registered in the spatial index.");
+                    helper.assertTrue(Math.abs(activePlayer.getY() - (ship.getBoundingBox().maxY + 3.25D)) < 0.0001D,
+                            "Elevated player feet were not 3.25 blocks above the ship bounding box.");
+                    helper.assertTrue(ship.distanceToSqr(activePlayer) < 64D,
+                            "Elevated player fixture was outside the three-dimensional range.");
+                    helper.assertTrue(!ship.getBoundingBox().inflate(8D, 3D, 8D)
+                                    .intersects(activePlayer.getBoundingBox()),
+                            "Elevated player fixture still intersected the legacy vertical AABB.");
 
-                LookAtPlayerGoal baseline = new LookAtPlayerGoal(ship, Player.class, 8F, 1F);
-                ShipWatchClosestGoal goal = new ShipWatchClosestGoal(ship, Player.class, 8F, 1F);
-                helper.assertTrue(baseline.canUse(),
-                        "Vanilla LookAtPlayerGoal did not find the elevated in-range player.");
-                helper.assertTrue(goal.canUse(),
-                        "ShipWatchClosestGoal did not find the elevated in-range player.");
+                    LookAtPlayerGoal baseline = new LookAtPlayerGoal(ship, Player.class, 8F, 1F);
+                    ShipWatchClosestGoal goal = new ShipWatchClosestGoal(ship, Player.class, 8F, 1F);
+                    helper.assertTrue(baseline.canUse(),
+                            "Vanilla LookAtPlayerGoal did not find the elevated in-range player.");
+                    helper.assertTrue(goal.canUse(),
+                            "ShipWatchClosestGoal did not find the elevated in-range player.");
 
-                move(helper, player, new Vec3(10.5D, relativePlayerY, 2.5D));
-                helper.assertTrue(helper.getLevel().getEntitiesOfClass(Player.class,
-                        ship.getBoundingBox().inflate(16D)).contains(player),
-                        "Out-of-range player was not registered in the spatial index.");
-                helper.assertTrue(ship.distanceToSqr(player) > 64D,
-                        "Out-of-range player fixture remained inside the three-dimensional range.");
-                helper.assertTrue(!goal.canUse(),
-                        "ShipWatchClosestGoal ignored its three-dimensional range limit.");
-                helper.succeed();
-            } finally {
+                    move(helper, activePlayer, new Vec3(10.5D, relativePlayerY, 2.5D));
+                    helper.assertTrue(helper.getLevel().getEntitiesOfClass(Player.class,
+                            ship.getBoundingBox().inflate(16D)).contains(activePlayer),
+                            "Out-of-range player was not registered in the spatial index.");
+                    helper.assertTrue(ship.distanceToSqr(activePlayer) > 64D,
+                            "Out-of-range player fixture remained inside the three-dimensional range.");
+                    helper.assertTrue(!goal.canUse(),
+                            "ShipWatchClosestGoal ignored its three-dimensional range limit.");
+                    helper.succeed();
+                } finally {
+                    helper.getLevel().removePlayerImmediately(activePlayer, RemovalReason.DISCARDED);
+                    entities.close();
+                }
+            });
+        } catch (Throwable error) {
+            if (player != null) {
                 helper.getLevel().removePlayerImmediately(player, RemovalReason.DISCARDED);
-                entities.close();
             }
-        });
+            entities.close();
+            throw error;
+        }
     }
 
     private static BasicEntityShip friendly(GameTestHelper helper, GameTestEntities entities,

@@ -65,46 +65,61 @@ public abstract class ShipModelBaseAdv<T extends Entity> extends EntityModel<T> 
      * Call from createBodyLayer() in subclass to add Face0-4, Mouth0-2, Flush0-1.
      */
     protected static void addDefaultFaceParts(PartDefinition glowHead) {
+        addFaceParts(glowHead, -12.2F, -4.2F, -3.0F, -6.9F);
+    }
+
+    protected static void addFaceParts(PartDefinition glowHead, float faceY, float mouthY,
+                                       float flushY, float flushZ) {
+        addFaceParts(glowHead, faceY, mouthY, flushY, flushZ, DEFAULT_MOUTH_UV, DEFAULT_FLUSH_UV);
+    }
+
+    /** Texture offsets of Mouth0-2 as {u0, v0, u1, v1, u2, v2}. */
+    protected static final int[] DEFAULT_MOUTH_UV = {100, 53, 100, 58, 114, 53};
+    /** Texture offset shared by Flush0-1 as {u, v}. */
+    protected static final int[] DEFAULT_FLUSH_UV = {114, 58};
+
+    protected static void addFaceParts(PartDefinition glowHead, float faceY, float mouthY,
+                                       float flushY, float flushZ, int[] mouthUv, int[] flushUv) {
         glowHead.addOrReplaceChild("Face0",
                 CubeListBuilder.create().texOffs(98, 63)
                         .addBox(-7.0F, 0.0F, -0.5F, 14, 12, 1),
-                PartPose.offset(0.0F, -12.2F, -6.1F));
+                PartPose.offset(0.0F, faceY, -6.1F));
         glowHead.addOrReplaceChild("Face1",
                 CubeListBuilder.create().texOffs(98, 76)
                         .addBox(-7.0F, 0.0F, -0.5F, 14, 12, 1),
-                PartPose.offset(0.0F, -12.2F, -6.1F));
+                PartPose.offset(0.0F, faceY, -6.1F));
         glowHead.addOrReplaceChild("Face2",
                 CubeListBuilder.create().texOffs(98, 89)
                         .addBox(-7.0F, 0.0F, -0.5F, 14, 12, 1),
-                PartPose.offset(0.0F, -12.2F, -6.1F));
+                PartPose.offset(0.0F, faceY, -6.1F));
         glowHead.addOrReplaceChild("Face3",
                 CubeListBuilder.create().texOffs(98, 102)
                         .addBox(-7.0F, 0.0F, -0.5F, 14, 12, 1),
-                PartPose.offset(0.0F, -12.2F, -6.1F));
+                PartPose.offset(0.0F, faceY, -6.1F));
         glowHead.addOrReplaceChild("Face4",
                 CubeListBuilder.create().texOffs(98, 115)
                         .addBox(-7.0F, 0.0F, -0.5F, 14, 12, 1),
-                PartPose.offset(0.0F, -12.2F, -6.1F));
+                PartPose.offset(0.0F, faceY, -6.1F));
         glowHead.addOrReplaceChild("Mouth0",
-                CubeListBuilder.create().texOffs(100, 53)
+                CubeListBuilder.create().texOffs(mouthUv[0], mouthUv[1])
                         .addBox(-3.0F, 0.0F, -0.5F, 6, 4, 1),
-                PartPose.offset(0.0F, -4.2F, -6.2F));
+                PartPose.offset(0.0F, mouthY, -6.2F));
         glowHead.addOrReplaceChild("Mouth1",
-                CubeListBuilder.create().texOffs(100, 58)
+                CubeListBuilder.create().texOffs(mouthUv[2], mouthUv[3])
                         .addBox(-3.0F, 0.0F, -0.5F, 6, 4, 1),
-                PartPose.offset(0.0F, -4.2F, -6.2F));
+                PartPose.offset(0.0F, mouthY, -6.2F));
         glowHead.addOrReplaceChild("Mouth2",
-                CubeListBuilder.create().texOffs(114, 53)
+                CubeListBuilder.create().texOffs(mouthUv[4], mouthUv[5])
                         .addBox(-3.0F, 0.0F, -0.5F, 6, 4, 1),
-                PartPose.offset(0.0F, -4.2F, -6.2F));
+                PartPose.offset(0.0F, mouthY, -6.2F));
         glowHead.addOrReplaceChild("Flush0",
-                CubeListBuilder.create().texOffs(114, 58)
+                CubeListBuilder.create().texOffs(flushUv[0], flushUv[1])
                         .addBox(-1.0F, 0.0F, -0.5F, 2, 1, 0),
-                PartPose.offset(-6F, -3.0F, -6.9F));
+                PartPose.offset(-6F, flushY, flushZ));
         glowHead.addOrReplaceChild("Flush1",
-                CubeListBuilder.create().texOffs(114, 58)
+                CubeListBuilder.create().texOffs(flushUv[0], flushUv[1])
                         .addBox(-1.0F, 0.0F, -0.5F, 2, 1, 0),
-                PartPose.offset(6F, -3.0F, -6.9F));
+                PartPose.offset(6F, flushY, flushZ));
     }
 
     private static ModelPart getOptionalChild(ModelPart parent, String childName) {

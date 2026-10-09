@@ -172,7 +172,8 @@ public final class TaskSideRoutingGameTests {
         helper.startSequence().thenWaitUntil(() ->
                 helper.assertTrue(helper.getLevel().isPositionEntityTicking(shipPosition),
                         "Waiting for the cooking fixture's entity chunk to tick"))
-                .thenExecute(() -> verifyCookingOutputExtractionFailureDropsWithoutItemLoss(helper))
+                .thenExecute(GameTestVerification.namedFailure(
+                        () -> verifyCookingOutputExtractionFailureDropsWithoutItemLoss(helper)))
                 .thenSucceed();
     }
 

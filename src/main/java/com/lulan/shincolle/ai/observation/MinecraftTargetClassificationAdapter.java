@@ -168,7 +168,7 @@ public final class MinecraftTargetClassificationAdapter {
                         && entity.invisibleDetectable()
                         && entity.lineOfSightEligible()) {
                     // Legacy predicates use concrete airplane/submarine types, while
-                    // Stage 2 uses registered traits. Capture the union of both
+                    // The target selector uses registered traits. Capture the union of both
                     // consumers' required relations without repeating any lookup.
                     boolean legacySpecialTarget = facts.airplane() || facts.submarine();
                     boolean legacySpecialNeedsBanned = facts.airplane()

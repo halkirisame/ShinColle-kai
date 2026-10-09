@@ -1,5 +1,7 @@
 package com.lulan.shincolle.entity.other;
 
+import com.lulan.shincolle.utility.CombatHelper;
+
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntitySummon;
 import com.lulan.shincolle.entity.IShipAttackBase;
@@ -54,7 +56,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
 
             @Override
             public boolean canUse() {
-                LivingEntity target = self.getTarget();
+                Entity target = self.getEntityTarget();
                 return target != null && target.isAlive() && self.numAmmoLight > 0;
             }
 
@@ -92,7 +94,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
 
                 // re-acquire target from host if current target died
                 if (!target.isAlive() && self.host != null) {
-                    LivingEntity newTarget = self.getTarget();
+                    Entity newTarget = self.getEntityTarget();
                     if (newTarget != null && newTarget.isAlive()) {
                         self.setEntityTarget(newTarget);
                     }
@@ -120,7 +122,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
         this.host = host;
         this.setScaleLevel(scaleLevel);
 
-        LivingEntity initialTarget = target instanceof LivingEntity livingTarget ? livingTarget : null;
+        Entity initialTarget = target;
 
         if (host instanceof BasicEntityShip ship) {
             // position near host
@@ -149,7 +151,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
             this.postInit();
             this.setAIList();
             // setAIList clears the old target while rebuilding selectors.
-            this.setTarget(initialTarget);
+            this.setEntityTarget(initialTarget);
         }
     }
 
@@ -162,6 +164,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
         triggerAttackAnimation();
 
         float atk = this.shipAttrs.getAttackDamage();
+        atk = CombatHelper.applyDamageReduceOnPlayer(target, atk);
         boolean hurt = false;
         if (target instanceof LivingEntity livingTarget) {
             hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);

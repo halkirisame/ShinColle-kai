@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.action.ActionKind;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.network.ModNetworking;
@@ -29,7 +30,9 @@ public class ShipSkillAttackGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0) {
+        if (ShipSkillAttackGate.supported(this.entity)) return false;
+        if (ShipActionGate.blocked(this.entity, ActionKind.FIRING)) return false;
+        if (this.host.getIsSitting() || ShipMovementGate.craneBusy(this.host)) {
             // reset phase
             if (this.host.getStateEmotion(ID.S.Phase) > 0) {
                 this.host.setStateEmotion(ID.S.Phase, 0, true);
@@ -48,6 +51,7 @@ public class ShipSkillAttackGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.FIRING)) return false;
         return canUse();
     }
 
@@ -77,6 +81,7 @@ public class ShipSkillAttackGoal extends Goal {
 
     @Override
     public void tick() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.FIRING)) return;
         this.host.updateSkillAttack(this.host.getEntityTarget());
     }
 }

@@ -1,5 +1,11 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
+import com.lulan.shincolle.ai.domain.movement.MovementPlan;
+import com.lulan.shincolle.ai.domain.movement.MovementPoint;
+import com.lulan.shincolle.ai.domain.movement.MovementReason;
+import com.lulan.shincolle.ai.domain.movement.MovementStep;
+import com.lulan.shincolle.ai.domain.movement.MovementTarget;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -64,6 +70,13 @@ public class ShipHostileWanderGoal extends Goal {
 
     @Override
     public void start() {
+        if (ShipMovementGate.active()) {
+            // the point is drawn in canUse, from the entity random, as before
+            ShipMovementExecutor.run(this.ship, MovementPlan.of(new MovementStep.PathTo(MovementBody.SELF,
+                    new MovementTarget.Point(new MovementPoint(this.targetX, this.targetY, this.targetZ)), this.speed,
+                    MovementReason.WANDER)));
+            return;
+        }
         this.ship.getNavigation().moveTo(this.targetX, this.targetY, this.targetZ, this.speed);
     }
 }

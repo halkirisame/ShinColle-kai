@@ -129,6 +129,12 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
+    private static void withLegacyEntities(GameTestHelper helper, Consumer<GameTestEntities> test) {
+        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
+            withEntities(helper, test);
+        }
+    }
+
     private static void waitForEntityChunks(GameTestHelper helper, Runnable verification, Vec3... positions) {
         helper.startSequence().thenWaitUntil(() -> {
             for (Vec3 position : positions) {
@@ -752,6 +758,7 @@ public final class ShinColleEntityRegistryGameTests {
             cow.moveTo(2.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
             zombie.moveTo(3.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D);
             level.addFreshEntity(cow);
+            ((Mob) zombie).setPersistenceRequired();
             level.addFreshEntity(zombie);
 
             int playerUid = 54321;
@@ -1201,7 +1208,7 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena", batch = "isolated_goal_throttles_fire_on_both_tick_parities")
     public static void goalThrottlesFireOnBothTickParities(GameTestHelper helper) {
-        withEntities(helper, entities -> {
+        withLegacyEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
@@ -1262,6 +1269,8 @@ public final class ShinColleEntityRegistryGameTests {
             }
             ship.setTarget(target);
 
+            // the melee goal is only ever registered for ships with melee on
+            ship.setStateFlag(ID.F.UseMelee, true);
             ShipAttackOnCollideGoal meleeGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
             if (!meleeGoal.canUse()) {
                 throw new AssertionError("Melee goal should acquire the live target in throttle parity test.");
@@ -1629,7 +1638,7 @@ public final class ShinColleEntityRegistryGameTests {
     // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void hostileTargetGoalPrioritiesMatchLegacy(GameTestHelper helper) {
-        withEntities(helper, entities -> {
+        withLegacyEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
@@ -1703,14 +1712,15 @@ public final class ShinColleEntityRegistryGameTests {
         Vec3 hostilePosition = new Vec3(0.5D, entityY, 0.5D);
         Vec3 friendlyPosition = new Vec3(4.5D, entityY, 0.5D);
         waitForEntityChunks(helper,
-                () -> verifyHostileRangeTargetGoalAcquiresFriendlyShip(helper, hostilePosition, friendlyPosition),
+                GameTestVerification.namedFailure(
+                        () -> verifyHostileRangeTargetGoalAcquiresFriendlyShip(helper, hostilePosition, friendlyPosition)),
                 hostilePosition, friendlyPosition);
     }
 
     private static void verifyHostileRangeTargetGoalAcquiresFriendlyShip(GameTestHelper helper,
                                                                           Vec3 hostilePosition,
                                                                           Vec3 friendlyPosition) {
-        withEntities(helper, entities -> {
+        withLegacyEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity hostileEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
@@ -1775,13 +1785,14 @@ public final class ShinColleEntityRegistryGameTests {
                     "Waiting for the friendly ship's chunk to tick entities");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(hostilePos)),
                     "Waiting for the hostile ship's chunk to tick entities");
-        }).thenExecute(() -> verifyFriendlyRangeTargetGoalAcquiresHostileShip(helper, friendlyPos, hostilePos))
+        }).thenExecute(GameTestVerification.namedFailure(
+                () -> verifyFriendlyRangeTargetGoalAcquiresHostileShip(helper, friendlyPos, hostilePos)))
                 .thenSucceed();
     }
 
     private static void verifyFriendlyRangeTargetGoalAcquiresHostileShip(GameTestHelper helper,
                                                                          Vec3 friendlyPos, Vec3 hostilePos) {
-        withEntities(helper, entities -> {
+        withLegacyEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity friendlyEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
@@ -2242,11 +2253,11 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena", batch = "resource_amount_config")
     public static void shipyardResourcePolicyUsesEasyModeExactlyOnce(GameTestHelper helper) {
-        boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
+        boolean originalEasyMode = ConfigHandler.easyMode;
 
         try {
             ServerLevel level = helper.getLevel();
-            ConfigHandler.COMMON.easyMode.set(true);
+            ConfigHandler.easyMode = true;
             assertEasyModeValue(true);
 
             TileEntitySmallShipyard easySmall = createSmallShipyard(helper, new BlockPos(2, 2, 2),
@@ -2273,7 +2284,7 @@ public final class ShinColleEntityRegistryGameTests {
             assertLargeShipyardRejectsExcess(level, overflowLarge, excessiveInput);
             assertSmallShipyardCatchesPolicyOverflow(overflowSmall);
 
-            ConfigHandler.COMMON.easyMode.set(false);
+            ConfigHandler.easyMode = false;
             assertEasyModeValue(false);
             TileEntitySmallShipyard normalSmall = createSmallShipyard(helper, new BlockPos(2, 8, 2),
                     "normal-mode resource input");
@@ -2282,7 +2293,7 @@ public final class ShinColleEntityRegistryGameTests {
             assertSmallShipyardResourceSequence(level, normalSmall, 9, "normal-mode small shipyard");
             assertLargeShipyardResourceSequence(level, normalLarge, 9, "normal-mode large shipyard");
         } finally {
-            ConfigHandler.COMMON.easyMode.set(originalEasyMode);
+            ConfigHandler.easyMode = originalEasyMode;
         }
         assertEasyModeValue(originalEasyMode);
         helper.succeed();
@@ -2324,9 +2335,9 @@ public final class ShinColleEntityRegistryGameTests {
             throw new AssertionError("Large shipyard tile was not created for inventory mode test.");
         }
 
-        boolean originalEasyMode = ConfigHandler.COMMON.easyMode.get();
+        boolean originalEasyMode = ConfigHandler.easyMode;
         try {
-            ConfigHandler.COMMON.easyMode.set(false);
+            ConfigHandler.easyMode = false;
             assertEasyModeValue(false);
 
             int firstInput = TileMultiGrudgeHeavy.SLOT_INPUT_START;
@@ -2417,7 +2428,7 @@ public final class ShinColleEntityRegistryGameTests {
             clearLargeShipyardInputs(shipyard);
             shipyard.setMatStock(0, 90);
             shipyard.setInvMode(1);
-            ConfigHandler.COMMON.easyMode.set(true);
+            ConfigHandler.easyMode = true;
             assertEasyModeValue(true);
             tickLargeShipyard(level, shipyard, 1);
             assertStack(shipyard, firstInput, ModItems.GRUDGE_BLOCK_ITEM.get(), 1,
@@ -2426,7 +2437,7 @@ public final class ShinColleEntityRegistryGameTests {
                 throw new AssertionError("EasyMode release did not deduct 90 stock.");
             }
         } finally {
-            ConfigHandler.COMMON.easyMode.set(originalEasyMode);
+            ConfigHandler.easyMode = originalEasyMode;
         }
         assertEasyModeValue(originalEasyMode);
         helper.succeed();
@@ -2705,7 +2716,7 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     private static void assertEasyModeValue(boolean expected) {
-        if (ConfigHandler.COMMON.easyMode.get() != expected || ConfigHandler.easyMode() != expected) {
+        if (ConfigHandler.easyMode != expected || ConfigHandler.easyMode() != expected) {
             throw new AssertionError("GameTest could not set EasyMode to " + expected + ".");
         }
     }

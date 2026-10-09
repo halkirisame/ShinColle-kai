@@ -8,6 +8,8 @@ import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.utility.CombatHelper;
+import com.lulan.shincolle.utility.ParticleHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -16,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
@@ -60,6 +63,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     protected int playerUID;
     protected Attrs attrs;
     protected int type;
+    private boolean impacting;
 
     public EntityAbyssMissile(EntityType<? extends EntityAbyssMissile> type, Level level) {
         super(type, level);
@@ -95,7 +99,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
      */
     public void initMissile(IShipAttackBase host, int missileType, int moveType,
                             float atk, float kbValue, float launchY,
-                            float tarX, float tarY, float tarZ,
+                            double tarX, float tarY, double tarZ,
                             int lifetime, float addHeight,
                             float initVel, float initAccY1, float initAccY2) {
         this.host = host;
@@ -380,6 +384,10 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
      * Called when missile hits something or expires
      */
     protected void onImpact(Entity hitEntity) {
+        if (this.impacting)
+            return;
+        this.impacting = true;
+
         // upstream (1.10.2 EntityAbyssMissile#onImpact) plays SHIP_EXPLODE on
         // every impact unconditionally, before the null/side checks below.
         this.playSound(ModSounds.SHIP_EXPLODE.get(), (float) (ConfigHandler.volumeAttack() * 1.5F),
@@ -431,8 +439,8 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
                     // modifier both happen inside the target's own hurt()
                     // (BasicEntityShip#hurt) when the target is a ship, so
                     // they must NOT be applied again here.
-                    if (ent instanceof LivingEntity livingTarget && this.hostEntity != null) {
-                        boolean isTargetHurt = livingTarget.hurt(
+                    if (this.hostEntity != null) {
+                        boolean isTargetHurt = ent.hurt(
                                 this.damageSources().mobAttack(this.hostEntity), dmg);
                         com.lulan.shincolle.utility.LogHelper.debug("DEBUG: heavy impact: " + this.hostEntity
                                 + " -> " + ent + " dmg=" + dmg + " hurtAccepted=" + isTargetHurt);
@@ -476,10 +484,12 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
      * Check if entity has same owner as this missile
      */
     private boolean isSameOwner(Entity ent) {
-        if (ent instanceof IShipOwner owner) {
-            return this.playerUID > 0 && owner.getPlayerUID() == this.playerUID;
-        }
-        return false;
+        return TeamHelper.checkSameOwner(this, ent);
+    }
+
+    @Override
+    public boolean isPickable() {
+        return true;
     }
 
     @Override
@@ -491,6 +501,8 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     public boolean hurt(DamageSource source, float amount) {
         if (this.level().isClientSide())
             return false;
+        if (this.impacting)
+            return false;
 
         if (this.host == null) {
             this.discard();
@@ -498,11 +510,32 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
         }
 
         // ignore environmental damage
-        if (source.equals(this.damageSources().inWall()) ||
-                source.equals(this.damageSources().cactus()) ||
-                source.equals(this.damageSources().fall()) ||
-                source.equals(this.damageSources().lava()) ||
-                source.equals(this.damageSources().onFire())) {
+        if (source.is(DamageTypes.IN_WALL)
+                || source.is(DamageTypes.STARVE)
+                || source.is(DamageTypes.CACTUS)
+                || source.is(DamageTypes.FALL)
+                || source.is(DamageTypes.LAVA)
+                || source.is(DamageTypes.IN_FIRE)
+                || source.is(DamageTypes.HOT_FLOOR)
+                || source.is(DamageTypes.FALLING_ANVIL)
+                || source.is(DamageTypes.FALLING_BLOCK)
+                || source.is(DamageTypes.ON_FIRE)) {
+            return false;
+        }
+
+        if (source.is(DamageTypes.MAGIC)
+                || source.is(DamageTypes.DRAGON_BREATH)
+                || source.is(DamageTypes.WITHER)
+                || source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
+            this.onImpact(null);
+            return true;
+        }
+
+        if (this.canDodge()) {
+            return false;
+        }
+
+        if (this.isInvulnerableTo(source)) {
             return false;
         }
 
@@ -512,6 +545,15 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
             return true;
         }
 
+        return super.hurt(source, amount);
+    }
+
+    private boolean canDodge() {
+        float dodge = this.attrs == null ? 0F : this.attrs.getAttrsBuffed(ID.Attrs.DODGE);
+        if (dodge > 0F && this.random.nextFloat() <= dodge) {
+            ParticleHelper.spawnAttackTextParticle(this, 4);
+            return true;
+        }
         return false;
     }
 

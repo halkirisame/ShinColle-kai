@@ -7,7 +7,9 @@ import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
@@ -42,6 +44,11 @@ public class EntityDestroyerHibiki extends BasicEntityShipSmall implements IShip
      */
     public int getEquipType() {
         return 1;
+    }
+
+    @Override
+    protected float getStandingEyeHeight(Pose pose, EntityDimensions size) {
+        return 1.4F;
     }
 
     @Override

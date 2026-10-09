@@ -43,6 +43,9 @@ public class EntityMidwayHime extends BasicEntityShipCV implements IShipRiderTyp
         this.setNumAircraftLight(6);
         this.setNumAircraftHeavy(3);
 
+        // airplanes leave from the same point on the model as in 1.10.2
+        this.launchHeight = 2.0F * 0.7F;
+
         this.postInit();
     }
 

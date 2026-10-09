@@ -190,6 +190,7 @@ public final class AttackGoalContinuationGameTests {
         }
         target.setNoAi(true);
         target.setInvulnerable(true);
+        target.setPersistenceRequired();
         moveTo(helper, target, new Vec3(7.5D, 2D, 1.5D));
         if (!helper.getLevel().addFreshEntity(target)) {
             throw new AssertionError("Failed to add an attack target.");

@@ -1,11 +1,15 @@
 package com.lulan.shincolle.network;
 
+
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.BasicEntitySummon;
+import com.lulan.shincolle.entity.hime.EntityNorthernHime;
+import com.lulan.shincolle.entity.hime.EntitySSNH;
+import com.lulan.shincolle.entity.hime.HimeRiding;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
@@ -18,6 +22,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
@@ -288,13 +293,11 @@ public class C2SInputPacket {
         ServerLevel level = player.serverLevel();
         Entity entity = level.getEntity(values[0]);
 
-        if (entity instanceof BasicEntityShip ship) {
-            if (TargetHelper.checkSameOwner(player, ship)) {
-                ship.setEntitySit(false);
-                ship.startRiding(player, true);
-                ship.getNavigation().stop();
-                ship.sendSyncPacketRiders();
-            }
+        if (entity instanceof BasicEntityShip ship
+                && (ship instanceof EntityNorthernHime || ship instanceof EntitySSNH)
+                && ship.level() == player.level() && player.distanceToSqr(ship) <= 64D
+                && HimeRiding.canRideOwner(ship, player, InteractionHand.MAIN_HAND)) {
+            ship.rideOwner(player);
         }
     }
 

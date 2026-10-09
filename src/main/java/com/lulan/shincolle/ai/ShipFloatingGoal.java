@@ -1,5 +1,10 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
+import com.lulan.shincolle.ai.domain.action.ActionKind;
+import com.lulan.shincolle.ai.domain.command.MovementOrder;
+import com.lulan.shincolle.ai.domain.command.ShipCommandState;
+import com.lulan.shincolle.ai.domain.movement.GuardProximity;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipFloating;
@@ -10,6 +15,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 
 import java.util.EnumSet;
+import java.util.Optional;
 
 /**
  * Floating goal - makes ships rise toward water surface.
@@ -71,6 +77,20 @@ public class ShipFloatingGoal extends Goal {
             return false;
         }
 
+        // NEW: the ship's standing order says what the place is; a mount acts for the ship it carries
+        BasicEntityShip commanded = host instanceof BasicEntityShip ship ? ship
+                : host instanceof BasicEntityMount mount ? mount.getHost() : null;
+        ShipCommandState command = ShipCommandStateAdapter.isNew() && commanded != null
+                ? commanded.getCommandState() : null;
+        if (command != null) {
+            MovementOrder order = command.movement();
+            Entity leader = order instanceof MovementOrder.Follow ? host.getHostEntity() : null;
+            Entity guarded = order instanceof MovementOrder.GuardEntity ? host.getGuardedEntity() : null;
+            return GuardProximity.inPlace(order, ShipMovementGate.settings(host), ent.getBbWidth(),
+                    ShipMovementGate.point(ent), Optional.ofNullable(leader).map(ShipMovementGate::point),
+                    Optional.ofNullable(guarded).map(ShipMovementGate::point));
+        }
+
         // guard mode (CanFollow = false)
         if (!host.getStateFlag(ID.F.CanFollow)) {
             float fMin = host.getStateMinor(ID.M.FollowMin) + ent.getBbWidth() * 0.5F;
@@ -107,6 +127,8 @@ public class ShipFloatingGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (ShipSkillAttackGate.running(this.hostLiving)) return false;
+        if (ShipActionGate.blocked(this.host, ActionKind.MOVEMENT)) return false;
         // ship type
         if (hostShip != null) {
             return canFloatShip(hostShip);
@@ -122,6 +144,8 @@ public class ShipFloatingGoal extends Goal {
 
     @Override
     public void tick() {
+        if (ShipSkillAttackGate.running(this.hostLiving)) return;
+        if (ShipActionGate.blocked(this.host, ActionKind.MOVEMENT)) return;
         double depth = this.host.getShipDepth();
 
         // 5-tier graduated float speeds matching original
@@ -148,7 +172,7 @@ public class ShipFloatingGoal extends Goal {
         // block floating when: riding, sitting, crane, navigating, or in guard position
         return !(ship.isPassenger()
                 || ship.isOrderedToSit()
-                || ship.getStateMinor(ID.M.CraneState) > 0
+                || ShipMovementGate.craneBusy(ship)
                 || !ship.getNavigation().isDone()
                 || isInGuardPosition(ship));
     }
@@ -161,7 +185,7 @@ public class ShipFloatingGoal extends Goal {
         Entity hostEntity = mount.getHostEntity();
         if (hostEntity instanceof BasicEntityShip ship) {
             if (ship.isOrderedToSit()
-                    || ship.getStateMinor(ID.M.CraneState) > 0
+                    || ShipMovementGate.craneBusy(ship)
                     || !ship.getNavigation().isDone()
                     || isInGuardPosition(ship)) {
                 return false;

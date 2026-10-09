@@ -5,15 +5,25 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fluids.FluidStack;
@@ -80,6 +90,51 @@ public class ShipTank extends BasicItem {
         return new ShipTankFluidProvider(stack, this.capacity);
     }
 
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        BlockHitResult hit = getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
+        return new InteractionResultHolder<>(collectSource(level, player, stack, hit), stack);
+    }
+
+    private InteractionResult collectSource(Level level, Player player, ItemStack stack, BlockHitResult hit) {
+        if (hit.getType() != HitResult.Type.BLOCK) {
+            return InteractionResult.PASS;
+        }
+
+        BlockPos pos = hit.getBlockPos();
+        BlockState state = level.getBlockState(pos);
+        FluidState fluidState = state.getFluidState();
+        Fluid fluid = fluidState.getType();
+        if (!(state.is(Blocks.WATER) || state.is(Blocks.LAVA)) || !fluidState.isSource()
+                || (fluid != Fluids.WATER && fluid != Fluids.LAVA)) {
+            return InteractionResult.PASS;
+        }
+
+        if (!level.isInWorldBounds(pos) || !level.mayInteract(player, pos)
+                || !player.mayUseItemAt(pos.relative(hit.getDirection()), hit.getDirection(), stack)) {
+            return InteractionResult.FAIL;
+        }
+
+        IFluidHandlerItem tank = stack.getCapability(ForgeCapabilities.FLUID_HANDLER_ITEM).orElse(null);
+        FluidStack collected = new FluidStack(fluid, 1000);
+        if (tank == null || tank.fill(collected, IFluidHandler.FluidAction.SIMULATE) != 1000) {
+            return InteractionResult.FAIL;
+        }
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+
+        LiquidBlock source = (LiquidBlock) state.getBlock();
+        if (source.pickupBlock(level, pos, state).isEmpty()) {
+            return InteractionResult.FAIL;
+        }
+        tank.fill(collected, IFluidHandler.FluidAction.EXECUTE);
+        source.getPickupSound(state).ifPresent(sound -> player.playSound(sound, 1F, 1F));
+        level.gameEvent(player, GameEvent.FLUID_PICKUP, pos);
+        return InteractionResult.CONSUME;
+    }
+
     /**
      * Place one source block from the tank through the ordinary item-use path.
      * This keeps fluid consumption and placement authority on the server instead
@@ -88,6 +143,14 @@ public class ShipTank extends BasicItem {
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
+        Player player = context.getPlayer();
+        if (player != null) {
+            BlockHitResult hit = getPlayerPOVHitResult(level, player, ClipContext.Fluid.SOURCE_ONLY);
+            InteractionResult collected = collectSource(level, player, context.getItemInHand(), hit);
+            if (collected != InteractionResult.PASS) {
+                return collected;
+            }
+        }
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         }

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai.path;
 
+import com.lulan.shincolle.ai.ShipMovementGate;
 import com.lulan.shincolle.api.attribute.CoreShipAttributes;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -43,7 +44,7 @@ public class ShipMoveControl extends MoveControl {
      * Get formation-adjusted movement speed
      */
     private static float getFormationMOV(BasicEntityShip ship) {
-        if (ship.getStateMinor(ID.M.FormatType) <= 0 || !(ship.getAttrs() instanceof AttrsAdv attrs)) {
+        if (!ShipMovementGate.settings(ship).formation() || !(ship.getAttrs() instanceof AttrsAdv attrs)) {
             return (float) ship.getAttributeValue(Attributes.MOVEMENT_SPEED);
         }
 
@@ -83,12 +84,12 @@ public class ShipMoveControl extends MoveControl {
 
                 // check formation speed bonus
                 if (this.entity instanceof BasicEntityShip ship) {
-                    if (ship.getStateMinor(ID.M.FormatType) > 0) {
+                    if (ShipMovementGate.settings(ship).formation()) {
                         moveSpeed = getFormationMOV(ship);
                     }
                 } else if (this.entity instanceof BasicEntityMount mount) {
                     BasicEntityShip host = (BasicEntityShip) mount.getHostEntity();
-                    if (host != null && host.getStateMinor(ID.M.FormatType) > 0) {
+                    if (host != null && ShipMovementGate.settings(host).formation()) {
                         moveSpeed = getFormationMOV(host);
                     }
                 }

@@ -2,12 +2,18 @@ package com.lulan.shincolle.entity.carrier;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.ShipInnateAttackEffects;
+import com.lulan.shincolle.entity.other.EntityAirplaneT;
+import com.lulan.shincolle.entity.other.EntityAirplaneZero;
 import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -39,7 +45,17 @@ public class EntityCarrierKaga extends BasicEntityShipCV {
         this.setNumAircraftLight(6);
         this.setNumAircraftHeavy(3);
 
+        // airplanes leave from the same point on the model as in 1.10.2
+        this.launchHeight = 1.875F * 0.65F;
+
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddRaw() {
+        super.calcShipAttributesAddRaw();
+        this.maxAircraftLight += this.getLevel() * 0.4F;
+        this.maxAircraftHeavy += this.getLevel() * 0.2F;
     }
 
     /**
@@ -103,6 +119,31 @@ public class EntityCarrierKaga extends BasicEntityShipCV {
             }
         } else {
             return this.getBbHeight() * 0.72F;
+        }
+    }
+
+    @Override
+    protected BasicEntityAirplane getAttackAirplane(boolean isLight) {
+        if (isLight) {
+            return new EntityAirplaneZero(ModEntities.AIRPLANE_ZERO.get(), this.level());
+        }
+        return new EntityAirplaneT(ModEntities.AIRPLANE_T.get(), this.level());
+    }
+
+    /**
+     * Aircraft launch plays the bow sound instead of the common launch sound.
+     */
+    @Override
+    public void applySoundAtAttacker(int type, Entity target) {
+        if (type != 3 && type != 4) {
+            super.applySoundAtAttacker(type, target);
+            return;
+        }
+        if (!this.level().isClientSide()) {
+            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.ARROW_SHOOT, this.getSoundSource(),
+                    (float) ConfigHandler.volumeAttack() + 0.2F,
+                    1F / (this.random.nextFloat() * 0.4F + 1.2F) + 0.5F);
         }
     }
 }

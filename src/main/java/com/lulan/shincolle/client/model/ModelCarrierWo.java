@@ -480,7 +480,8 @@ public class ModelCarrierWo extends ShipModelBaseAdv<Entity> {
         PartDefinition glowHead = glowBodyMain.addOrReplaceChild("GlowHead",
                 CubeListBuilder.create(),
                 PartPose.offset(0.0F, -13.0F, -0.5F));
-        addDefaultFaceParts(glowHead);
+        addFaceParts(glowHead, -12.2F, -4.2F, -3.0F, -6.8F,
+                new int[] {69, 91, 69, 96, 83, 91}, new int[] {83, 96});
 
         PartDefinition glowEquipBase = glowHead.addOrReplaceChild("GlowEquipBase",
                 CubeListBuilder.create(),

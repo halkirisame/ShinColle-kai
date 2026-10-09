@@ -4,6 +4,8 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 
 import com.lulan.shincolle.entity.IShipEmotion;
+import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
@@ -99,6 +101,12 @@ public class ShipCmdShipAI {
                         + (path.isDone() ? " done" : " active"));
 
         source.sendSuccess(() -> Component.literal("[ShinColle] === Ship AI ==="), false);
+        if (mob instanceof BasicEntityShip ship && ShipCommandStateAdapter.isNew()) {
+            source.sendSuccess(() -> Component.literal("  Command: " + ship.getCommandState()), false);
+            source.sendSuccess(() -> Component.literal("  Last change: " + ship.getLastCommandStateChange()), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("  Command: LEGACY"), false);
+        }
         source.sendSuccess(() -> Component.literal(
                 "  Entity: " + mob.getClass().getSimpleName()
                         + String.format(" (%.1fm)", mob.distanceTo(player))

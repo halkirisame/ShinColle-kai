@@ -41,6 +41,11 @@ public final class CombatTargetFoundationGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_provider_observes_and_resolver_finds_non_living_entity")
     public static void providerObservesAndResolverFindsNonLivingEntity(GameTestHelper helper) {
+        GameTestEntities.whenPositionsTicking(helper, () -> verifyRegisteredEntities(helper),
+                new Vec3(0.5D, 1D, 0.5D), new Vec3(1.5D, 1D, 0.5D));
+    }
+
+    private static void verifyRegisteredEntities(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             verifyProviderObservesAndResolverFindsNonLivingEntity(helper, entities);
         }
@@ -63,6 +68,8 @@ public final class CombatTargetFoundationGameTests {
             helper.fail("Could not add the combat target foundation test entities");
             return;
         }
+        GameTestEntities.assertRegistered(helper, source);
+        GameTestEntities.assertRegistered(helper, target);
 
         AtomicInteger queryCount = new AtomicInteger();
         AtomicInteger rawCandidateCount = new AtomicInteger();

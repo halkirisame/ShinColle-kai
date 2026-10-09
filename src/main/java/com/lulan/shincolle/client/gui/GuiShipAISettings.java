@@ -3,6 +3,7 @@ package com.lulan.shincolle.client.gui;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.WaypointStayTime;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -246,6 +247,11 @@ public class GuiShipAISettings extends Screen {
         this.ship = ship;
     }
 
+    private static String stayText(int rawStay) {
+        WaypointStayTime.Display shown = WaypointStayTime.display(rawStay);
+        return net.minecraft.network.chat.Component.translatable(shown.translationKey(), shown.amount()).getString();
+    }
+
     private static String tr(String key, String fallback) {
         String localized = I18n.get(key);
         return localized.equals(key) ? fallback : localized;
@@ -366,7 +372,7 @@ public class GuiShipAISettings extends Screen {
 
             graphics.drawString(this.font, tr(sl.key(), sl.fallback()), x + 2, y + 2, 0xE0E0E0, false);
             String valueText = barIndex == 4 ? getMoraleLevelName(value)
-                    : barIndex == 3 ? value + "s"
+                    : barIndex == 3 ? stayText(value)
                     : String.valueOf(value);
             graphics.drawString(this.font, valueText,
                     x + w - 2 - this.font.width(valueText), y + 2,

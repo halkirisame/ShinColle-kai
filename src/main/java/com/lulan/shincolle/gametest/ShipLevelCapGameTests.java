@@ -68,6 +68,20 @@ public final class ShipLevelCapGameTests {
 
             assertEquals(originalUnmarriedCap, ConfigHandler.maxLevelUnmarried, "restored unmarried cap");
             assertEquals(originalAbsoluteCap, ConfigHandler.maxLevel, "restored absolute cap");
+
+            boolean originalEasyMode = ConfigHandler.easyMode;
+            boolean configuredEasyMode = ConfigHandler.COMMON.easyMode.get();
+            try {
+                ConfigHandler.easyMode = !configuredEasyMode;
+                ConfigHandler.syncConfig();
+                if (ConfigHandler.easyMode != configuredEasyMode
+                        || ConfigHandler.easyMode() != configuredEasyMode) {
+                    throw new AssertionError("EasyMode config was not synchronized.");
+                }
+            } finally {
+                ConfigHandler.easyMode = originalEasyMode;
+            }
+
             helper.succeed();
         }
     }

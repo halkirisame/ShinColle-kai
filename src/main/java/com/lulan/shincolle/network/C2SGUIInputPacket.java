@@ -1,5 +1,7 @@
 package com.lulan.shincolle.network;
 
+import com.lulan.shincolle.ai.command.ShipCommandDispatcher;
+import com.lulan.shincolle.ai.domain.command.CommandKind;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerFormation;
@@ -312,8 +314,7 @@ public class C2SGUIInputPacket {
             default:
                 // model state toggles and other buttons
                 if (button >= ID.B.ShipInv_ModelState01 && button <= ID.B.ShipInv_ModelState01 + 15
-                        && button - ID.B.ShipInv_ModelState01 < Mth.clamp(
-                                ship.getStateMinor(ID.M.NumState), 0, 16)) {
+                        && ship.isAppearanceBitToggleable(button - ID.B.ShipInv_ModelState01)) {
                     int bit = button - ID.B.ShipInv_ModelState01;
                     int state = ship.getStateEmotion(ID.S.State);
                     ship.setStateEmotion(ID.S.State, state ^ (1 << bit), false);
@@ -742,6 +743,13 @@ public class C2SGUIInputPacket {
      * If the clicked ship is not in any team, toggles sit for that ship only.
      */
     private void handleSetSitting(ServerPlayer player) {
+        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
+                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
+            ShipCommandDispatcher.dispatch(player, CommandKind.TOGGLE_SIT, values,
+                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                    C2SGUIInputPacket::markOutOfFuel);
+            return;
+        }
         if (values.length < 4 || !hasPointerInHand(player))
             return;
 
@@ -893,6 +901,13 @@ public class C2SGUIInputPacket {
      * values: 0:player eid, 1:(unused dim), 2:mode, 3:target entity id
      */
     private void handleAttackTarget(ServerPlayer player) {
+        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
+                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
+            ShipCommandDispatcher.dispatch(player, CommandKind.ATTACK, values,
+                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                    C2SGUIInputPacket::markOutOfFuel);
+            return;
+        }
         if (values.length < 3 || !hasPointerInHand(player))
             return;
         ServerLevel level = player.serverLevel();
@@ -949,6 +964,13 @@ public class C2SGUIInputPacket {
      * values: 0:player eid, 1:(unused dim), 2:mode, 3:target entity id
      */
     private void handleGuardEntity(ServerPlayer player) {
+        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
+                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
+            ShipCommandDispatcher.dispatch(player, CommandKind.GUARD_ENTITY, values,
+                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                    C2SGUIInputPacket::markOutOfFuel);
+            return;
+        }
         if (values.length < 3 || !hasPointerInHand(player))
             return;
         ServerLevel level = player.serverLevel();
@@ -1036,6 +1058,13 @@ public class C2SGUIInputPacket {
      * 7:(optional) release on arrival. Legacy commands remain persistent guards.
      */
     private void handleSetMove(ServerPlayer player) {
+        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
+                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
+            ShipCommandDispatcher.dispatch(player, CommandKind.MOVE, values,
+                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                    C2SGUIInputPacket::markOutOfFuel);
+            return;
+        }
         if (values.length < 7 || !hasPointerInHand(player))
             return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
@@ -1149,7 +1178,7 @@ public class C2SGUIInputPacket {
                         && ship.shouldReleaseGuardOnArrival() != releaseOnArrival;
                 FormationHelper.applyShipGuard(ship, gx, gy, gz, changeArrivalMode, guardType);
             }
-            ship.setReleaseGuardOnArrival(releaseOnArrival);
+            ship.setReleaseGuardOnArrival(formationMove ? false : releaseOnArrival);
             ship.sendSyncPacketGuard();
         }
 

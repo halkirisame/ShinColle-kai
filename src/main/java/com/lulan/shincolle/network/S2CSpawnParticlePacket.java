@@ -86,6 +86,26 @@ public class S2CSpawnParticlePacket {
         if (mc.level == null)
             return;
 
+        if (type == com.lulan.shincolle.ai.ShipSkillAttackGate.VISUAL_PACKET_TYPE) {
+            Entity source = mc.level.getEntity(entityId);
+            if (source == null || payload.length != 49) return;
+            FriendlyByteBuf skill = new FriendlyByteBuf(Unpooled.wrappedBuffer(payload));
+            try {
+                int effect = skill.readUnsignedByte();
+                if (effect >= SkillVisualEffect.values().length) return;
+                double[] values = new double[6];
+                for (int i = 0; i < values.length; i++) {
+                    values[i] = skill.readDouble();
+                    if (!Double.isFinite(values[i])) return;
+                }
+                com.lulan.shincolle.client.particle.SkillAttackVisuals.show(SkillVisualEffect.values()[effect], source,
+                        values[0], values[1], values[2], values[3], values[4], values[5]);
+            } finally {
+                skill.release();
+            }
+            return;
+        }
+
         double x, y, z, lookX = 0, lookY = 1, lookZ = 0;
 
         // Healing sparkle (type 23). The original spawns this through

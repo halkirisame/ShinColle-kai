@@ -138,7 +138,31 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 設定ファイルは新規生成されます。旧設定は引き継がれません。
 <!-- traceability: readme.reforge-compatibility end -->
 
+### 0.11.0から0.12.0への互換性
+
+| 種別 | 状態 |
+|---|---|
+| 起動互換性 | 0.11.0で保存したワールドを読み込む確認を行っています |
+| データ互換性 | 確認した保存例では、艦の所有者・編成・婚姻・装備・持ち物と死亡卵を引き継げます |
+| セーブ互換性 | 確認したプレイデータで継続と死亡卵からの復活を確認しています。更新前にワールドをバックアップしてください |
+| API互換性 | 公開Java APIとKubeJSの定義は維持しています。内部AIクラスへ直接依存するアドオンは互換保証の対象外です |
+
+マルチプレイでは、サーバーとすべてのクライアントを同じ0.12.0へ更新してください。
+0.11.0との混在接続はできません。
+
 ## 移行
+
+### 0.11.0からの更新
+
+更新前にワールドをバックアップし、マルチプレイではサーバーと参加者のMODを同じ版へ揃えてください。
+0.12.0では新AI（NEW）が既定です。既存の `config/shincolle_kai-common.toml` も、
+初回更新時に `shipAiTargetAuthority` だけを一度NEWへ切り替えます。
+
+旧AIを使う場合は、初回更新後に `shipAiTargetAuthority = "LEGACY"` へ変更して
+ワールドに入り直してください。以後の手動選択は保持されます。
+移行済みの印 `shipAiNewDefaultApplied` は変更しないでください。
+
+### Reforgeからの移行
 
 <!-- traceability: readme.reforge-migration begin -->
 Reforgeのワールドを開くこと自体はできますが、**自動移行は行われません。**
@@ -182,11 +206,11 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
   実装済みですが、通常のクライアント以外での確認が終わっていません
 <!-- traceability: readme.known-issue.packet-hardening end -->
 <!-- traceability: readme.known-issue.ship-tasks-crane begin -->
-- **未修正: 艦娘タスク（採掘・釣りなど）とクレーンは未検証です。** 1.20.1移植時の
-  欠落が未調査のため、動作しない可能性があります
+- **検証中: 艦の作業とクレーン。** 採掘時の移動と釣り機構には修正を実装していますが、
+  釣りの描画・音・操作や、クレーンを含む実機確認が残っています
 <!-- traceability: readme.known-issue.ship-tasks-crane end -->
 <!-- traceability: readme.known-issue.particles begin -->
-- **未修正: 1.10.2にあったパーティクル49種のうち24種が未移植です**（見た目のみ）
+- **未修正: 旧版の一部の戦闘パーティクルは未移植です**（見た目のみ）
 <!-- traceability: readme.known-issue.particles end -->
 <!-- traceability: readme.known-issue.large-construction begin -->
 - **検証中: 大型建造。** 大型造船所を構成するブロック（多金属ブロック・深海重怨念
@@ -194,9 +218,10 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
   実際に建造できるかは未確認です
 <!-- traceability: readme.known-issue.large-construction end -->
 <!-- traceability: readme.known-issue.emotion begin -->
-- **検証中: 艦の感情・反応。** 撫でる・被弾する・攻撃する・待機する・命令する・
-  艦娘タスクのいずれでも感情の表示、音声、士気の変動、押し返し、反撃が起きない
-  問題を修正しました。表情やパーティクルの表示は未確認です
+- **検証中: 艦の感情・反応。** 感情の表示、音声、押し返し、反撃の修正を実装していますが、
+  表情やパーティクルを含む実機確認が残っています。
+  **撫でても士気が増えないという実機報告は未解決です。** 士気加算の自動テストは
+  通っていますが、実際の操作で増えない原因の確認が終わっていません
 <!-- traceability: readme.known-issue.emotion end -->
 <!-- traceability: readme.known-issue.shipyard-vortex begin -->
 - **検証中: 大型造船所の渦**が建造中も停止時と同じ表示のままだった問題を
@@ -205,9 +230,9 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.11.0 について
+## β版 v1.20.1-0.12.0 について
 
-**β版 `0.11.0`** です。
+**β版 `0.12.0`** です。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
 一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
@@ -219,8 +244,11 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 既知の不具合: 撫でても士気が上がらない / 艦が手持ちアイテムを表示しない。
 
-未完成の領域: 艦娘タスクとクレーン(本フォークで未着手) / 艦ごとの特殊攻撃・固有演出 /
-艦AIの作り直し。
+新AIが既定になり、追従の呼び戻し・上下離脱の通知・エンドでの奈落救出を実装しました。
+釣り機構、貨物容量、シップタンク、表示と音にも修正を入れています。
+天龍・龍田・長門の特殊攻撃は新AIに実装しましたが、実機確認は未完了です。
+
+残る確認・復元: 新AIの手触り / 釣りの描画・音・操作とクレーン / 他の艦の固有攻撃・演出。
 
 変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
@@ -262,7 +290,15 @@ ShinColle-kai についての質問、感想、動作報告、開発の相談は
 - 原作: PinkaLulan氏 — https://github.com/PinkaLulan/ShinColle
 - Forge 1.20.1 移植: kousakirai氏 — https://github.com/kousakirai/ShinColle-Reforge
 
-MITライセンスのもとで公開されています。詳細は [LICENSE](LICENSE) をご覧ください。
+## ライセンス
+
+本MODはMITライセンスで公開しています。ただし、艦AIの判断部分（`src/ai_core`）は [PolyForm Shield License 1.0.0](src/ai_core/LICENSE) です。詳細は [LICENSE](LICENSE) をご覧ください。
+
+- 遊ぶこと、サーバーでの利用、MODパックへの同梱、公開APIを使うアドオンの配布は自由です。
+- ソースを読むこと、改変して修正を提案すること（PRなど）も自由です。
+- 艦AIの判断部分を、本MODと競合するMODや製品に使うことはできません。個別の許可は、「コミュニティ・連絡先」の窓口から作者へご相談ください。
+- 旧ShinColle・ShinColle-Reforge 由来の部分と、v1.20.1-0.11.0 までに公開したコードは、引き続きMITライセンスで利用できます。
+- この要約は案内です。条件は各ライセンスの原文が優先します。
 
 ---
 
@@ -408,6 +444,28 @@ port and to fix bugs, using the 1.10.2 code and in-game behaviour as the referen
 Config files are regenerated; old settings are not carried over.
 <!-- traceability: readme.reforge-compatibility-en end -->
 
+### Compatibility from 0.11.0 to 0.12.0
+
+| Kind | Status |
+|---|---|
+| World loading | Loading worlds saved in 0.11.0 has been tested |
+| Data | Tested saves preserve ship ownership, formations, marriage, equipment, cargo and sunk-ship eggs |
+| Save continuity | Continued play and revival from saved ship eggs have been tested. Back up your world before updating |
+| API | The public Java API and KubeJS definitions are preserved. Addons that depend directly on internal AI classes are outside the compatibility guarantee |
+
+Update the server and every client to the same 0.12.0 version.
+Mixed 0.11.0/0.12.0 connections are not supported.
+
+## Migration from 0.11.0
+
+Back up your world before updating and use the same mod version on the server and every client.
+The redesigned ship AI (NEW) is now the default. On the first update, an existing
+`config/shincolle_kai-common.toml` switches `shipAiTargetAuthority` to NEW once.
+
+To use the previous AI, set `shipAiTargetAuthority = "LEGACY"` after the first update
+and re-enter the world. Later manual selections are preserved.
+Leave the migration marker `shipAiNewDefaultApplied` unchanged.
+
 ## Migration from Reforge
 
 <!-- traceability: readme.reforge-migration-en begin -->
@@ -455,11 +513,12 @@ undetermined.
   normal client is not complete
 <!-- traceability: readme.known-issue.packet-hardening-en end -->
 <!-- traceability: readme.known-issue.ship-tasks-crane-en begin -->
-- **Not fixed: ship tasks (mining, fishing) and the crane are unverified.** Gaps from
-  the 1.20.1 port have not been investigated, so they may not work
+- **In verification: ship work tasks and the crane.** Mining movement and fishing
+  have received fixes, but fishing visuals, sound and operation, and in-game checks
+  including the crane, remain to be verified
 <!-- traceability: readme.known-issue.ship-tasks-crane-en end -->
 <!-- traceability: readme.known-issue.particles-en begin -->
-- **Not fixed: 24 of the 49 particle types from 1.10.2 are not ported** (cosmetic only)
+- **Not fixed: some combat particles from the original version are not ported** (cosmetic only)
 <!-- traceability: readme.known-issue.particles-en end -->
 <!-- traceability: readme.known-issue.large-construction-en begin -->
 - **In verification: large construction.** The blocks that make up the large shipyard
@@ -468,10 +527,10 @@ undetermined.
   is unconfirmed
 <!-- traceability: readme.known-issue.large-construction-en end -->
 <!-- traceability: readme.known-issue.emotion-en begin -->
-- **In verification: ship emotional reactions.** Petting, taking damage, attacking,
-  idling, being commanded and ship tasks produced no emotion display, voice, morale
-  change, pushback or retaliation. This is fixed; the on-screen expressions and
-  particles are unconfirmed
+- **In verification: ship emotional reactions.** Fixes for emotion display, voices,
+  pushback and retaliation are implemented, but in-game checks including expressions
+  and particles remain. **Reports that petting does not raise morale are unresolved.**
+  Automated morale tests pass, but the cause of the failure during actual play is unconfirmed
 <!-- traceability: readme.known-issue.emotion-en end -->
 <!-- traceability: readme.known-issue.shipyard-vortex-en begin -->
 - **In verification: the large shipyard's vortex** stayed in its idle appearance even
@@ -481,9 +540,9 @@ undetermined.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.11.0
+## About the beta release, v1.20.1-0.12.0
 
-This is the **beta, `0.11.0`**.
+This is the **beta, `0.12.0`**.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
 a fleet, fight, level up and marry. New players receive a guide book whose "Getting
@@ -495,8 +554,13 @@ they are closed.
 
 Known defects: petting does not raise morale; ships do not render a held item.
 
-Incomplete systems: ship work tasks and the crane (untouched by this fork); per-ship
-special attacks and combat effects; the ship AI rewrite.
+The redesigned AI is now the default, with follow recall, vertical-separation notices
+and void rescue in the End. Fishing, cargo capacity, ship tanks, text and sounds have
+received fixes. Tenryuu, Tatsuta and Nagato's special attacks are implemented in the
+new AI, but their in-game verification is incomplete.
+
+Remaining checks and restoration: the feel of the new AI; fishing visuals, sound and
+operation and the crane; other ships' special attacks and combat effects.
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
@@ -540,7 +604,15 @@ fork.** It is maintained independently of both.
 - Original mod: PinkaLulan — https://github.com/PinkaLulan/ShinColle
 - Forge 1.20.1 port: kousakirai — https://github.com/kousakirai/ShinColle-Reforge
 
-Released under the MIT License; see [LICENSE](LICENSE).
+## License
+
+ShinColle-kai is released under the MIT License, except for the ship AI core in `src/ai_core`, which is under the [PolyForm Shield License 1.0.0](src/ai_core/LICENSE). See [LICENSE](LICENSE) for details.
+
+- Playing, running it on servers, including it in modpacks, and distributing addons that use the public API are all free.
+- Reading the source, modifying it and proposing changes (pull requests and so on) are free.
+- The ship AI core may not be used in mods or products that compete with ShinColle-kai. To ask for permission for a specific use, contact the author through the channels in "Community and contact".
+- Portions derived from ShinColle and ShinColle-Reforge, and code published in v1.20.1-0.11.0 or earlier, remain available under the MIT License.
+- This summary is for convenience; the license texts take precedence.
 
 ---
 

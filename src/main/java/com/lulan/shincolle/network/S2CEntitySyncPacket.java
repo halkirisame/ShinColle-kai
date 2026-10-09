@@ -127,6 +127,7 @@ public class S2CEntitySyncPacket {
 
     private static void writeGuardMetadata(FriendlyByteBuf buf, BasicEntityShip ship) {
         buf.writeBoolean(ship.hasGuardDestination());
+        buf.writeBoolean(ship.getStateFlag(ID.F.CanFollow));
         ResourceKey<Level> dimension = ship.getGuardedDimension();
         buf.writeBoolean(dimension != null);
         if (dimension != null) {
@@ -134,12 +135,25 @@ public class S2CEntitySyncPacket {
         }
     }
 
-    @OnlyIn(Dist.CLIENT)
     private static void readGuardMetadata(FriendlyByteBuf buf, BasicEntityShip ship) {
         ship.setClientGuardDestinationActive(buf.readBoolean());
+        ship.setStateFlag(ID.F.CanFollow, buf.readBoolean());
         ship.setGuardedDimension(buf.readBoolean()
                 ? ResourceKey.create(Registries.DIMENSION, buf.readResourceLocation())
                 : null);
+    }
+
+    public static boolean roundTripGuardFollowForTest(BasicEntityShip ship) {
+        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            boolean original = ship.getStateFlag(ID.F.CanFollow);
+            writeGuardMetadata(buf, ship);
+            ship.setStateFlag(ID.F.CanFollow, !original);
+            readGuardMetadata(buf, ship);
+            return ship.getStateFlag(ID.F.CanFollow) == original;
+        } finally {
+            buf.release();
+        }
     }
 
     // ========== Factory Methods ==========

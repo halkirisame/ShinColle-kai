@@ -23,4 +23,21 @@ class WaypointStayTimeTest {
         assertEquals(0, WaypointStayTime.toTicks(-1));
         assertEquals(0, WaypointStayTime.toTicks(17));
     }
+
+    @Test
+    void displayShowsSecondsBelowAMinuteAndMinutesFromAMinuteOn() {
+        assertEquals(new WaypointStayTime.Display(0, false), WaypointStayTime.display(0));
+        assertEquals(new WaypointStayTime.Display(5, false), WaypointStayTime.display(1));
+        assertEquals(new WaypointStayTime.Display(25, false), WaypointStayTime.display(5));
+        assertEquals(new WaypointStayTime.Display(1, true), WaypointStayTime.display(6));
+        assertEquals(new WaypointStayTime.Display(5, true), WaypointStayTime.display(10));
+        assertEquals(new WaypointStayTime.Display(10, true), WaypointStayTime.display(11));
+        assertEquals(new WaypointStayTime.Display(60, true), WaypointStayTime.display(16));
+    }
+
+    @Test
+    void displayNamesTheUnitByTranslationKey() {
+        assertEquals("gui.shincolle_kai.time.seconds", WaypointStayTime.display(1).translationKey());
+        assertEquals("gui.shincolle_kai.time.minutes", WaypointStayTime.display(6).translationKey());
+    }
 }

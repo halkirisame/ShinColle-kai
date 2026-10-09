@@ -25,6 +25,7 @@ public class CommandHandler {
         ShipCmdShipInfo.register(event.getDispatcher());
         ShipCmdSummonMount.register(event.getDispatcher());
         ShipCmdShipAI.register(event.getDispatcher());
+        ShipCmdAiShadow.register(event.getDispatcher());
         ShipCmdStopAI.register(event.getDispatcher());
         ShipCmdUpdateOwnerUID.register(event.getDispatcher());
 

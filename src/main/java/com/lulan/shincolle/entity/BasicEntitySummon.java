@@ -1,7 +1,12 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.ai.GoalSelectorHelper;
+import com.lulan.shincolle.ai.domain.TargetHandle;
+import com.lulan.shincolle.ai.observation.MinecraftEntityObservationAdapter;
+import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CAttackAnimationPacket;
@@ -17,6 +22,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for summoned entities (rensouhou, floating fort, airplanes, etc.).
@@ -33,6 +39,8 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
     protected boolean initScale;
     protected int attackTime;
     protected int attackTime2;
+    @Nullable
+    private TargetHandle combatTarget;
 
     protected BasicEntitySummon(EntityType<? extends BasicEntitySummon> type, Level level) {
         super(type, level);
@@ -148,18 +156,18 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             }
 
             // target validity check - if can't find more targets, die
-            LivingEntity target = this.getTarget();
+            Entity target = this.getEntityTarget();
 
             if (!shouldDie && !canFindTarget()
                     && (target == null || !target.isAlive())) {
                 // try host's target
                 if (this.host != null) {
-                    Entity host_target = this.host.getEntityTarget();
+                    Entity hostTarget = this.host.getEntityTarget();
 
-                    if (host_target instanceof LivingEntity living) {
-                        this.setTarget(living);
+                    if (hostTarget != null && hostTarget.isAlive()) {
+                        this.setEntityTarget(hostTarget);
                         LogHelper.diag("DIAG: summon inherit target=" + this + " host=" + this.host
-                                + " hostTarget=" + host_target + " result=inherited");
+                                + " hostTarget=" + hostTarget + " result=inherited");
                     } else {
                         shouldDie = true;
                         despawnReason = "noHostTarget";
@@ -240,10 +248,21 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
     }
 
     public Entity getEntityTarget() {
-        return this.getTarget();
+        if (this.level().isClientSide()) {
+            return this.getTarget();
+        }
+        if (this.combatTarget == null || !(this.level() instanceof ServerLevel serverLevel)) {
+            return null;
+        }
+        return new MinecraftTargetResolver(serverLevel).resolve(this.combatTarget).orElse(null);
     }
 
     public void setEntityTarget(Entity target) {
+        if (!this.level().isClientSide()) {
+            this.combatTarget = target == null
+                    ? null
+                    : MinecraftEntityObservationAdapter.observe(target).handle();
+        }
         this.setTarget(target instanceof LivingEntity living ? living : null);
     }
 
@@ -314,11 +333,11 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
     // ========== AI Task Management ==========
 
     protected void clearAITasks() {
-        this.goalSelector.removeAllGoals(goal -> true);
+        GoalSelectorHelper.stopAndClear(this.goalSelector);
     }
 
     protected void clearAITargetTasks() {
-        this.setTarget(null);
-        this.targetSelector.removeAllGoals(goal -> true);
+        GoalSelectorHelper.stopAndClear(this.targetSelector);
+        this.setEntityTarget(null);
     }
 }

@@ -41,6 +41,9 @@ public class EntityCarrierHime extends BasicEntityShipCV implements IShipRiderTy
         this.setNumAircraftLight(6);
         this.setNumAircraftHeavy(3);
 
+        // airplanes leave from the same point on the model as in 1.10.2
+        this.launchHeight = 1.9F * 0.9F;
+
         this.postInit();
     }
 

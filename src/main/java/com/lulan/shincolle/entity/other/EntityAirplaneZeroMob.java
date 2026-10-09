@@ -19,6 +19,11 @@ public class EntityAirplaneZeroMob extends EntityAirplaneZero {
     }
 
     @Override
+    public int getPlayerUID() {
+        return -100;
+    }
+
+    @Override
     public void initAttrs(IShipAttackBase host, Entity target, int scaleLevel, float... par2) {
         if (host instanceof BasicEntityShipHostile hostile) {
             float launchY = (float) hostile.getY();

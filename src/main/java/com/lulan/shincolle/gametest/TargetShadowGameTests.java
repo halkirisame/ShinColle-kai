@@ -262,13 +262,13 @@ public final class TargetShadowGameTests {
                     "Waiting for the shadow source's chunk to tick entities");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(farthestEntityPosition)),
                     "Waiting for the shadow fixture's far chunk to tick entities");
-        }).thenExecute(() -> {
+        }).thenExecute(GameTestVerification.namedFailure(() -> {
             try {
                 verification.run();
             } catch (ReflectiveOperationException exception) {
                 throw new AssertionError("Target shadow fixture reflection failed", exception);
             }
-        }).thenSucceed();
+        })).thenSucceed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_shadow_adds_one_query_per_scan_and_none_during_cooldown")
@@ -325,7 +325,7 @@ public final class TargetShadowGameTests {
             check(TargetShadowComparison.count(Outcome.DRAW_NOT_TAKEN) == 1L, "Missing draw not counted");
             check(TargetShadowComparison.count(Outcome.DIFF_NON_LIVING) == 1L, "non-Living difference not classified");
             check(TargetShadowComparison.metrics().equals(
-                            // Each missile needs banned for Stage 2 and allied for legacy.
+                            // Each missile needs banned for the target selector and allied for legacy.
                             new TargetShadowComparison.Metrics(1, 1, 3, 1, 3, 6, 0, 0)),
                     "No-target legacy scan must still add exactly one query and process three candidates");
         } finally {
@@ -343,7 +343,8 @@ public final class TargetShadowGameTests {
                     "Waiting for the source chunk to tick entities");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(position.add(2D, 0D, 0D))),
                     "Waiting for the equal-distance targets' chunk to tick entities");
-        }).thenExecute(() -> verifyEqualDistanceHandleDifference(helper)).thenSucceed();
+        }).thenExecute(GameTestVerification.namedFailure(
+                () -> verifyEqualDistanceHandleDifference(helper))).thenSucceed();
     }
 
     private static void verifyEqualDistanceHandleDifference(GameTestHelper helper) {

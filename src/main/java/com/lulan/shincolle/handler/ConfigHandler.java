@@ -1,6 +1,7 @@
 package com.lulan.shincolle.handler;
 
 import com.lulan.shincolle.ShinColle;
+import com.lulan.shincolle.ai.domain.ShipAiDefaultMigration;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
 import com.lulan.shincolle.entity.ShipLevelRules;
 import com.lulan.shincolle.reference.unitclass.Attrs;
@@ -9,6 +10,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 import net.minecraftforge.common.ForgeConfigSpec.DoubleValue;
+import net.minecraftforge.common.ForgeConfigSpec.EnumValue;
 import net.minecraftforge.common.ForgeConfigSpec.IntValue;
 
 import java.util.Arrays;
@@ -27,10 +29,18 @@ import java.util.List;
  */
 public class ConfigHandler {
 
+    public enum ShipAiTargetAuthority {
+        LEGACY,
+        NEW
+    }
+
     public static final ForgeConfigSpec COMMON_SPEC;
     public static final Common COMMON;
+    private static volatile ShipAiTargetAuthority shipAiTargetAuthorityTestOverride;
 
     // ========== Cached values for backward compatibility ==========
+    /** EasyMode, synchronized from common config. */
+    public static volatile boolean easyMode;
     /** Absolute and married ship level cap, synchronized from common config. */
     public static volatile int maxLevel = ShipLevelRules.DEFAULT_ABSOLUTE_CAP;
     /** Unmarried ship level cap, synchronized from common config. */
@@ -188,6 +198,7 @@ public class ConfigHandler {
      * Called after config load/reload via ModConfigEvent.
      */
     public static synchronized void syncConfig() {
+        easyMode = COMMON.easyMode.get();
         maxLevel = COMMON.maxLevel.get();
         maxLevelUnmarried = COMMON.maxLevelUnmarried.get();
         modernLimit = COMMON.attrsLimitModernization.get();
@@ -283,7 +294,7 @@ public class ConfigHandler {
     // ========== Static convenience accessors for backward compatibility ==========
 
     public static boolean easyMode() {
-        return COMMON.easyMode.get();
+        return easyMode;
     }
 
     public static boolean friendlyFire() {
@@ -471,6 +482,27 @@ public class ConfigHandler {
         return COMMON.volumeAttack.get();
     }
 
+    /** Called only during the initial common-config load, before cached values are synchronized. */
+    public static boolean applyShipAiNewDefault() {
+        var result = ShipAiDefaultMigration.apply(COMMON.shipAiNewDefaultApplied.get(),
+                COMMON.shipAiTargetAuthority.get(), ShipAiTargetAuthority.NEW);
+        if (!result.migrated()) {
+            return false;
+        }
+        COMMON.shipAiTargetAuthority.set(result.authority());
+        COMMON.shipAiNewDefaultApplied.set(result.applied());
+        return true;
+    }
+
+    public static ShipAiTargetAuthority shipAiTargetAuthority() {
+        ShipAiTargetAuthority override = shipAiTargetAuthorityTestOverride;
+        return override == null ? COMMON.shipAiTargetAuthority.get() : override;
+    }
+
+    public static void setShipAiTargetAuthorityForTest(ShipAiTargetAuthority authority) {
+        shipAiTargetAuthorityTestOverride = authority;
+    }
+
     public static class Common {
 
         // ==================== GENERAL ====================
@@ -526,11 +558,14 @@ public class ConfigHandler {
         public final IntValue cdAirplaneRecovery;
         public final IntValue caressBaseMorale;
         public final IntValue shipEquipSlotsCurios;
+        public final EnumValue<ShipAiTargetAuthority> shipAiTargetAuthority;
+        public final BooleanValue shipAiNewDefaultApplied;
 
         public final BooleanValue canTimekeeping;
         public final BooleanValue canFlare;
         public final BooleanValue canSearchlight;
         public final BooleanValue canTeleport;
+        public final ConfigValue<List<? extends String>> voidRescueDimensions;
         public final BooleanValue checkRing;
 
         // Ship array configs
@@ -789,6 +824,17 @@ public class ConfigHandler {
                             "Must match between client and server.")
                     .defineInRange("shipEquipSlotsCurios", 6, 0, 10);
 
+            shipAiTargetAuthority = builder
+                    .comment("Ship AI: NEW is the redesigned ship AI and the default. "
+                    + "LEGACY keeps the previous AI and will be removed in a later version.",
+                            "Changes apply after ships rebuild their AI, such as after re-entering the world.")
+                    .defineEnum("shipAiTargetAuthority", ShipAiTargetAuthority.NEW);
+
+            shipAiNewDefaultApplied = builder
+                    .comment("Set automatically once shipAiTargetAuthority has been switched to NEW on update.",
+                            "Leave this as it is; to use the previous AI, set shipAiTargetAuthority = \"LEGACY\".")
+                    .define("shipAiNewDefaultApplied", false);
+
             canTimekeeping = builder
                     .comment("Play timekeeping sound every 1000 ticks (1 Minecraft hour)")
                     .define("canTimekeeping", true);
@@ -805,6 +851,11 @@ public class ConfigHandler {
                     .comment("Can ship teleport to owner/guarding position if too far away. " +
                             "NOTE: set false if ships often disappear/despawn after teleport!")
                     .define("canTeleport", true);
+
+            voidRescueDimensions = builder
+                    .comment("Dimensions where falling friendly ships are rescued near their owner under NEW. Empty disables rescue.")
+                    .defineListAllowEmpty("voidRescueDimensions", List.of("minecraft:the_end"),
+                            value -> value instanceof String text && ResourceLocation.tryParse(text) != null);
 
             checkRing = builder
                     .comment("Should check wedding ring when spawning NON-BOSS ship mob")

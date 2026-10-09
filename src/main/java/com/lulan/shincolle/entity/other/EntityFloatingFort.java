@@ -3,12 +3,12 @@ package com.lulan.shincolle.entity.other;
 import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
-import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
 import com.lulan.shincolle.utility.TargetHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -51,7 +51,8 @@ public class EntityFloatingFort extends BasicEntityAirplane {
         }
 
         if (!this.level().isClientSide() && this.isAlive()) {
-            if (this.backHome || this.getTarget() == null || !this.getTarget().isAlive() || this.tickCount >= 500) {
+            Entity target = this.getEntityTarget();
+            if (this.backHome || target == null || !target.isAlive() || this.tickCount >= 500) {
                 impactExplosion();
                 return;
             }
@@ -105,8 +106,7 @@ public class EntityFloatingFort extends BasicEntityAirplane {
             if (TargetHelper.isEntityInvulnerable(ent))
                 continue;
 
-            if (ent instanceof IShipOwner owner && this.getPlayerUID() > 0
-                    && owner.getPlayerUID() == this.getPlayerUID()) {
+            if (TeamHelper.checkSameOwner(this, ent)) {
                 continue;
             }
 

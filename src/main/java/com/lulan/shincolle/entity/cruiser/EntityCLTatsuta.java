@@ -1,5 +1,6 @@
 package com.lulan.shincolle.entity.cruiser;
 
+import com.lulan.shincolle.ai.GoalSelectorHelper;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.ai.ShipSkillAttackGoal;
@@ -49,7 +50,7 @@ public class EntityCLTatsuta extends BasicEntityShipSmall {
         super.setAIList();
 
         // [PORT] 1.10.2 -> 1.20.1: CLTatsuta used skill attack at priority 0.
-        this.goalSelector.removeAllGoals(goal -> goal instanceof ShipSkillAttackGoal);
+        GoalSelectorHelper.stopAndRemove(this.goalSelector, goal -> goal instanceof ShipSkillAttackGoal);
         this.goalSelector.addGoal(0, new ShipSkillAttackGoal(this));
 
         // range attack

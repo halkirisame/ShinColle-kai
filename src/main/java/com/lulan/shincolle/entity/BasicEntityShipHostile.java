@@ -2,6 +2,8 @@ package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.ai.*;
+import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
+import com.lulan.shincolle.ai.domain.TargetLock;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
@@ -46,6 +48,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.fml.ModList;
 import org.jetbrains.annotations.NotNull;
@@ -53,15 +56,18 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Base class for hostile/enemy ship entities (mob variants).
  * Extends Mob (equivalent to EntityMob in 1.10.2).
  */
 public abstract class BasicEntityShipHostile extends Mob
-        implements Enemy, IShipCannonAttack, IShipFloating, IShipNavigator, IShipCustomTexture {
+        implements Enemy, IShipCannonAttack, IShipFloating, IShipNavigator, IShipCustomTexture, ShipCombatHost, ShipMovementHost {
 
     // ========== Fields ==========
+
+    private static final int HOSTILE_PLAYER_UID = -100;
 
     protected LivingEntity aiTarget;
     protected Entity atkTarget;
@@ -118,7 +124,11 @@ public abstract class BasicEntityShipHostile extends Mob
     protected float smokeX, smokeY;
     // initialization
     private boolean initAI;
+    private final ShipCombatState shipCombatState = new ShipCombatState();
+    private final ShipMovementExecutor shipMovementExecutor = new ShipMovementExecutor();
     private int revengeTime;
+    @Nullable
+    private ShipTargetAuthorityGoal targetAuthorityGoal;
     protected ItemStack dropItem = ItemStack.EMPTY;
 
     protected BasicEntityShipHostile(EntityType<? extends BasicEntityShipHostile> type, Level level) {
@@ -355,6 +365,7 @@ public abstract class BasicEntityShipHostile extends Mob
 
     @Override
     public void die(DamageSource source) {
+        ShipSkillAttackGate.cancel(this);
         boolean wasDead = this.dead;
         super.die(source);
         if (!wasDead && this.dead) {
@@ -385,6 +396,9 @@ public abstract class BasicEntityShipHostile extends Mob
     protected void setAIList() {
         // floating (highest priority, no mutex)
         this.goalSelector.addGoal(0, new ShipFloatingGoal(this));
+        // NEW: fires with every weapon on one timer
+        this.goalSelector.addGoal(10, new ShipFireControlGoal(this));
+        if (ShipSkillAttackGate.supported(this)) this.goalSelector.addGoal(0, new ShipSpecialAttackGoal(this));
         // [PORT] 1.10.2 -> 1.20.1: restore legacy hostile mobility goals
         this.goalSelector.addGoal(21, new ShipOpenDoorGoal(this, true));
         this.goalSelector.addGoal(23, new ShipHostileWanderGoal(this, 12, 1, 0.8D));
@@ -412,19 +426,38 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void setAITargetList() {
+        if (ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW) {
+            this.targetAuthorityGoal = new ShipTargetAuthorityGoal(this);
+            this.targetSelector.addGoal(1, this.targetAuthorityGoal);
+            return;
+        }
+        this.targetAuthorityGoal = null;
         this.targetSelector.addGoal(1, new ShipRevengeTargetGoal(this));
         // [PORT] 1.10.2 -> 1.20.1: legacy hostile range target priority is 3.
         this.targetSelector.addGoal(3, new ShipRangeTargetGoal(this));
     }
 
     protected void clearAITasks() {
-        this.goalSelector.removeAllGoals(goal -> true);
+        GoalSelectorHelper.stopAndClear(this.goalSelector);
+        ShipSkillAttackGate.cancel(this);
+        this.shipCombatState.clearWeapons();
+    }
+
+    @Override
+    public ShipCombatState shipCombatState() {
+        return this.shipCombatState;
+    }
+
+    @Override
+    public ShipMovementExecutor shipMovementExecutor() {
+        return this.shipMovementExecutor;
     }
 
     protected void clearAITargetTasks() {
+        GoalSelectorHelper.stopAndClear(this.targetSelector);
         this.setTarget(null);
         this.setEntityTarget(null);
-        this.targetSelector.removeAllGoals(goal -> true);
+        this.targetAuthorityGoal = null;
     }
 
     // ========== NBT Save/Load ==========
@@ -462,6 +495,7 @@ public abstract class BasicEntityShipHostile extends Mob
         }
 
         // recalc attributes
+        ShipSkillAttackGate.loaded(this);
         calcShipAttributes(31, false);
         // ServerBossEvent is runtime-only and is not restored by vanilla NBT.
         // Recreate it after scale/health have been loaded so chunk reloads and
@@ -521,6 +555,7 @@ public abstract class BasicEntityShipHostile extends Mob
         // tick, which showed up as shaking heads and double-speed run cycles.
         if (!this.level().isClientSide()) {
             this.setNoAi(BasicEntityShip.stopAI);
+            ShipSkillAttackGate.observe(this);
         }
         super.tick();
 
@@ -551,7 +586,7 @@ public abstract class BasicEntityShipHostile extends Mob
             // [PORT] 1.10.2 -> 1.20.1: keep legacy bridge from vanilla target AI.
             // Some hostile targeting paths only update Mob#getTarget; mirror it to
             // custom entityTarget so ship attack goals can engage.
-            if (this.getTarget() != null) {
+            if (this.targetAuthorityGoal == null && this.getTarget() != null) {
                 this.setEntityTarget(this.getTarget());
             }
 
@@ -593,6 +628,7 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         // client side
         else {
+            ShipSkillAttackGate.clientTick(this);
             if (StateTimer[ID.T.AttackTime] > 0) {
                 StateTimer[ID.T.AttackTime]--;
             }
@@ -692,6 +728,7 @@ public abstract class BasicEntityShipHostile extends Mob
         boolean isTargetHurt = target.hurt(this.damageSources().mobAttack(this), atk);
         if (isTargetHurt) {
             applyEmotesReaction(3);
+            ShipSkillAttackGate.ordinaryHit(this, target, 0);
         }
         return isTargetHurt;
     }
@@ -708,6 +745,7 @@ public abstract class BasicEntityShipHostile extends Mob
 
             // apply combat rate (miss/crit/dhit/thit)
             atk = CombatHelper.applyCombatRateToDamage(this, target, true, dist, atk);
+            atk = CombatHelper.applyDamageReduceOnPlayer(target, atk);
 
             // hostile light attack uses direct damage (not missiles)
             applySoundAtAttacker(1, target);
@@ -734,6 +772,7 @@ public abstract class BasicEntityShipHostile extends Mob
             boolean isTargetHurt = target.hurt(this.damageSources().mobProjectile(this, this), atk);
             if (isTargetHurt) {
                 DebugProfiler.count(profiler, "shincolle.hostile.attack.light.hit_success");
+                ShipSkillAttackGate.ordinaryHit(this, target, 1);
                 applyEmotesReaction(3);
 
                 ShipOnHitEffects.dispatch(this, target, atk);
@@ -748,6 +787,12 @@ public abstract class BasicEntityShipHostile extends Mob
 
     @Override
     public boolean attackEntityWithHeavyAmmo(Entity target) {
+        if (ShipSkillAttackGate.supported(this)) {
+            setCombatTick(this.tickCount);
+            boolean attacked = ShipSkillAttackGate.heavy(this, target);
+            if (attacked) applyEmotesReaction(3);
+            return attacked;
+        }
         setCombatTick(this.tickCount);
         float atk = getAttackBaseDamage(2, target);
         float kbValue = 0.15F;
@@ -761,17 +806,19 @@ public abstract class BasicEntityShipHostile extends Mob
         // which fires this alongside the missile entity.
         applyParticleAtAttacker(2, target, target);
 
-        // target position
-        float tarX = (float) target.getX();
+        // target position: x and z are doubles, the height stays a float
+        double tarX = target.getX();
         float tarY = (float) target.getY() + target.getBbHeight() * 0.1F;
-        float tarZ = (float) target.getZ();
+        double tarZ = target.getZ();
 
         // heavy shots can miss their aim point (see BasicEntityShip#attackEntityWithHeavyAmmo)
         float dist = (float) Math.sqrt(this.distanceToSqr(target));
         if (this.random.nextFloat() <= CombatHelper.calcMissRate(this, dist)) {
-            tarX = tarX - 5F + this.random.nextFloat() * 10F;
-            tarY = tarY + this.random.nextFloat() * 5F;
-            tarZ = tarZ - 5F + this.random.nextFloat() * 10F;
+            double[] aim = CombatHelper.calcMissAimPoint(tarX, tarY, tarZ, this.getX(), this.getZ(),
+                    target.getBbWidth(), this.random.nextFloat(), this.random.nextFloat(), this.random.nextFloat());
+            tarX = aim[0];
+            tarY = (float) aim[1];
+            tarZ = aim[2];
             ParticleHelper.spawnAttackTextParticle(this, 0); // miss indicator
         }
 
@@ -840,6 +887,9 @@ public abstract class BasicEntityShipHostile extends Mob
     public float getAttackBaseDamage(int type, Entity target) {
         if (this.shipAttrs == null)
             return 1F;
+        java.util.Optional<Float> skillDamage = ShipSkillAttackGate.baseDamage(this, type);
+        if (skillDamage.isPresent()) return skillDamage.get();
+
         return switch (type) {
             case 1 -> // light cannon: apply AA/ASM bonus
                     CombatHelper.modDamageByAdditionAttrs(this, target, this.shipAttrs.getAttackDamage(), 0);
@@ -975,6 +1025,7 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void applySoundAtAttacker(int type, Entity target) {
+        if (ShipSkillAttackGate.ordinarySound(this, type)) return;
     }
 
     /**
@@ -983,6 +1034,7 @@ public abstract class BasicEntityShipHostile extends Mob
      * equivalent, so ranged attacks landed with a sound but no visible shot.
      */
     public void applyParticleAtAttacker(int type, Entity target, Entity target2) {
+        if (ShipSkillAttackGate.ordinaryVisual(this, type)) return;
         if (target != null && !this.level().isClientSide()) {
             triggerAttackAnimation();
             double x = this.getX();
@@ -1081,6 +1133,11 @@ public abstract class BasicEntityShipHostile extends Mob
     @Override
     public boolean canFly() {
         return false;
+    }
+
+    @Override
+    public boolean isPushable() {
+        return !ShipSkillAttackGate.running(this) && super.isPushable();
     }
 
     @Override
@@ -1265,7 +1322,7 @@ public abstract class BasicEntityShipHostile extends Mob
     // ========== IShipOwner Implementation ==========
 
     public int getPlayerUID() {
-        return -1;
+        return HOSTILE_PLAYER_UID;
     }
 
     public void setPlayerUID(int par1) {
@@ -1290,10 +1347,38 @@ public abstract class BasicEntityShipHostile extends Mob
     // ========== IShipAttackBase Implementation ==========
 
     public Entity getEntityTarget() {
+        if (!this.level().isClientSide() && this.targetAuthorityGoal != null
+                && this.level() instanceof ServerLevel serverLevel) {
+            return this.targetAuthorityGoal.currentLock()
+                    .flatMap(lock -> new MinecraftTargetResolver(serverLevel).resolve(lock.target()))
+                    .orElse(null);
+        }
         return this.getTarget();
     }
 
+    public boolean hasTargetAuthority() {
+        return this.targetAuthorityGoal != null;
+    }
+
+    public Optional<TargetLock> currentTargetLock() {
+        return this.targetAuthorityGoal == null ? Optional.empty() : this.targetAuthorityGoal.currentLock();
+    }
+
     public void setEntityTarget(Entity target) {
+        if (this.targetAuthorityGoal != null) {
+            if (target == null) {
+                this.targetAuthorityGoal.clearLock();
+                this.setTarget(null);
+            } else {
+                LogHelper.diag("DIAG: target authority ignored external target ship="
+                        + this + " target=" + target);
+            }
+            return;
+        }
+        this.setTarget(target instanceof LivingEntity living ? living : null);
+    }
+
+    public void projectTargetLock(Entity target) {
         this.setTarget(target instanceof LivingEntity living ? living : null);
     }
 

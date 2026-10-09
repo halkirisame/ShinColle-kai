@@ -1,5 +1,17 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.TargetHandle;
+import com.lulan.shincolle.ai.domain.action.ActionKind;
+import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
+import com.lulan.shincolle.ai.domain.movement.FleeMovePlanner;
+import com.lulan.shincolle.ai.domain.movement.FleeStay;
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
+import com.lulan.shincolle.ai.domain.movement.MovementPoint;
+import com.lulan.shincolle.ai.domain.movement.MovementState;
+import com.lulan.shincolle.ai.domain.movement.PlannedMove;
+import com.lulan.shincolle.ai.domain.movement.MovementIntent;
+import com.lulan.shincolle.ai.domain.movement.StuckDetector;
+import com.lulan.shincolle.ai.domain.movement.StuckState;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
@@ -11,6 +23,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 
 import java.util.EnumSet;
+import java.util.Optional;
 
 /**
  * Flee goal - activates when HP below threshold.
@@ -21,6 +34,10 @@ public class ShipFleeGoal extends Goal {
     private final BasicEntityShip ship;
     private LivingEntity owner;
     private int pathfindCooldown;
+    /** NEW: the re-path count, in place of {@link #pathfindCooldown}. */
+    private MovementState.Flee move = FleeMovePlanner.start();
+    /** NEW: whether the ship is getting anywhere on its way back. */
+    private StuckState stuck = StuckState.NONE;
 
     public ShipFleeGoal(BasicEntityShip ship) {
         this.ship = ship;
@@ -29,6 +46,8 @@ public class ShipFleeGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (ShipActionGate.blocked(this.ship, ActionKind.MOVEMENT)) return false;
+        if (ShipMovementGate.active()) return newShouldWalk(false);
         LivingEntity owner = resolveOwner();
         if (owner == null || !owner.isAlive() || owner.level() != this.ship.level()
                 || this.ship.isOrderedToSit() || this.ship.isLeashed()
@@ -44,23 +63,39 @@ public class ShipFleeGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        if (ShipActionGate.blocked(this.ship, ActionKind.MOVEMENT)) return false;
+        if (ShipMovementGate.active()) return newShouldWalk(true);
         return canUse();
     }
 
     @Override
     public void start() {
         this.owner = resolveOwner();
+        if (ShipMovementGate.active()) {
+            this.move = FleeMovePlanner.start();
+            this.stuck = StuckState.NONE;
+            return;
+        }
         this.pathfindCooldown = 0;
     }
 
     @Override
     public void stop() {
         this.owner = null;
+        if (ShipMovementGate.active()) {
+            ShipMovementExecutor.run(this.ship, ShipMovementExecutor.GOAL_STOPPED);
+            return;
+        }
         ship.getNavigation().stop();
     }
 
     @Override
     public void tick() {
+        if (ShipActionGate.blocked(this.ship, ActionKind.MOVEMENT)) return;
+        if (ShipMovementGate.active()) {
+            this.tickNew();
+            return;
+        }
         if (--this.pathfindCooldown <= 0) {
             this.pathfindCooldown = 20;
 
@@ -93,6 +128,39 @@ public class ShipFleeGoal extends Goal {
                 }
             }
         }
+    }
+
+    /**
+     * NEW: re-path to the owner, riding its mount if it rides one; a stuck ship recovers, and it
+     * teleports only when no path is found or it stays stuck.
+     */
+    private void tickNew() {
+        boolean alive = this.owner != null && this.owner.isAlive();
+        MovementBody body = this.ship.isPassenger() && this.ship.getVehicle() instanceof BasicEntityMount
+                ? MovementBody.VEHICLE : MovementBody.SELF;
+        Optional<TargetHandle> handle = alive ? Optional.of(ShipCommandStateAdapter.handle(this.owner))
+                : Optional.empty();
+        boolean sameLevel = alive && this.owner.level() == this.ship.level();
+        this.stuck = StuckDetector.observe(this.stuck, FleeMovePlanner.travelling(handle, sameLevel),
+                ShipMovementGate.point(this.ship), this.ship.tickCount);
+        FleeMovePlanner.Facts facts = alive
+                ? new FleeMovePlanner.Facts(handle, body,
+                        new MovementPoint(this.owner.getX(), this.owner.getY(), this.owner.getZ()),
+                        this.ship.distanceToSqr(this.owner), sameLevel, ConfigHandler.canTeleport(), this.stuck)
+                : new FleeMovePlanner.Facts(handle, body,
+                        new MovementPoint(this.ship.getX(), this.ship.getY(), this.ship.getZ()), 0D, false, false,
+                        this.stuck);
+        PlannedMove<MovementState.Flee> planned = FleeMovePlanner.tick(this.move, facts);
+        this.move = planned.state();
+        ShipMovementExecutor.run(this.ship, planned.plan());
+    }
+
+    /** NEW: while fleeing, walk back only when the ship has drifted away from its owner. */
+    private boolean newShouldWalk(boolean walking) {
+        if (!(ShipMovementGate.intent(this.ship) instanceof MovementIntent.Flee)) return false;
+        LivingEntity owner = resolveOwner();
+        return owner != null && owner.level() == this.ship.level()
+                && FleeStay.shouldWalk(walking, this.ship.distanceToSqr(owner));
     }
 
     private LivingEntity resolveOwner() {

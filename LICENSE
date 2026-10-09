@@ -1,3 +1,11 @@
+ShinColle-kai is distributed under the MIT License below, except for the ship AI
+core in src/ai_core (the com.lulan.shincolle.ai.domain package), which is licensed
+under the PolyForm Shield License 1.0.0 as described in src/ai_core/LICENSE.
+Portions of src/ai_core derived from ShinColle and ShinColle-Reforge, and code
+published in ShinColle-kai 1.20.1-0.11.0 or earlier, remain under the MIT License.
+
+----------------------------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2026 PinkaLulan (original ShinColle)

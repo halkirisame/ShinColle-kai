@@ -94,8 +94,8 @@ public final class TargetPerceptionGameTests {
         ServerPlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
                 UUID.fromString("00000000-0000-0000-0000-000000000175"),
                 "shincolle_perception"));
-        helper.getLevel().addNewPlayer(player);
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            helper.getLevel().addNewPlayer(player);
             BasicEntityShip source = friendly(helper, entities);
             source.setStateFlag(ID.F.OnSightChase, true);
             BasicEntityShipHostile eligible = hostile(helper, entities, 2D);
@@ -194,7 +194,7 @@ public final class TargetPerceptionGameTests {
                             "Legacy missile predicate changed for UID " + uid + " antiAir=" + antiAir);
                     helper.assertTrue(TargetEligibilityEvaluator.test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
                                     classified, policy) == (antiAir && enemy),
-                            "Stage 2 missile eligibility lost the banned relation or anti-air policy");
+                            "Missile eligibility lost the banned relation or anti-air policy");
                     helper.assertTrue(profiler.relationLookups.get() == (antiAir ? 2 : 1)
                                     && profiler.classifications.get() == 1
                                     && profiler.lineOfSightQueries.get() == 0,
@@ -257,7 +257,7 @@ public final class TargetPerceptionGameTests {
                                 "Addon trait changed legacy ownership filtering: " + registered + " flags=" + flags);
                         helper.assertTrue(TargetEligibilityEvaluator.test(TargetPredicateKind.FRIENDLY_AUTOMATIC,
                                         classified, policy) == (stageTwoEnabled && enemy),
-                                "Addon trait lost Stage 2 eligibility or anti-air precedence");
+                                "Addon trait lost target eligibility or anti-air precedence");
                         int expectedLookups = (stageTwoEnabled || pvp ? 1 : 0) + (pvp && enemy ? 0 : 1);
                         helper.assertTrue(profiler.relationLookups.get() == expectedLookups
                                         && profiler.classifications.get() == 1

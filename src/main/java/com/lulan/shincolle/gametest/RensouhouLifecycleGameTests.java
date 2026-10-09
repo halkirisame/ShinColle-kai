@@ -57,29 +57,39 @@ public final class RensouhouLifecycleGameTests {
     @GameTest(template = "arena", timeoutTicks = 140)
     public static void assignedTargetIsApproachedAndAttacked(GameTestHelper helper) {
         GameTestEntities entities = GameTestEntities.open(helper);
-        FriendlyHost fixture = friendlyHost(helper, entities);
-        BasicEntityShip host = fixture.ship();
-        host.moveTo(helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D)));
-        Cow target = entities.add(EntityType.COW.create(helper.getLevel()));
-        EntityRensouhou summon = entities.add(ModEntities.RENSOUHOU.get().create(helper.getLevel()));
-        helper.assertTrue(target != null && summon != null, "Failed to create movement fixture");
-        target.moveTo(helper.absoluteVec(new Vec3(10.5D, 2D, 2.5D)));
-        target.setNoAi(true);
-        target.setInvulnerable(true);
-        summon.initAttrs(host, target, 0);
-        double initialDistance = summon.distanceToSqr(target);
-        helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add target");
-        helper.assertTrue(helper.getLevel().addFreshEntity(summon), "Failed to add rensouhou");
+        FriendlyHost fixture = null;
+        try {
+            fixture = friendlyHost(helper, entities);
+            BasicEntityShip host = fixture.ship();
+            host.moveTo(helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D)));
+            Cow target = entities.add(EntityType.COW.create(helper.getLevel()));
+            EntityRensouhou summon = entities.add(ModEntities.RENSOUHOU.get().create(helper.getLevel()));
+            helper.assertTrue(target != null && summon != null, "Failed to create movement fixture");
+            target.moveTo(helper.absoluteVec(new Vec3(10.5D, 2D, 2.5D)));
+            target.setNoAi(true);
+            target.setInvulnerable(true);
+            summon.initAttrs(host, target, 0);
+            double initialDistance = summon.distanceToSqr(target);
+            helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add target");
+            helper.assertTrue(helper.getLevel().addFreshEntity(summon), "Failed to add rensouhou");
 
-        helper.runAtTickTime(100, () -> {
-            try (entities; fixture) {
-                helper.assertTrue(summon.distanceToSqr(target) < initialDistance - 1D,
-                        "Rensouhou did not approach its assigned target");
-                helper.assertTrue(summon.getNumAmmoLight() < 6,
-                        "Rensouhou approached but never attacked its assigned target");
-                helper.succeed();
+            FriendlyHost activeFixture = fixture;
+            helper.runAtTickTime(100, () -> {
+                try (entities; activeFixture) {
+                    helper.assertTrue(summon.distanceToSqr(target) < initialDistance - 1D,
+                            "Rensouhou did not approach its assigned target");
+                    helper.assertTrue(summon.getNumAmmoLight() < 6,
+                            "Rensouhou approached but never attacked its assigned target");
+                    helper.succeed();
+                }
+            });
+        } catch (Throwable error) {
+            if (fixture != null) {
+                fixture.close();
             }
-        });
+            entities.close();
+            throw error;
+        }
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
@@ -150,15 +160,20 @@ public final class RensouhouLifecycleGameTests {
     private static FriendlyHost friendlyHost(GameTestHelper helper, GameTestEntities entities) {
         BasicEntityShip host = entities.add(ModEntities.DESTROYER_SHIMAKAZE.get().create(helper.getLevel()));
         helper.assertTrue(host != null, "Failed to create friendly host");
-        ServerPlayer owner = FakePlayerFactory.get(helper.getLevel(),
-                new GameProfile(UUID.randomUUID(), "rensouhou_host"));
-        helper.getLevel().addNewPlayer(owner);
-        host.tame(owner);
-        host.setOwnerUUID(owner.getUUID());
-        host.setStateMinor(ID.M.NumGrudge, 100_000);
-        host.setStateFlag(ID.F.NoFuel, false);
-        host.calcShipAttributes(31, false);
-        return new FriendlyHost(host, owner);
+        ServerPlayer owner = entities.add(FakePlayerFactory.get(helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "rensouhou_host")));
+        try {
+            helper.getLevel().addNewPlayer(owner);
+            host.tame(owner);
+            host.setOwnerUUID(owner.getUUID());
+            host.setStateMinor(ID.M.NumGrudge, 100_000);
+            host.setStateFlag(ID.F.NoFuel, false);
+            host.calcShipAttributes(31, false);
+            return new FriendlyHost(host, owner);
+        } catch (Throwable error) {
+            helper.getLevel().removePlayerImmediately(owner, RemovalReason.DISCARDED);
+            throw error;
+        }
     }
 
     private static BasicEntityShipHostile hostileHost(GameTestHelper helper, GameTestEntities entities) {

@@ -3,7 +3,7 @@ package com.lulan.shincolle.ai;
 import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.utility.BlockHelper;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.Goal;
 
 import java.util.EnumSet;
@@ -15,7 +15,7 @@ import java.util.EnumSet;
 public class ShipAircraftAttackGoal extends Goal {
 
     private final BasicEntityAirplane host;
-    private LivingEntity target;
+    private Entity target;
     private int atkDelay;
     private int maxDelay;
     private float attackRange;
@@ -33,7 +33,7 @@ public class ShipAircraftAttackGoal extends Goal {
         if (!this.host.canFindTarget())
             return false;
 
-        LivingEntity target = this.host.getTarget();
+        Entity target = this.host.getEntityTarget();
         if (this.host.tickCount > 20 && target != null && target.isAlive() &&
                 ((this.host.useAmmoLight() && this.host.hasAmmoLight()) ||
                         (this.host.useAmmoHeavy() && this.host.hasAmmoHeavy()))) {

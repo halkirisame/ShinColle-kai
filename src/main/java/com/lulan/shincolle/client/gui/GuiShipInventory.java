@@ -67,6 +67,10 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * Attribute display on info page: false=surface attack, true=air attack.
      */
     private boolean showAirAttack = false;
+    private final List<TextHint> textHints = new ArrayList<>();
+
+    private record TextHint(int x, int y, int width, int height, List<Component> lines) {
+    }
 
     // ========== Constructor ==========
 
@@ -552,6 +556,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        this.textHints.clear();
         BasicEntityShip ship = this.menu.getShip();
         if (ship == null) {
             graphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, 0x404040, false);
@@ -560,7 +565,13 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
         // Ship Name
         String shipName = ship.hasCustomName() ? Objects.requireNonNull(ship.getCustomName()).getString() : ship.getName().getString();
-        graphics.drawString(this.font, shipName, 8, 6, 0x000000, false);
+        int nameWidth = 145 - this.font.width("HP") - 4 - 8;
+        String displayedName = fitText(shipName, nameWidth);
+        graphics.drawString(this.font, displayedName, 8, 6, 0x000000, false);
+        if (!displayedName.equals(shipName)) {
+            this.textHints.add(new TextHint(8, 6, nameWidth, this.font.lineHeight,
+                    List.of(Component.literal(shipName))));
+        }
 
         // Level (right-aligned, gold at the server's absolute cap)
         int level = ship.getStateMinor(ID.M.ShipLevel);
@@ -715,9 +726,32 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     private void drawStatLine(GuiGraphics graphics, int textX, int textY,
                               String label, String value, int labelColor, int valueColor,
                               int valueYOffset) {
-        graphics.drawString(this.font, label, textX, textY, labelColor, false);
-        graphics.drawString(this.font, value, 133 - this.font.width(value), textY + valueYOffset,
-                valueColor, true);
+        int width = 133 - textX;
+        int offset = statValueOffset(this.font.width(label), this.font.width(value),
+                width, valueYOffset, this.font.lineHeight);
+        String displayedLabel = fitText(label, width);
+        String displayedValue = fitText(value, width);
+        graphics.drawString(this.font, displayedLabel, textX, textY, labelColor, false);
+        graphics.drawString(this.font, displayedValue, 133 - this.font.width(displayedValue),
+                textY + offset, valueColor, true);
+        if (!displayedLabel.equals(label) || !displayedValue.equals(value)) {
+            this.textHints.add(new TextHint(textX, textY, width, offset + this.font.lineHeight,
+                    List.of(Component.literal(label), Component.literal(value))));
+        }
+    }
+
+    static int statValueOffset(int labelWidth, int valueWidth, int availableWidth,
+                               int requestedOffset, int lineHeight) {
+        return requestedOffset > 0 || labelWidth + valueWidth + 4 > availableWidth
+                ? Math.max(requestedOffset, lineHeight + 1) : 0;
+    }
+
+    private String fitText(String text, int width) {
+        if (this.font.width(text) <= width) {
+            return text;
+        }
+        String suffix = "...";
+        return this.font.plainSubstrByWidth(text, Math.max(0, width - this.font.width(suffix))) + suffix;
     }
 
     // ========== Input Handling ==========
@@ -837,9 +871,28 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         BasicEntityShip ship = this.menu.getShip();
         if (ship != null && isHoveringMoraleIcon(mouseX, mouseY)) {
             renderMoraleTooltip(graphics, ship, mouseX, mouseY);
+        } else if (ship != null && renderTextHint(graphics, ship, mouseX, mouseY)) {
+            return;
         } else if (ship != null && isHoveringAttributePanel(mouseX, mouseY)) {
             renderCustomAttributeTooltip(graphics, ship, mouseX, mouseY);
         }
+    }
+
+    private boolean renderTextHint(GuiGraphics graphics, BasicEntityShip ship, int mouseX, int mouseY) {
+        int relX = mouseX - this.leftPos;
+        int relY = mouseY - this.topPos;
+        for (TextHint hint : this.textHints) {
+            if (relX >= hint.x() && relX < hint.x() + hint.width()
+                    && relY >= hint.y() && relY < hint.y() + hint.height()) {
+                List<Component> lines = new ArrayList<>(hint.lines());
+                if (isHoveringAttributePanel(mouseX, mouseY)) {
+                    appendCustomAttributeTooltip(ship, lines);
+                }
+                graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isHoveringAttributePanel(int mouseX, int mouseY) {
@@ -851,13 +904,19 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     private void renderCustomAttributeTooltip(GuiGraphics graphics, BasicEntityShip ship,
                                               int mouseX, int mouseY) {
         List<Component> lines = new ArrayList<>();
+        appendCustomAttributeTooltip(ship, lines);
+        if (!lines.isEmpty()) {
+            graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);
+        }
+    }
+
+    private void appendCustomAttributeTooltip(BasicEntityShip ship, List<Component> lines) {
+        int start = lines.size();
         ShipAttributeTooltipFormatter.appendFinalCustom(
                 ship.shipAttributes(ShipAttributeLayer.BUFFED), ShipAttributeLayout.current(), lines);
-        if (lines.isEmpty()) {
-            return;
+        if (lines.size() > start) {
+            lines.add(start, Component.translatable("gui.shincolle_kai.additional_attributes"));
         }
-        lines.add(0, Component.translatable("gui.shincolle_kai.additional_attributes"));
-        graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);
     }
 
     /**

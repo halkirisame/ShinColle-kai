@@ -694,6 +694,7 @@ public class ModEntities {
     public static final RegistryObject<EntityType<EntityShipFishingHook>> FISHING_HOOK = ENTITIES.register(
             "fishing_hook",
             () -> EntityType.Builder.of(EntityShipFishingHook::new, MobCategory.MISC)
+                    .noSave()
                     .sized(0.25F, 0.25F)
                     .clientTrackingRange(64)
                     .updateInterval(1)

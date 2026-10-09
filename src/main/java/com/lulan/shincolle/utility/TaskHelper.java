@@ -1,5 +1,12 @@
 package com.lulan.shincolle.utility;
 
+import com.lulan.shincolle.ai.ShipMovementExecutor;
+import com.lulan.shincolle.ai.ShipMovementGate;
+import com.lulan.shincolle.ai.domain.command.CommandPos;
+import com.lulan.shincolle.ai.domain.movement.MovementPoint;
+import com.lulan.shincolle.ai.domain.task.TaskMovePlanner;
+import com.lulan.shincolle.ai.domain.task.TaskMoveRequest;
+import com.lulan.shincolle.ai.domain.task.TaskSideMask;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.config.ConfigMining;
 import com.lulan.shincolle.crafting.InventoryCraftingFake;
@@ -11,7 +18,6 @@ import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.reference.unitclass.Dist4d;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
@@ -34,6 +40,8 @@ import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TieredItem;
@@ -68,6 +76,11 @@ import java.util.Optional;
 public class TaskHelper {
 
     public TaskHelper() {
+    }
+
+    /** NEW: a working ship's walk, planned by the domain and carried out by the movement executor. */
+    private static void taskMove(BasicEntityShip host, TaskMoveRequest request) {
+        ShipMovementExecutor.run(host, TaskMovePlanner.plan(request, ShipMovementGate.taskMove(host, request)));
     }
 
     /**
@@ -146,8 +159,13 @@ public class TaskHelper {
 
         // check distance
         if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 25D) {
-            host.getNavigation().moveTo(host.getGuardedPos(0), host.getGuardedPos(1),
-                    host.getGuardedPos(2), 1D);
+            if (ShipMovementGate.active()) {
+                taskMove(host, new TaskMoveRequest.ReturnToWaypoint(new CommandPos(host.getGuardedPos(0),
+                        host.getGuardedPos(1), host.getGuardedPos(2))));
+            } else {
+                host.getNavigation().moveTo(host.getGuardedPos(0), host.getGuardedPos(1),
+                        host.getGuardedPos(2), 1D);
+            }
             return;
         }
 
@@ -185,8 +203,9 @@ public class TaskHelper {
         // start crafting
         int maxCraft = host.getLevel() / 20 + 1;
         int taskSide = host.getStateMinor(ID.M.TaskSide);
-        boolean checkMetadata = (taskSide & Values.N.Pow2[18]) == Values.N.Pow2[18];
-        boolean checkNbt = (taskSide & Values.N.Pow2[20]) == Values.N.Pow2[20];
+        TaskSideMask sideMask = new TaskSideMask(taskSide);
+        boolean checkMetadata = sideMask.checkMetadata();
+        boolean checkNbt = sideMask.checkNbt();
         InventoryCraftingFake recipeTemp = new InventoryCraftingFake(3, 3);
         boolean canAddExp = false;
         int maxtimes = maxCraft;
@@ -314,10 +333,17 @@ public class TaskHelper {
         } else {
             // random move
             if ((host.getTickExisted() & 63) == 0) {
-                host.getNavigation().moveTo(
-                        host.getX() + host.getRandom().nextInt(9) - 4,
-                        host.getY() + host.getRandom().nextInt(5) - 2,
-                        host.getZ() + host.getRandom().nextInt(9) - 4, 1D);
+                if (ShipMovementGate.active()) {
+                    double x = host.getX() + host.getRandom().nextInt(9) - 4;
+                    double y = host.getY() + host.getRandom().nextInt(5) - 2;
+                    double z = host.getZ() + host.getRandom().nextInt(9) - 4;
+                    taskMove(host, new TaskMoveRequest.MiningShuffle(new MovementPoint(x, y, z)));
+                } else {
+                    host.getNavigation().moveTo(
+                            host.getX() + host.getRandom().nextInt(9) - 4,
+                            host.getY() + host.getRandom().nextInt(5) - 2,
+                            host.getZ() + host.getRandom().nextInt(9) - 4, 1D);
+                }
                 return;
             }
         }
@@ -412,8 +438,11 @@ public class TaskHelper {
      * Detect water block with depth >= 3 blocks.
      */
     public static void onUpdateFishing(BasicEntityShip host) {
-        if (host == null)
+        if (host == null || host.level().isClientSide())
             return;
+        if (host.fishHook != null && host.fishHook.isRemoved()) {
+            host.fishHook = null;
+        }
 
         ItemStack rod = host.getCapaShipInventory().getStackInSlot(22);
         if (rod.isEmpty() || rod.getItem() != Items.FISHING_ROD)
@@ -435,7 +464,12 @@ public class TaskHelper {
 
         // move to guard point
         if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 10D) {
-            host.getNavigation().moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 1D);
+            if (ShipMovementGate.active()) {
+                taskMove(host, new TaskMoveRequest.FishingSpot(new MovementPoint(pos.getX() + 0.5D, pos.getY(),
+                        pos.getZ() + 0.5D)));
+            } else {
+                host.getNavigation().moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 1D);
+            }
             return;
         }
 
@@ -459,7 +493,9 @@ public class TaskHelper {
                     pos.getX() + 0.1D + host.getRandom().nextDouble() * 0.8D,
                     pos.getY() + 1D,
                     pos.getZ() + 0.1D + host.getRandom().nextDouble() * 0.8D);
-            host.level().addFreshEntity(hook);
+            if (!host.level().addFreshEntity(hook)) {
+                return;
+            }
             host.fishHook = hook;
 
             switch (host.getRandom().nextInt(4)) {
@@ -562,8 +598,13 @@ public class TaskHelper {
 
         // check distance
         if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 25D) {
-            host.getNavigation().moveTo(host.getGuardedPos(0), host.getGuardedPos(1),
-                    host.getGuardedPos(2), 1D);
+            if (ShipMovementGate.active()) {
+                taskMove(host, new TaskMoveRequest.ReturnToWaypoint(new CommandPos(host.getGuardedPos(0),
+                        host.getGuardedPos(1), host.getGuardedPos(2))));
+            } else {
+                host.getNavigation().moveTo(host.getGuardedPos(0), host.getGuardedPos(1),
+                        host.getGuardedPos(2), 1D);
+            }
             return;
         }
 
@@ -579,8 +620,9 @@ public class TaskHelper {
             return;
 
         int taskSide = host.getStateMinor(ID.M.TaskSide);
-        boolean checkMetadata = (taskSide & Values.N.Pow2[18]) == Values.N.Pow2[18];
-        boolean checkNbt = (taskSide & Values.N.Pow2[20]) == Values.N.Pow2[20];
+        TaskSideMask sideMask = new TaskSideMask(taskSide);
+        boolean checkMetadata = sideMask.checkMetadata();
+        boolean checkNbt = sideMask.checkNbt();
         List<IItemHandler> inputHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 0);
         List<IItemHandler> outputHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 1);
         List<IItemHandler> fuelHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 2);
@@ -798,6 +840,7 @@ public class TaskHelper {
             int lv1 = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.FISHING_LUCK, mainHand);
             int lv2 = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.FISHING_LUCK, offHand);
             luck = Math.max(lv1, lv2);
+            luck += BuffHelper.getPotionLevel(host, 26);
 
             // add level modifier
             luck += ShipLevelRules.expeditionLuckContribution(ship.getLevel(), ConfigHandler.maxLevel);
@@ -809,12 +852,20 @@ public class TaskHelper {
         LootTable lootTable = serverLevel.getServer().getLootData()
                 .getLootTable(BuiltInLootTables.FISHING);
 
+        // The task already checks its deep-water fishing spot. A context-only vanilla
+        // bobber lets the table's fishing predicates see that eligibility and its owner.
+        // It is never spawned, ticked, or retrieved as a player's bobber.
+        FishingHook contextHook = new FishingHook(EntityType.FISHING_BOBBER, serverLevel);
+        contextHook.setOwner(host);
+        contextHook.setPos(host instanceof BasicEntityShip ship && ship.fishHook != null
+                ? ship.fishHook.position() : host.position());
         LootParams params = new LootParams.Builder(serverLevel)
-                .withParameter(LootContextParams.ORIGIN, host.position())
+                .withParameter(LootContextParams.ORIGIN, contextHook.position())
                 .withParameter(LootContextParams.TOOL, host instanceof BasicEntityShip ship
                         ? ship.getCapaShipInventory().getStackInSlot(22)
                         : ItemStack.EMPTY)
-                .withParameter(LootContextParams.THIS_ENTITY, host)
+                .withParameter(LootContextParams.THIS_ENTITY, contextHook)
+                .withParameter(LootContextParams.KILLER_ENTITY, host)
                 .withLuck(luck)
                 .create(LootContextParamSets.FISHING);
 
