@@ -2,16 +2,61 @@ package com.lulan.shincolle.ai.path;
 
 import com.lulan.shincolle.entity.IShipNavigator;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.navigation.AmphibiousPathNavigation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Locale;
 
 /** Amphibious path generation with the original ships' waypoint lookahead. */
 public final class ShipPathNavigation extends AmphibiousPathNavigation {
+    /** Diagnostics only, off unless a test sets it: every stop and path request, with its tick. */
+    private @Nullable List<String> callLog;
 
     public ShipPathNavigation(Mob mob, Level level) {
         super(mob, level);
+    }
+
+    /** Starts appending "tick:call" entries to {@code log}, or stops when it is null. */
+    public void recordCalls(@Nullable List<String> log) {
+        this.callLog = log;
+    }
+
+    @Override
+    public boolean moveTo(double x, double y, double z, double speed) {
+        boolean issued = super.moveTo(x, y, z, speed);
+        if (this.callLog != null) {
+            this.callLog.add(this.mob.tickCount + ":moveTo(" + fmt(x) + "," + fmt(y) + "," + fmt(z) + ")x"
+                    + speed + "=" + issued);
+        }
+        return issued;
+    }
+
+    @Override
+    public boolean moveTo(Entity entity, double speed) {
+        boolean issued = super.moveTo(entity, speed);
+        if (this.callLog != null) {
+            this.callLog.add(this.mob.tickCount + ":moveTo(" + entity.getType().getDescriptionId() + "@"
+                    + fmt(entity.getX()) + "," + fmt(entity.getY()) + "," + fmt(entity.getZ()) + ")x" + speed
+                    + "=" + issued);
+        }
+        return issued;
+    }
+
+    @Override
+    public void stop() {
+        super.stop();
+        if (this.callLog != null) {
+            this.callLog.add(this.mob.tickCount + ":stop");
+        }
+    }
+
+    private static String fmt(double value) {
+        return String.format(Locale.ROOT, "%.3f", value);
     }
 
     @Override

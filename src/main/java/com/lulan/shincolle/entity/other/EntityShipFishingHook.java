@@ -1,8 +1,14 @@
 package com.lulan.shincolle.entity.other;
 
+import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -22,8 +28,8 @@ import java.util.List;
 
 /**
  * Ship fishing hook entity (for ship fishing mechanic).
- * Implements basic fishing behavior: launched into water, waits for a catch,
- * then returns with loot to the hosting ship.
+ * Task floats stay at the selected water surface; the ship task owns catches.
+ * The optional launch API retains its independent flying/retrieving behavior.
  * <p>
  * States:
  * 0: flying (just thrown)
@@ -33,7 +39,11 @@ import java.util.List;
  */
 public class EntityShipFishingHook extends Entity {
 
+    private static final EntityDataAccessor<Integer> HOST_ID = SynchedEntityData.defineId(
+            EntityShipFishingHook.class, EntityDataSerializers.INT);
+
     private LivingEntity host;
+    private boolean taskFloat = true;
 
     /**
      * Current fishing state
@@ -74,7 +84,8 @@ public class EntityShipFishingHook extends Entity {
      * @param velZ launch velocity Z
      */
     public void initHook(LivingEntity host, double velX, double velY, double velZ) {
-        this.host = host;
+        this.setHost(host);
+        this.taskFloat = false;
         this.setPos(host.getX(), host.getEyeY(), host.getZ());
         this.setDeltaMovement(velX, velY, velZ);
         this.fishState = 0;
@@ -91,7 +102,7 @@ public class EntityShipFishingHook extends Entity {
 
     @Override
     protected void defineSynchedData() {
-        // empty
+        this.entityData.define(HOST_ID, -1);
     }
 
     @Override
@@ -107,6 +118,16 @@ public class EntityShipFishingHook extends Entity {
     @Override
     public void tick() {
         super.tick();
+
+        // Host tracking may arrive after the float; only the server owns its lifetime.
+        if (this.level().isClientSide()) {
+            return;
+        }
+        this.host = this.getHost();
+        if (this.taskFloat) {
+            tickTaskFloat();
+            return;
+        }
 
         // discard if host is gone
         if (this.host == null || !this.host.isAlive()) {
@@ -145,6 +166,43 @@ public class EntityShipFishingHook extends Entity {
                 handleRetracting();
                 break;
         }
+    }
+
+    private void tickTaskFloat() {
+        if (this.host == null || this.host.isRemoved() || !this.host.isAlive()
+                || this.host.level() != this.level() || this.distanceToSqr(this.host) > 1024D
+                || this.tickCount > ConfigHandler.tickFishing[0] + ConfigHandler.tickFishing[1]) {
+            this.discard();
+            return;
+        }
+        ItemStack mainHand = this.host instanceof BasicEntityShip ship
+                ? ship.getCapaShipInventory().getStackInSlot(22) : this.host.getMainHandItem();
+        ItemStack offHand = this.host instanceof BasicEntityShip ship
+                ? ship.getCapaShipInventory().getStackInSlot(23) : this.host.getOffhandItem();
+        if (!mainHand.is(Items.FISHING_ROD) && !offHand.is(Items.FISHING_ROD)) {
+            this.discard();
+            return;
+        }
+        this.fishState = 1;
+        this.inWater = this.level().getFluidState(this.blockPosition().below()).is(FluidTags.WATER);
+        this.setDeltaMovement(Vec3.ZERO);
+        if (this.tickCount == 4) {
+            this.playSound(SoundEvents.FISHING_BOBBER_SPLASH, 0.25F,
+                    1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.4F);
+        }
+        if (this.tickCount == 4 || ((this.tickCount & 63) == 0 && this.random.nextFloat() < 0.35F)) {
+            ((ServerLevel) this.level()).sendParticles(net.minecraft.core.particles.ParticleTypes.FISHING,
+                    this.getX(), this.getY() - 0.1D, this.getZ(), 4, 0.4D, 0.02D, 0.4D, 0D);
+        }
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        LivingEntity owner = this.getHost();
+        if (owner instanceof BasicEntityShip ship && ship.fishHook == this) {
+            ship.fishHook = null;
+        }
+        super.remove(reason);
     }
 
     /**
@@ -288,6 +346,10 @@ public class EntityShipFishingHook extends Entity {
      * Manually retract the hook (called by ship when pulling the line).
      */
     public void retract() {
+        if (this.taskFloat) {
+            this.discard();
+            return;
+        }
         if (this.fishState == 2) {
             // fish is hooked, generate loot
             if (!this.level().isClientSide()) {
@@ -306,10 +368,16 @@ public class EntityShipFishingHook extends Entity {
     }
 
     public LivingEntity getHost() {
+        int id = this.entityData.get(HOST_ID);
+        if (this.host == null || this.host.getId() != id) {
+            Entity entity = this.level().getEntity(id);
+            this.host = entity instanceof LivingEntity living ? living : null;
+        }
         return this.host;
     }
 
     public void setHost(LivingEntity host) {
         this.host = host;
+        this.entityData.set(HOST_ID, host == null ? -1 : host.getId());
     }
 }

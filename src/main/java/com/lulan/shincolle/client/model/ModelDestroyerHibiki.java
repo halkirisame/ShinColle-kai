@@ -755,7 +755,8 @@ public class ModelDestroyerHibiki extends ShipModelBaseAdv<Entity> {
                 PartPose.offsetAndRotation(-9.5F, -2.5F, 0.0F, 0.0F, 1.57F,
                         0.08726646259971647F));
 
-        addDefaultFaceParts(glowHead);
+        addFaceParts(glowHead, -12.2F, -4.2F, -3.0F, -6.8F,
+                new int[] {22, 52, 100, 58, 114, 56}, new int[] {114, 61});
 
         return LayerDefinition.create(meshdefinition, 128, 128);
     }

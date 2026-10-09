@@ -480,6 +480,7 @@ public class ServerDataManager {
             LogHelper.debug("update ship: update sid " + uid + " eid: " + ship.getId()
                     + " dim: " + ship.level().dimension().location());
 
+            CacheDataShip previous = mapShipID != null ? mapShipID.get(uid) : null;
             ship = checkShipIsDupe(ship, uid);
 
             CacheDataShip sdata = new CacheDataShip(
@@ -487,6 +488,11 @@ public class ServerDataManager {
                     ship.getShipClass(), ship.isRemoved(),
                     ship.getX(), ship.getY(), ship.getZ(),
                     createShipNBTBackup(ship));
+            if (ship.isAlive()) {
+                sdata.clearSunkLocation();
+            } else if (previous != null && previous.sunk) {
+                sdata.setSunkLocation(previous.sunkDimension, previous.sunkX, previous.sunkY, previous.sunkZ);
+            }
 
             setShipWorldData(uid, sdata);
 

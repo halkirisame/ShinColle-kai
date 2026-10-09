@@ -19,7 +19,7 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * Locks the pre-dynamic definition data so the Stage 3 migration cannot change
+ * Locks the pre-dynamic definition data so dynamic equipment definitions cannot change
  * any existing equipment values or metadata unnoticed.
  */
 @GameTestHolder(Reference.MOD_ID)

@@ -8,7 +8,9 @@ import com.lulan.shincolle.entity.other.EntityAirplaneTakoyaki;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.BlockHelper;
 
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
@@ -176,6 +178,14 @@ public abstract class BasicEntityShipCV extends BasicEntityShip implements IShip
     // ========== Airplane Factory ==========
 
     /**
+     * Air, liquid and blocks without collision leave room to launch, as in 1.10.2.
+     */
+    private boolean isLaunchPointSafe() {
+        return BlockHelper.checkBlockSafe(this.level(), Mth.floor(this.getX()),
+                Mth.floor(this.getY() + launchHeight), Mth.floor(this.getZ()));
+    }
+
+    /**
      * Create an airplane entity for attacking.
      * Subclasses can override to change airplane types.
      *
@@ -219,12 +229,7 @@ public abstract class BasicEntityShipCV extends BasicEntityShip implements IShip
         float summonHeight = (float) (this.getY() + launchHeight);
 
         // check if launch position is safe - if not, spawn just above ship
-        if (!level().getBlockState(
-                        new net.minecraft.core.BlockPos(
-                                (int) this.getX(),
-                                (int) (this.getY() + launchHeight),
-                                (int) this.getZ()))
-                .isAir()) {
+        if (!isLaunchPointSafe()) {
             summonHeight = (float) this.getY() + 1F;
         }
 
@@ -274,12 +279,7 @@ public abstract class BasicEntityShipCV extends BasicEntityShip implements IShip
         // calculate launch position
         float summonHeight = (float) (this.getY() + launchHeight);
 
-        if (!level().getBlockState(
-                        new net.minecraft.core.BlockPos(
-                                (int) this.getX(),
-                                (int) (this.getY() + launchHeight),
-                                (int) this.getZ()))
-                .isAir()) {
+        if (!isLaunchPointSafe()) {
             summonHeight = (float) this.getY() + 0.5F;
         }
 

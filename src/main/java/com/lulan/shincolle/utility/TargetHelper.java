@@ -1,5 +1,10 @@
 package com.lulan.shincolle.utility;
 
+import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
+import com.lulan.shincolle.ai.domain.command.CommandIssuer;
+import com.lulan.shincolle.ai.domain.command.CommandStateOp;
+import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
+
 import com.lulan.shincolle.ai.observation.MinecraftTargetClassificationAdapter;
 import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
 import com.lulan.shincolle.ai.domain.TargetPredicateEvaluator;
@@ -39,11 +44,16 @@ public class TargetHelper {
         Entity hostEntity = (Entity) host;
 
         if (host instanceof BasicEntityShip ship && ship.getManualTarget() != null
-                && !isValidManualTarget(ship)) {
+                && !(ship.hasTargetAuthority() ? isValidAuthorityManualTarget(ship) : isValidManualTarget(ship))) {
             if (ship.getEntityTarget() == ship.getManualTarget()) {
                 ship.setEntityTarget(null);
             }
-            ship.setManualTarget(null);
+            if (ShipCommandStateAdapter.isNew()) {
+                ship.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.ATTACK_TARGET_INVALID),
+                        new CommandStateOp.ClearManualAttack());
+            } else {
+                ship.setManualTarget(null);
+            }
         }
 
         // clear dead or friendly attack target
@@ -111,6 +121,27 @@ public class TargetHelper {
                 && !isEntityInvulnerable(target)
                 && !checkSameOwner(ship, target)
                 && !checkIsAlly(ship, target);
+    }
+
+    /**
+     * Manual command validity for a ship with the NEW target authority: {@link #isValidManualTarget}
+     * plus the player's invulnerable ability, which 1.10.2 dropped through vanilla
+     * {@code EntityAITarget.continueExecuting}. LEGACY keeps {@link #isValidManualTarget}.
+     */
+    public static boolean isValidAuthorityManualTarget(BasicEntityShip ship) {
+        return isValidManualTarget(ship) && !isInvulnerablePlayer(ship.getManualTarget());
+    }
+
+    /** Only {@code Player#getAbilities().invulnerable}; {@code Entity#isInvulnerable} is not read. */
+    public static boolean isInvulnerablePlayer(Entity target) {
+        return target instanceof Player player && player.getAbilities().invulnerable;
+    }
+
+    /** Whether the host sees the target, by the same rule as the invisible cleanup in {@link #updateTarget}. */
+    public static boolean canDetectTarget(IShipAttackBase host, Entity target) {
+        return !target.isInvisible()
+                || host.getStateMinor(ID.M.LevelFlare) >= 1
+                || host.getStateMinor(ID.M.LevelSearchlight) >= 1;
     }
 
     // ========== Selector (friendly ship target) ==========
@@ -213,8 +244,8 @@ public class TargetHelper {
         int uidA = getOwnerUID(a);
         int uidB = getOwnerUID(b);
 
-        // both have valid UIDs
-        if (uidA > 0 && uidB > 0) {
+        // Both have valid owner UIDs; -1 remains ownerless.
+        if ((uidA > 0 || uidA < -1) && (uidB > 0 || uidB < -1)) {
             return uidA == uidB;
         }
 

@@ -10,7 +10,7 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Internal bridge for behavior that intentionally remains outside the public
- * ResourceLocation-based equipment API during Stage 4.
+ * ResourceLocation-based equipment API.
  */
 public final class ShipEquipmentInternalEffects {
 

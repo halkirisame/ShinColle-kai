@@ -1,13 +1,17 @@
 package com.lulan.shincolle.capability;
 
+import com.lulan.shincolle.ai.domain.AiDataVersion;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.NBTHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Ship persistent data save/load helper.
@@ -15,10 +19,16 @@ import java.util.ArrayList;
  */
 public class CapaShipSavedValues {
 
+    /** Version marks already warned about, so one odd save does not log once per ship. */
+    private static final Set<String> WARNED_DATA_VERSIONS = ConcurrentHashMap.newKeySet();
+
     /**
      * Save ship data to NBT
      */
     public static void saveNBTData(CompoundTag nbt, BasicEntityShip ship) {
+        // mark the save with the version of the build writing it
+        nbt.putInt(AiDataVersion.KEY, AiDataVersion.CURRENT);
+
         // save state minor array
         nbt.putIntArray("StateMinor", ship.getStateMinorArray());
 
@@ -52,6 +62,8 @@ public class CapaShipSavedValues {
      * Load ship data from NBT
      */
     public static void loadNBTData(CompoundTag nbt, BasicEntityShip ship) {
+        checkDataVersion(nbt);
+
         boolean hasMinor = nbt.contains("StateMinor", Tag.TAG_INT_ARRAY);
         boolean hasFlag = nbt.contains("StateFlag", Tag.TAG_BYTE_ARRAY);
         boolean hasEmotion = nbt.contains("StateEmotion", Tag.TAG_INT_ARRAY);
@@ -92,6 +104,10 @@ public class CapaShipSavedValues {
                     nbt.contains("CustomName", Tag.TAG_STRING));
         }
 
+        // nothing in this port raises the crane state, so a saved value could only leave the ship
+        // frozen in place
+        ship.setStateMinor(ID.M.CraneState, 0);
+
         // clear appearance-state bits that this ship type does not support, so a saved
         // value from before the appearance grid hid them cannot keep applying its effect
         int hidden = ship.getHiddenAppearanceBits();
@@ -129,6 +145,28 @@ public class CapaShipSavedValues {
 
         // set exp next value
         ship.setExpNext();
+    }
+
+    /**
+     * Every version so far is read the same way, so the mark only decides whether to warn: a save
+     * from a newer build or with an unusable mark is still read key by key.
+     */
+    private static void checkDataVersion(CompoundTag nbt) {
+        boolean integer = nbt.contains(AiDataVersion.KEY, Tag.TAG_INT);
+        AiDataVersion.Read read = AiDataVersion.read(nbt.contains(AiDataVersion.KEY), integer,
+                integer ? nbt.getInt(AiDataVersion.KEY) : 0);
+        if (read instanceof AiDataVersion.Future future) {
+            if (WARNED_DATA_VERSIONS.add("future " + future.stored())) {
+                LogHelper.warn("Ship data was saved by a newer version (AI data version " + future.stored()
+                        + ", this version writes " + AiDataVersion.CURRENT
+                        + "). Reading what this version knows; newer data may be lost on the next save.");
+            }
+        } else if (read instanceof AiDataVersion.Invalid invalid) {
+            if (WARNED_DATA_VERSIONS.add("invalid " + invalid.stored())) {
+                LogHelper.warn("Ship data has an unusable AI data version (" + invalid.stored()
+                        + "). Reading it as data saved without a version.");
+            }
+        }
     }
 
     private static void loadLegacyShipExtProps(CompoundTag legacy, BasicEntityShip ship,

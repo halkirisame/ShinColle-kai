@@ -1,5 +1,7 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.handler.ConfigHandler;
+
 import com.lulan.shincolle.ai.ShipManualTargetGoal;
 import com.lulan.shincolle.ai.ShipRangeTargetGoal;
 import com.lulan.shincolle.ai.ShipRevengeTargetGoal;
@@ -48,7 +50,8 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualCommandHoldsFortySelectorPasses(GameTestHelper helper) {
-        try (Fixture f = new Fixture(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                Fixture f = new Fixture(helper)) {
             check(f.ship.getTarget() == null, "Ship must begin out of combat");
             f.command(f.manual);
             for (int i = 0; i < 40; i++) {
@@ -78,7 +81,8 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyRevengePreemptsManualWithoutErasingCommand(GameTestHelper helper) {
-        try (Fixture f = new Fixture(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                Fixture f = new Fixture(helper)) {
             f.startManual();
             f.revenge();
             check(f.ship.getTarget() == f.other, "Revenge did not preempt manual TARGET mutex");
@@ -92,7 +96,8 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualResumesAfterRevengeEnds(GameTestHelper helper) {
-        try (Fixture f = new Fixture(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                Fixture f = new Fixture(helper)) {
             f.startManual();
             f.revenge();
             check(f.ship.getTarget() == f.other, "Revenge must run before testing resumption");
@@ -111,7 +116,8 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyRepeatedPointerCommandTogglesManualOff(GameTestHelper helper) {
-        try (Fixture f = new Fixture(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                Fixture f = new Fixture(helper)) {
             f.startManual();
             f.command(f.other);
             for (int i = 0; i < 4; i++) {
@@ -134,7 +140,8 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualExpiresOnDeathButNeverFromElapsedTicks(GameTestHelper helper) {
-        try (Fixture f = new Fixture(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                Fixture f = new Fixture(helper)) {
             f.startManual();
             for (int i = 0; i < 600; i++) {
                 if (i == 300) {
@@ -164,7 +171,8 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualCommandHoldsTargetTheAutoSelectorRejects(GameTestHelper helper) {
-        try (Fixture f = new Fixture(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                Fixture f = new Fixture(helper)) {
             Cow neutral = f.spawnNeutral();
             check(!new TargetHelper.Selector(f.ship).test(neutral),
                     "Fixture premise: the automatic selector must reject this mob");
@@ -189,7 +197,7 @@ public final class ShipManualTargetGameTests {
                     "Waiting for the manual target host's chunk to tick entities");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(farthestEntityPosition)),
                     "Waiting for the manual target fixture's far chunk to tick entities");
-        }).thenExecute(verification).thenSucceed();
+        }).thenExecute(GameTestVerification.namedFailure(verification)).thenSucceed();
     }
 
     private static Vec3 fixtureOrigin(GameTestHelper helper) {

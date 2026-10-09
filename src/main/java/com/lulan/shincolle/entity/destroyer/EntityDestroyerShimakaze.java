@@ -6,22 +6,22 @@ import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.IShipSummonAttack;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.entity.other.EntityRensouhou;
-import com.lulan.shincolle.entity.other.EntityRensouhouS;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.utility.CombatHelper;
-import com.lulan.shincolle.utility.EmotionHelper;
 
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 /**
  * Destroyer Shimakaze entity.
- * model state: 0:rensouhou type, 1:cannon, 2:hair anchor, 3:hat1, 4:hat2,
+ * model state: 0:unused, 1:cannon, 2:hair anchor, 3:hat1, 4:hat2,
  * 5:hat3
  */
 public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IShipSummonAttack {
@@ -53,6 +53,11 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
      */
     public int getEquipType() {
         return 1;
+    }
+
+    @Override
+    protected float getStandingEyeHeight(Pose pose, EntityDimensions size) {
+        return 1.5F;
     }
 
     @Override
@@ -120,19 +125,16 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
 
         triggerAttackAnimation();
 
-        // spawn rensouhou: check model state 0 to determine type
-        if (EmotionHelper.checkModelState(0, this.getStateEmotion(ID.S.State))) {
-            EntityRensouhouS rensoho = new EntityRensouhouS(ModEntities.RENSOUHOU_S.get(), this.level());
-            rensoho.initAttrs(this, target, 0);
-            this.level().addFreshEntity(rensoho);
-        } else {
-            EntityRensouhou rensoho = new EntityRensouhou(ModEntities.RENSOUHOU.get(), this.level());
-            rensoho.initAttrs(this, target, 0);
-            this.level().addFreshEntity(rensoho);
-        }
+        EntityRensouhou rensoho = createRensouhou();
+        rensoho.initAttrs(this, target, 0);
+        this.level().addFreshEntity(rensoho);
 
         applyEmotesReaction(3);
         return true;
+    }
+
+    private EntityRensouhou createRensouhou() {
+        return new EntityRensouhou(ModEntities.RENSOUHOU.get(), this.level());
     }
 
     @Override

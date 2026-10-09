@@ -3,6 +3,20 @@ package com.lulan.shincolle.entity;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.ai.*;
+import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
+import com.lulan.shincolle.ai.domain.TargetLock;
+import com.lulan.shincolle.ai.domain.action.ActionKind;
+import com.lulan.shincolle.ai.domain.command.CommandIssuer;
+import com.lulan.shincolle.ai.domain.command.CommandPos;
+import com.lulan.shincolle.ai.domain.command.CommandStateChange;
+import com.lulan.shincolle.ai.domain.command.CommandStateOp;
+import com.lulan.shincolle.ai.domain.command.LegacyCommandCodec;
+import com.lulan.shincolle.ai.domain.command.ShipCommand;
+import com.lulan.shincolle.ai.domain.command.ShipCommandState;
+import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
+import com.lulan.shincolle.ai.domain.waypoint.WaypointCheck;
+import com.lulan.shincolle.ai.domain.waypoint.WaypointStep;
+import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.ai.path.ShipNavigation;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
@@ -17,6 +31,9 @@ import com.lulan.shincolle.capability.CapaShipSavedValues;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
+import com.lulan.shincolle.entity.hime.EntityNorthernHime;
+import com.lulan.shincolle.entity.hime.EntitySSNH;
+import com.lulan.shincolle.entity.hime.HimeRiding;
 import com.lulan.shincolle.entity.other.BasicEntityItem;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.entity.other.EntityShipFishingHook;
@@ -36,6 +53,7 @@ import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 import com.lulan.shincolle.reference.unitclass.MissileData;
+import com.lulan.shincolle.server.CacheDataShip;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.*;
 import net.minecraft.core.BlockPos;
@@ -64,11 +82,14 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.world.ForgeChunkManager;
@@ -81,6 +102,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,7 +114,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class BasicEntityShip extends TamableAnimal
         implements IShipCannonAttack, IShipGuardian, IShipFloating, IShipNavigator, IShipCustomTexture,
-        PlayerOwnedShip, MenuProvider {
+        PlayerOwnedShip, MenuProvider, ShipCombatHost, ShipMovementHost {
 
     // ========== Fields ==========
 
@@ -114,6 +136,8 @@ public abstract class BasicEntityShip extends TamableAnimal
      * deferred until the current server AI step has finished.
      */
     private boolean fuelAiRefreshPending;
+    /** NEW only: fuel state seen by the last refresh; null until observed after load. */
+    private Boolean lastObservedNoFuel;
     @Nullable
     private net.minecraft.nbt.ListTag deathCuriosSnapshot;
     /**
@@ -136,11 +160,20 @@ public abstract class BasicEntityShip extends TamableAnimal
     private boolean releaseGuardOnArrival;
     /** Client copy of whether the synchronized guard coordinates represent an active destination. */
     private boolean clientGuardDestinationActive;
+    private final ShipCommandStateAdapter commandState = new ShipCommandStateAdapter(this);
+    private final com.lulan.shincolle.ai.ShipFormationStateAdapter formationState =
+            new com.lulan.shincolle.ai.ShipFormationStateAdapter(this);
+
+    public com.lulan.shincolle.ai.ShipFormationStateAdapter formationState() { return this.formationState; }
+    @Nullable
+    private Entity recentlyDismountedVanillaVehicle;
     protected Entity atkTarget;
     protected Entity rvgTarget;
     /** Server-only command, separate from the temporary current combat target; never persisted. */
     @Nullable
     private Entity manualTarget;
+    @Nullable
+    private ShipTargetAuthorityGoal targetAuthorityGoal;
     // AI calculation
     protected double ShipDepth;
     protected double ShipFloatingDepth;
@@ -184,6 +217,13 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected BlockPos[] waypoints;
     /** Session-only waypoint history; deliberately not serialized. */
     protected boolean hasLastWaypoint;
+    private WaypointCheck lastWaypointCheck;
+    /** Where the current waypoint stay began; session only, read by the new traversal. */
+    private BlockPos wpStayAt;
+    /** The waypoint the last traversal check found this ship passing through; session only, read by the guard goal. */
+    private CommandPos passThroughWaypoint;
+    /** The item pickup goal is running; session only, read by the guard goal. */
+    private boolean pickingItem;
     /**
      * attack attributes
      */
@@ -198,11 +238,10 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected int ridingState;
     // scale level
     protected int scaleLevel;
-    // dynamic entity size for hitbox scaling
-    protected float entityWidth = 0.6F;
-    protected float entityHeight = 1.875F;
     // initialization
     private boolean initAI, initWaitAI;
+    private final ShipCombatState shipCombatState = new ShipCombatState();
+    private final ShipMovementExecutor shipMovementExecutor = new ShipMovementExecutor();
     private boolean isUpdated;
     private int updateTime = 16;
     protected BasicEntityShip(EntityType<? extends BasicEntityShip> type, Level level) {
@@ -369,6 +408,10 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     protected void playHurtSound(DamageSource source) {
+        if (this.getStateTimer(ID.T.SoundTime) > 0) {
+            return;
+        }
+        this.setStateTimer(ID.T.SoundTime, 20 + this.random.nextInt(30));
         this.playVoice(this.getHurtSound(source), this.getSoundVolume(), this.getVoicePitch());
     }
 
@@ -456,13 +499,16 @@ public abstract class BasicEntityShip extends TamableAnimal
         // aim timer and fire cooldown, fighting over the MOVE mutex - which
         // showed up in play as sluggish, erratic engagement.
         this.goalSelector.addGoal(1, new ShipSitGoal(this));
+        if (ShipSkillAttackGate.supported(this)) this.goalSelector.addGoal(0, new ShipSpecialAttackGoal(this));
         this.goalSelector.addGoal(2, new ShipFleeGoal(this));
         this.goalSelector.addGoal(3, new ShipGuardingGoal(this));
         this.goalSelector.addGoal(4, new ShipFollowOwnerGoal(this));
         this.goalSelector.addGoal(5, new ShipOpenDoorGoal(this, true));
+        // NEW: fires with every weapon on one timer, whatever goal moves the ship
+        this.goalSelector.addGoal(10, new ShipFireControlGoal(this));
 
-        // melee attack
-        if (getStateFlag(ID.F.UseMelee)) {
+        // melee attack; NEW keeps it registered and the goal reads the flag
+        if (getStateFlag(ID.F.UseMelee) || ShipCommandStateAdapter.isNew()) {
             this.goalSelector.addGoal(15, new ShipAttackOnCollideGoal(this, 1.0D));
         }
 
@@ -478,10 +524,22 @@ public abstract class BasicEntityShip extends TamableAnimal
                 if (BasicEntityShip.this.getStateFlag(ID.F.NoFuel)) return false;
                 return super.canUse();
             }
+
+            @Override
+            public boolean canContinueToUse() {
+                if (ShipActionGate.blocked(BasicEntityShip.this, ActionKind.MOVEMENT)) return false;
+                return super.canContinueToUse();
+            }
         });
     }
 
     public void setAITargetList() {
+        if (ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW) {
+            this.targetAuthorityGoal = new ShipTargetAuthorityGoal(this);
+            this.targetSelector.addGoal(1, this.targetAuthorityGoal);
+            return;
+        }
+        this.targetAuthorityGoal = null;
         this.targetSelector.addGoal(3, new ShipManualTargetGoal(this));
         if (this.getStateFlag(ID.F.PassiveAI)) {
             // passive: revenge and explicit manual commands only
@@ -494,17 +552,32 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     protected void clearAITasks() {
-        this.goalSelector.removeAllGoals(goal -> true);
+        boolean wasOrderedToSit = this.isOrderedToSit();
+        GoalSelectorHelper.stopAndClear(this.goalSelector);
+        ShipSkillAttackGate.cancel(this);
+        this.shipCombatState.clearWeapons();
+        if (wasOrderedToSit) {
+            this.setOrderedToSit(true);
+            this.setInSittingPose(true);
+        }
+    }
+
+    @Override
+    public ShipCombatState shipCombatState() {
+        return this.shipCombatState;
+    }
+
+    @Override
+    public ShipMovementExecutor shipMovementExecutor() {
+        return this.shipMovementExecutor;
     }
 
     protected void clearAITargetTasks() {
-        // Release the old manual mutex before removing its wrapper, but retain the command.
-        this.targetSelector.getAvailableGoals().stream()
-                .filter(goal -> goal.getGoal() instanceof ShipManualTargetGoal)
-                .forEach(goal -> goal.stop());
+        this.formationState.invalidate();
+        GoalSelectorHelper.stopAndClear(this.targetSelector);
         this.setTarget(null);
         this.setEntityTarget(null);
-        this.targetSelector.removeAllGoals(goal -> true);
+        this.targetAuthorityGoal = null;
     }
 
     public void addAdditionalSaveData(CompoundTag nbt) {
@@ -528,6 +601,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     public void readAdditionalSaveData(CompoundTag nbt) {
         super.readAdditionalSaveData(nbt);
         this.setManualTarget(null);
+        this.commandState.onLoad();
+        this.formationState.invalidate();
 
         // load ship attributes
         CapaShipSavedValues.loadNBTData(nbt, this);
@@ -550,6 +625,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         setStateMinor(ID.M.GuardID, -1);
         repairUnassignedGuardState();
         this.releaseGuardOnArrival = nbt.getBoolean("ReleaseGuardOnArrival") && hasGuardDestination();
+        ShipSkillAttackGate.loaded(this);
 
         // Derived attributes depend on the equipment inventory. Recalculate only
         // after every persisted dependency has been restored; doing this from
@@ -563,6 +639,14 @@ public abstract class BasicEntityShip extends TamableAnimal
     @Override
     public void tick() {
         if (!this.level().isClientSide()) {
+            Entity vehicle = this.recentlyDismountedVanillaVehicle;
+            this.recentlyDismountedVanillaVehicle = null;
+            if (vehicle != null && !this.isRemoved() && !this.isPassenger()
+                    && ShipCommandStateAdapter.isNew() && this.getCommandState().sitting()
+                    && vehicle.getRemovalReason() != null && vehicle.getRemovalReason().shouldDestroy()) {
+                this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.VEHICLE_LOST),
+                        new CommandStateOp.StandUp());
+            }
             this.setNoAi(stopAI);
         }
         super.tick();
@@ -705,12 +789,16 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // server side
         if (!level().isClientSide()) {
+            this.commandState.observeAuthority();
+            ShipSkillAttackGate.observe(this);
+            if (!ShipCommandStateAdapter.isNew()) this.formationState.invalidate();
             resolveGuardedEntity();
             EntityHelper.updateShipNavigator(this);
             TargetHelper.updateTarget(this);
 
             super.aiStep();
             if (stopAI) {
+                this.commandState.assertProjection();
                 return;
             }
 
@@ -738,7 +826,8 @@ public abstract class BasicEntityShip extends TamableAnimal
                     decrGrudgeNum(0);
                     clearAITasks();
                     clearAITargetTasks();
-                    if (!getStateFlag(ID.F.NoFuel)) {
+                    // NEW keeps its goals while out of fuel and forbids actions instead.
+                    if (ShipCommandStateAdapter.isNew() || !getStateFlag(ID.F.NoFuel)) {
                         setAIList();
                         setAITargetList();
                     }
@@ -759,7 +848,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 if ((tickCount & 15) == 0) {
                     if (this.isAlive()) {
                         if (EntityHelper.updateWaypointMove(this)) {
-                            sendSyncPacketGuard();
+                            if (!ShipCommandStateAdapter.isNew()) sendSyncPacketGuard();
                         }
 
                         // cancel mounts if can't summon
@@ -870,6 +959,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             // Fuel may have been consumed from a ticking goal. Rebuild only
             // after GoalSelector has finished iterating for this tick.
             applyPendingFuelAiRefresh();
+            this.commandState.assertProjection();
         }
         // client side
         else {
@@ -877,6 +967,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
             // client-side timers (attack animation, emotion3 timer)
             updateClientTimer();
+            ShipSkillAttackGate.clientTick(this);
 
             // both-side timers (mount skill cooldowns)
             updateBothSideTimer();
@@ -1134,10 +1225,13 @@ public abstract class BasicEntityShip extends TamableAnimal
             leveledUp = true;
         }
 
-        if (leveledUp && this.random.nextInt(4) == 0) {
-            // level up sound
-            this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
-                    SoundEvents.PLAYER_LEVELUP, this.getSoundSource(), 0.75F, 1F);
+        if (leveledUp) {
+            if (this.random.nextInt(4) == 0) {
+                this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
+                        SoundEvents.PLAYER_LEVELUP, this.getSoundSource(), 0.75F, 1F);
+            } else {
+                this.playVoice(ModSounds.SHIP_LEVEL.get(), 0.75F, 1F);
+            }
         }
     }
 
@@ -1171,6 +1265,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         if (isTargetHurt) {
             applyEmotesReaction(3);
+            ShipSkillAttackGate.ordinaryHit(this, target, 0);
             ShipOnHitEffects.dispatch(this, target, atk);
         }
 
@@ -1238,6 +1333,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         float targetHpBefore = target instanceof LivingEntity le ? le.getHealth() : -1F;
         boolean isTargetHurt = target.hurt(this.damageSources().mobProjectile(this, this), atk);
         float targetHpAfter = target instanceof LivingEntity le2 ? le2.getHealth() : -1F;
+        if (isTargetHurt) ShipSkillAttackGate.ordinaryHit(this, target, 1);
         LogHelper.debug("DEBUG: light attack: " + this + " -> " + target
                 + " dealt atk=" + atk + " hurtAccepted=" + isTargetHurt
                 + " targetHP " + targetHpBefore + " -> " + targetHpAfter);
@@ -1253,6 +1349,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public boolean attackEntityWithHeavyAmmo(Entity target) {
+        if (ShipSkillAttackGate.running(this)) return false;
         if (!decrAmmoNum(1, this.getAmmoConsumption()))
             return false;
 
@@ -1263,23 +1360,34 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         float atk = getAttackBaseDamage(2, target);
 
+        if (ShipSkillAttackGate.supported(this)) {
+            boolean attacked = ShipSkillAttackGate.heavy(this, target);
+            if (attacked) {
+                applyEmotesReaction(3);
+                flareTarget(target);
+            }
+            return attacked;
+        }
+
         // play attack sound
         applySoundAtAttacker(2, target);
         applyParticleAtAttacker(2, target, target);
 
-        // target position
-        float tarX = (float) target.getX();
+        // target position: x and z are doubles, the height stays a float
+        double tarX = target.getX();
         float tarY = (float) target.getY();
-        float tarZ = (float) target.getZ();
+        double tarZ = target.getZ();
 
         // heavy shots can miss their aim point (the AoE splash at onImpact
         // still rolls its own hit/crit independently) - on a miss, offset the
         // impact point instead of guaranteeing a dead-on hit every time.
         float dist = (float) Math.sqrt(this.distanceToSqr(target));
         if (this.random.nextFloat() <= CombatHelper.calcMissRate(this, dist)) {
-            tarX = tarX - 5F + this.random.nextFloat() * 10F;
-            tarY = tarY + this.random.nextFloat() * 5F;
-            tarZ = tarZ - 5F + this.random.nextFloat() * 10F;
+            double[] aim = CombatHelper.calcMissAimPoint(tarX, tarY, tarZ, this.getX(), this.getZ(),
+                    target.getBbWidth(), this.random.nextFloat(), this.random.nextFloat(), this.random.nextFloat());
+            tarX = aim[0];
+            tarY = (float) aim[1];
+            tarZ = aim[2];
             ParticleHelper.spawnAttackTextParticle(this, 0); // miss indicator
         }
 
@@ -1294,9 +1402,12 @@ public abstract class BasicEntityShip extends TamableAnimal
     /**
      * Spawn a missile entity targeting the given position
      */
-    public void summonMissile(int attackType, float atk, float tarX, float tarY, float tarZ, float targetHeight) {
+    public void summonMissile(int attackType, float atk, double tarX, float tarY, double tarZ, float targetHeight) {
         float launchPos = (float) this.getY() + this.getBbHeight() * 0.5F;
         int moveType = CombatHelper.calcMissileMoveType(this, tarY, attackType);
+        if (moveType == 0) {
+            launchPos = (float) this.getY() + this.getBbHeight() * 0.3F;
+        }
 
         MissileData md = this.getMissileData(attackType);
         EntityAbyssMissile missile = new EntityAbyssMissile(
@@ -1336,7 +1447,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
         // out of world: rescue teleport
         else if (source == this.damageSources().fellOutOfWorld()) {
-            this.setEntitySit(false);
+            standAfterDamage();
             this.stopRiding();
             this.teleportTo(this.getX(), 4D, this.getZ());
             return false;
@@ -1352,7 +1463,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         // owner damage bypass: skip DEF, dodge, friendly fire, SvS, resist, light
         if (source.getEntity() instanceof Player &&
                 TeamHelper.checkSameOwner(source.getEntity(), this)) {
-            this.setEntitySit(false);
+            standAfterDamage();
             this.setStateEmotion(ID.S.Emotion, ID.Emotion.O_O, true);
             return super.hurt(source, amount);
         }
@@ -1367,7 +1478,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
             // self damage immunity
             if (attacker.equals(this)) {
-                this.setEntitySit(false);
+                standAfterDamage();
                 return false;
             }
 
@@ -1406,7 +1517,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 reducedAtk = 0F;
 
             // cancel sitting
-            this.setEntitySit(false);
+            standAfterDamage();
 
             // set revenge target
             this.setEntityRevengeTarget(attacker);
@@ -1461,6 +1572,9 @@ public abstract class BasicEntityShip extends TamableAnimal
     public float getAttackBaseDamage(int type, Entity target) {
         if (this.shipAttrs == null)
             return 1F;
+
+        java.util.Optional<Float> skillDamage = ShipSkillAttackGate.baseDamage(this, type);
+        if (skillDamage.isPresent()) return skillDamage.get();
 
         return switch (type) {
             case 1 -> // light cannon: apply AA/ASM bonus
@@ -1629,6 +1743,13 @@ public abstract class BasicEntityShip extends TamableAnimal
         boolean hasGoals = !this.goalSelector.getAvailableGoals().isEmpty();
         boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
 
+        if (ShipCommandStateAdapter.isNew()) {
+            if (!hasGoals || !hasTargetGoals || !Boolean.valueOf(noFuel).equals(this.lastObservedNoFuel)) {
+                this.fuelAiRefreshPending = true;
+            }
+            return;
+        }
+
         // Fuel exhaustion must disable both selectors.  Looking only at target
         // goals left movement-only goals (notably ShipFloatingGoal) running on
         // ships whose target selector had already become empty.
@@ -1712,8 +1833,18 @@ public abstract class BasicEntityShip extends TamableAnimal
         boolean hasGoals = !this.goalSelector.getAvailableGoals().isEmpty();
         boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
 
+        if (ShipCommandStateAdapter.isNew()) {
+            applyNewFuelTransition(noFuel, hasGoals && hasTargetGoals);
+            return;
+        }
+
         if (noFuel) {
-            this.setManualTarget(null);
+            if (ShipCommandStateAdapter.isNew()) {
+                this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.NO_FUEL),
+                        new CommandStateOp.ClearManualAttack());
+            } else {
+                this.setManualTarget(null);
+            }
             // Clear all AI when fuel runs out — ship becomes inert.  Stop an
             // in-progress path as well, otherwise its MoveControl can retain
             // a vertical velocity after the goals have been removed.
@@ -1743,6 +1874,41 @@ public abstract class BasicEntityShip extends TamableAnimal
                 sendSyncPacketEmotion();
             }
         }
+    }
+
+    /**
+     * NEW keeps every goal registered while out of fuel; ShipActionGate stops them. The
+     * one-shot effects of running dry happen once, when the fuel state changes.
+     */
+    private void applyNewFuelTransition(boolean noFuel, boolean goalsRegistered) {
+        Boolean previous = this.lastObservedNoFuel;
+        this.lastObservedNoFuel = noFuel;
+        if (!goalsRegistered) {
+            clearAITasks();
+            clearAITargetTasks();
+            setAIList();
+            setAITargetList();
+            if (this.getVehicle() instanceof BasicEntityMount mount) {
+                mount.clearAITasks();
+                mount.setAIList();
+            }
+        }
+        if (Boolean.valueOf(noFuel).equals(previous) || (previous == null && !noFuel)) {
+            return;
+        }
+        if (noFuel) {
+            this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.NO_FUEL),
+                    new CommandStateOp.ClearManualAttack());
+            this.setMorale(0);
+            this.getNavigation().stop();
+            this.setDeltaMovement(Vec3.ZERO);
+            this.setTarget(null);
+            this.setEntityTarget(null);
+            if (this.getVehicle() instanceof BasicEntityMount mount) {
+                mount.getNavigation().stop();
+            }
+        }
+        sendSyncPacketEmotion();
     }
 
     /**
@@ -1981,6 +2147,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * distinguishes a light cannon shot from a heavy one in the original.
      */
     public void applySoundAtAttacker(int type, Entity target) {
+        if (ShipSkillAttackGate.ordinarySound(this, type)) return;
         if (!this.level().isClientSide()) {
             SoundEvent sound = switch (type) {
                 case 1 -> ModSounds.SHIP_LASER.get();
@@ -2041,6 +2208,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * use motion, like CRIT/ENCHANTED_HIT, visibly travel toward the hit).
      */
     public void applyParticleAtAttacker(int type, Entity target, Entity target2) {
+        if (ShipSkillAttackGate.ordinaryVisual(this, type)) return;
         if (target != null && !this.level().isClientSide()) {
             triggerAttackAnimation();
             double x = this.getX();
@@ -2260,6 +2428,11 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     @Override
+    public boolean isPushable() {
+        return !ShipSkillAttackGate.running(this) && super.isPushable();
+    }
+
+    @Override
     public boolean isJumping() {
         return this.jumping;
     }
@@ -2304,6 +2477,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 break;
         }
         this.shipState.setMinor(id, par1);
+        if (id == ID.M.FormatType || id == ID.M.FormatPos) this.formationState.invalidate();
     }
 
     @Override
@@ -2319,16 +2493,32 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         if (!this.level().isClientSide()) {
             if (id == ID.F.UseMelee) {
-                clearAITasks();
-                setAIList();
-                if (this.getVehicle() instanceof BasicEntityMount mount) {
-                    mount.clearAITasks();
-                    mount.setAIList();
+                if (ShipCommandStateAdapter.isNew()) {
+                    // rebuilding would throw away the running goals' state
+                    if (par1) addMeleeGoalIfMissing();
+                } else {
+                    clearAITasks();
+                    setAIList();
+                    if (this.getVehicle() instanceof BasicEntityMount mount) {
+                        mount.clearAITasks();
+                        mount.setAIList();
+                    }
                 }
-            } else if (id == ID.F.PassiveAI) {
+            } else if (id == ID.F.PassiveAI && this.targetAuthorityGoal == null) {
+                // the target authority reads the flag itself
                 clearAITargetTasks();
                 setAITargetList();
             }
+        }
+    }
+
+    /** A ship whose goals were registered before NEW took over may still lack the melee goal. */
+    private void addMeleeGoalIfMissing() {
+        if (this.goalSelector.getAvailableGoals().isEmpty()) return;
+        boolean present = this.goalSelector.getAvailableGoals().stream()
+                .anyMatch(wrapped -> wrapped.getGoal() instanceof ShipAttackOnCollideGoal);
+        if (!present) {
+            this.goalSelector.addGoal(15, new ShipAttackOnCollideGoal(this, 1.0D));
         }
     }
 
@@ -2360,6 +2550,12 @@ public abstract class BasicEntityShip extends TamableAnimal
     /** Appearance-state bits that have no visible effect on this ship and must not stay set. */
     public int getHiddenAppearanceBits() {
         return 0;
+    }
+
+    /** Whether the appearance toggle for {@code bit} may be shown and changed. */
+    public boolean isAppearanceBitToggleable(int bit) {
+        return bit >= 0 && bit < Mth.clamp(getStateMinor(ID.M.NumState), 0, 16)
+                && (getHiddenAppearanceBits() & (1 << bit)) == 0;
     }
 
     @Override
@@ -2504,25 +2700,20 @@ public abstract class BasicEntityShip extends TamableAnimal
         setSizeWithScaleLevel();
     }
 
-    /**
-     * Set entity dimensions based on scale level. Override in subclass for specific
-     * sizes.
-     */
+    /** Recalculate dimensions from the registered size and scale level. */
     public void setSizeWithScaleLevel() {
-        float scaleFactor = 1.0F + this.scaleLevel * 0.5F;
-        this.entityWidth = 0.6F * scaleFactor;
-        this.entityHeight = 1.875F * scaleFactor;
         this.refreshDimensions();
     }
 
     @Override
     public EntityDimensions getDimensions(Pose pose) {
-        return EntityDimensions.fixed(this.entityWidth, this.entityHeight);
+        EntityDimensions base = this.getType().getDimensions();
+        return this.scaleLevel == 0 ? base : base.scale(1.0F + this.scaleLevel * 0.5F);
     }
 
     @Override
     protected float getStandingEyeHeight(Pose pose, EntityDimensions size) {
-        return this.entityHeight * 0.85F;
+        return size.height * 0.8F;
     }
 
     @Override
@@ -2609,11 +2800,39 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public Entity getEntityTarget() {
+        if (!this.level().isClientSide() && this.targetAuthorityGoal != null
+                && this.level() instanceof ServerLevel serverLevel) {
+            return this.targetAuthorityGoal.currentLock()
+                    .flatMap(lock -> new MinecraftTargetResolver(serverLevel).resolve(lock.target()))
+                    .orElse(null);
+        }
         return this.getTarget();
+    }
+
+    public boolean hasTargetAuthority() {
+        return this.targetAuthorityGoal != null;
+    }
+
+    public Optional<TargetLock> currentTargetLock() {
+        return this.targetAuthorityGoal == null ? Optional.empty() : this.targetAuthorityGoal.currentLock();
     }
 
     @Override
     public void setEntityTarget(Entity target) {
+        if (this.targetAuthorityGoal != null) {
+            if (target == null) {
+                this.targetAuthorityGoal.clearLock();
+                this.setTarget(null);
+            } else {
+                LogHelper.diag("DIAG: target authority ignored external target ship="
+                        + this + " target=" + target);
+            }
+            return;
+        }
+        this.setTarget(target instanceof LivingEntity living ? living : null);
+    }
+
+    public void projectTargetLock(Entity target) {
         this.setTarget(target instanceof LivingEntity living ? living : null);
     }
 
@@ -2756,6 +2975,16 @@ public abstract class BasicEntityShip extends TamableAnimal
         return this.guardedEntity;
     }
 
+    @Nullable
+    public UUID getGuardedEntityUuid() {
+        return this.guardedEntityUuid;
+    }
+
+    public void projectGuardIdentity(UUID uuid, ResourceKey<Level> dimension) {
+        this.guardedEntityUuid = uuid;
+        this.guardedDimension = dimension;
+    }
+
     @Override
     public void setGuardedEntity(Entity entity) {
         this.guardedEntity = entity;
@@ -2834,13 +3063,9 @@ public abstract class BasicEntityShip extends TamableAnimal
      */
     private void repairUnassignedGuardState() {
         if (!getStateFlag(ID.F.CanFollow)
-                && getStateMinor(ID.M.GuardX) == -1
-                && getStateMinor(ID.M.GuardY) == -1
-                && getStateMinor(ID.M.GuardZ) == -1
-                && getStateMinor(ID.M.GuardID) == -1
-                && getStateMinor(ID.M.GuardType) == 0
-                && this.guardedEntityUuid == null
-                && this.guardedDimension == null) {
+                && LegacyCommandCodec.isClearedTuple(getStateMinor(ID.M.GuardType), getStateMinor(ID.M.GuardX),
+                getStateMinor(ID.M.GuardY), getStateMinor(ID.M.GuardZ), getStateMinor(ID.M.GuardID),
+                this.guardedDimension != null, this.guardedEntityUuid != null)) {
             setStateFlag(ID.F.CanFollow, true);
         }
     }
@@ -2901,6 +3126,42 @@ public abstract class BasicEntityShip extends TamableAnimal
     @Override
     public int getWpStayTimeMax() {
         return wpStayTime2Ticks(getStateMinor(ID.M.WpStay));
+    }
+
+    /** The waypoint the current stay counts at, or null when it counts at none. */
+    public BlockPos getWpStayAt() {
+        return this.wpStayAt;
+    }
+
+    public void setWpStayAt(BlockPos pos) {
+        this.wpStayAt = pos == null ? null : pos.immutable();
+    }
+
+    /** The waypoint the last traversal check found this ship passing through, with its place; empty when none. */
+    public Optional<CommandPos> passThroughWaypoint() {
+        return Optional.ofNullable(this.passThroughWaypoint);
+    }
+
+    public void setPassThroughWaypoint(Optional<CommandPos> waypoint) {
+        this.passThroughWaypoint = waypoint.orElse(null);
+    }
+
+    /** Whether the item pickup goal is running. */
+    public boolean isPickingItem() {
+        return this.pickingItem;
+    }
+
+    public void setPickingItem(boolean pickingItem) {
+        this.pickingItem = pickingItem;
+    }
+
+    /** The last waypoint check made under NEW, for inspection; not saved. */
+    public Optional<WaypointCheck> lastWaypointCheck() {
+        return Optional.ofNullable(this.lastWaypointCheck);
+    }
+
+    public void recordWaypointCheck(WaypointStep step) {
+        this.lastWaypointCheck = new WaypointCheck(this.tickCount, step);
     }
 
     // ========== IShipCustomTexture Implementation ==========
@@ -3073,6 +3334,67 @@ public abstract class BasicEntityShip extends TamableAnimal
         for (Entity r : this.getPassengers()) {
             if (r instanceof BasicEntityShip bs) {
                 bs.setEntitySit(this.isOrderedToSit());
+            }
+        }
+    }
+
+    @Override
+    public void removeVehicle() {
+        Entity vehicle = this.getVehicle();
+        this.recentlyDismountedVanillaVehicle = null;
+        super.removeVehicle();
+        if (vehicle != null && (vehicle instanceof Boat || vehicle instanceof AbstractMinecart)
+                && !this.isPassenger() && !this.level().isClientSide()
+                && ShipCommandStateAdapter.isNew() && this.getCommandState().sitting()) {
+            if (vehicle.getRemovalReason() != null && vehicle.getRemovalReason().shouldDestroy()) {
+                this.recentlyDismountedVanillaVehicle = null;
+                this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.VEHICLE_LOST),
+                        new CommandStateOp.StandUp());
+            } else {
+                this.recentlyDismountedVanillaVehicle = vehicle;
+            }
+        }
+    }
+
+    public void applyCommandState(CommandIssuer issuer, CommandStateOp operation) {
+        this.commandState.apply(issuer, operation);
+    }
+
+    public void applyCommandState(CommandIssuer issuer, CommandStateOp operation, long sequence) {
+        this.commandState.apply(issuer, operation, sequence);
+    }
+
+    public ShipCommandState getCommandState() {
+        return this.commandState.state();
+    }
+
+    public CommandStateChange getLastCommandStateChange() {
+        return this.commandState.lastChange();
+    }
+
+    public void assertCommandProjection() {
+        this.commandState.assertProjection();
+    }
+
+    public void enableCommandProjectionCheckForTest() {
+        this.commandState.enableProjectionCheckForTest();
+    }
+
+    public void setRiderAndMountSit(CommandIssuer issuer) {
+        boolean sitting = this.getCommandState().sitting();
+        if (this.getVehicle() instanceof BasicEntityShip mountShip) {
+            mountShip.applyCommandState(issuer, new CommandStateOp.Apply(new ShipCommand.SetSitting(sitting)));
+            if (mountShip.getRidingState() > 0) {
+                for (Entity rider : mountShip.getPassengers()) {
+                    if (rider instanceof BasicEntityShip ship) {
+                        ship.applyCommandState(issuer, new CommandStateOp.Apply(new ShipCommand.SetSitting(sitting)));
+                    }
+                }
+            }
+        }
+        for (Entity rider : this.getPassengers()) {
+            if (rider instanceof BasicEntityShip ship) {
+                ship.applyCommandState(issuer, new CommandStateOp.Apply(new ShipCommand.SetSitting(sitting)));
             }
         }
     }
@@ -3353,6 +3675,11 @@ public abstract class BasicEntityShip extends TamableAnimal
         // server side
         if (!this.level().isClientSide()) {
             this.resyncOwnerUid(player);
+            if ((this instanceof EntityNorthernHime || this instanceof EntitySSNH)
+                    && HimeRiding.canRideOwner(this, player, hand)) {
+                this.rideOwner(player);
+                return InteractionResult.SUCCESS;
+            }
             ItemStack stack = player.getItemInHand(hand);
 
             // use item
@@ -3418,6 +3745,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                         this.setShipLevel(lv, true);
 
                         // level up sound
+                        this.playVoice(ModSounds.SHIP_LEVEL.get(), 0.75F, 1F);
                         this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                                 SoundEvents.PLAYER_LEVELUP, this.getSoundSource(), 0.75F, 1F);
 
@@ -3454,8 +3782,15 @@ public abstract class BasicEntityShip extends TamableAnimal
                     // [PORT] 1.10.2 parity: pointer in use should not toggle sit here.
                     if (getPointerInUse(player).isEmpty()) {
                         // toggle sitting (bare hand / non-pointer interaction)
-                        this.setEntitySit(!this.isOrderedToSit());
-                        this.setRiderAndMountSit();
+                        if (ShipCommandStateAdapter.isNew()) {
+                            CommandIssuer issuer = new CommandIssuer.Player(player.getUUID());
+                            this.applyCommandState(issuer, new CommandStateOp.Apply(
+                                    new ShipCommand.SetSitting(!this.getCommandState().sitting())));
+                            this.setRiderAndMountSit(issuer);
+                        } else {
+                            this.setEntitySit(!this.isOrderedToSit());
+                            this.setRiderAndMountSit();
+                        }
                     }
                     return InteractionResult.SUCCESS;
                 }
@@ -3465,10 +3800,24 @@ public abstract class BasicEntityShip extends TamableAnimal
         return InteractionResult.PASS;
     }
 
+    /** Stand and board the owner from an already validated interaction. */
+    public void rideOwner(Player player) {
+        if (ShipCommandStateAdapter.isNew()) {
+            this.applyCommandState(new CommandIssuer.Player(player.getUUID()), new CommandStateOp.StandUp());
+        } else {
+            this.setEntitySit(false);
+        }
+        if (this.startRiding(player, true)) {
+            this.getNavigation().stop();
+            this.sendSyncPacketRiders();
+        }
+    }
+
     // ========== Death ==========
 
     @Override
     public void die(DamageSource source) {
+        ShipSkillAttackGate.cancel(this);
         boolean wasDead = this.dead;
         this.setManualTarget(null);
         // The inventory is deliberately left alone: tickDeath() folds it into the
@@ -3483,10 +3832,23 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         super.die(source);
         if (!wasDead && this.dead) {
+            if (!this.level().isClientSide()) {
+                this.sendSunkLocationMessage();
+                this.updateSunkLocation(BlockPos.containing(this.getX(), this.getY(), this.getZ()));
+            }
             this.playVoice(ModSounds.getCustomSound(3, this.getShipClass()),
                     this.getSoundVolume(), this.getVoicePitch());
         }
         LogHelper.info("Ship died: class=" + this.getShipClass() + " source=" + source.getMsgId());
+    }
+
+    private void standAfterDamage() {
+        if (ShipCommandStateAdapter.isNew() && !this.level().isClientSide()) {
+            this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.DAMAGED),
+                    new CommandStateOp.StandUp());
+        } else {
+            this.setEntitySit(false);
+        }
     }
 
     // ========== Death Update ==========
@@ -3568,7 +3930,10 @@ public abstract class BasicEntityShip extends TamableAnimal
                         this.getY() + 0.5D,
                         this.getZ(),
                         egg);
-                this.level().addFreshEntity(entityItem);
+                if (this.level().addFreshEntity(entityItem)) {
+                    this.updateSunkLocation(BlockPos.containing(
+                            entityItem.getX(), entityItem.getY(), entityItem.getZ()));
+                }
             }
 
             // set dead
@@ -3591,6 +3956,44 @@ public abstract class BasicEntityShip extends TamableAnimal
         // clear bug entity
         else if (this.deathTime > ConfigHandler.deathTime() && this.isAlive()) {
             this.discard();
+        }
+    }
+
+    private void sendSunkLocationMessage() {
+        if (!this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES)
+                || this.getOwnerUUID() == null) {
+            return;
+        }
+        ServerPlayer owner = this.getServer().getPlayerList().getPlayer(this.getOwnerUUID());
+        if (owner != null) {
+            BlockPos position = BlockPos.containing(this.getX(), this.getY(), this.getZ());
+            boolean sameDimension = owner.level().dimension().equals(this.level().dimension());
+            String key = sameDimension ? "chat.shincolle_kai.ship.sunk_location"
+                    : "chat.shincolle_kai.ship.sunk_location_dimension";
+            if (sameDimension) {
+                owner.sendSystemMessage(Component.translatable(key, this.getDisplayName(),
+                        position.getX(), position.getY(), position.getZ()));
+            } else {
+                owner.sendSystemMessage(Component.translatable(key, this.getDisplayName(),
+                        position.getX(), position.getY(), position.getZ(),
+                        this.level().dimension().location().toString()));
+            }
+        }
+    }
+
+    private void updateSunkLocation(BlockPos position) {
+        if (this.level().isClientSide()) {
+            return;
+        }
+        int uid = this.getShipUID();
+        if (uid <= 0 || ServerDataManager.getShipWorldData(uid) == null) {
+            ServerDataManager.updateShipID(this);
+            uid = this.getShipUID();
+        }
+        CacheDataShip record = ServerDataManager.getShipWorldData(uid);
+        if (record != null) {
+            record.setSunkLocation(this.level().dimension(), position.getX(), position.getY(), position.getZ());
+            ServerDataManager.setShipWorldData(uid, record);
         }
     }
 
@@ -4580,17 +4983,19 @@ public abstract class BasicEntityShip extends TamableAnimal
         applySoundAtAttacker(2, this);
         applyParticleAtAttacker(2, this, this);
 
-        float tarX = (float) target.getX();
+        double tarX = target.getX();
         float tarY = (float) target.getY();
-        float tarZ = (float) target.getZ();
+        double tarZ = target.getZ();
 
         // heavy shots can miss their aim point (see attackEntityWithHeavyAmmo(Entity))
         float dist = (float) Math.sqrt(this.distanceToSqr(
                 target.getX() + 0.5D, target.getY() + 0.5D, target.getZ() + 0.5D));
         if (this.random.nextFloat() <= CombatHelper.calcMissRate(this, dist)) {
-            tarX = tarX - 5F + this.random.nextFloat() * 10F;
-            tarY = tarY + this.random.nextFloat() * 5F;
-            tarZ = tarZ - 5F + this.random.nextFloat() * 10F;
+            double[] aim = CombatHelper.calcMissAimPoint(tarX, tarY, tarZ, this.getX(), this.getZ(),
+                    0F, this.random.nextFloat(), this.random.nextFloat(), this.random.nextFloat());
+            tarX = aim[0];
+            tarY = (float) aim[1];
+            tarZ = aim[2];
             ParticleHelper.spawnAttackTextParticle(this, 0); // miss indicator
         }
 

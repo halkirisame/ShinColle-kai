@@ -1,6 +1,12 @@
 package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.ShipAircraftAttackGoal;
+import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
+import com.lulan.shincolle.ai.domain.TargetEligibilityEvaluator;
+import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
+import com.lulan.shincolle.ai.domain.TargetPredicateKind;
+import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
+import com.lulan.shincolle.ai.observation.MinecraftTargetClassificationAdapter;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.equip.ShipOnHitEffects;
@@ -71,10 +77,11 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
     @Override
     protected void setAIList() {
+        Entity initialTarget = this.getEntityTarget();
         this.clearAITasks();
         this.clearAITargetTasks();
         this.goalSelector.addGoal(1, new ShipAircraftAttackGoal(this));
-        this.setTarget(this.getTarget());
+        this.setEntityTarget(initialTarget);
     }
 
     // ========== Target Finding ==========
@@ -179,9 +186,10 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
                 }
 
                 // initial straight-line movement toward target
-                if (this.tickCount < 34 && this.getTarget() != null) {
-                    double distX = this.getTarget().getX() - this.getX();
-                    double distZ = this.getTarget().getZ() - this.getZ();
+                Entity initialTarget = this.getEntityTarget();
+                if (this.tickCount < 34 && initialTarget != null) {
+                    double distX = initialTarget.getX() - this.getX();
+                    double distZ = initialTarget.getZ() - this.getZ();
                     double distSqrt = Math.sqrt(distX * distX + distZ * distZ);
 
                     if (distSqrt > 0.01D) {
@@ -197,7 +205,8 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
                     boolean findNewTarget = false;
 
                     if (this.tickCount < 1200) {
-                        if (this.getTarget() == null || !this.getTarget().isAlive()) {
+                        Entity currentTarget = this.getEntityTarget();
+                        if (currentTarget == null || !currentTarget.isAlive()) {
                             findNewTarget = true;
                         }
                     }
@@ -254,9 +263,22 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
      */
     private Entity findNearbyTarget() {
         double range = 24D;
-        Predicate<Entity> selector = this.host instanceof BasicEntityShipHostile
-                ? new TargetHelper.SelectorForHostile(this)
-                : new TargetHelper.Selector(this);
+        boolean modern = this.host instanceof BasicEntityShip ship && ship.hasTargetAuthority()
+                || this.host instanceof BasicEntityShipHostile hostile && hostile.hasTargetAuthority();
+        Predicate<Entity> selector;
+        if (modern) {
+            Entity source = (Entity) this.host;
+            TargetPredicateKind kind = this.host instanceof BasicEntityShipHostile
+                    ? TargetPredicateKind.HOSTILE_AUTOMATIC : TargetPredicateKind.FRIENDLY_AUTOMATIC;
+            TargetPredicatePolicy policy = ShipTargetAuthorityGoal.targetPolicy(this.host);
+            selector = candidate -> candidate != this && TargetEligibilityEvaluator.test(kind,
+                    MinecraftTargetClassificationAdapter.classify(source, candidate, kind, policy,
+                            this.tickCount, TargetObservationProfiler.NOOP).classification().value(), policy);
+        } else {
+            selector = this.host instanceof BasicEntityShipHostile
+                    ? new TargetHelper.SelectorForHostile(this)
+                    : new TargetHelper.Selector(this);
+        }
 
         // if host has anti-air flag, search wider for airplanes first
         if (this.host != null && this.host.getStateFlag(ID.F.AntiAir)) {
@@ -273,9 +295,9 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
         // search for general targets
         AABB searchBox = this.getBoundingBox().inflate(range, range, range);
-        List<LivingEntity> targets = this.level().getEntitiesOfClass(
-                LivingEntity.class, searchBox,
-                selector::test);
+        List<? extends Entity> targets = modern
+                ? this.level().getEntitiesOfClass(Entity.class, searchBox, selector::test)
+                : this.level().getEntitiesOfClass(LivingEntity.class, searchBox, selector::test);
 
         if (!targets.isEmpty()) {
             targets.sort(Comparator.comparingDouble(this::distanceToSqr));
@@ -334,6 +356,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
         // apply combat rate (miss/crit/dhit/thit)
         atk = CombatHelper.applyCombatRateToDamage(this, target, false, dist, atk);
+        atk = CombatHelper.applyDamageReduceOnPlayer(target, atk);
 
         // check friendly fire
         if (CombatHelper.isFriendlyFire(this, target))
@@ -344,10 +367,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
             return true;
 
         // deal damage
-        boolean isHurt = false;
-        if (target instanceof LivingEntity livingTarget) {
-            isHurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
-        }
+        boolean isHurt = target.hurt(this.damageSources().mobAttack(this), atk);
 
         if (isHurt && this.host instanceof LivingEntity hostEntity) {
             ShipOnHitEffects.dispatch(hostEntity, target, atk);
@@ -375,6 +395,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
         // apply combat rate
         atk = CombatHelper.applyCombatRateToDamage(this, target, false, dist, atk);
+        atk = CombatHelper.applyDamageReduceOnPlayer(target, atk);
 
         // check friendly fire
         if (CombatHelper.isFriendlyFire(this, target))
@@ -385,10 +406,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
             return true;
 
         // deal damage
-        boolean isHurt = false;
-        if (target instanceof LivingEntity livingTarget) {
-            isHurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
-        }
+        boolean isHurt = target.hurt(this.damageSources().mobAttack(this), atk);
 
         if (isHurt && this.host instanceof LivingEntity hostEntity) {
             ShipOnHitEffects.dispatch(hostEntity, target, atk);
@@ -437,7 +455,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
      */
     protected void initAttrsFromHost(BasicEntityShip ship, Entity target, int scaleLevel, float launchY) {
         this.host = ship;
-        this.setTarget((LivingEntity) target);
+        this.setEntityTarget(target);
         this.setScaleLevel(scaleLevel);
 
         // set spawn position
@@ -478,7 +496,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
      */
     protected void initAttrsFromHostile(BasicEntityShipHostile hostile, Entity target, int scaleLevel, float launchY) {
         this.host = hostile;
-        this.setTarget((LivingEntity) target);
+        this.setEntityTarget(target);
         this.setScaleLevel(scaleLevel);
 
         this.setPos(hostile.getX(), launchY, hostile.getZ());

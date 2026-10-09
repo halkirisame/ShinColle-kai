@@ -7,6 +7,8 @@ import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModSounds;
+import com.lulan.shincolle.item.Ammo;
+import com.lulan.shincolle.item.CombatRation;
 import com.lulan.shincolle.item.IShipCombatRation;
 import com.lulan.shincolle.item.IShipFoodItem;
 import com.lulan.shincolle.item.OwnerPaper;
@@ -321,7 +323,14 @@ public class InteractHelper {
         // is ship food
         if (itemstack.getItem() instanceof IShipFoodItem foodItem) {
             type = 2;
-            int meta = getItemMeta(itemstack);
+            int meta;
+            if (foodItem instanceof Ammo ammo) {
+                meta = ammo.getType();
+            } else if (foodItem instanceof CombatRation ration) {
+                meta = ration.getType();
+            } else {
+                meta = getItemMeta(itemstack);
+            }
             int foodv = (int) foodItem.getFoodValue(meta);
             mfood = foodv + ship.getRandom().nextInt(foodv + 1);
 
@@ -475,6 +484,7 @@ public class InteractHelper {
                 }
             }
 
+            ship.sendSyncPacketMinor();
             return true;
         }
 

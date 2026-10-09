@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.handler.BookClientConfig;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
@@ -180,6 +181,11 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             this.bookChapNum = 0;
             this.bookPageNum = 0;
             this.radarZoomLv = 0;
+        }
+        if (type == 2) {
+            BookClientConfig.Bookmark bookmark = BookClientConfig.read(GuiBook.PageLimit);
+            this.bookChapNum = bookmark.chapter();
+            this.bookPageNum = bookmark.page();
         }
 
         // Cache localized strings
@@ -1093,6 +1099,14 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     }
 
     // ==================== Click Handlers ====================
+
+    @Override
+    public void removed() {
+        if (this.type == 2) {
+            BookClientConfig.save(this.bookChapNum, this.bookPageNum);
+        }
+        super.removed();
+    }
 
     private void syncTileEntityC2S() {
         if (this.type == 0 && this.tile != null) {

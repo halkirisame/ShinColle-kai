@@ -369,7 +369,7 @@ public class ModelHeavyCruiserNe extends ShipModelBaseAdv<Entity> {
         PartDefinition glowHead = glowBodyMain.addOrReplaceChild("GlowHead",
                 CubeListBuilder.create(),
                 PartPose.offset(0.0F, -6.0F, -13.0F));
-        addDefaultFaceParts(glowHead);
+        addFaceParts(glowHead, -8.5F, -0.7F, 0.7F, -6.8F);
 
         return LayerDefinition.create(meshdefinition, 128, 128);
     }

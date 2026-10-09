@@ -11,6 +11,7 @@ import com.lulan.shincolle.equip.curios.ShipCuriosRecalcHandler;
 import com.lulan.shincolle.equip.curios.ShipEquipCurioCapabilityHandler;
 import com.lulan.shincolle.equip.tinkers.ShipTinkersIntegration;
 import com.lulan.shincolle.equipdata.EquipDataLoader;
+import com.lulan.shincolle.handler.BookClientConfig;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.handler.ServerEventHandler;
 import com.lulan.shincolle.handler.UpdateNotificationConfig;
@@ -64,6 +65,8 @@ public class ShinColle {
                 Reference.MOD_ID + "-client.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ShipSoundClientConfig.CLIENT_SPEC,
                 Reference.MOD_ID + "-sound-client.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, BookClientConfig.CLIENT_SPEC,
+                Reference.MOD_ID + "-book-client.toml");
 
         // Register lifecycle event listeners
         modEventBus.addListener(this::commonSetup);
@@ -128,6 +131,10 @@ public class ShinColle {
      */
     private void onConfigLoad(ModConfigEvent.Loading event) {
         if (event.getConfig().getSpec() == ConfigHandler.COMMON_SPEC) {
+            if (ConfigHandler.applyShipAiNewDefault()) {
+                event.getConfig().save();
+                LOGGER.info("ShinColle: Applied the NEW ship AI default to the common config.");
+            }
             ConfigHandler.syncConfig();
             LOGGER.info("ShinColle: Config loaded.");
         }

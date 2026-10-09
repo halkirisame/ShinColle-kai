@@ -116,6 +116,67 @@ public class CombatHelper {
     }
 
     /**
+     * The widest target the beside-the-target miss point is built for. A miss point at 6 blocks to the
+     * side and at most 1 along the line of fire is at least 6 / sqrt(2) = 4.24 blocks from the target
+     * along at least one axis, and a splash box reaches 3.75 + width / 2, which is at most that for a
+     * width up to 2 * (6 / sqrt(2) - 3.75) = 0.985; 0.98 is used.
+     */
+    static final double MISS_AIM_MAX_WIDTH = 0.98D;
+
+    /**
+     * Where a heavy shot that missed aims. A target no wider than {@link #MISS_AIM_MAX_WIDTH}: beside
+     * it on the ground, not behind or above it. The point is 6 to 7 blocks to one side of the target,
+     * seen from the shooter, and at most one block towards or away from the shooter; its height is the
+     * target's. That is outside the splash box of a shot at such a target, so a miss stays a miss, and
+     * the missile lands on the ground instead of flying on above the target until it times out.
+     * A wider target keeps the earlier point, up to five blocks to either side and up to five above.
+     * <p>
+     * The horizontal coordinates are doubles, and so is the result: the margin of a miss is a few
+     * thousandths of a block (4.2426 against a reach of at most 4.24), so the point must keep the
+     * precision of the target's position. Rounding it to a float loses that margin from about a million
+     * blocks out, where a float is a quarter of a block apart or more; in doubles the spacing at the
+     * world's edge is under four billionths of a block, so the margin holds wherever the target stands.
+     * The height is a float and stays one: the beside-the-target point returns it unchanged, and the
+     * earlier point adds its offset in float arithmetic, from the target's x and z as floats, so it is
+     * the same as before. The height element holds the float's value, so {@code (float)} of it is exact.
+     * <p>
+     * The three random values are {@code nextFloat()} results, taken in this order: for the
+     * beside-the-target point the side, the distance to the side and the position along the line of
+     * fire; for the earlier point the x offset, the height and the z offset.
+     *
+     * @param targetWidth the target's horizontal width, 0 when the target is a block
+     * @return the aim point as {x, y, z}
+     */
+    public static double[] calcMissAimPoint(double tarX, float tarY, double tarZ, double shooterX, double shooterZ,
+                                            double targetWidth, float sideRoll, float lateralRoll,
+                                            float alongRoll) {
+        if (targetWidth > MISS_AIM_MAX_WIDTH) {
+            float x = (float) tarX;
+            float z = (float) tarZ;
+            return new double[]{x - 5F + sideRoll * 10F, tarY + lateralRoll * 5F, z - 5F + alongRoll * 10F};
+        }
+        // from the target to the shooter; the shooter standing on the target has no side, so take east
+        double ux = shooterX - tarX;
+        double uz = shooterZ - tarZ;
+        double length = Math.sqrt(ux * ux + uz * uz);
+        if (length < 0.01D) {
+            ux = 1D;
+            uz = 0D;
+        } else {
+            ux /= length;
+            uz /= length;
+        }
+        double side = sideRoll < 0.5F ? -1D : 1D;
+        double lateral = 6D + lateralRoll;
+        double along = (alongRoll - 0.5D) * 2D;
+        // the side is perpendicular to the line of fire: (-uz, ux)
+        return new double[]{
+                tarX + -uz * side * lateral + ux * along,
+                tarY,
+                tarZ + ux * side * lateral + uz * along};
+    }
+
+    /**
      * Calculate miss rate based on range tiers and ship level.
      * <p>
      * Range < 3: base 25% - level bonus

@@ -1,5 +1,8 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.action.ActionKind;
+import com.lulan.shincolle.ai.domain.movement.MovementActivity;
+import com.lulan.shincolle.ai.domain.movement.MovementDecision;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.reference.ID;
@@ -35,7 +38,12 @@ public class ShipWatchClosestGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (this.entity instanceof IShipAttackBase ship) {
+        if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return false;
+        if (ShipMovementGate.active() && ShipMovementGate.decision(this.entity) != null) {
+            if (!ShipMovementGate.allows(this.entity, MovementActivity.IDLE_LOOK)) {
+                return false;
+            }
+        } else if (this.entity instanceof IShipAttackBase ship) {
             if (ship.getStateFlag(ID.F.NoFuel)
                     || this.entity.getVehicle() instanceof BasicEntityShip) {
                 return false;
@@ -69,6 +77,8 @@ public class ShipWatchClosestGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return false;
+        if (this.idleLookForbidden()) return false;
         if (this.closestEntity == null || !this.closestEntity.isAlive()) return false;
         if (this.entity.distanceToSqr(this.closestEntity) > (double) (this.maxDistance * this.maxDistance))
             return false;
@@ -87,6 +97,8 @@ public class ShipWatchClosestGoal extends Goal {
 
     @Override
     public void tick() {
+        if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return;
+        if (this.idleLookForbidden()) return;
         if (this.closestEntity != null && this.closestEntity.isAlive()) {
             this.entity.getLookControl().setLookAt(
                     this.closestEntity.getX(),
@@ -94,5 +106,11 @@ public class ShipWatchClosestGoal extends Goal {
                     this.closestEntity.getZ());
             --this.lookTime;
         }
+    }
+
+    /** NEW: an engaged ship keeps its head on its target, so it must not look around (LEGACY has no decision). */
+    private boolean idleLookForbidden() {
+        MovementDecision decision = ShipMovementGate.active() ? ShipMovementGate.decision(this.entity) : null;
+        return decision != null && !decision.allows(MovementActivity.IDLE_LOOK);
     }
 }

@@ -113,6 +113,9 @@ public class CapaShipInventory {
      */
     public int getFirstSlotForItem() {
         for (int i = Math.min(EquipSlots, stacks.length); i < stacks.length; i++) {
+            if (!isSlotAvailable(i)) {
+                break;
+            }
             if (stacks[i].isEmpty()) {
                 return i;
             }
@@ -174,6 +177,9 @@ public class CapaShipInventory {
         int cargoStart = Math.min(EquipSlots, stacks.length);
         int capacity = 0;
         for (int i = cargoStart; i < stacks.length; i++) {
+            if (!isSlotAvailable(i)) {
+                break;
+            }
             ItemStack itemStack = stacks[i];
             if (!itemStack.isEmpty() && ItemStack.isSameItemSameTags(itemStack, stack)) {
                 capacity += Math.max(0, itemStack.getMaxStackSize() - itemStack.getCount());

@@ -37,7 +37,17 @@ public class EntityCarrierWo extends BasicEntityShipCV {
         this.setNumAircraftLight(6);
         this.setNumAircraftHeavy(3);
 
+        // airplanes leave from the same point on the model as in 1.10.2
+        this.launchHeight = 1.9F * 0.9F;
+
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddRaw() {
+        super.calcShipAttributesAddRaw();
+        this.maxAircraftLight += this.getLevel() * 0.25F;
+        this.maxAircraftHeavy += this.getLevel() * 0.15F;
     }
 
     /**

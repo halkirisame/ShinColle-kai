@@ -5,6 +5,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -21,8 +22,8 @@ public final class GameTestEntitiesGameTests {
         Entity first;
         Entity second;
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            first = entities.add(create(helper, EntityType.COW, 1.5D));
-            second = entities.add(create(helper, EntityType.ZOMBIE, 2.5D));
+            first = create(helper, entities, EntityType.COW, 1.5D);
+            second = create(helper, entities, EntityType.ZOMBIE, 2.5D);
         }
 
         helper.assertTrue(first.isRemoved() && second.isRemoved(),
@@ -37,8 +38,8 @@ public final class GameTestEntitiesGameTests {
         boolean caught = false;
         try {
             try (GameTestEntities entities = GameTestEntities.open(helper)) {
-                first = entities.add(create(helper, EntityType.COW, 1.5D));
-                second = entities.add(create(helper, EntityType.ZOMBIE, 2.5D));
+                first = create(helper, entities, EntityType.COW, 1.5D);
+                second = create(helper, entities, EntityType.ZOMBIE, 2.5D);
                 throw new ScopeBodyException();
             }
         } catch (ScopeBodyException expected) {
@@ -51,12 +52,15 @@ public final class GameTestEntitiesGameTests {
         helper.succeed();
     }
 
-    private static Entity create(GameTestHelper helper, EntityType<?> type, double x) {
-        Entity entity = type.create(helper.getLevel());
+    private static Entity create(GameTestHelper helper, GameTestEntities entities, EntityType<?> type, double x) {
+        Entity entity = entities.add(type.create(helper.getLevel()));
         if (entity == null) {
             throw new AssertionError("Failed to create cleanup fixture entity: " + type);
         }
         entity.moveTo(helper.absoluteVec(new Vec3(x, 2D, 1.5D)));
+        if (entity instanceof Mob mob) {
+            helper.assertTrue(mob.isPersistenceRequired(), "Registered mob was not marked persistent");
+        }
         if (!helper.getLevel().addFreshEntity(entity)) {
             throw new AssertionError("Failed to add cleanup fixture entity: " + type);
         }

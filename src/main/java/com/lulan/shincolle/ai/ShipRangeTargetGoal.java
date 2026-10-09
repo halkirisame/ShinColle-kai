@@ -70,7 +70,7 @@ public class ShipRangeTargetGoal extends Goal {
         }
         ProfilerFiller profiler = DebugProfiler.push(this.entity.level(), "shincolle.ai.range_target.can_use");
         try {
-            if (this.host.getIsSitting() || this.host.getStateMinor(ID.M.CraneState) > 0) {
+            if (this.host.getIsSitting() || ShipMovementGate.craneBusy(this.host)) {
                 DebugProfiler.count(profiler, "shincolle.ai.range_target.blocked.sit_or_crane");
                 return false;
             }

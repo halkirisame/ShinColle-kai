@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.render;
 
+import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.other.EntityShipFishingHook;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -13,6 +14,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
@@ -27,9 +29,9 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 public class RenderShipFishing extends EntityRenderer<EntityShipFishingHook> {
 
     /**
-     * Vanilla particle atlas used for the hook sprite
+     * Vanilla fishing float sprite
      */
-    private static final ResourceLocation TEXTURE = new ResourceLocation("textures/particle/particles.png");
+    private static final ResourceLocation TEXTURE = new ResourceLocation("textures/entity/fishing_hook.png");
 
     public RenderShipFishing(EntityRendererProvider.Context context) {
         super(context);
@@ -63,10 +65,8 @@ public class RenderShipFishing extends EntityRenderer<EntityShipFishingHook> {
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
         poseStack.scale(0.5F, 0.5F, 0.5F);
 
-        // Draw hook quad from particle atlas
-        // UV coords for fishing hook sprite in particles.png
-        float u0 = 0.0625F, u1 = 0.125F;
-        float v0 = 0.125F, v1 = 0.1875F;
+        float u0 = 0F, u1 = 1F;
+        float v0 = 0F, v1 = 1F;
 
         VertexConsumer hookConsumer = buffer.getBuffer(RenderType.entityCutout(TEXTURE));
         PoseStack.Pose hookPose = poseStack.last();
@@ -87,13 +87,18 @@ public class RenderShipFishing extends EntityRenderer<EntityShipFishingHook> {
             double sinYaw = Mth.sin(bodyYaw);
             double cosYaw = Mth.cos(bodyYaw);
             double handWidth = host.getBbWidth();
+            double handOffset = host.getMainArm() == HumanoidArm.RIGHT ? 0.25D : -0.25D;
+            double postureOffset = host.isCrouching() ? -0.1875D : 0D;
+            if (host instanceof BasicEntityShip ship && ship.getIsSitting()) {
+                postureOffset -= host.getBbHeight() * 0.3D;
+            }
 
             double hostX = Mth.lerp(partialTick, host.xOld, host.getX())
-                    - cosYaw * 0.25D - sinYaw * handWidth;
+                    - cosYaw * handOffset - sinYaw * handWidth;
             double hostY = Mth.lerp(partialTick, host.yOld, host.getY())
-                    + host.getEyeHeight() * 0.7D - 0.45D + host.getBbHeight() * 0.2D;
+                    + host.getEyeHeight() - 0.45D + host.getBbHeight() * 0.2D + postureOffset;
             double hostZ = Mth.lerp(partialTick, host.zOld, host.getZ())
-                    - sinYaw * 0.25D + cosYaw * handWidth;
+                    - sinYaw * handOffset + cosYaw * handWidth;
 
             // Hook position in world space
             double hookX = Mth.lerp(partialTick, entity.xOld, entity.getX());
@@ -117,14 +122,12 @@ public class RenderShipFishing extends EntityRenderer<EntityShipFishingHook> {
                 // Catenary curve positions
                 float x0 = dx * t0;
                 float y0 = bobOffset + 0.25F
-                        + dy * (t0 * t0 + t0) * 0.5F
-                        + (segments - i) / 18F + 0.125F;
+                        + dy * (t0 * t0 + t0) * 0.5F;
                 float z0 = dz * t0;
 
                 float x1 = dx * t1;
                 float y1 = bobOffset + 0.25F
-                        + dy * (t1 * t1 + t1) * 0.5F
-                        + (segments - (i + 1)) / 18F + 0.125F;
+                        + dy * (t1 * t1 + t1) * 0.5F;
                 float z1 = dz * t1;
 
                 lineConsumer.vertex(linePose.pose(), x0, y0, z0)

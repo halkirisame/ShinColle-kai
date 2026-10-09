@@ -102,7 +102,7 @@ public final class TargetGoalLifecycleGameTests {
                     "Waiting for the range host's chunk to tick entities");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(targetPosition)),
                     "Waiting for the range target's chunk to tick entities");
-        }).thenExecute(verification).thenSucceed();
+        }).thenExecute(GameTestVerification.namedFailure(verification)).thenSucceed();
     }
 
     @GameTest(template = "arena", batch = "isolated_friendly_revenge_target_releases_invalid_targets")
@@ -253,6 +253,7 @@ public final class TargetGoalLifecycleGameTests {
         }
         zombie.setNoAi(true);
         zombie.setInvulnerable(true);
+        zombie.setPersistenceRequired();
         moveTo(helper, zombie, relativePos);
         if (addToLevel && !helper.getLevel().addFreshEntity(zombie)) {
             throw new AssertionError("Failed to add a zombie for target lifecycle testing.");

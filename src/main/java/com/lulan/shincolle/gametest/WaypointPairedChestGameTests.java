@@ -145,4 +145,26 @@ public final class WaypointPairedChestGameTests {
 
         helper.succeed();
     }
+
+    /** The wrench message names the stay as seconds or minutes, not as the raw setting. */
+    @GameTest(template = "arena")
+    public static void waypointStayMessageShowsSecondsOrMinutes(GameTestHelper helper) {
+        helper.assertTrue(stayShown(6).equals("gui.shincolle_kai.time.minutes:1"),
+                "Setting 6 is a minute: " + stayShown(6));
+        helper.assertTrue(stayShown(3).equals("gui.shincolle_kai.time.seconds:15"),
+                "Setting 3 is 15 seconds: " + stayShown(3));
+        helper.succeed();
+    }
+
+    private static String stayShown(int rawStay) {
+        var message = com.lulan.shincolle.block.BlockWaypoint.stayMessage(rawStay);
+        if (!(message.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents outer)
+                || !"message.shincolle_kai.waypoint_stay".equals(outer.getKey()) || outer.getArgs().length != 1
+                || !(outer.getArgs()[0] instanceof net.minecraft.network.chat.Component inner)
+                || !(inner.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents unit)
+                || unit.getArgs().length != 1) {
+            return "unexpected message: " + message;
+        }
+        return unit.getKey() + ":" + unit.getArgs()[0];
+    }
 }

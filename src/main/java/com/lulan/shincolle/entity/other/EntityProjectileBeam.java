@@ -8,6 +8,7 @@ import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -36,6 +37,8 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
             EntityDataSerializers.FLOAT);
     private static final int LIFE_LENGTH = 31;
     private static final double SPEED = 4.0D;
+    private static final EntityDataAccessor<Boolean> GAE_BOLG = SynchedEntityData.defineId(EntityProjectileBeam.class,
+            EntityDataSerializers.BOOLEAN);
     private int playerUID;
     private int textureID;
     private int projectileType;
@@ -106,6 +109,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
 
     @Override
     protected void defineSynchedData() {
+        this.entityData.define(GAE_BOLG, false);
         this.entityData.define(BEAM_DIR_X, 0.0F);
         this.entityData.define(BEAM_DIR_Y, 0.0F);
         this.entityData.define(BEAM_DIR_Z, 1.0F);
@@ -139,19 +143,20 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         Vec3 direction = this.level().isClientSide()
                 ? getBeamDirection()
                 : new Vec3(this.dirX, this.dirY, this.dirZ);
-        Vec3 velocity = direction.scale(SPEED);
+        boolean gaeBolg = this.entityData.get(GAE_BOLG);
+        Vec3 velocity = direction.scale(gaeBolg ? 3.0D : SPEED);
         this.setDeltaMovement(velocity);
         this.setPos(this.position().add(velocity));
 
         if (!this.level().isClientSide()) {
-            if (this.hostEntity == null || this.tickCount > LIFE_LENGTH) {
+            if (this.hostEntity == null || this.tickCount > (gaeBolg ? 8 : LIFE_LENGTH)) {
                 this.discard();
                 return;
             }
             applyBeamDamage();
         } else {
             int particleLife = Math.max(1, 32 - this.tickCount);
-            ParticleHelper.spawnStickyLightningParticle(this, 0.0F, particleLife, 0);
+            if (!gaeBolg) ParticleHelper.spawnStickyLightningParticle(this, 0.0F, particleLife, 0);
         }
     }
 
@@ -162,19 +167,33 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
         List<Entity> entities = this.level().getEntities(this, this.getBoundingBox().inflate(1.5D));
 
         for (Entity ent : entities) {
+            if (this.entityData.get(GAE_BOLG)) {
+                if (!(this.hostEntity instanceof net.minecraft.world.entity.Mob mob)
+                        || !com.lulan.shincolle.ai.ShipSkillAttackGate.areaTarget(mob, ent, this.hostShip.getEntityTarget())
+                        || this.damagedTargets.contains(ent)) continue;
+                this.damagedTargets.add(ent);
+                float attack = CombatHelper.modDamageByAdditionAttrs(this.hostShip, ent, this.beamDamage, 0);
+                attack = CombatHelper.applyCombatRateToDamage(this.hostShip, ent, true, 1F, attack);
+                attack = CombatHelper.applyDamageReduceOnPlayer(ent, attack);
+                if (ent.hurt(this.damageSources().mobAttack(this.hostEntity), attack)) {
+                    ShipOnHitEffects.dispatch(this.hostEntity, ent, attack);
+                    ent.setDeltaMovement(ent.getDeltaMovement().add(directionForKnockback().scale(0.15D)));
+                    ent.hurtMarked = true;
+                }
+                continue;
+            }
             if (!ent.isPickable() || ent == this.hostEntity || this.damagedTargets.contains(ent))
                 continue;
             this.damagedTargets.add(ent);
 
-            if (ent instanceof IShipOwner owner) {
-                if (this.playerUID > 0 && owner.getPlayerUID() == this.playerUID)
-                    continue;
-            }
+            if (TeamHelper.checkSameOwner(this, ent))
+                continue;
             if (!(ent instanceof LivingEntity livingTarget)
                     || CombatHelper.isFriendlyFire(this.hostEntity, ent)) {
                 continue;
             }
             float damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
+            damage = CombatHelper.applyDamageReduceOnPlayer(ent, damage);
             boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), damage);
             if (hurt) {
                 LogHelper.diag("DIAG: beam hit beam=" + this + " target=" + ent + " damage=" + damage);
@@ -245,10 +264,23 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
     // ========== Beam-specific getters/setters ==========
 
     public int getBeamType() {
-        return this.beamType;
+        return this.entityData.get(GAE_BOLG) ? 1 : this.beamType;
     }
 
     public void setBeamType(int beamType) {
         this.beamType = beamType;
+    }
+
+    /** The moving spear-like finisher; ordinary beams retain their existing parameters. */
+    public void initGaeBolg(IShipAttackBase host, Vec3 direction, float damage) {
+        initBeam(host, direction.x, direction.y, direction.z, damage);
+        this.entityData.set(GAE_BOLG, true);
+        this.beamType = 1;
+        Entity source = (Entity) host;
+        setPos(source.getX(), source.getY() + source.getBbHeight() * 0.75D, source.getZ());
+    }
+
+    private Vec3 directionForKnockback() {
+        return new Vec3(this.dirX, this.dirY, this.dirZ);
     }
 }

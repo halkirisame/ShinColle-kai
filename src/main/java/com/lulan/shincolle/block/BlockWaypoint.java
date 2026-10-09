@@ -3,6 +3,7 @@ package com.lulan.shincolle.block;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
+import com.lulan.shincolle.utility.WaypointStayTime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -55,9 +56,15 @@ public class BlockWaypoint extends BasicBlockContainer {
         }
 
         waypoint.nextWpStayTime();
-        player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                "[ShinColle] Waypoint stay time: " + waypoint.getWpStayTime()));
+        player.sendSystemMessage(stayMessage(waypoint.getWpStayTime()));
         return InteractionResult.SUCCESS;
+    }
+
+    /** The message for a stay setting, with the time as seconds or minutes. */
+    public static net.minecraft.network.chat.Component stayMessage(int rawStay) {
+        WaypointStayTime.Display shown = WaypointStayTime.display(rawStay);
+        return net.minecraft.network.chat.Component.translatable("message.shincolle_kai.waypoint_stay",
+                net.minecraft.network.chat.Component.translatable(shown.translationKey(), shown.amount()));
     }
 
     @Override

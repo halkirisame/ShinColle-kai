@@ -1,5 +1,6 @@
 package com.lulan.shincolle.utility;
 
+import com.lulan.shincolle.ai.domain.task.TaskSideMask;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.Values;
@@ -519,10 +520,9 @@ public class InventoryHelper {
             return List.of();
 
         List<IItemHandler> handlers = new ArrayList<>();
-        int firstBit = type * 6;
+        TaskSideMask mask = new TaskSideMask(taskSide);
         for (int side = 0; side < 6; side++) {
-            int bit = firstBit + side;
-            if ((taskSide & Values.N.Pow2[bit]) == Values.N.Pow2[bit]) {
+            if (mask.face(type, side)) {
                 IItemHandler handler = CapaHelper.getCapaInventory(provider, side);
                 if (handler != null && !handlers.contains(handler)) {
                     handlers.add(handler);
@@ -542,10 +542,9 @@ public class InventoryHelper {
             return false;
 
         TreeMap<Integer, List<Direction>> slotFaces = new TreeMap<>();
-        int firstBit = type * 6;
+        TaskSideMask mask = new TaskSideMask(taskSide);
         for (int side = 0; side < 6; side++) {
-            int bit = firstBit + side;
-            if ((taskSide & Values.N.Pow2[bit]) != Values.N.Pow2[bit])
+            if (!mask.face(type, side))
                 continue;
             Direction face = Direction.from3DDataValue(side);
             for (int slot : container.getSlotsForFace(face)) {

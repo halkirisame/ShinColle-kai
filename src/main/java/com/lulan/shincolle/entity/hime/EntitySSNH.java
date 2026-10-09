@@ -7,6 +7,9 @@ import com.lulan.shincolle.entity.IShipInvisible;
 import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.reference.ID;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
@@ -20,6 +23,7 @@ import net.minecraft.world.level.Level;
 public class EntitySSNH extends BasicEntityShipSmall implements IShipRiderType, IShipInvisible {
 
     private int riderType;
+    private final HimeRiding riding = new HimeRiding(this);
     private float invisibleLevel = 0.35F;
 
     public EntitySSNH(EntityType<? extends EntitySSNH> type, Level level) {
@@ -74,6 +78,9 @@ public class EntitySSNH extends BasicEntityShipSmall implements IShipRiderType, 
     @Override
     public void aiStep() {
         super.aiStep();
+        if (!this.level().isClientSide()) {
+            this.riding.tick();
+        }
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
@@ -90,6 +97,20 @@ public class EntitySSNH extends BasicEntityShipSmall implements IShipRiderType, 
                 }
             }
         }
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        if (!this.level().isClientSide() && !source.is(DamageTypes.IN_WALL)) {
+            this.riding.dismount();
+        }
+        return super.hurt(source, amount);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        this.riding.beforeSave();
+        super.addAdditionalSaveData(nbt);
     }
 
     @Override

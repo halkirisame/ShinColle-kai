@@ -33,6 +33,11 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
     }
 
     @Override
+    public int getPlayerUID() {
+        return -100;
+    }
+
+    @Override
     public EntityDimensions getDimensions(Pose pose) {
         return EntityDimensions.fixed(0.3F, 0.7F);
     }
@@ -92,7 +97,7 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
 
                 // re-acquire target from host if current target died
                 if (!target.isAlive() && self.host != null) {
-                    LivingEntity newTarget = self.getTarget();
+                    Entity newTarget = self.getEntityTarget();
                     if (newTarget != null && newTarget.isAlive()) {
                         self.setEntityTarget(newTarget);
                     }
@@ -111,7 +116,7 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
         this.host = host;
         this.setScaleLevel(scaleLevel);
 
-        LivingEntity initialTarget = target instanceof LivingEntity livingTarget ? livingTarget : null;
+        Entity initialTarget = target;
 
         if (host instanceof BasicEntityShipHostile hostile) {
             this.setPos(hostile.getX(), hostile.getY(), hostile.getZ());
@@ -137,7 +142,7 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
             this.postInit();
             this.setAIList();
             // setAIList clears the old target while rebuilding selectors.
-            this.setTarget(initialTarget);
+            this.setEntityTarget(initialTarget);
         }
     }
 

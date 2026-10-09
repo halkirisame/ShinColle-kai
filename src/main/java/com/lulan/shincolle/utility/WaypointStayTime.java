@@ -14,4 +14,19 @@ public final class WaypointStayTime {
             default -> 0;
         };
     }
+
+    /**
+     * What the stay setting is shown as: whole seconds below a minute, whole minutes from a minute on.
+     * The unit is a translation key, so the text is the language file's, not the code's.
+     */
+    public record Display(int amount, boolean minutes) {
+        public String translationKey() {
+            return minutes ? "gui.shincolle_kai.time.minutes" : "gui.shincolle_kai.time.seconds";
+        }
+    }
+
+    public static Display display(int rawStay) {
+        int seconds = toTicks(rawStay) / 20;
+        return seconds >= 60 ? new Display(seconds / 60, true) : new Display(seconds, false);
+    }
 }

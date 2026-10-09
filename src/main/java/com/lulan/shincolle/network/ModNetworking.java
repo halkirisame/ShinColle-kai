@@ -28,9 +28,8 @@ import net.minecraftforge.network.simple.SimpleChannel;
  */
 public class ModNetworking {
 
-    // Attack-animation sync changes the registered packet set. Reject mixed
-    // client/server jars rather than decoding the wrong schema.
-    private static final String PROTOCOL_VERSION = "10";
+    // Skill visuals, beam data, and fishing host data require matching client/server jars.
+    private static final String PROTOCOL_VERSION = "12";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),

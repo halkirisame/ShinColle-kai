@@ -35,7 +35,17 @@ public class EntityBattleshipRe extends BasicEntityShipCV {
         this.StateFlag[ID.F.AtkType_AirHeavy] = true;
         this.StateFlag[ID.F.CanPickItem] = true;
 
+        // airplanes leave from the same point on the model as in 1.10.2
+        this.launchHeight = 1.55F * 0.8F;
+
         this.postInit();
+    }
+
+    @Override
+    public void calcShipAttributesAddRaw() {
+        super.calcShipAttributesAddRaw();
+        this.maxAircraftLight += this.getLevel() * 0.1F;
+        this.maxAircraftHeavy += this.getLevel() * 0.05F;
     }
 
     /**

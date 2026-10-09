@@ -101,6 +101,7 @@ minecraft {
             property 'forge.logging.console.level', 'info'
             property 'shincolle.publicationRoot', project.projectDir.absolutePath
             property 'shincolle.gametestLevelSeed', gameTestLevelSeed
+            property 'shincolle.gametest.authority', providers.gradleProperty('shincolleGameTestAuthority').getOrElse('NEW')
             jvmArgs '--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED'
             args '--nogui'
         }
@@ -117,6 +118,7 @@ minecraft {
     }
 }
 
+sourceSets.main.java { srcDir 'src/ai_core/java' }
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 sourceSets {
@@ -178,6 +180,70 @@ tasks.register('validateAddonExampleIsolation') {
 tasks.named('check').configure {
     dependsOn tasks.named('validateAddonExampleApiBoundary')
     dependsOn tasks.named('validateAddonExampleIsolation')
+}
+
+tasks.register('validateAiCoreBoundary') {
+    description = 'Rejects dependencies outside the pure ship AI domain and its allowed target trait API.'
+    def coreSources = fileTree('src/ai_core/java') {
+        include '**/*.java'
+    }
+    def misplacedSources = fileTree('src/main/java/com/lulan/shincolle/ai/domain') {
+        include '**/*.java'
+    }
+    inputs.files(coreSources, misplacedSources)
+    doLast {
+        if (!misplacedSources.isEmpty()) {
+            throw new GradleException("Ship AI domain sources must live in src/ai_core/java: ${misplacedSources.files}")
+        }
+        coreSources.each { sourceFile ->
+            AiCoreBoundaryValidator.forbiddenReferences(sourceFile.getText('UTF-8'), sourceFile.name).each { reference ->
+                throw new GradleException("Forbidden ship AI core reference ${reference}: ${sourceFile}")
+            }
+        }
+    }
+}
+
+tasks.register('validateAiCoreInJar') {
+    description = 'Ensures the release JAR contains every ship AI domain class and both license texts.'
+    dependsOn tasks.named('jar')
+    def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    def coreSources = fileTree('src/ai_core/java') {
+        include '**/*.java'
+    }
+    inputs.file(releaseJar)
+    inputs.files(coreSources)
+    doLast {
+        def coreClasses = zipTree(releaseJar.get().asFile).matching {
+            include 'com/lulan/shincolle/ai/domain/**/*.class'
+        }
+        if (coreSources.isEmpty() || coreClasses.isEmpty()) {
+            throw new GradleException('Ship AI core sources or release JAR classes are missing.')
+        }
+        def missing = []
+        coreSources.visit { details ->
+            if (!details.directory) {
+                def classPath = details.relativePath.pathString.replaceAll(/\.java$/, '.class')
+                if (coreClasses.matching { include classPath }.isEmpty()) {
+                    missing << classPath
+                }
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Ship AI core classes missing from the release JAR: ${missing}")
+        }
+        def licenses = zipTree(releaseJar.get().asFile).matching {
+            include 'META-INF/LICENSE'
+            include 'META-INF/LICENSE-ai_core'
+        }.files
+        if (licenses.size() != 2) {
+            throw new GradleException("Release JAR must contain META-INF/LICENSE and META-INF/LICENSE-ai_core: ${licenses}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('validateAiCoreBoundary')
+    dependsOn tasks.named('validateAiCoreInJar')
 }
 
 tasks.register('prepareKubeJSSmokeResources', Sync) {
@@ -365,6 +431,11 @@ dependencies {
         // /profileserver <ticks>, /profileclient <ticks> -> logs/profiler/.
         runtimeOnly fg.deobf("curse.maven:packet-profiler-1163892:6013442")
     }
+    // Shaders for screenshots: -PshincolleShaderRuntime=true
+    if (providers.gradleProperty('shincolleShaderRuntime').map { Boolean.parseBoolean(it) }.getOrElse(false)) {
+        runtimeOnly fg.deobf("maven.modrinth:embeddium:0.3.31+mc1.20.1")
+        runtimeOnly fg.deobf("maven.modrinth:oculus:1.20.1-1.8.0")
+    }
 }
 
 tasks.named('test', Test).configure {
@@ -372,6 +443,14 @@ tasks.named('test', Test).configure {
 }
 
 tasks.named('jar', Jar).configure {
+    // The root LICENSE carries the MIT notices; src/ai_core/LICENSE covers the ship AI core.
+    from('LICENSE') {
+        into 'META-INF'
+    }
+    from('src/ai_core/LICENSE') {
+        into 'META-INF'
+        rename { 'LICENSE-ai_core' }
+    }
     manifest {
         attributes([
             'Specification-Title'     : mod_id,
@@ -421,3 +500,112 @@ checkstyle {
 
 tasks.named('checkstyleAddonExample', Checkstyle).configure { maxWarnings = 0 }
 tasks.named('checkstyleTest', Checkstyle).configure { maxWarnings = 0 }
+
+tasks.register('testAiCoreBoundary') {
+    description = 'Checks rejected dependencies and accepted Java literals in the ship AI boundary validator.'
+    doLast {
+        def cases = [
+                spacedType: [source: 'class Probe { net . minecraft . world . entity . Entity value; }', forbidden: true],
+                textBlock: [source: 'class Probe { String text = """\n    a " net.minecraft.world.entity.Entity\n    """; }', forbidden: false],
+                ordinaryType: [source: 'class Probe { net.minecraft.world.entity.Entity value; }', forbidden: true],
+                nestedType: [source: 'class Probe { net . minecraft . world . entity . Entity . RemovalReason value; }', forbidden: true],
+                commentedType: [source: 'class Probe { net /* comment */ . minecraft . world . entity . Entity value; }', forbidden: true],
+                ordinaryImport: [source: 'import net.minecraft.world.entity.Entity; class Probe {}', forbidden: true],
+                spacedImport: [source: 'import net . minecraft . world . entity . Entity; class Probe {}', forbidden: true],
+                commentedImport: [source: 'import net /* comment */ . minecraft . world . entity . Entity; class Probe {}', forbidden: true],
+                wildcardImport: [source: 'import net . minecraft . world . entity . *; class Probe {}', forbidden: true],
+                staticImport: [source: 'import static net . minecraft . world . entity . Entity . *; class Probe {}', forbidden: true],
+                nestedImport: [source: 'import net.minecraft.world.entity.Entity.RemovalReason; class Probe {}', forbidden: true],
+                otherApi: [source: 'import com.lulan.shincolle.api.target.TargetCategory; class Probe {}', forbidden: true],
+                traitLookalike: [source: 'import com.lulan.shincolle.api.target.TargetTraitOther; class Probe {}', forbidden: true],
+                apiWildcard: [source: 'import com.lulan.shincolle.api.target.*; class Probe {}', forbidden: true],
+                javaImport: [source: 'import java . util . List; class Probe {}', forbidden: false],
+                javaWildcard: [source: 'import java.util.*; class Probe {}', forbidden: false],
+                javaStatic: [source: 'import static java.lang.Math.*; class Probe {}', forbidden: false],
+                javaNested: [source: 'class Probe { java . util . Map . Entry value; }', forbidden: false],
+                domainImport: [source: 'import com.lulan.shincolle.ai.domain.TargetHandle; class Probe {}', forbidden: false],
+                traitImport: [source: 'import com.lulan.shincolle.api.target.TargetTrait; class Probe {}', forbidden: false],
+                traitStatic: [source: 'import static com.lulan.shincolle.api.target.TargetTrait.SHIP; class Probe {}', forbidden: false],
+                traitWildcard: [source: 'import static com.lulan.shincolle.api.target.TargetTrait.*; class Probe {}', forbidden: false],
+                traitMember: [source: 'class Probe { Object value = com . lulan . shincolle . api . target . TargetTrait . SHIP; }', forbidden: false],
+                comments: [source: '// net.minecraft.world.entity.Entity\n/* import net.minecraft.world.entity.Entity; */ class Probe {}', forbidden: false],
+                stringLiteral: [source: 'class Probe { String text = "net.minecraft.world.entity.Entity"; }', forbidden: false],
+                escapedString: [source: 'class Probe { String text = "\\\"net.minecraft.world.entity.Entity\\\""; }', forbidden: false],
+                characterLiteral: [source: "class Probe { char quote = '\"'; }", forbidden: false],
+                textBlockComment: [source: 'class Probe { String text = """\n/* import net.minecraft.world.entity.Entity; */\n    """; }', forbidden: false],
+                unicodeImport: [source: 'import n\\u0065t.minecraft.world.entity.Entity; class Probe {}', forbidden: true],
+                unicodeJavaImport: [source: 'import j\\u0061va.util.List; class Probe {}', forbidden: false],
+                instanceCall: [source: 'class Probe { Object value = object.getValue(); }', forbidden: false]
+        ]
+        def failures = []
+        cases.each { name, sample ->
+            def references = AiCoreBoundaryValidator.forbiddenReferences(sample.source, 'Probe.java')
+            if ((!references.isEmpty()) != sample.forbidden) {
+                failures << "${name}: expected forbidden=${sample.forbidden}, found ${references}"
+            }
+        }
+        if (!failures.isEmpty()) throw new GradleException("Ship AI boundary regressions:\n" + failures.join('\n'))
+        logger.lifecycle("Ship AI boundary regression cases passed: ${cases.size()}")
+    }
+}
+
+tasks.named('check').configure { dependsOn tasks.named('testAiCoreBoundary') }
+
+class AiCoreBoundaryValidator {
+    static boolean allowedReference(String reference) {
+        return reference.startsWith('java.') || reference.startsWith('com.lulan.shincolle.ai.domain.') ||
+                reference == 'com.lulan.shincolle.api.target.TargetTrait' ||
+                reference.startsWith('com.lulan.shincolle.api.target.TargetTrait.')
+    }
+
+    static String qualifiedName(com.sun.source.tree.Tree tree) {
+        if (tree instanceof com.sun.source.tree.IdentifierTree) return tree.name.toString()
+        if (tree instanceof com.sun.source.tree.MemberSelectTree) {
+            String prefix = qualifiedName(tree.expression)
+            return prefix == null ? null : prefix + '.' + tree.identifier
+        }
+        return null
+    }
+
+    static List<String> forbiddenReferences(String input, String filename) {
+        def compiler = javax.tools.ToolProvider.systemJavaCompiler
+        if (compiler == null) throw new GradleException('Ship AI boundary validation requires a JDK with a Java compiler.')
+        def diagnostics = new javax.tools.DiagnosticCollector<javax.tools.JavaFileObject>()
+        def manager = compiler.getStandardFileManager(diagnostics, java.util.Locale.ROOT, java.nio.charset.StandardCharsets.UTF_8)
+        def source = new javax.tools.SimpleJavaFileObject(java.net.URI.create('string:///' + filename),
+                javax.tools.JavaFileObject.Kind.SOURCE) {
+            @Override
+            CharSequence getCharContent(boolean ignoreEncodingErrors) { return input }
+        }
+        def references = new LinkedHashSet<String>()
+        def scanner = new com.sun.source.util.TreeScanner<Void, Void>() {
+            @Override
+            Void visitImport(com.sun.source.tree.ImportTree tree, Void unused) {
+                references.add(AiCoreBoundaryValidator.qualifiedName(tree.qualifiedIdentifier))
+                return null
+            }
+
+            @Override
+            Void visitMemberSelect(com.sun.source.tree.MemberSelectTree tree, Void unused) {
+                String reference = AiCoreBoundaryValidator.qualifiedName(tree)
+                // Only package-qualified type/member chains; instance expressions are not dependencies.
+                if (reference != null && reference ==~ /(?:[a-z_][\w$]*\.)+[A-Z_$][\w$]*(?:\.[\w$]+)*/) {
+                    references.add(reference)
+                }
+                return super.visitMemberSelect(tree, unused)
+            }
+        }
+        try {
+            def task = (com.sun.source.util.JavacTask) compiler.getTask(null, manager, diagnostics,
+                    ['--release', '17', '-proc:none'], null, [source])
+            task.parse().each { unit -> scanner.scan(unit, null) }
+            def errors = diagnostics.diagnostics.findAll { it.kind == javax.tools.Diagnostic.Kind.ERROR }
+            if (!errors.isEmpty()) {
+                throw new GradleException("Cannot parse ship AI core source ${filename}: ${errors}")
+            }
+        } finally {
+            manager.close()
+        }
+        return references.findAll { !allowedReference(it) } as List<String>
+    }
+}

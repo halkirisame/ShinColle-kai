@@ -7,6 +7,7 @@ import com.lulan.shincolle.entity.IShipProjectile;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
 import com.lulan.shincolle.utility.TargetHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -202,10 +203,8 @@ public class EntityProjectileStatic extends Entity implements IShipOwner, IShipC
             if (TargetHelper.isEntityInvulnerable(ent))
                 continue;
 
-            if (ent instanceof IShipOwner owner) {
-                if (this.playerUID > 0 && owner.getPlayerUID() == this.playerUID)
-                    continue;
-            }
+            if (TeamHelper.checkSameOwner(this, ent))
+                continue;
 
             Vec3 delta = ent.position().subtract(this.position());
             double dist = delta.length();
@@ -232,10 +231,8 @@ public class EntityProjectileStatic extends Entity implements IShipOwner, IShipC
                 continue;
 
             // skip same-owner entities
-            if (ent instanceof IShipOwner owner) {
-                if (this.playerUID > 0 && owner.getPlayerUID() == this.playerUID)
-                    continue;
-            }
+            if (TeamHelper.checkSameOwner(this, ent))
+                continue;
 
             // check friendly fire
             if (this.hostEntity != null && CombatHelper.isFriendlyFire(this.hostEntity, ent))
@@ -271,10 +268,8 @@ public class EntityProjectileStatic extends Entity implements IShipOwner, IShipC
                 continue;
 
             // skip same-owner entities
-            if (ent instanceof IShipOwner owner) {
-                if (this.playerUID > 0 && owner.getPlayerUID() == this.playerUID)
-                    continue;
-            }
+            if (TeamHelper.checkSameOwner(this, ent))
+                continue;
 
             // check friendly fire
             if (this.hostEntity != null && CombatHelper.isFriendlyFire(this.hostEntity, ent))
@@ -313,10 +308,8 @@ public class EntityProjectileStatic extends Entity implements IShipOwner, IShipC
                 continue;
 
             // skip same-owner entities
-            if (ent instanceof IShipOwner owner) {
-                if (this.playerUID > 0 && owner.getPlayerUID() == this.playerUID)
-                    continue;
-            }
+            if (TeamHelper.checkSameOwner(this, ent))
+                continue;
 
             // check friendly fire
             if (this.hostEntity != null && CombatHelper.isFriendlyFire(this.hostEntity, ent))

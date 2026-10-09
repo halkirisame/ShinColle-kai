@@ -51,6 +51,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BuffHelper {
 
     private static final Set<ResourceLocation> WARNED_COMBINE_FAILURES = ConcurrentHashMap.newKeySet();
+    private static final Set<Integer> WARNED_MISSING_STATS = ConcurrentHashMap.newKeySet();
+
+    /**
+     * A ship class without a stats row keeps working on a fallback, which is
+     * easy to miss when a new ship is added; say so once per class.
+     */
+    private static void warnMissingStats(String table, int shipClass, String fallback) {
+        if (WARNED_MISSING_STATS.add(table.hashCode() * 31 + shipClass)) {
+            ShinColle.LOGGER.warn("Ship class {} has no entry in Values.{}; {}", shipClass, table, fallback);
+        }
+    }
 
     /**
      * Calculate raw attributes from base stats, level, and bonus points.
@@ -71,6 +82,7 @@ public class BuffHelper {
     public static void updateAttrsRaw(AttrsAdv attrs, int shipClass, int level) {
         float[] getStat = Values.ShipAttrMap.get(shipClass);
         if (getStat == null) {
+            warnMissingStats("ShipAttrMap", shipClass, "using the stats of ship class 0");
             getStat = Values.ShipAttrMap.get(0);
             if (getStat == null)
                 return;
@@ -146,8 +158,10 @@ public class BuffHelper {
      */
     public static void updateAttrsRawHostile(Attrs attrs, int shipScale, int shipClass) {
         float[] attrmod = Values.HostileShipAttrMap.get(shipClass);
-        if (attrmod == null)
+        if (attrmod == null) {
+            warnMissingStats("HostileShipAttrMap", shipClass, "hostile stats are not recalculated");
             return;
+        }
 
         double[] attrbase;
         float kb = 0.2F;
@@ -239,6 +253,29 @@ public class BuffHelper {
      * @param formatSlot slot position in formation (0-5)
      */
     public static void updateBuffFormation(BasicEntityShip host, AttrsAdv attrs, int formatID, int formatSlot) {
+        if (com.lulan.shincolle.ai.command.ShipCommandStateAdapter.isNew()) {
+            // The client displays the synchronized attribute layer, never a formation inferred from saved settings.
+            if (host.level().isClientSide()) return;
+            var projection = host.formationState().refresh();
+            if (projection instanceof com.lulan.shincolle.ai.domain.formation.FormationProjection.Active active) {
+                boolean changed = formatID != active.pattern().legacyId() || formatSlot != active.slot().index();
+                host.setStateMinor(ID.M.FormatType, active.pattern().legacyId());
+                host.setStateMinor(ID.M.FormatPos, active.slot().index());
+                attrs.setAttrsFormation(active.pattern().legacyId(), active.slot().index());
+                attrs.setMinMOV(active.minimumMovement());
+                if (changed) host.sendSyncPacketFormation();
+            } else {
+                attrs.resetAttrsFormation();
+                attrs.setMinMOV(0F);
+                if (projection instanceof com.lulan.shincolle.ai.domain.formation.FormationProjection.Inactive
+                        && formatID != 0) {
+                    host.setStateMinor(ID.M.FormatType, 0);
+                    host.sendSyncPacketFormation();
+                }
+            }
+            host.formationState().remember(projection);
+            return;
+        }
         if (formatID <= 0) {
             attrs.resetAttrsFormation();
             attrs.setMinMOV(0F);
@@ -492,19 +529,14 @@ public class BuffHelper {
     /**
      * Apply periodic buff effects (called every 32 ticks from aiStep).
      * <p>
-     * - Auto grudge consumption based on ship type
+     * Idle grudge is not consumed here; BasicEntityShip#updateConsumeItem
+     * charges it every 128 ticks together with the movement cost.
+     * <p>
      * - Regeneration: heal (1%maxHP + 4) * (1 + lv * 0.5) per tick
      * - Wither: damage (1%maxHP + 4) * (1 + lv * 0.5) per tick
      * - Saturation: heal (1%maxHP + 2) * (0.8 + lv * 0.2), morale + config per tick
      */
     public static void applyBuffOnTicks(BasicEntityShip ship) {
-        // grudge consumption (idle)
-        int shipType = ship.getShipType();
-        if (shipType >= 0 && shipType < ConfigHandler.consumeGrudgeShip.length) {
-            int grudgeCon = ConfigHandler.consumeGrudgeShip[shipType];
-            ship.decrGrudgeNum(grudgeCon);
-        }
-
         // get host's 1% hp
         float hp1p = ship.getMaxHealth() * 0.01F;
         if (hp1p < 1F)

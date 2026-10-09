@@ -1,7 +1,32 @@
 package com.lulan.shincolle.ai;
 
+import com.lulan.shincolle.ai.domain.action.ActionKind;
+import com.lulan.shincolle.ai.domain.movement.FollowRange;
+import com.lulan.shincolle.ai.domain.movement.LookPlanner;
+import com.lulan.shincolle.ai.domain.movement.LookReason;
+import com.lulan.shincolle.ai.domain.movement.LookRequest;
+import com.lulan.shincolle.ai.domain.movement.MovementTarget;
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
+import com.lulan.shincolle.ai.domain.movement.MovementPlan;
+import com.lulan.shincolle.ai.domain.movement.MovementReason;
+import com.lulan.shincolle.ai.domain.movement.MovementStep;
+import com.lulan.shincolle.ai.domain.movement.GuardMovePlanner;
+import com.lulan.shincolle.ai.domain.movement.MovementActivity;
+import com.lulan.shincolle.ai.domain.movement.MovementIntent;
+import com.lulan.shincolle.ai.domain.movement.MovementPoint;
+import com.lulan.shincolle.ai.domain.movement.MovementSettings;
+import com.lulan.shincolle.ai.domain.movement.MovementState;
+import com.lulan.shincolle.ai.domain.movement.PlannedMove;
+import com.lulan.shincolle.ai.domain.movement.StuckDetector;
+import com.lulan.shincolle.ai.domain.movement.StuckState;
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.ai.domain.AiRandomStream;
+import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
+import com.lulan.shincolle.ai.domain.command.CommandIssuer;
+import com.lulan.shincolle.ai.domain.command.CommandPos;
+import com.lulan.shincolle.ai.domain.command.CommandStateOp;
+import com.lulan.shincolle.ai.domain.command.MovementOrder;
+import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipAircraftAttack;
@@ -26,6 +51,7 @@ import net.minecraft.world.phys.AABB;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Ship guarding AI - guard a position or entity.
@@ -71,6 +97,14 @@ public class ShipGuardingGoal extends Goal {
     private int nextGuardPosTick;
     private double diagPrevX;
     private double diagPrevZ;
+    /** NEW: the timers, places and moving flag, in place of the fields above that LEGACY keeps. */
+    private MovementState.Guard move = GuardMovePlanner.initial();
+    /** NEW: whether the ship is getting anywhere on its way. */
+    private StuckState stuck = StuckState.NONE;
+    /** NEW: the tick an arrival stopped the paths; the selector's stop later in that tick adds none. */
+    private int arrivalStopTick = -1;
+    /** NEW: the guarded point is a waypoint the route goes on from, so the distances are the pass-through ones. */
+    private boolean passThrough;
 
     public ShipGuardingGoal(IShipGuardian host) {
         this.host = host;
@@ -103,7 +137,13 @@ public class ShipGuardingGoal extends Goal {
     }
 
     @Override
+    public boolean requiresUpdateEveryTick() {
+        return true;
+    }
+
+    @Override
     public boolean canUse() {
+        if (ShipActionGate.blocked(this.hostEntity, ActionKind.MOVEMENT)) return false;
         if (isGuardBlocked()) {
             return false;
         }
@@ -117,6 +157,7 @@ public class ShipGuardingGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        if (ShipActionGate.blocked(this.hostEntity, ActionKind.MOVEMENT)) return false;
         if (isGuardBlocked()) {
             this.stop();
             return false;
@@ -140,6 +181,14 @@ public class ShipGuardingGoal extends Goal {
 
     @Override
     public void start() {
+        if (ShipMovementGate.active()) {
+            int now = this.hostEntity.tickCount;
+            this.move = GuardMovePlanner.start(this.move, now);
+            this.stuck = StuckState.NONE;
+            this.nextAttrTick = now;
+            this.nextFindTargetTick = now;
+            return;
+        }
         this.findCooldown = 10;
         this.checkTP_T = 0;
         this.checkTP_D = 0;
@@ -152,6 +201,13 @@ public class ShipGuardingGoal extends Goal {
     @Override
     public void stop() {
         this.guarded = null;
+        if (ShipMovementGate.active()) {
+            this.move = GuardMovePlanner.stopped(this.move);
+            // the paths are already dropped, and the executor's last request stays the arrival
+            if (this.arrivalStopTick == this.hostEntity.tickCount) return;
+            ShipMovementExecutor.run(this.hostEntity, ShipMovementExecutor.GOAL_STOPPED);
+            return;
+        }
         this.isMoving = false;
         this.findCooldown = 10;
         if (this.shipNavigator != null) {
@@ -161,6 +217,7 @@ public class ShipGuardingGoal extends Goal {
 
     @Override
     public void tick() {
+        if (ShipActionGate.blocked(this.hostEntity, ActionKind.MOVEMENT)) return;
         if (isGuardBlocked()) {
             this.stop();
             return;
@@ -174,8 +231,12 @@ public class ShipGuardingGoal extends Goal {
         }
         // ===== Attack while moving =====
         // Active when: is ship entity, not passive AI, guard type > 0
-        if (isMoving && ship != null &&
-                !ship.getStateFlag(ID.F.PassiveAI) &&
+        // NEW: the target authority alone chooses targets, so PassiveAI (which only turns off
+        // automatic acquisition there) no longer silences a manual or retaliation target.
+        boolean authorityTargets = ShipCommandStateAdapter.isNew();
+        // NEW with a target authority: the fire control goal fires on the move, on the one timer
+        if (moving() && ship != null && !ShipCombatGate.active(this.hostEntity) &&
+                (authorityTargets || !ship.getStateFlag(ID.F.PassiveAI)) &&
                 ship.getStateMinor(ID.M.GuardType) > 0) {
 
             // update attack parameters every 64 ticks
@@ -190,8 +251,12 @@ public class ShipGuardingGoal extends Goal {
             this.delayTime[1]--;
             this.delayTime[2]--;
 
+            if (authorityTargets) {
+                this.attackTarget = this.host.getEntityTarget() instanceof LivingEntity living && living.isAlive()
+                        ? living : null;
+            }
             // find target every 32 ticks
-            if (now >= this.nextFindTargetTick) {
+            else if (now >= this.nextFindTargetTick) {
                 this.nextFindTargetTick = now + 32;
                 this.findTarget();
 
@@ -224,6 +289,10 @@ public class ShipGuardingGoal extends Goal {
         // ===== Update guarding movement =====
         if (host == null)
             return;
+        if (ShipMovementGate.active()) {
+            this.tickMoveNew();
+            return;
+        }
 
         this.findCooldown--;
 
@@ -295,6 +364,46 @@ public class ShipGuardingGoal extends Goal {
     }
 
     /**
+     * NEW: the moves planned by the guard planner and carried out by the executor; a stuck ship
+     * recovers, and only a stuck or far one teleports.
+     */
+    private void tickMoveNew() {
+        int now = this.hostEntity.tickCount;
+        this.stuck = StuckDetector.observe(this.stuck, GuardMovePlanner.travelling(this.distSq,
+                new FollowRange(this.minDistSq, this.maxDistSq), isTemporaryBlockMove()),
+                ShipMovementGate.point(this.hostEntity), now);
+        this.move = GuardMovePlanner.count(this.move, this.stuck.stuck());
+
+        // update guard position every 8 ticks
+        if (GuardMovePlanner.anchorResolveDue(this.move, now)) {
+            this.move = GuardMovePlanner.anchorResolved(this.move, now);
+            if (!checkGuardTarget())
+                return;
+        }
+
+        PlannedMove<MovementState.Guard> planned = GuardMovePlanner.move(this.move, new GuardMovePlanner.Facts(
+                this.distSq, new FollowRange(this.minDistSq, this.maxDistSq), isTemporaryBlockMove(),
+                // a guarded point is in the ship's dimension; checkGuardTarget ends the guard otherwise
+                ShipCommandStateAdapter.handle(this.guarded != null ? this.guarded : this.hostEntity).dimension(),
+                ShipMovementGate.teleportRule(), this.stuck));
+        this.move = GuardMovePlanner.pathed(planned.state(), ShipMovementExecutor.run(this.hostEntity, planned.plan()));
+
+        if (LogHelper.diagEnabled()) {
+            logMoveProgress();
+        }
+
+        // look at what it is engaged with, else toward the guard position
+        ShipMovementExecutor.look(this.hostEntity, LookPlanner.choose(ShipCombatGate.engagedTarget(this.hostEntity),
+                new LookRequest(new MovementTarget.Point(this.move.destination()), 30F,
+                        (float) this.hostEntity.getMaxHeadXRot(), LookReason.GUARD)));
+    }
+
+    /** Whether the ship is on its way to the guarded point; NEW keeps it in the guard state. */
+    private boolean moving() {
+        return ShipMovementGate.active() ? this.move.moving() : this.isMoving;
+    }
+
+    /**
      * Guard-move movement diagnostic. Reports whether the path advances, how far the
      * ship is from the node it is steering at, and how far it actually moved.
      */
@@ -304,6 +413,9 @@ public class ShipGuardingGoal extends Goal {
         this.diagPrevX = this.hostEntity.getX();
         this.diagPrevZ = this.hostEntity.getZ();
 
+        boolean newAuthority = ShipMovementGate.active();
+        double[] goal = newAuthority ? new double[]{this.move.destination().x(), this.move.destination().y(),
+                this.move.destination().z()} : this.pos;
         String node = "none";
         Path path = this.shipNavigator == null ? null : this.shipNavigator.getPath();
         if (path != null) {
@@ -323,8 +435,9 @@ public class ShipGuardingGoal extends Goal {
         LogHelper.diag("DIAG: guard move ship=" + this.hostEntity
                 + " pos=" + fmt(this.hostEntity.getX()) + "," + fmt(this.hostEntity.getY())
                 + "," + fmt(this.hostEntity.getZ())
-                + " goal=" + fmt(pos[0]) + "," + fmt(pos[1]) + "," + fmt(pos[2])
+                + " goal=" + fmt(goal[0]) + "," + fmt(goal[1]) + "," + fmt(goal[2])
                 + " distSq=" + fmt(this.distSq) + " maxDistSq=" + fmt(this.maxDistSq)
+                + " passThrough=" + this.passThrough
                 + " step=" + fmt(step)
                 + " yaw=" + fmt(this.hostEntity.getYRot())
                 + " speed=" + fmt(this.hostEntity.getSpeed())
@@ -333,8 +446,9 @@ public class ShipGuardingGoal extends Goal {
                 + " node=[" + node + "]"
                 + " liquid=" + EntityHelper.checkEntityIsInLiquid(this.hostEntity)
                 + " ground=" + this.hostEntity.onGround()
-                + " moving=" + this.isMoving + " find=" + this.findCooldown
-                + " tpT=" + this.checkTP_T + " tpD=" + this.checkTP_D);
+                + " moving=" + moving() + " find=" + (newAuthority ? this.move.repathIn() : this.findCooldown)
+                + " tpT=" + (newAuthority ? this.move.stillTimer() : this.checkTP_T)
+                + " tpD=" + (newAuthority ? this.move.farTimer() : this.checkTP_D));
     }
 
     private static String fmt(double value) {
@@ -342,15 +456,44 @@ public class ShipGuardingGoal extends Goal {
     }
 
     private boolean isTemporaryBlockMove() {
-        return this.host instanceof BasicEntityShip basicShip && basicShip.shouldReleaseGuardOnArrival();
+        BasicEntityShip ship = commandedShip();
+        return ship != null && ship.shouldReleaseGuardOnArrival();
     }
 
-    /** Riding blocks the ship's own movement, but not completion of its vehicle's move. */
+    /** The ship this goal moves for: the host itself, or the ship a mount carries. */
+    private BasicEntityShip commandedShip() {
+        if (this.host instanceof BasicEntityShip ship) return ship;
+        return this.host instanceof BasicEntityMount mount ? mount.getHost() : null;
+    }
+
+    /**
+     * Riding blocks the ship's own movement. Under LEGACY it does not block completion of its
+     * vehicle's move; under NEW the mount's own guard goal completes that move instead.
+     */
     private boolean isGuardBlocked() {
+        if (ShipMovementGate.active()) {
+            MovementIntent intent = ShipMovementGate.intent(this.hostEntity);
+            return intent == null || !intent.isGuard()
+                    || !ShipMovementGate.allows(this.hostEntity, MovementActivity.COMMANDED_MOVE);
+        }
         return this.host == null || this.host.getIsSitting()
                 || this.host.getStateFlag(ID.F.CanFollow)
-                || this.host.getStateMinor(ID.M.CraneState) >= 1
+                || ShipMovementGate.craneBusy(this.host)
                 || this.host.getStateMinor(ID.M.NumGrudge) <= 0;
+    }
+
+    /** Under NEW, the ship whose command state owns this guard; a mount acts for the ship it carries. */
+    private BasicEntityShip newCommandShip() {
+        return ShipCommandStateAdapter.isNew() ? commandedShip() : null;
+    }
+
+    /**
+     * NEW: the standing order of the ship this goal moves for. Null under LEGACY, and for a mount that carries
+     * no ship, where the guard fields are read as before.
+     */
+    private MovementOrder commandedOrder() {
+        BasicEntityShip commandShip = newCommandShip();
+        return commandShip == null ? null : commandShip.getCommandState().movement();
     }
 
     /** Complete only the current reachable path, never a missing or abandoned path. */
@@ -368,17 +511,35 @@ public class ShipGuardingGoal extends Goal {
             moveNavigator = mount.getNavigation();
         }
         Path path = moveNavigator.getPath();
-        BlockPos destination = new BlockPos(this.host.getGuardedPos(0), this.host.getGuardedPos(1),
-                this.host.getGuardedPos(2));
+        MovementOrder order = commandedOrder();
+        BlockPos destination = (order == null ? Optional.<CommandPos>empty() : order.destination())
+                .map(pos -> new BlockPos(pos.x(), pos.y(), pos.z()))
+                .orElseGet(() -> new BlockPos(this.host.getGuardedPos(0), this.host.getGuardedPos(1),
+                        this.host.getGuardedPos(2)));
         if (path == null || !path.isDone() || !path.canReach() || !path.getTarget().equals(destination)) {
             return false;
         }
-        this.host.setGuardedPos(-1, -1, -1, 0, 0);
-        this.host.setGuardedEntity(null);
-        this.host.setStateFlag(ID.F.CanFollow, true);
-        moveNavigator.stop();
-        this.stop();
-        BasicEntityShip basicShip = (BasicEntityShip) this.host;
+        BasicEntityShip commandShip = newCommandShip();
+        if (commandShip != null) {
+            commandShip.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.ARRIVED),
+                    new CommandStateOp.EndMovement());
+        } else {
+            this.host.setGuardedPos(-1, -1, -1, 0, 0);
+            this.host.setGuardedEntity(null);
+            this.host.setStateFlag(ID.F.CanFollow, true);
+        }
+        if (ShipMovementGate.active()) {
+            // the goal's own stop first, so the executor's last request names the arrival
+            this.stop();
+            ShipMovementExecutor.run(this.hostEntity, MovementPlan.of(new MovementStep.Stop(
+                    this.host.getIsRiding() ? MovementBody.VEHICLE : MovementBody.SELF, MovementReason.MOVE_ARRIVED)));
+            // a running goal is stopped once more by its selector on the way out
+            this.arrivalStopTick = this.hostEntity.tickCount;
+        } else {
+            moveNavigator.stop();
+            this.stop();
+        }
+        BasicEntityShip basicShip = commandedShip();
         basicShip.sendSyncPacketFlags();
         basicShip.sendSyncPacketGuard();
         return true;
@@ -511,14 +672,23 @@ public class ShipGuardingGoal extends Goal {
      * @return true if ship needs to move toward guard position
      */
     private boolean checkGuardTarget() {
+        if (ShipMovementGate.active()) {
+            return checkGuardTargetNew();
+        }
         this.guarded = host.getGuardedEntity();
 
         if (this.guarded != null) {
             // guarded entity is dead or invalid
             if (!this.guarded.isAlive() || this.guarded.level() != this.hostEntity.level()) {
-                host.setGuardedPos(-1, -1, -1, 0, 0);
-                host.setGuardedEntity(null);
-                host.setStateFlag(ID.F.CanFollow, true);
+                BasicEntityShip commandShip = newCommandShip();
+                if (commandShip != null) {
+                    commandShip.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.GUARD_TARGET_LOST),
+                            new CommandStateOp.EndMovement());
+                } else {
+                    host.setGuardedPos(-1, -1, -1, 0, 0);
+                    host.setGuardedEntity(null);
+                    host.setStateFlag(ID.F.CanFollow, true);
+                }
                 this.stop();
                 return false;
             }
@@ -558,8 +728,14 @@ public class ShipGuardingGoal extends Goal {
                 return false;
             }
             if (!host.isGuardedInCurrentDimension()) {
-                host.setGuardedPos(-1, -1, -1, 0, 0);
-                host.setStateFlag(ID.F.CanFollow, true);
+                BasicEntityShip commandShip = newCommandShip();
+                if (commandShip != null) {
+                    commandShip.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.GUARD_OTHER_DIMENSION),
+                            new CommandStateOp.EndMovement());
+                } else {
+                    host.setGuardedPos(-1, -1, -1, 0, 0);
+                    host.setStateFlag(ID.F.CanFollow, true);
+                }
                 this.stop();
                 return false;
             }
@@ -601,6 +777,89 @@ public class ShipGuardingGoal extends Goal {
         double dy = pos[1] - this.hostEntity.getY();
         double dz = pos[2] - this.hostEntity.getZ();
         this.distSq = dx * dx + dy * dy + dz * dz;
+
+        // needs to move if outside max range
+        return isTemporaryBlockMove() || this.distSq > this.maxDistSq;
+    }
+
+    /** NEW: {@link #checkGuardTarget()} with the destination and the guarded entity's last place in the guard state. */
+    private boolean checkGuardTargetNew() {
+        this.guarded = host.getGuardedEntity();
+        // the host answers for the distances and the pickup; the formation ranges apply to a host with cannons
+        MovementSettings hostSettings = ShipMovementGate.settings(host);
+        MovementSettings cannonSettings = ShipMovementGate.settings(this.ship);
+        MovementOrder order = commandedOrder();
+        this.passThrough = false;
+
+        if (this.guarded != null) {
+            // guarded entity is dead or invalid
+            if (!this.guarded.isAlive() || this.guarded.level() != this.hostEntity.level()) {
+                BasicEntityShip commandShip = newCommandShip();
+                if (commandShip != null) {
+                    commandShip.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.GUARD_TARGET_LOST),
+                            new CommandStateOp.EndMovement());
+                } else {
+                    host.setGuardedPos(-1, -1, -1, 0, 0);
+                    host.setGuardedEntity(null);
+                    host.setStateFlag(ID.F.CanFollow, true);
+                }
+                this.stop();
+                return false;
+            }
+
+            MovementPoint anchor = ShipMovementGate.point(this.guarded);
+            if (hostSettings.formation()) {
+                // if guarded entity moved significantly, recalculate position
+                if (GuardMovePlanner.formationStale(this.move, anchor)) {
+                    double[] place = FormationHelper.getFormationGuardingPos(host, guarded,
+                            this.move.anchorMemory().x(), this.move.anchorMemory().z());
+                    this.move = GuardMovePlanner.formationPlace(this.move,
+                            new MovementPoint(place[0], place[1], place[2]), anchor);
+                }
+            } else {
+                this.move = GuardMovePlanner.toPoint(this.move, anchor);
+            }
+        } else {
+            // An entity guard can be temporarily unresolved while its chunk is unloaded.
+            if (order == null ? host.getStateMinor(ID.M.GuardType) == 2 : order instanceof MovementOrder.GuardEntity) {
+                return false;
+            }
+            // A follow order neither starts nor keeps this goal, so there is no place to walk to; nothing is written.
+            if (order instanceof MovementOrder.Follow) {
+                return false;
+            }
+            if (!host.isGuardedInCurrentDimension()) {
+                BasicEntityShip commandShip = newCommandShip();
+                if (commandShip != null) {
+                    commandShip.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.GUARD_OTHER_DIMENSION),
+                            new CommandStateOp.EndMovement());
+                } else {
+                    host.setGuardedPos(-1, -1, -1, 0, 0);
+                    host.setStateFlag(ID.F.CanFollow, true);
+                }
+                this.stop();
+                return false;
+            }
+            CommandPos place = (order == null ? Optional.<CommandPos>empty() : order.destination())
+                    .orElseGet(() -> new CommandPos(host.getStateMinor(ID.M.GuardX), host.getStateMinor(ID.M.GuardY),
+                            host.getStateMinor(ID.M.GuardZ)));
+            this.move = GuardMovePlanner.toPoint(this.move,
+                    new MovementPoint(place.x() + 0.5D, place.y() + 0.5D, place.z() + 0.5D));
+            // the traversal check marks the waypoint the ship passes through; a mark of another point is stale
+            BasicEntityShip marked = commandedShip();
+            this.passThrough = marked != null && marked.passThroughWaypoint().filter(place::equals).isPresent();
+        }
+
+        FollowRange range = GuardMovePlanner.range(cannonSettings.formation(),
+                this.ship != null && (order == null ? this.ship.getStateMinor(ID.M.GuardType) == 2
+                        : order instanceof MovementOrder.GuardEntity), hostSettings.pickItem(),
+                hostSettings.followMin(), hostSettings.followMax(), hostEntity.getBbWidth(), this.passThrough,
+                this.passThrough && ShipCombatGate.active(this.hostEntity)
+                        && ShipCombatGate.engagement(this.hostEntity).engaged(),
+                this.passThrough && commandedShip().isPickingItem());
+        this.minDistSq = range.minSq();
+        this.maxDistSq = range.maxSq();
+        this.distSq = this.move.destination().distanceSq(ShipMovementGate.point(this.hostEntity));
 
         // needs to move if outside max range
         return isTemporaryBlockMove() || this.distSq > this.maxDistSq;

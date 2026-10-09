@@ -12,6 +12,9 @@ import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.EmotionHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
@@ -24,6 +27,7 @@ import net.minecraft.world.level.Level;
 public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderType {
 
     private int riderType;
+    private final HimeRiding riding = new HimeRiding(this);
 
     public EntityNorthernHime(EntityType<? extends EntityNorthernHime> type, Level level) {
         super(type, level);
@@ -44,6 +48,9 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
         // initialize aircraft counts
         this.setNumAircraftLight(6);
         this.setNumAircraftHeavy(3);
+
+        // airplanes leave from the same point on the model as in 1.10.2
+        this.launchHeight = 0.9F * 1.0F;
 
         this.postInit();
     }
@@ -85,6 +92,9 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
     @Override
     public void aiStep() {
         super.aiStep();
+        if (!this.level().isClientSide()) {
+            this.riding.tick();
+        }
 
         // [BETA STOPGAP] Dripping water while the ship's water-drip model part is on.
         // Ported from the original's 8-tick client effect (particle type 28).
@@ -125,6 +135,20 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
                 }
             }
         }
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        if (!this.level().isClientSide() && !source.is(DamageTypes.IN_WALL)) {
+            this.riding.dismount();
+        }
+        return super.hurt(source, amount);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag nbt) {
+        this.riding.beforeSave();
+        super.addAdditionalSaveData(nbt);
     }
 
     @Override

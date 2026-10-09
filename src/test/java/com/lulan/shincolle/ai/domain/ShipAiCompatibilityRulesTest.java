@@ -54,6 +54,20 @@ class ShipAiCompatibilityRulesTest {
     }
 
     @Test
+    void revengeExpiryKeepsOriginalStrictBoundary() {
+        assertFalse(ShipAiCompatibilityRules.revengeExpired(300, 100));
+        assertTrue(ShipAiCompatibilityRules.revengeExpired(301, 100));
+    }
+
+    @Test
+    void revengeTriggerRequiresChangedTickAndTarget() {
+        assertFalse(ShipAiCompatibilityRules.revengeTriggered(100, 100, false));
+        assertFalse(ShipAiCompatibilityRules.revengeTriggered(100, 100, true));
+        assertFalse(ShipAiCompatibilityRules.revengeTriggered(100, 101, false));
+        assertTrue(ShipAiCompatibilityRules.revengeTriggered(100, 101, true));
+    }
+
+    @Test
     void pickupVoiceHitSetsOriginalCooldownAfterTwoIntegerDraws() {
         List<Integer> bounds = new ArrayList<>();
         List<Integer> soundTimes = new ArrayList<>();

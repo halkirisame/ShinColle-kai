@@ -1,5 +1,7 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.handler.ConfigHandler;
+
 import com.lulan.shincolle.ai.ShipGuardingGoal;
 import com.lulan.shincolle.ai.ShipFollowOwnerGoal;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -64,6 +66,39 @@ public final class GuardDestinationGameTests {
     }
 
     @GameTest(template = "arena")
+    public static void unassignedGuardRepairLeavesDimensionedAndEntityTuples(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            // cleared coordinates that carry a saved dimension are an order, not the cleared tuple
+            BasicEntityShip dimensioned = createShip(helper, entities, "dimensioned cleared-coordinate source");
+            dimensioned.setGuardedPos(-1, -1, -1, helper.getLevel().dimension(), 0);
+            dimensioned.setStateFlag(ID.F.CanFollow, false);
+            CompoundTag saved = new CompoundTag();
+            dimensioned.addAdditionalSaveData(saved);
+            helper.assertTrue(saved.contains("GuardDimension") && !saved.hasUUID("GuardEntityUUID"),
+                    "Fixture must save a dimension and no guarded entity");
+            BasicEntityShip restored = createShip(helper, entities, "dimensioned cleared-coordinate restore");
+            restored.readAdditionalSaveData(saved);
+            helper.assertTrue(!restored.getStateFlag(ID.F.CanFollow) && restored.getGuardedPos(1) == -1
+                            && restored.getGuardedPos(4) == 0,
+                    "A cleared-coordinate order with a saved dimension must not be repaired to follow mode");
+
+            // an entity guard without its entity is left for the guard goal, not repaired on load
+            BasicEntityShip entityGuard = createShip(helper, entities, "entity guard without identity source");
+            entityGuard.setGuardedPos(-1, -1, -1, 0, 2);
+            entityGuard.setStateFlag(ID.F.CanFollow, false);
+            CompoundTag savedGuard = new CompoundTag();
+            entityGuard.addAdditionalSaveData(savedGuard);
+            helper.assertTrue(!savedGuard.contains("GuardDimension") && !savedGuard.hasUUID("GuardEntityUUID"),
+                    "Fixture must save neither a dimension nor a guarded entity");
+            BasicEntityShip restoredGuard = createShip(helper, entities, "entity guard without identity restore");
+            restoredGuard.readAdditionalSaveData(savedGuard);
+            helper.assertTrue(!restoredGuard.getStateFlag(ID.F.CanFollow) && restoredGuard.getGuardedPos(4) == 2,
+                    "An entity guard without its entity must not be repaired to follow mode on load");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
     public static void negativeYGuardDestinationSurvivesNbtRoundTrip(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip source = createShip(helper, entities, "negative-Y guard source");
@@ -111,6 +146,7 @@ public final class GuardDestinationGameTests {
 
     @GameTest(template = "arena")
     public static void negativeYBlockDestinationRemainsActive(GameTestHelper helper) {
+        PointerSingleModeGameTests.whenFixtureTicking(helper, () -> {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = createShip(helper, entities, "negative-Y guard test");
 
@@ -128,6 +164,9 @@ public final class GuardDestinationGameTests {
                     helper.getLevel().dimension(), 1);
             ship.setStateFlag(ID.F.CanFollow, false);
 
+            var owner = net.minecraftforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                    new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "negative_guard_owner"));
+            try (var team = new FormationGameTestTeam(owner, ship, entities)) {
             ShipGuardingGoal goal = new ShipGuardingGoal(ship);
             if (!goal.canUse()) {
                 throw new AssertionError("Guarding goal rejected a valid negative-Y block destination.");
@@ -141,7 +180,9 @@ public final class GuardDestinationGameTests {
             }
 
             helper.succeed();
+            }
         }
+        });
     }
 
     @GameTest(template = "arena")
@@ -190,7 +231,8 @@ public final class GuardDestinationGameTests {
 
     @GameTest(template = "arena")
     public static void mountedAndGroundedCompletedMovesBothRelease(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip grounded = createShip(helper, entities, "grounded completion control");
             BasicEntityShip mounted = createShip(helper, entities, "mounted completion control");
             BasicEntityMount mount = entities.add(ModEntities.MOUNT_BAH.get().create(helper.getLevel()));
@@ -228,7 +270,8 @@ public final class GuardDestinationGameTests {
 
     @GameTest(template = "arena")
     public static void mountedCompletionUsesVehiclePathAtEveryGoalEntry(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = createShip(helper, entities, "vehicle navigation completion");
             BasicEntityMount mount = entities.add(ModEntities.MOUNT_BAH.get().create(helper.getLevel()));
             mount.moveTo(ship.position());
@@ -262,7 +305,8 @@ public final class GuardDestinationGameTests {
 
     @GameTest(template = "arena")
     public static void completedMoveRespectsOtherGuardBlockers(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+                GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = createShip(helper, entities, "guard completion blockers");
             BlockPos destination = helper.absolutePos(new BlockPos(1, 2, 1));
             for (int blocker = 0; blocker < 4; blocker++) {
@@ -288,6 +332,45 @@ public final class GuardDestinationGameTests {
                     }
                     helper.assertTrue(ship.getGuardedPos(0) == destination.getX(),
                             "Blocked command was cleared: blocker=" + blocker + " entry=" + entry);
+                }
+            }
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "arena")
+    public static void newCompletedMoveRetainsItsOrderWhenMovementIsBlocked(GameTestHelper helper) {
+        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
+             GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = createShip(helper, entities, "new guard completion blockers");
+            BlockPos destination = helper.absolutePos(new BlockPos(1, 2, 1));
+            for (int blocker = 0; blocker < 3; blocker++) {
+                for (int entry = 0; entry < 3; entry++) {
+                    ship.setEntitySit(false);
+                    ship.setStateTimer(ID.T.CrandDelay, 0);
+                    ship.setStateMinor(ID.M.CraneState, 0);
+                    ship.setStateFlag(ID.F.NoFuel, false);
+                    prepareCompletedMove(helper, ship, destination);
+                    if (blocker == 0) ship.setEntitySit(true);
+                    if (blocker == 1) {
+                        ship.setStateMinor(ID.M.NumGrudge, 0);
+                        ship.setStateFlag(ID.F.NoFuel, true);
+                    }
+                    if (blocker == 2) ship.setStateMinor(ID.M.CraneState, 1);
+                    helper.assertTrue(ship.hasGuardDestination() && ship.shouldReleaseGuardOnArrival(),
+                            "Blocked fixture must retain a pending one-shot order");
+                    helper.assertTrue(blocker != 2 || ship.getStateMinor(ID.M.CraneState) == 1,
+                            "Crane fixture was rejected by the reactivation cooldown");
+                    ShipGuardingGoal goal = new ShipGuardingGoal(ship);
+                    if (entry == 0) {
+                        helper.assertTrue(!goal.canUse(), "Blocked NEW goal started");
+                    } else if (entry == 1) {
+                        helper.assertTrue(!goal.canContinueToUse(), "Blocked NEW goal continued");
+                    } else {
+                        goal.tick();
+                    }
+                    helper.assertTrue(ship.hasGuardDestination() && ship.shouldReleaseGuardOnArrival(),
+                            "Blocked NEW command was released: blocker=" + blocker + " entry=" + entry);
                 }
             }
             helper.succeed();

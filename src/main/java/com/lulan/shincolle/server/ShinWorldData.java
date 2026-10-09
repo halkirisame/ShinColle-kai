@@ -54,6 +54,9 @@ public class ShinWorldData extends SavedData {
     private static final String TAG_SHIP_DEAD = "sDead";
     private static final String TAG_SHIP_POS = "sPOS";
     private static final String TAG_SHIP_NBT = "sNBT";
+    private static final String TAG_SHIP_SUNK = "sSunk";
+    private static final String TAG_SHIP_SUNK_DIM = "sSunkDim";
+    private static final String TAG_SHIP_SUNK_POS = "sSunkPOS";
 
     // ========== In-memory data (mirrors ServerDataManager) ==========
 
@@ -151,9 +154,23 @@ public class ShinWorldData extends SavedData {
             CompoundTag sTag = tag.getCompound(TAG_SHIP_NBT);
 
             ResourceKey<Level> dim = ResourceKey.create(Registries.DIMENSION, new ResourceLocation(dimStr));
+            boolean sunk = tag.getBoolean(TAG_SHIP_SUNK);
+            ResourceKey<Level> sunkDim = null;
+            String sunkDimStr = tag.getString(TAG_SHIP_SUNK_DIM);
+            if (sunk && !sunkDimStr.isEmpty()) {
+                ResourceLocation sunkLocation = ResourceLocation.tryParse(sunkDimStr);
+                if (sunkLocation != null) {
+                    sunkDim = ResourceKey.create(Registries.DIMENSION, sunkLocation);
+                }
+            }
+            int[] sunkPos = tag.getIntArray(TAG_SHIP_SUNK_POS);
             CacheDataShip sData = new CacheDataShip(eid, dim, cid, isDead,
                     pos.length >= 3 ? pos[0] : 0, pos.length >= 3 ? pos[1] : 0,
-                    pos.length >= 3 ? pos[2] : 0, sTag);
+                    pos.length >= 3 ? pos[2] : 0, sTag, sunk,
+                    sunk ? (sunkDim != null ? sunkDim : dim) : null,
+                    sunkPos.length >= 3 ? sunkPos[0] : 0,
+                    sunkPos.length >= 3 ? sunkPos[1] : 0,
+                    sunkPos.length >= 3 ? sunkPos[2] : 0);
 
             LogHelper.debug("load ship data: UID " + uid);
             data.shipMap.put(uid, sData);
@@ -249,6 +266,11 @@ public class ShinWorldData extends SavedData {
                 tag.putBoolean(TAG_SHIP_DEAD, sData.isDead);
                 tag.putIntArray(TAG_SHIP_POS, new int[]{sData.posX, sData.posY, sData.posZ});
                 tag.put(TAG_SHIP_NBT, sData.entityNBT != null ? sData.entityNBT : new CompoundTag());
+                tag.putBoolean(TAG_SHIP_SUNK, sData.sunk);
+                tag.putString(TAG_SHIP_SUNK_DIM, sData.sunkDimension != null
+                        ? sData.sunkDimension.location().toString() : "");
+                tag.putIntArray(TAG_SHIP_SUNK_POS,
+                        new int[]{sData.sunkX, sData.sunkY, sData.sunkZ});
 
                 shipDataList.add(tag);
             });
