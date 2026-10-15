@@ -57,7 +57,7 @@ public final class ShipSeparationGate {
     }
 
     private static void observe(BasicEntityShip ship) {
-        if (!ShipMovementGate.active() || !ship.isAlive()) {
+        if (!ship.isAlive()) {
             reset(ship);
             return;
         }
@@ -94,7 +94,7 @@ public final class ShipSeparationGate {
 
     /** Captured before a command can stand up a seated ship. Guarding itself does not inhibit a move. */
     public static boolean commandMoveAllowed(BasicEntityShip ship) {
-        return ShipMovementGate.active() && ship.isAlive() && !ship.isOrderedToSit()
+        return ship.isAlive() && !ship.isOrderedToSit()
                 && !ShipActionGate.blocked(ship, ActionKind.MOVEMENT)
                 && ShipMovementGate.allows(ship, MovementActivity.COMMANDED_MOVE);
     }

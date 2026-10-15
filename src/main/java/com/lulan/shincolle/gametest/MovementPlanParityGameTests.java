@@ -48,29 +48,24 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Under NEW the movement goals stop and request paths through one executor; this must not change
- * where or when a ship walks or teleports. Each test runs one fixture under LEGACY and then under
- * NEW at the same place and compares, counted from the tick the watched goal first starts (the goal
- * registered when the ship's AI starts up): every stop and path request made through the ship's
- * navigation, the goal's starts and stops, and every jump in position, which is a teleport.
- * Both authorities ran the same movement code before the executor, so a NEW that still matches
- * LEGACY is a NEW that still moves as before. Each phase also checks that only NEW went through
- * the executor.
+ * The movement goals stop and request paths through one executor; this must not change where or
+ * when a ship walks or teleports. Each test runs one fixture and compares, counted from the tick
+ * the watched goal first starts (the goal registered when the ship's AI starts up), every stop and
+ * path request made through the ship's navigation (the path target left out, as the place depends
+ * on where the test structure stands), the goal's starts and stops, and every jump in position,
+ * which is a teleport, with the record of the original run of the same fixture. The phase also
+ * checks that the ship went through the executor.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class MovementPlanParityGameTests {
     private static final int PHASE = 240;
-    private static final int TIMEOUT = 2 * PHASE + 80;
+    private static final int TIMEOUT = PHASE + 80;
     /** A teleport moves the ship further than this in one tick; walking never does. */
     private static final double JUMP_SQ = 9D;
     /** A ship registers its goals again on its 16th tick; nothing may move it before. */
     private static final int RELEASE_AT = 24;
-    /**
-     * A following ship under NEW measures its distance every 32 ticks, so it walks on to the owner's
-     * last measured place where LEGACY stops as it enters the inner distance; the two are compared
-     * up to the second measurement.
-     */
+    /** A following ship measures its distance every 32 ticks; the record covers the first measurement. */
     private static final int FOLLOW_COMPARED_TICKS = 32;
     private static final Vec3 SHIP = new Vec3(2.5D, 0D, 2.5D);
     private static final Vec3 NEAR = new Vec3(14.5D, 0D, 2.5D);
@@ -82,62 +77,63 @@ public final class MovementPlanParityGameTests {
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_plan_follow_walk", timeoutTicks = TIMEOUT)
-    public static void followWalksOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
+    public static void followWalksOnTheRecordedTicks(GameTestHelper helper) {
         verify(helper, phase -> phase.follow(NEAR, false, 1_000), ShipFollowOwnerGoal.class, FOLLOW_COMPARED_TICKS,
                 outcome -> {
             List<String> problems = new ArrayList<>();
             if (outcome.calls.stream().noneMatch(call -> call.contains(":moveTo("))) problems.add("never walked");
             if (!outcome.jumps.isEmpty()) problems.add("teleported while walking");
             return problems;
-        });
+        }, "[18:moveTox1.0=true]", "[0:start]");
     }
 
     // A stuck ship recovers and teleports by the NEW rules; see MovementStuckRecoveryGameTests.
 
     @GameTest(template = "arena", batch = "isolated_movement_plan_guard_walk", timeoutTicks = TIMEOUT)
-    public static void guardWalksOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, phase -> phase.guard(false, 1_000), ShipGuardingGoal.class, outcome -> {
+    public static void guardWalksOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, phase -> phase.guard(false, 1_000), ShipGuardingGoal.class, Integer.MAX_VALUE, outcome -> {
             List<String> problems = new ArrayList<>();
             if (outcome.calls.stream().noneMatch(call -> call.contains(":moveTo("))) problems.add("never walked");
             if (outcome.calls.stream().noneMatch(call -> call.endsWith(":stop"))) problems.add("never arrived");
             return problems;
-        });
+        }, "[9:moveTox1.0=true, 41:moveTox1.0=true, #:stop, #:stop]", "[0:start, #:stop]");
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_plan_flee", timeoutTicks = TIMEOUT)
-    public static void fleeWalksToOwnerOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, Phase::flee, ShipFleeGoal.class, outcome -> outcome.calls.stream()
-                .anyMatch(call -> call.contains(":moveTo(")) ? List.of() : List.of("never walked"));
+    public static void fleeWalksToOwnerOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, Phase::flee, ShipFleeGoal.class, Integer.MAX_VALUE, outcome -> outcome.calls.stream()
+                .anyMatch(call -> call.contains(":moveTo(")) ? List.of() : List.of("never walked"),
+                "[0:moveTox1.2=true, 20:stop]", "[0:start, 20:stop]");
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_plan_pick_item", timeoutTicks = TIMEOUT)
-    public static void pickItemWalksToItemOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        // NEW gives up an item it has stood at without being able to take it for 80 ticks of failed takes
-        // (from tick 102 here); LEGACY keeps trying, so only the first 100 ticks are compared
+    public static void pickItemWalksToItemOnTheRecordedTicks(GameTestHelper helper) {
+        // The ship gives up an item it has stood at without being able to take it after 80 ticks of
+        // failed takes (from tick 102 here), so only the first 100 ticks are recorded
         verify(helper, Phase::pickItem, ShipPickItemGoal.class, 100, outcome -> {
             List<String> problems = new ArrayList<>();
             if (outcome.calls.stream().noneMatch(call -> call.contains(":moveTo("))) problems.add("never walked");
             if (outcome.calls.stream().noneMatch(call -> call.endsWith(":stop"))) problems.add("never reached");
             return problems;
-        });
+        }, "[0:moveTox1.0=true, 16:moveTox1.0=true, 20:stop, 32:moveTox1.0=true, 40:stop, 48:moveTox1.0=true,"
+                + " 60:stop, 64:moveTox1.0=true, 80:moveTox1.0=false, 80:stop, 96:moveTox1.0=true]", "[0:start]");
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_plan_melee", timeoutTicks = TIMEOUT)
-    public static void meleeClosesInOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, Phase::melee, ShipAttackOnCollideGoal.class, outcome -> {
+    public static void meleeClosesInOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, Phase::melee, ShipAttackOnCollideGoal.class, Integer.MAX_VALUE, outcome -> {
             List<String> problems = new ArrayList<>();
             if (outcome.calls.stream().noneMatch(call -> call.contains(":moveTo("))) problems.add("never closed in");
             if (outcome.calls.stream().noneMatch(call -> call.endsWith(":stop"))) problems.add("never held");
             return problems;
-        });
+        }, "[0:moveTox1.0=true, 32:stop, 64:stop, 96:stop, 128:stop, 160:stop, 192:stop]", "[0:start]");
     }
 
-    /** Wander draws its point from the entity random, which the authorities do not share; NEW only. */
+    /** Wander draws its point from the entity random, so only the request itself is checked. */
     @GameTest(template = "arena", batch = "isolated_movement_plan_wander", timeoutTicks = 40)
-    public static void wanderPathsOnceToItsChosenPointUnderNew(GameTestHelper helper) {
+    public static void wanderPathsOnceToItsChosenPoint(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-                 GameTestEntities entities = GameTestEntities.open(helper)) {
+            try (GameTestEntities entities = GameTestEntities.open(helper)) {
                 BasicEntityShip ship = friendly(helper, entities, SHIP);
                 ShipWanderGoal goal = new ShipWanderGoal(ship, 10, 5, 0.8D);
                 boolean chosen = false;
@@ -158,39 +154,34 @@ public final class MovementPlanParityGameTests {
 
     // ---------- the two phases ----------
 
-    private static void verify(GameTestHelper helper, Scenario scenario, Class<?> goalType, Check check) {
-        verify(helper, scenario, goalType, Integer.MAX_VALUE, check);
-    }
-
-    /** Only what happens before tick {@code compareBefore} of the goal is compared between the authorities. */
+    /**
+     * Only what happens before tick {@code compareBefore} of the goal is compared with the record,
+     * with the path target left out of each request.
+     */
     private static void verify(GameTestHelper helper, Scenario scenario, Class<?> goalType, int compareBefore,
-                               Check check) {
+                               Check check, String calls, String goals) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
             int start = (int) helper.getTick() + 1;
-            Outcome legacy = new Outcome();
             Outcome now = new Outcome();
-            run(helper, start, ConfigHandler.ShipAiTargetAuthority.LEGACY, scenario, goalType, check, legacy);
-            run(helper, start + PHASE + 1, ConfigHandler.ShipAiTargetAuthority.NEW, scenario, goalType, check, now);
-            helper.runAtTickTime(start + 2 * PHASE + 2, () -> {
-                String report = "\n LEGACY " + legacy + "\n NEW    " + now;
-                helper.assertTrue(legacy.problems.isEmpty() && now.problems.isEmpty(), "Fixture problems:" + report);
-                helper.assertTrue(before(now.calls, compareBefore).equals(before(legacy.calls, compareBefore)),
-                        "Navigation calls differ:" + report);
-                helper.assertTrue(before(now.goals, compareBefore).equals(before(legacy.goals, compareBefore)),
-                        "Goal starts and stops differ:" + report);
-                helper.assertTrue(before(now.jumps, compareBefore).equals(before(legacy.jumps, compareBefore)),
-                        "Teleports differ:" + report);
-                // the evidence of a passing run, for the change note and review
-                LogHelper.info("Movement plan parity (" + goalType.getSimpleName() + "):" + report);
+            run(helper, start, scenario, goalType, check, now);
+            helper.runAtTickTime(start + PHASE + 1, () -> {
+                String report = "\n NOW " + now;
+                helper.assertTrue(now.problems.isEmpty(), "Fixture problems:" + report);
+                helper.assertTrue(recorded(untargeted(before(now.calls, compareBefore)).toString(), calls),
+                        "Navigation calls differ from the recorded ones: expected " + calls + report);
+                helper.assertTrue(recorded(before(now.goals, compareBefore).toString(), goals),
+                        "Goal starts and stops differ from the recorded ones: expected " + goals + report);
+                helper.assertTrue(before(now.jumps, compareBefore).isEmpty(), "Teleports differ:" + report);
+                LogHelper.info("Movement plan (" + goalType.getSimpleName() + "):" + report);
                 helper.succeed();
             });
         }, ROUTE);
     }
 
-    private static void run(GameTestHelper helper, int start, ConfigHandler.ShipAiTargetAuthority mode,
-                            Scenario scenario, Class<?> goalType, Check check, Outcome result) {
+    private static void run(GameTestHelper helper, int start, Scenario scenario, Class<?> goalType, Check check,
+                            Outcome result) {
         Phase[] phase = {null};
-        helper.runAtTickTime(start, () -> phase[0] = Phase.open(helper, mode, scenario, goalType));
+        helper.runAtTickTime(start, () -> phase[0] = Phase.open(helper, scenario, goalType));
         for (int tick = start + 1; tick < start + PHASE; tick++) {
             helper.runAtTickTime(tick, () -> phase[0].guard(phase[0]::poll));
         }
@@ -283,7 +274,6 @@ public final class MovementPlanParityGameTests {
 
     private static final class Phase {
         private final GameTestHelper helper;
-        private final ShipAiAuthorityOverride authority;
         private final GameTestEntities entities;
         private final Class<?> goalType;
         private final int teleportCooldown = ConfigHandler.shipTeleport[0];
@@ -306,18 +296,14 @@ public final class MovementPlanParityGameTests {
         private Vec3 last;
         private boolean closed;
 
-        private Phase(GameTestHelper helper, ShipAiAuthorityOverride authority, GameTestEntities entities,
-                      Class<?> goalType) {
+        private Phase(GameTestHelper helper, GameTestEntities entities, Class<?> goalType) {
             this.helper = helper;
-            this.authority = authority;
             this.entities = entities;
             this.goalType = goalType;
         }
 
-        static Phase open(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, Scenario scenario,
-                          Class<?> goalType) {
-            ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(mode);
-            Phase phase = new Phase(helper, authority, GameTestEntities.open(helper), goalType);
+        static Phase open(GameTestHelper helper, Scenario scenario, Class<?> goalType) {
+            Phase phase = new Phase(helper, GameTestEntities.open(helper), goalType);
             phase.guard(() -> {
                 phase.ship = scenario.create(phase);
                 phase.dropWander();
@@ -343,19 +329,13 @@ public final class MovementPlanParityGameTests {
         }
 
         private void order(BasicEntityShip ship, BlockPos guardPos) {
-            if (ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                var id = this.helper.getLevel().dimension().location();
-                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
-                        new CommandStateOp.Apply(new ShipCommand.GuardPosition(
-                                new DimensionKey(id.getNamespace(), id.getPath()),
-                                new CommandPos(guardPos.getX(), guardPos.getY(), guardPos.getZ()), false)));
-                // The order itself paths at once under NEW (outside the goals); only the goal's walk is compared.
-                ship.getNavigation().stop();
-            } else {
-                ship.setGuardedPos(guardPos.getX(), guardPos.getY(), guardPos.getZ(),
-                        this.helper.getLevel().dimension(), 1);
-                ship.setStateFlag(ID.F.CanFollow, false);
-            }
+            var id = this.helper.getLevel().dimension().location();
+            ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.GuardPosition(
+                            new DimensionKey(id.getNamespace(), id.getPath()),
+                            new CommandPos(guardPos.getX(), guardPos.getY(), guardPos.getZ()), false)));
+            // The order itself paths at once (outside the goals); only the goal's walk is compared.
+            ship.getNavigation().stop();
         }
 
         Mob flee() {
@@ -504,7 +484,7 @@ public final class MovementPlanParityGameTests {
             if (this.owner != null) out.append(" ownerSq=").append(fmt(this.ship.distanceToSqr(this.owner)));
             out.append(" running=").append(selector(this.ship).getRunningGoals()
                     .map(wrapped -> wrapped.getGoal().getClass().getSimpleName()).toList());
-            if (ShipMovementGate.active()) out.append(" intent=").append(ShipMovementGate.intent(this.ship));
+            out.append(" intent=").append(ShipMovementGate.intent(this.ship));
             return out.toString();
         }
 
@@ -520,11 +500,10 @@ public final class MovementPlanParityGameTests {
             result.jumps = relative(this.jumps, base);
             result.notes = relative(this.notes, base);
             result.problems.addAll(check.problems(result));
-            // NEW moves only through the executor, and LEGACY never touches it
             boolean executed = this.ship instanceof ShipMovementHost host
                     && host.shipMovementExecutor().last().isPresent();
-            if (executed != ShipMovementGate.active()) {
-                result.problems.add(executed ? "LEGACY used the movement executor" : "NEW never used the movement executor");
+            if (!executed) {
+                result.problems.add("the ship never used the movement executor");
             }
         }
 
@@ -542,7 +521,6 @@ public final class MovementPlanParityGameTests {
                 }
             } finally {
                 ConfigHandler.shipTeleport[0] = this.teleportCooldown;
-                this.authority.close();
             }
         }
     }
@@ -551,6 +529,27 @@ public final class MovementPlanParityGameTests {
     private static List<String> before(List<String> entries, int limit) {
         return entries.stream().filter(entry -> Integer.parseInt(entry.substring(0, entry.indexOf(':'))) < limit)
                 .toList();
+    }
+
+    /**
+     * Whether {@code actual} is the record; a '#' stands for a tick that depends on the terrain under the
+     * route (the arrival), which must lie between 30 and 90.
+     */
+    private static boolean recorded(String actual, String record) {
+        if (!record.contains("#")) return actual.equals(record);
+        String pattern = java.util.regex.Pattern.quote(record).replace("#", "\\E(\\d+)\\Q");
+        java.util.regex.Matcher match = java.util.regex.Pattern.compile(pattern).matcher(actual);
+        if (!match.matches()) return false;
+        for (int group = 1; group <= match.groupCount(); group++) {
+            int tick = Integer.parseInt(match.group(group));
+            if (tick < 30 || tick > 90) return false;
+        }
+        return true;
+    }
+
+    /** The record with each path target (the parenthesis after moveTo) left out. */
+    private static List<String> untargeted(List<String> entries) {
+        return entries.stream().map(entry -> entry.replaceAll("moveTo\\([^)]*\\)", "moveTo")).toList();
     }
 
     /** Keeps entries from {@code base} on, rewritten as "tick - base:rest". */

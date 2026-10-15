@@ -24,9 +24,7 @@ import com.lulan.shincolle.ai.domain.movement.MovementTarget;
 import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
-import com.lulan.shincolle.utility.FormationHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -44,7 +42,6 @@ public final class ShipCommandStateAdapter {
     private boolean checkProjection;
     private ShipCommandState state;
     private CommandStateChange lastChange;
-    private ConfigHandler.ShipAiTargetAuthority previousAuthority;
     private long sequence;
 
     public ShipCommandStateAdapter(BasicEntityShip ship) {
@@ -52,7 +49,7 @@ public final class ShipCommandStateAdapter {
     }
 
     public static boolean isNew() {
-        return ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW;
+        return true;
     }
 
     public void enableProjectionCheckForTest() {
@@ -62,47 +59,39 @@ public final class ShipCommandStateAdapter {
     public void onLoad() {
         state = null;
         lastChange = null;
-        previousAuthority = null;
         sequence = 0;
     }
 
-    public void observeAuthority() {
-        if (!(ship.level() instanceof ServerLevel)) return;
-        ConfigHandler.ShipAiTargetAuthority current = ConfigHandler.shipAiTargetAuthority();
-        if (current != previousAuthority) {
-            ConfigHandler.ShipAiTargetAuthority previous = previousAuthority;
-            previousAuthority = current;
-            if (current == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                boolean transition = previous == ConfigHandler.ShipAiTargetAuthority.LEGACY;
-                LegacyCommandFields before = fields();
-                state = LegacyCommandCodec.decode(before, dimension(ship.level().dimension()));
-                if (transition && ship.getManualTarget() != null && ship.getManualTarget().isAlive()
-                        && !ship.getManualTarget().isRemoved() && ship.getManualTarget().level() == ship.level()) {
-                    state = new ShipCommandState(state.movement(), state.sitting(),
-                            Optional.of(handle(ship.getManualTarget())));
-                }
-                endKnownLostGuard();
-                project(null, true);
-                LegacyCommandFields after = LegacyCommandCodec.encode(state);
-                if (before.canFollow() != after.canFollow() || before.guardType() != after.guardType()
-                        || before.guardX() != after.guardX() || before.guardY() != after.guardY()
-                        || before.guardZ() != after.guardZ()) {
-                    ship.sendSyncPacketGuard();
-                }
-            } else {
-                state = null;
-                lastChange = null;
-            }
+    /**
+     * The first server access after a load: the typed state is decoded once from the saved fields the
+     * load has restored. From then on the fields are only its projection and are never read back.
+     */
+    public void initialize() {
+        if (state != null || !(ship.level() instanceof ServerLevel)) return;
+        LegacyCommandFields before = fields();
+        state = LegacyCommandCodec.decode(before, dimension(ship.level().dimension()));
+        endKnownLostGuard();
+        project(null, true);
+        LegacyCommandFields after = LegacyCommandCodec.encode(state);
+        if (before.canFollow() != after.canFollow() || before.guardType() != after.guardType()
+                || before.guardX() != after.guardX() || before.guardY() != after.guardY()
+                || before.guardZ() != after.guardZ()) {
+            ship.sendSyncPacketGuard();
         }
     }
 
+    /** Compatibility entry point; authority settings no longer reset the initialized state. */
+    public void observeAuthority() {
+        initialize();
+    }
+
     public ShipCommandState state() {
-        observeAuthority();
+        initialize();
         return state;
     }
 
     public CommandStateChange lastChange() {
-        observeAuthority();
+        initialize();
         return lastChange;
     }
 
@@ -111,7 +100,7 @@ public final class ShipCommandStateAdapter {
     }
 
     public void apply(CommandIssuer issuer, CommandStateOp op, long serverSequence) {
-        observeAuthority();
+        initialize();
         if (state == null) throw new IllegalStateException("No server command authority");
         ShipCommandState before = state;
         state = CommandStateReducer.apply(state, op);
@@ -151,7 +140,7 @@ public final class ShipCommandStateAdapter {
             else reapplyPositionEffects(guard.position().x(), guard.position().y(), guard.position().z());
         } else if (moved && projectMovement && movement instanceof MovementOrder.GuardEntity guard) {
             Entity target = resolve(guard.target());
-            if (target != null) FormationHelper.applyShipGuardEntity(ship, target);
+            if (target != null) applyEntityGuard(target);
         }
 
         if (projectMovement && movement instanceof MovementOrder.GuardEntity guard) {
@@ -222,6 +211,19 @@ public final class ShipCommandStateAdapter {
         walkToward(x, y, z);
     }
 
+    /** Project an accepted entity guard and make its first path request, without issuing another command. */
+    private void applyEntityGuard(Entity target) {
+        ship.setEntitySit(false);
+        ship.setGuardedEntity(target);
+        ship.setGuardedPos(-1, -1, -1, target.level().dimension(), 2);
+        ship.setStateFlag(ID.F.CanFollow, false);
+        if (ship.getStateFlag(ID.F.NoFuel)) return;
+        ship.applyEmotesReaction(5);
+        MovementBody body = ship.getVehicle() instanceof BasicEntityMount ? MovementBody.VEHICLE : MovementBody.SELF;
+        ShipMovementExecutor.run(ship, MovementPlan.of(new MovementStep.PathTo(body,
+                new MovementTarget.Entity(handle(target)), 1D, MovementReason.COMMAND_APPLIED)));
+    }
+
     /** The path and the look toward a point just set, from the body the ship moves with; nothing without fuel. */
     private void walkToward(int x, int y, int z) {
         if (ship.getStateFlag(ID.F.NoFuel)) return;
@@ -243,7 +245,7 @@ public final class ShipCommandStateAdapter {
     }
 
     public void assertProjection() {
-        if (!checkProjection || state == null || !isNew()) return;
+        if (!checkProjection || state == null) return;
         LegacyCommandFields expected = LegacyCommandCodec.encode(state);
         LegacyCommandFields actual = fields();
         boolean equal = expected.guardX() == actual.guardX() && expected.guardY() == actual.guardY()

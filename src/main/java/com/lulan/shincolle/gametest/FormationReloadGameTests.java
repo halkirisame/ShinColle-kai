@@ -1,7 +1,6 @@
 package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -24,20 +23,13 @@ public final class FormationReloadGameTests {
     private FormationReloadGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void newFormationSurvivesOrdinaryLoadBeforeRegistration(GameTestHelper helper) {
-        verify(helper, ConfigHandler.ShipAiTargetAuthority.NEW, 26401, true);
+    public static void formationSurvivesOrdinaryLoadBeforeRegistration(GameTestHelper helper) {
+        verify(helper, 26401, true);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void legacyOrdinaryLoadKeepsItsExistingFormationBehavior(GameTestHelper helper) {
-        verify(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, 26402, false);
-    }
-
-    private static void verify(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority authority,
-                               int id, boolean retains) {
+    private static void verify(GameTestHelper helper, int id, boolean retains) {
         PointerSingleModeGameTests.whenFixtureTicking(helper, () -> {
-            try (var mode = ShipAiAuthorityOverride.use(authority);
-                 var context = PointerSingleModeGameTests.createContext(helper, "formation_reload_" + id, id);
+            try (var context = PointerSingleModeGameTests.createContext(helper, "formation_reload_" + id, id);
                  var online = new FormationGameTestOwner(context.player())) {
                 List<BasicEntityShip> loaded = new ArrayList<>();
                 context.capa().setFormatID(0, 1);

@@ -29,7 +29,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 public class ModNetworking {
 
     // Skill visuals, beam data, and fishing host data require matching client/server jars.
-    private static final String PROTOCOL_VERSION = "12";
+    private static final String PROTOCOL_VERSION = "13";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),

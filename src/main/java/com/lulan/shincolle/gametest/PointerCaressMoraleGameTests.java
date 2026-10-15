@@ -4,6 +4,7 @@ import com.lulan.shincolle.capability.CapaShipSavedValues;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.entity.destroyer.EntityDestroyerRo;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
@@ -19,6 +20,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -134,6 +136,85 @@ public final class PointerCaressMoraleGameTests {
         }
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void caressSyncsFinalChangedMoraleOnce(GameTestHelper helper) {
+        try (Fixture fixture = fixture(helper, "changed_sync", 96705, true)) {
+            MinorSyncProbeShip ship = (MinorSyncProbeShip) fixture.ship();
+            for (int mode = 3; mode <= 5; mode++) {
+                prepare(helper, fixture, mode, 2000, false);
+                ship.resetProbe(7);
+                ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+                assertSync(helper, ship, 2000 + ConfigHandler.caressBaseMorale() + 7, 1, 0);
+            }
+
+            int threshold = (int) (ID.Morale.L_Excited * 1.3F);
+            prepare(helper, fixture, 3, threshold, false);
+            ship.resetProbe(-9);
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, threshold - 9, 1, 0);
+
+            prepare(helper, fixture, 3, 2000, true);
+            ship.resetProbe(7);
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, 2007, 1, 1);
+
+            prepare(helper, fixture, 3, 2000, false);
+            ship.setOwnerUUID(UUID.nameUUIDFromBytes("caress_sync_other_owner".getBytes(StandardCharsets.UTF_8)));
+            ship.setPlayerUID(96799);
+            helper.assertTrue(!TeamHelper.checkSameOwner(fixture.player(), ship),
+                    "Sync fixture must be a different owner");
+            ship.resetProbe(-9);
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, 1991, 1, 1);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void caressDoesNotSyncUnchangedMorale(GameTestHelper helper) {
+        try (Fixture fixture = fixture(helper, "unchanged_sync", 96706, true)) {
+            MinorSyncProbeShip ship = (MinorSyncProbeShip) fixture.ship();
+            int threshold = (int) (ID.Morale.L_Excited * 1.3F);
+            prepare(helper, fixture, 3, threshold, false);
+            ship.resetProbe(0);
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, threshold, 0, 0);
+
+            prepare(helper, fixture, 3, 2000, false);
+            ship.resetProbe(-ConfigHandler.caressBaseMorale());
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, 2000, 0, 0);
+
+            prepare(helper, fixture, 3, 2000, true);
+            ship.resetProbe(0);
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, 2000, 0, 1);
+
+            prepare(helper, fixture, 3, 2000, false);
+            ship.setOwnerUUID(UUID.nameUUIDFromBytes("caress_no_sync_other_owner".getBytes(StandardCharsets.UTF_8)));
+            ship.setPlayerUID(96799);
+            helper.assertTrue(!TeamHelper.checkSameOwner(fixture.player(), ship),
+                    "No-sync fixture must be a different owner");
+            ship.resetProbe(0);
+            ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+            assertSync(helper, ship, 2000, 0, 1);
+            helper.succeed();
+        }
+    }
+
+    private static void assertSync(GameTestHelper helper, MinorSyncProbeShip ship,
+            int morale, int syncs, int reactionType) {
+        helper.assertTrue(ship.getMorale() == morale && ship.reactionType == reactionType,
+                "Caress did not finish the expected reaction and morale change");
+        helper.assertTrue(ship.syncs == syncs,
+                "Expected " + syncs + " minor syncs, got " + ship.syncs);
+        if (syncs > 0) {
+            helper.assertTrue(ship.moraleAtSync == morale && ship.reactionFinishedAtSync,
+                    "Minor sync must observe the final morale after the reaction");
+        }
+        helper.assertTrue(ship.getAITarget() == null, "Caress retained its temporary AI target");
+    }
+
     private static void prepare(GameTestHelper helper, Fixture fixture, int mode, int morale, boolean noFuel) {
         ItemStack pointer = new ItemStack(ModItems.POINTER.get());
         PointerItem.setMode(pointer, mode);
@@ -152,8 +233,13 @@ public final class PointerCaressMoraleGameTests {
     }
 
     private static Fixture fixture(GameTestHelper helper, String name, int uid) {
+        return fixture(helper, name, uid, false);
+    }
+
+    private static Fixture fixture(GameTestHelper helper, String name, int uid, boolean probe) {
         GameTestEntities entities = GameTestEntities.open(helper);
-        BasicEntityShip ship = entities.add(ModEntities.DESTROYER_RO.get().create(helper.getLevel()));
+        BasicEntityShip ship = entities.add(probe ? new MinorSyncProbeShip(helper.getLevel())
+                : ModEntities.DESTROYER_RO.get().create(helper.getLevel()));
         helper.assertTrue(ship != null, "Could not create caress ship");
         UUID uuid = UUID.nameUUIDFromBytes(("caress_morale_" + name).getBytes(StandardCharsets.UTF_8));
         FakePlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(uuid, "caress_" + name));
@@ -166,6 +252,43 @@ public final class PointerCaressMoraleGameTests {
                 && TeamHelper.getPlayerUID(player) == uid && ship.getPlayerUID() == uid,
                 "Caress fixture owner was not applied");
         return new Fixture(ship, player, entities);
+    }
+
+    private static final class MinorSyncProbeShip extends EntityDestroyerRo {
+        private int syncs;
+        private int moraleAtSync;
+        private int reactionDelta;
+        private int reactionType;
+        private boolean reactionFinished;
+        private boolean reactionFinishedAtSync;
+
+        private MinorSyncProbeShip(Level level) {
+            super(ModEntities.DESTROYER_RO.get(), level);
+        }
+
+        private void resetProbe(int delta) {
+            this.syncs = 0;
+            this.moraleAtSync = 0;
+            this.reactionDelta = delta;
+            this.reactionType = -1;
+            this.reactionFinished = false;
+            this.reactionFinishedAtSync = false;
+        }
+
+        @Override
+        public void applyEmotesReaction(int type) {
+            // Script the reaction delta so the sync boundary is independent of random draws.
+            this.reactionType = type;
+            this.addMorale(this.reactionDelta);
+            this.reactionFinished = true;
+        }
+
+        @Override
+        public void sendSyncPacketMinor() {
+            this.syncs++;
+            this.moraleAtSync = this.getMorale();
+            this.reactionFinishedAtSync = this.reactionFinished;
+        }
     }
 
     private record Fixture(BasicEntityShip ship, FakePlayer player, GameTestEntities entities) implements AutoCloseable {

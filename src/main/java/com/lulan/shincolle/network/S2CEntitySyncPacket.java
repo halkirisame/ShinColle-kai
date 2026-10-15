@@ -388,6 +388,7 @@ public class S2CEntitySyncPacket {
      * Sync unit names
      */
     public static S2CEntitySyncPacket syncUnitName(BasicEntityShip ship) {
+        com.lulan.shincolle.utility.ShipNameTagHelper.refresh(ship);
         byte[] data = toBytes(buf -> PacketHelper.writeStringList(buf, ship.unitNames));
         return new S2CEntitySyncPacket(SyncShip_UnitName, ship.getId(), data);
     }

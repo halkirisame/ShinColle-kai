@@ -159,13 +159,8 @@ public class TaskHelper {
 
         // check distance
         if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 25D) {
-            if (ShipMovementGate.active()) {
-                taskMove(host, new TaskMoveRequest.ReturnToWaypoint(new CommandPos(host.getGuardedPos(0),
-                        host.getGuardedPos(1), host.getGuardedPos(2))));
-            } else {
-                host.getNavigation().moveTo(host.getGuardedPos(0), host.getGuardedPos(1),
-                        host.getGuardedPos(2), 1D);
-            }
+            taskMove(host, new TaskMoveRequest.ReturnToWaypoint(new CommandPos(host.getGuardedPos(0),
+                    host.getGuardedPos(1), host.getGuardedPos(2))));
             return;
         }
 
@@ -333,17 +328,10 @@ public class TaskHelper {
         } else {
             // random move
             if ((host.getTickExisted() & 63) == 0) {
-                if (ShipMovementGate.active()) {
-                    double x = host.getX() + host.getRandom().nextInt(9) - 4;
-                    double y = host.getY() + host.getRandom().nextInt(5) - 2;
-                    double z = host.getZ() + host.getRandom().nextInt(9) - 4;
-                    taskMove(host, new TaskMoveRequest.MiningShuffle(new MovementPoint(x, y, z)));
-                } else {
-                    host.getNavigation().moveTo(
-                            host.getX() + host.getRandom().nextInt(9) - 4,
-                            host.getY() + host.getRandom().nextInt(5) - 2,
-                            host.getZ() + host.getRandom().nextInt(9) - 4, 1D);
-                }
+                double x = host.getX() + host.getRandom().nextInt(9) - 4;
+                double y = host.getY() + host.getRandom().nextInt(5) - 2;
+                double z = host.getZ() + host.getRandom().nextInt(9) - 4;
+                taskMove(host, new TaskMoveRequest.MiningShuffle(new MovementPoint(x, y, z)));
                 return;
             }
         }
@@ -464,12 +452,8 @@ public class TaskHelper {
 
         // move to guard point
         if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 10D) {
-            if (ShipMovementGate.active()) {
-                taskMove(host, new TaskMoveRequest.FishingSpot(new MovementPoint(pos.getX() + 0.5D, pos.getY(),
-                        pos.getZ() + 0.5D)));
-            } else {
-                host.getNavigation().moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, 1D);
-            }
+            taskMove(host, new TaskMoveRequest.FishingSpot(new MovementPoint(pos.getX() + 0.5D, pos.getY(),
+                    pos.getZ() + 0.5D)));
             return;
         }
 
@@ -598,13 +582,8 @@ public class TaskHelper {
 
         // check distance
         if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 25D) {
-            if (ShipMovementGate.active()) {
-                taskMove(host, new TaskMoveRequest.ReturnToWaypoint(new CommandPos(host.getGuardedPos(0),
-                        host.getGuardedPos(1), host.getGuardedPos(2))));
-            } else {
-                host.getNavigation().moveTo(host.getGuardedPos(0), host.getGuardedPos(1),
-                        host.getGuardedPos(2), 1D);
-            }
+            taskMove(host, new TaskMoveRequest.ReturnToWaypoint(new CommandPos(host.getGuardedPos(0),
+                    host.getGuardedPos(1), host.getGuardedPos(2))));
             return;
         }
 

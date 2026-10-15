@@ -5,6 +5,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
@@ -130,7 +131,7 @@ public class ShipTank extends BasicItem {
             return InteractionResult.FAIL;
         }
         tank.fill(collected, IFluidHandler.FluidAction.EXECUTE);
-        source.getPickupSound(state).ifPresent(sound -> player.playSound(sound, 1F, 1F));
+        source.getPickupSound(state).ifPresent(sound -> level.playSound(null, pos, sound, SoundSource.PLAYERS, 1F, 1F));
         level.gameEvent(player, GameEvent.FLUID_PICKUP, pos);
         return InteractionResult.CONSUME;
     }
@@ -186,7 +187,24 @@ public class ShipTank extends BasicItem {
             return InteractionResult.PASS;
         }
 
-        level.setBlock(targetPos, sourceState, 3);
+        if (level.dimensionType().ultraWarm() && fluid.is(net.minecraft.tags.FluidTags.WATER)) {
+            // water evaporates where it cannot exist: hiss and smoke instead of a block
+            level.playSound(null, targetPos, net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH,
+                    net.minecraft.sounds.SoundSource.BLOCKS, 0.5F,
+                    2.6F + (level.getRandom().nextFloat() - level.getRandom().nextFloat()) * 0.8F);
+            if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                for (int i = 0; i < 8; i++) {
+                    serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.LARGE_SMOKE,
+                            targetPos.getX() + level.getRandom().nextDouble(),
+                            targetPos.getY() + level.getRandom().nextDouble(),
+                            targetPos.getZ() + level.getRandom().nextDouble(), 1, 0D, 0D, 0D, 0D);
+                }
+            }
+        } else {
+            level.setBlock(targetPos, sourceState, 3);
+            level.playSound(null, targetPos, net.minecraft.sounds.SoundEvents.BUCKET_EMPTY,
+                    SoundSource.BLOCKS, 1F, 1F);
+        }
         tank.drain(1000, IFluidHandler.FluidAction.EXECUTE);
         return InteractionResult.CONSUME;
     }

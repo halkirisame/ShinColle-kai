@@ -17,18 +17,15 @@ import java.util.function.Supplier;
  * Different type values correspond to different particle effects
  * (attacks, skill effects, emotional indicators, etc.).
  * <p>
- * Particle types (from 1.10.2):
- * 0: Attack hit effect
- * 1: Cannon fire effect
- * 2: Aircraft launch
- * 3: Skill activation
- * 4+: Various other effects
+ * ParticlePacketRoute separates position effects from entity-attached
+ * effects using both the effect number and the payload format.
  */
 public class S2CSpawnParticlePacket {
 
     private final byte type;
     private final int entityId;
     private final byte[] payload;
+    private static final long ENTITY_WAIT_NANOS = 500_000_000L;
 
     /**
      * Construct a new particle spawn packet.
@@ -42,6 +39,39 @@ public class S2CSpawnParticlePacket {
         this.type = type;
         this.entityId = entityId;
         this.payload = payload != null ? payload : new byte[0];
+    }
+
+    public static S2CSpawnParticlePacket position(int type, int entityId, double x, double y, double z,
+                                                 double vx, double vy, double vz) {
+        return new S2CSpawnParticlePacket((byte) type, entityId,
+                parameters(x, y, z, vx, vy, vz));
+    }
+
+    public static S2CSpawnParticlePacket entityParameters(byte type, int entityId, double a, double b, double c) {
+        return new S2CSpawnParticlePacket(type, entityId, parameters(a, b, c));
+    }
+
+    public static S2CSpawnParticlePacket targetParameters(byte type, int entityId, int targetId,
+                                                         double a, double b, double c) {
+        if (!Double.isFinite(a) || !Double.isFinite(b) || !Double.isFinite(c)) {
+            throw new IllegalArgumentException("Particle parameter must be finite");
+        }
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(28);
+        buf.putInt(targetId).putDouble(a).putDouble(b).putDouble(c);
+        return new S2CSpawnParticlePacket(type, entityId, buf.array());
+    }
+
+    private static byte[] parameters(double... values) {
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(values.length * Double.BYTES);
+        for (double value : values) {
+            if (!Double.isFinite(value)) throw new IllegalArgumentException("Particle parameter must be finite");
+            buf.putDouble(value);
+        }
+        return buf.array();
+    }
+
+    public ParticlePacketRoute route() {
+        return ParticlePacketRoute.resolve(Byte.toUnsignedInt(type), payload.length);
     }
 
     /**
@@ -86,6 +116,26 @@ public class S2CSpawnParticlePacket {
         if (mc.level == null)
             return;
 
+        ParticlePacketRoute route = route();
+        if (route == ParticlePacketRoute.INVALID) return;
+        if (route == ParticlePacketRoute.FLUID_FILL || route == ParticlePacketRoute.CRANE_TRANSFER
+                || route == ParticlePacketRoute.EQUIPMENT_SMOKE || route == ParticlePacketRoute.MOUNT_CANNON_SMOKE
+                || route == ParticlePacketRoute.PURPLE_BEAM || route == ParticlePacketRoute.YAMATO_CHARGE
+                || route == ParticlePacketRoute.YAMATO_BEAM
+                || route == ParticlePacketRoute.DUAL_BEAM || route == ParticlePacketRoute.SUPPORT_LINE) {
+            showEntityRoute(mc, route, System.nanoTime() + ENTITY_WAIT_NANOS);
+            return;
+        }
+
+        if (route == ParticlePacketRoute.REPAIR_GODDESS) {
+            Entity saved = mc.level.getEntity(entityId);
+            if (saved != null) {
+                ParticleHelper.spawnSparkleParticle(saved, 8, 0.1F, saved.getBbWidth() * 2F, 0F, 0F,
+                        0F, 0.03F, 0F, 1F, saved.getBbHeight() * 0.4F);
+            }
+            return;
+        }
+
         if (type == com.lulan.shincolle.ai.ShipSkillAttackGate.VISUAL_PACKET_TYPE) {
             Entity source = mc.level.getEntity(entityId);
             if (source == null || payload.length != 49) return;
@@ -111,7 +161,7 @@ public class S2CSpawnParticlePacket {
         // Healing sparkle (type 23). The original spawns this through
         // spawnAttackParticleAtEntity, so it needs the entity rather than a
         // position and cannot go through the position-based switch below.
-        if (type == 23) {
+        if (route == ParticlePacketRoute.HEAL) {
             Entity healed = mc.level.getEntity(entityId);
             if (healed == null) {
                 return;
@@ -126,7 +176,7 @@ public class S2CSpawnParticlePacket {
         }
 
         // Special handling for emotion particles (type 36)
-        if (type == 36) {
+        if (route == ParticlePacketRoute.EMOTION) {
             Entity entity = mc.level.getEntity(entityId);
             if (entity == null)
                 return;
@@ -169,14 +219,46 @@ public class S2CSpawnParticlePacket {
             if (entity == null)
                 return;
             x = entity.getX();
-            y = entity.getY() + entity.getBbHeight() * 0.5;
+            y = entity.getY();
             z = entity.getZ();
+            if (type >= 10 && type <= 13 || type == 34) lookY = entity.getBbHeight() * 1.3D;
+        }
+
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
+                || !Double.isFinite(lookX) || !Double.isFinite(lookY) || !Double.isFinite(lookZ)) return;
+        if (route == ParticlePacketRoute.ORDER_REJECTED) {
+            ParticleHelper.spawnOrderRejectedParticle(mc.level, x, y, z, lookX, lookY, lookZ);
+            return;
         }
 
         com.lulan.shincolle.utility.LogHelper.debug("DEBUG: particle packet received: type=" + type
                 + " entityId=" + entityId + " payloadLen=" + payload.length
                 + " resolved=(" + x + "," + y + "," + z + ") vec=(" + lookX + "," + lookY + "," + lookZ + ")");
         ParticleHelper.spawnAttackParticleAt(mc.level, x, y, z, lookX, lookY, lookZ, type);
+    }
+
+    /** Entity-attached effects may arrive before the entities they name; wait briefly for them. */
+    @OnlyIn(Dist.CLIENT)
+    private void showEntityRoute(net.minecraft.client.Minecraft mc, ParticlePacketRoute route, long deadline) {
+        if (mc.level == null) return;
+        Entity source = mc.level.getEntity(entityId);
+        java.nio.ByteBuffer values = java.nio.ByteBuffer.wrap(payload);
+        Entity target = null;
+        boolean needsTarget = route == ParticlePacketRoute.PURPLE_BEAM || route == ParticlePacketRoute.DUAL_BEAM
+                || route == ParticlePacketRoute.YAMATO_BEAM || route == ParticlePacketRoute.SUPPORT_LINE;
+        if (needsTarget) {
+            target = mc.level.getEntity(values.getInt());
+        }
+        if ((source == null || needsTarget && target == null) && System.nanoTime() < deadline) {
+            mc.tell(() -> showEntityRoute(mc, route, deadline));
+            return;
+        }
+        double a = values.getDouble();
+        double b = values.getDouble();
+        double c = values.getDouble();
+        if (!Double.isFinite(a) || !Double.isFinite(b) || !Double.isFinite(c)) return;
+        com.lulan.shincolle.client.particle.EntityParticleVisuals.show(route, source, target, a, b, c,
+                type == ParticlePacketRoute.YAMATO_BOSS_BEAM_TYPE);
     }
 
     // ========== Getters ==========

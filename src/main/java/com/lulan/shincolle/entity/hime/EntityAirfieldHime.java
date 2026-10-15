@@ -5,18 +5,17 @@ import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.entity.ShipSupportAbilities;
 import com.lulan.shincolle.entity.mounts.EntityMountAfH;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 
 /**
  * Airfield Hime entity - CV type with both cannon and aircraft attacks.
- * Self-heals and provides REGENERATION to nearby allied ships.
+ * Self-heals and directly heals nearby allies while the ring effect is enabled.
  */
 public class EntityAirfieldHime extends BasicEntityShipCV implements IShipRiderType {
 
@@ -81,35 +80,8 @@ public class EntityAirfieldHime extends BasicEntityShipCV implements IShipRiderT
 
     @Override
     public void aiStep() {
+        ShipSupportAbilities.tickHealing(this, ShipSupportAbilities.HealingProfile.AIRFIELD);
         super.aiStep();
-
-        if (!this.level().isClientSide()) {
-            if (this.tickCount % 128 == 0) {
-                // Self-heal: 6% max HP
-                if (this.getHealth() < this.getMaxHealth()) {
-                    this.heal(this.getMaxHealth() * 0.06F);
-                }
-
-                // Ring effect: heal nearby ships
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    java.util.UUID ownerUUID = this.getOwnerUUID();
-                    java.util.List<net.minecraft.world.entity.LivingEntity> nearby = this.level().getEntitiesOfClass(
-                            net.minecraft.world.entity.LivingEntity.class,
-                            this.getBoundingBox().inflate(12D),
-                            e -> e != this && e instanceof com.lulan.shincolle.entity.BasicEntityShip ship
-                                    && ownerUUID != null && ownerUUID.equals(ship.getOwnerUUID()));
-                    int maxTargets = getStateMinor(ID.M.ShipLevel) / 50 + 1;
-                    int count = 0;
-                    for (net.minecraft.world.entity.LivingEntity target : nearby) {
-                        if (count >= maxTargets)
-                            break;
-                        target.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 0, false, false));
-                        count++;
-                    }
-                }
-            }
-        }
     }
 
     @Override

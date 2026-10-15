@@ -1,6 +1,5 @@
 package com.lulan.shincolle.utility;
 
-import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
@@ -48,12 +47,8 @@ public class TargetHelper {
             if (ship.getEntityTarget() == ship.getManualTarget()) {
                 ship.setEntityTarget(null);
             }
-            if (ShipCommandStateAdapter.isNew()) {
-                ship.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.ATTACK_TARGET_INVALID),
-                        new CommandStateOp.ClearManualAttack());
-            } else {
-                ship.setManualTarget(null);
-            }
+            ship.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.ATTACK_TARGET_INVALID),
+                    new CommandStateOp.ClearManualAttack());
         }
 
         // clear dead or friendly attack target

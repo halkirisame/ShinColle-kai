@@ -38,19 +38,18 @@ import java.util.OptionalLong;
 /**
  * Single entry point through which friendly-ship goals read the movement intent. It gathers
  * the facts from the host (a ship, or a mount acting for the ship it carries) and resolves
- * them on every call, so a command applied earlier in the same tick is already seen. Only the
- * NEW authority uses it.
+ * them on every call, so a command applied earlier in the same tick is already seen.
  */
 public final class ShipMovementGate {
     private ShipMovementGate() { }
 
     public static boolean active() {
-        return ShipCommandStateAdapter.isNew();
+        return true;
     }
 
     /** The same intent and permissions the follow goal uses, with ownership checked at the boundary. */
     public static boolean recallEligible(BasicEntityShip ship, ServerPlayer owner) {
-        if (!active() || !ship.isAlive() || !owner.isAlive() || ship.level() != owner.level()
+        if (!ship.isAlive() || !owner.isAlive() || ship.level() != owner.level()
                 || !owner.getUUID().equals(ship.getOwnerUUID()) || ShipActionGate.blocked(ship, ActionKind.MOVEMENT)) {
             return false;
         }
@@ -59,8 +58,14 @@ public final class ShipMovementGate {
                 && decision.allows(MovementActivity.COMMANDED_MOVE);
     }
 
+    /** Whether this ship stands beyond the distance at which following teleports it, and teleporting is on. */
+    public static boolean recallNeeded(BasicEntityShip ship, ServerPlayer owner) {
+        TeleportRule rule = teleportRule();
+        return rule.enabled() && ship.distanceToSqr(owner) > rule.distanceSq();
+    }
+
     static OptionalLong followRecallRemaining(Entity host, LivingEntity owner) {
-        if (!active() || !(host instanceof ShipMovementHost movementHost)) return OptionalLong.empty();
+        if (!(host instanceof ShipMovementHost movementHost)) return OptionalLong.empty();
         BasicEntityShip ship = host instanceof BasicEntityShip s ? s
                 : host instanceof BasicEntityMount mount ? mount.getHost() : null;
         ShipMovementExecutor executor = movementHost.shipMovementExecutor();
@@ -69,8 +74,18 @@ public final class ShipMovementGate {
             return OptionalLong.empty();
         }
         if (!owner.isAlive() || owner.level() != host.level()) return OptionalLong.empty();
+        // A request is held while the owner is gliding or falling, so nobody is teleported into the air.
+        if (!com.lulan.shincolle.handler.ShipFollowRecallHandler.isSettled(owner.getUUID())) return OptionalLong.empty();
         return executor.followRecallRemaining(ShipCommandStateAdapter.handle(owner),
                 host.getServer().getTickCount());
+    }
+
+    /**
+     * Whether the owner is gliding or falling, when no follow teleport may be planned so nobody is
+     * teleported into the air. False for anything the handler is not watching.
+     */
+    static boolean ownerAirborne(LivingEntity owner) {
+        return owner != null && com.lulan.shincolle.handler.ShipFollowRecallHandler.isAirborne(owner.getUUID());
     }
 
     /** The decision for this host, or null when the host carries no ship. */
@@ -147,8 +162,7 @@ public final class ShipMovementGate {
      */
     public static MovementSettings settings(IShipFlags source) {
         if (source == null) return MovementSettings.NONE;
-        boolean formation = com.lulan.shincolle.ai.command.ShipCommandStateAdapter.isNew()
-                ? ShipFormationStateAdapter.active(source).isPresent() : source.getStateMinor(ID.M.FormatType) > 0;
+        boolean formation = ShipFormationStateAdapter.active(source).isPresent();
         return new MovementSettings(formation,
                 source.getStateMinor(ID.M.FollowMin), source.getStateMinor(ID.M.FollowMax),
                 source.getStateFlag(ID.F.PickItem));

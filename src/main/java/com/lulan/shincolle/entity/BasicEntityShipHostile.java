@@ -26,7 +26,6 @@ import com.lulan.shincolle.utility.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
@@ -286,7 +285,20 @@ public abstract class BasicEntityShipHostile extends Mob
 
     @Override
     public boolean removeWhenFarAway(double distanceSq) {
-        return this.scaleLevel < 2; // bosses don't despawn
+        return canRemoveWhenFarAway(this.scaleLevel, this.tickCount,
+                ConfigHandler.despawnBoss());
+    }
+
+    /**
+     * Minions are removable whenever far away. Bosses are removable only once they have
+     * existed longer than {@code despawnBoss} ticks (-1 = never), so a boss left behind
+     * eventually frees its slot while a fresh one is never lost.
+     */
+    public static boolean canRemoveWhenFarAway(int scaleLevel, int ticksExisted, int despawnBoss) {
+        if (scaleLevel < 2) {
+            return true;
+        }
+        return despawnBoss > -1 && ticksExisted > despawnBoss;
     }
 
     /**
@@ -373,6 +385,14 @@ public abstract class BasicEntityShipHostile extends Mob
         }
     }
 
+    @Override
+    protected void tickDeath() {
+        if (this.level().isClientSide()) {
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.death(this);
+        }
+        super.tickDeath();
+    }
+
     // ========== Movement ==========
 
     @Override
@@ -426,15 +446,8 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void setAITargetList() {
-        if (ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW) {
-            this.targetAuthorityGoal = new ShipTargetAuthorityGoal(this);
-            this.targetSelector.addGoal(1, this.targetAuthorityGoal);
-            return;
-        }
-        this.targetAuthorityGoal = null;
-        this.targetSelector.addGoal(1, new ShipRevengeTargetGoal(this));
-        // [PORT] 1.10.2 -> 1.20.1: legacy hostile range target priority is 3.
-        this.targetSelector.addGoal(3, new ShipRangeTargetGoal(this));
+        this.targetAuthorityGoal = new ShipTargetAuthorityGoal(this);
+        this.targetSelector.addGoal(1, this.targetAuthorityGoal);
     }
 
     protected void clearAITasks() {
@@ -628,6 +641,7 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         // client side
         else {
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
             ShipSkillAttackGate.clientTick(this);
             if (StateTimer[ID.T.AttackTime] > 0) {
                 StateTimer[ID.T.AttackTime]--;
@@ -729,6 +743,7 @@ public abstract class BasicEntityShipHostile extends Mob
         if (isTargetHurt) {
             applyEmotesReaction(3);
             ShipSkillAttackGate.ordinaryHit(this, target, 0);
+            applyParticleAtTarget(0, target);
         }
         return isTargetHurt;
     }
@@ -773,6 +788,7 @@ public abstract class BasicEntityShipHostile extends Mob
             if (isTargetHurt) {
                 DebugProfiler.count(profiler, "shincolle.hostile.attack.light.hit_success");
                 ShipSkillAttackGate.ordinaryHit(this, target, 1);
+                applyParticleAtTarget(1, target);
                 applyEmotesReaction(3);
 
                 ShipOnHitEffects.dispatch(this, target, atk);
@@ -1028,40 +1044,19 @@ public abstract class BasicEntityShipHostile extends Mob
         if (ShipSkillAttackGate.ordinarySound(this, type)) return;
     }
 
-    /**
-     * Fires the attack's muzzle/launch particle to tracking clients. Matches
-     * BasicEntityShip#applyParticleAtAttacker; hostiles previously had no
-     * equivalent, so ranged attacks landed with a sound but no visible shot.
-     */
+    /** Sends the visuals for an attack whose combat execution is already complete. */
     public void applyParticleAtAttacker(int type, Entity target, Entity target2) {
         if (ShipSkillAttackGate.ordinaryVisual(this, type)) return;
         if (target != null && !this.level().isClientSide()) {
             triggerAttackAnimation();
-            double x = this.getX();
-            double y = this.getY() + this.getBbHeight() * 0.5D;
-            double z = this.getZ();
+            com.lulan.shincolle.utility.ShipAttackParticleSender.muzzle(this, target, type);
+        }
+    }
 
-            // Raw (unnormalized) displacement to the target - the client needs
-            // the real distance to draw a beam that actually reaches the
-            // target, not just a short "aim direction" hint.
-            double dx = target.getX() - x;
-            double dy = (target.getY() + target.getBbHeight() * 0.5D) - y;
-            double dz = target.getZ() - z;
-
-            FriendlyByteBuf payloadBuf = new FriendlyByteBuf(io.netty.buffer.Unpooled.buffer(48));
-            payloadBuf.writeDouble(x);
-            payloadBuf.writeDouble(y);
-            payloadBuf.writeDouble(z);
-            payloadBuf.writeDouble(dx);
-            payloadBuf.writeDouble(dy);
-            payloadBuf.writeDouble(dz);
-            byte[] payload = new byte[payloadBuf.readableBytes()];
-            payloadBuf.readBytes(payload);
-            payloadBuf.release();
-
-            ModNetworking.sendToAllTracking(
-                    new S2CSpawnParticlePacket((byte) type, this.getId(), payload),
-                    this);
+    /** Sends hit effects only after damage was accepted; skills own their dedicated visuals. */
+    public void applyParticleAtTarget(int type, Entity target) {
+        if (!ShipSkillAttackGate.supported(this)) {
+            com.lulan.shincolle.utility.ShipAttackParticleSender.hit(this, target, type);
         }
     }
 

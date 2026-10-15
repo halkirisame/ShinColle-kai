@@ -12,6 +12,7 @@ import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.MovementOrder;
 import com.lulan.shincolle.ai.domain.command.ShipCommand;
+import com.lulan.shincolle.ai.domain.command.ShipCommandState;
 import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -25,6 +26,7 @@ import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.utility.EntityHelper;
+import com.lulan.shincolle.utility.FormationHelper;
 import com.lulan.shincolle.utility.TargetHelper;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
@@ -101,6 +103,33 @@ public final class ShipCommandStateGameTests {
                     "A second click should stand both ships");
             check(host);
             check(passenger);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void sittingPropagationHelperUpdatesThePassengerOrder(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
+            BasicEntityShip host = ship(helper, entities);
+            BasicEntityShip passenger = ship(helper, entities);
+            helper.assertTrue(passenger.startRiding(host, true), "Fixture needs a ship passenger");
+            helper.assertTrue(!passenger.getCommandState().sitting(),
+                    "The passenger must have an initialized standing order");
+            for (boolean sitting : List.of(true, false)) {
+                host.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
+                        new CommandStateOp.Apply(new ShipCommand.SetSitting(sitting)));
+                host.setRiderAndMountSit();
+                helper.assertTrue(host.getCommandState().sitting() == sitting
+                                && passenger.getCommandState().sitting() == sitting
+                                && passenger.isOrderedToSit() == sitting,
+                        "The no-argument helper must propagate the typed sitting order");
+                helper.assertTrue(passenger.getLastCommandStateChange().issuer()
+                                instanceof CommandIssuer.Ship issuer
+                                && issuer.reason() == ShipTransitionReason.HELPER_COMMAND,
+                        "The passenger change must explain the helper-issued order");
+                check(host);
+                check(passenger);
+            }
             helper.succeed();
         }
     }
@@ -270,60 +299,100 @@ public final class ShipCommandStateGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void guardMetadataCarriesFollowInBothAuthorities(GameTestHelper helper) {
-        try (var legacy = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                var entities = GameTestEntities.open(helper)) {
+    public static void guardMetadataCarriesFollow(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = ship(helper, entities);
             for (boolean follow : List.of(false, true)) {
                 ship.setStateFlag(ID.F.CanFollow, follow);
                 helper.assertTrue(S2CEntitySyncPacket.roundTripGuardFollowForTest(ship),
-                        "Legacy guard metadata lost CanFollow");
+                        "Guard metadata lost CanFollow");
             }
-            try (var modern = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW)) {
-                ship.getCommandState();
-                helper.assertTrue(S2CEntitySyncPacket.roundTripGuardFollowForTest(ship),
-                        "New guard metadata lost CanFollow");
-                check(ship);
-            }
+            ship.getCommandState();
+            helper.assertTrue(S2CEntitySyncPacket.roundTripGuardFollowForTest(ship),
+                    "Guard metadata lost CanFollow after the typed order was made");
+            check(ship);
             helper.succeed();
         }
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void authoritySwitchRebuildsOnlyAtBoundary(GameTestHelper helper) {
-        try (var legacy = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                var entities = GameTestEntities.open(helper)) {
+    public static void aCompatibilityInputNeverDecodesTheProjectionAgain(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = ship(helper, entities);
-            ship.getCommandState();
+            ShipCommandState first = ship.getCommandState();
             BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 2));
-            ship.setGuardedPos(pos.getX(), pos.getY(), pos.getZ(), helper.getLevel().dimension(), 1);
-            ship.setStateFlag(ID.F.CanFollow, false);
-            Cow cow = entities.add(EntityType.COW.create(helper.getLevel()));
-            cow.moveTo(ship.position());
-            helper.getLevel().addFreshEntity(cow);
-            ship.setManualTarget(cow);
-            try (var modern = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW)) {
-                helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.GuardPosition,
-                        "Switching to NEW should migrate the current legacy guard");
-                helper.assertTrue(ship.getCommandState().manualAttack().isPresent(),
-                        "A live legacy manual attack should survive the switch");
-                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
-                        new CommandStateOp.Apply(new ShipCommand.Follow()));
-                check(ship);
-                BlockPos projected = helper.absolutePos(new BlockPos(10, 2, 2));
-                var dimensionId = helper.getLevel().dimension().location();
-                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
-                        new CommandStateOp.Apply(new ShipCommand.GuardPosition(
-                                new DimensionKey(dimensionId.getNamespace(), dimensionId.getPath()),
-                                new CommandPos(projected.getX(), projected.getY(), projected.getZ()), false)));
-                check(ship);
+            for (ConfigHandler.ShipAiTargetAuthority mode : ConfigHandler.ShipAiTargetAuthority.values()) {
+                try (var override = ShipAiAuthorityOverride.use(mode)) {
+                    helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                            "The effective authority must be NEW under " + mode);
+                    // the fields are only the projection: writing them by hand must not reach the typed order
+                    ship.setGuardedPos(pos.getX(), pos.getY(), pos.getZ(), helper.getLevel().dimension(), 1);
+                    ship.setStateFlag(ID.F.CanFollow, false);
+                    helper.assertTrue(ship.getCommandState() == first
+                                    && ship.getCommandState().movement() instanceof MovementOrder.Follow,
+                            "The typed order was decoded from its projection again under " + mode);
+                }
             }
-            helper.assertTrue(ship.getCommandState() == null && !ship.getStateFlag(ID.F.CanFollow),
-                    "Switching to LEGACY should retain the projected guard order");
-            ship.setStateMinor(ID.M.FormatType, 0);
-            ship.setStateMinor(ID.M.FollowMax, 3);
-            helper.assertTrue(new ShipGuardingGoal(ship).canUse(),
-                    "The legacy guard goal should still use the projected destination");
+            ConfigHandler.setShipAiTargetAuthorityForTest(null);
+            helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                    "The effective authority must be NEW without an override");
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void guardPositionHelperUpdatesTheTypedOrder(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = ship(helper, entities);
+            helper.assertTrue(ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                    "The guard helper fixture must have fuel");
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.Follow,
+                    "The guard helper fixture must start with an initialized follow order");
+            BlockPos pos = helper.absolutePos(new BlockPos(3, 2, 2));
+            CommandPos expected = new CommandPos(pos.getX(), pos.getY(), pos.getZ());
+            FormationHelper.applyShipGuard(ship, pos.getX(), pos.getY(), pos.getZ(), false);
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.GuardPosition guard
+                            && guard.position().equals(expected) && !guard.releaseOnArrival(),
+                    "The public helper must issue a persistent typed guard");
+            check(ship);
+            FormationHelper.applyShipGuard(ship, pos.getX(), pos.getY(), pos.getZ(), true);
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.GuardPosition,
+                    "Force-setting the same position must not cancel the guard");
+            check(ship);
+            FormationHelper.applyShipGuard(ship, pos.getX(), pos.getY(), pos.getZ(), false);
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.Follow,
+                    "Setting the same position again must cancel through the typed order");
+            check(ship);
+            FormationHelper.applyShipGuard(ship, pos.getX(), pos.getY(), pos.getZ(), true, 0);
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.MoveTo move
+                            && move.position().equals(expected) && !move.releaseOnArrival(),
+                    "Guard type zero must still issue a persistent move");
+            check(ship);
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void guardEntityHelperUpdatesTheTypedOrderWithoutRecursion(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = ship(helper, entities);
+            helper.assertTrue(ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                    "The guard helper fixture must have fuel");
+            ship.getCommandState();
+            Cow cow = entities.add(EntityType.COW.create(helper.getLevel()));
+            cow.moveTo(helper.absoluteVec(new Vec3(3.5D, 2D, 2.5D)));
+            helper.getLevel().addFreshEntity(cow);
+            FormationHelper.applyShipGuardEntity(ship, cow);
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.GuardEntity guard
+                            && guard.target().equals(ShipCommandStateAdapter.handle(cow))
+                            && ship.getGuardedEntity() == cow,
+                    "The public helper must issue and project a typed entity guard");
+            check(ship);
+            FormationHelper.applyShipGuardEntity(ship, cow);
+            helper.assertTrue(ship.getCommandState().movement() instanceof MovementOrder.Follow
+                            && ship.getGuardedEntity() == null,
+                    "Guarding the same entity again must cancel through the typed order");
+            check(ship);
             helper.succeed();
         }
     }
@@ -429,33 +498,6 @@ public final class ShipCommandStateGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void unresolvedManualAttackDuringMigrationDoesNotReenter(GameTestHelper helper) {
-        try (var legacy = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                var entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = ship(helper, entities);
-            ship.getCommandState();
-            Cow unregistered = EntityType.COW.create(helper.getLevel());
-            helper.assertTrue(unregistered != null && unregistered.isAlive(), "Fixture needs a live entity");
-            ship.setManualTarget(unregistered);
-            try (var modern = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW)) {
-                try {
-                    helper.assertTrue(ship.getCommandState().manualAttack().isEmpty(),
-                            "An unresolved manual target must be cleared during migration");
-                } catch (StackOverflowError recursion) {
-                    throw new AssertionError("Migration reentered while resolving a manual target", recursion);
-                }
-                CommandStateChange change = ship.getLastCommandStateChange();
-                helper.assertTrue(change != null && change.serverSequence() <= 2
-                                && change.issuer() instanceof CommandIssuer.Ship issuer
-                                && issuer.reason() == ShipTransitionReason.ATTACK_TARGET_INVALID,
-                        "Migration should clear the invalid target once without reentering");
-                check(ship);
-            }
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void lostBoatStandsSittingShipButIntactDismountDoesNot(GameTestHelper helper) {
         try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
                 var entities = GameTestEntities.open(helper)) {
@@ -530,32 +572,6 @@ public final class ShipCommandStateGameTests {
             helper.assertTrue(ship.getLastCommandStateChange() == before,
                     "Unloading a boat must not record a lost vehicle transition");
             check(ship);
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void legacyBoatRideStillCancelsSitting(GameTestHelper helper) {
-        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                var entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = ship(helper, entities);
-            Boat boat = entities.add(EntityType.BOAT.create(helper.getLevel()));
-            boat.moveTo(ship.position());
-            helper.getLevel().addFreshEntity(boat);
-            ship.setEntitySit(true);
-            ShipSitGoal goal = new ShipSitGoal(ship);
-            ship.goalSelector.addGoal(0, goal);
-            ship.goalSelector.tick();
-            helper.assertTrue(ship.goalSelector.getRunningGoals().anyMatch(running -> running.getGoal() == goal),
-                    "The legacy sitting goal must start before the boat ride");
-            helper.assertTrue(ship.startRiding(boat, true), "The legacy ship must board the boat");
-            ship.tickCount = 5;
-            ship.tick();
-            ship.goalSelector.tick();
-            helper.assertTrue(!ship.isOrderedToSit(), "The legacy sit goal should cancel sitting on a boat (tick="
-                    + ship.tickCount + ", riding=" + ship.isPassenger() + ", running="
-                    + ship.goalSelector.getRunningGoals().anyMatch(running -> running.getGoal() == goal) + ")");
-            boat.discard();
             helper.succeed();
         }
     }

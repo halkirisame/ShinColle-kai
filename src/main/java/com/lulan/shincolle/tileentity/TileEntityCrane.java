@@ -114,6 +114,8 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Currently docked ship
      */
     private BasicEntityShip dockedShip = null;
+    /** Server-local visual cooldown, never saved or used for crane decisions. */
+    private long nextCraneVisualTick;
     /**
      * Owner player UID
      */
@@ -140,6 +142,19 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, TileEntityCrane tile) {
         tile.tickServer();
+    }
+
+    public static void clientTick(Level level, BlockPos pos, BlockState state, TileEntityCrane tile) {
+        com.lulan.shincolle.client.particle.BlockWaypointVisuals.tick(level, pos, tile);
+    }
+
+    @Override
+    public void setChanged() {
+        super.setChanged();
+        if (level != null && !level.isClientSide()) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(),
+                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        }
     }
 
     // ==================== Getters/Setters ====================
@@ -586,6 +601,21 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
             if (dockedShip != null) {
                 boolean didLoad = applyItemTransfer(true);
                 boolean didUnload = applyItemTransfer(false);
+
+                if (didLoad || didUnload) {
+                    com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                            com.lulan.shincolle.network.S2CSpawnParticlePacket.entityParameters(
+                                    com.lulan.shincolle.network.ParticlePacketRoute.CRANE_TRANSFER_TYPE,
+                                    dockedShip.getId(), 0D, 0.1D, 0D), dockedShip);
+                }
+                if (level.getGameTime() >= nextCraneVisualTick) {
+                    nextCraneVisualTick = level.getGameTime() + 128L;
+                    com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                            com.lulan.shincolle.network.S2CSpawnParticlePacket.position(40, dockedShip.getId(),
+                                    worldPosition.getX() + 0.5D, worldPosition.getY() - 1D,
+                                    worldPosition.getZ() + 0.5D,
+                                    Math.max(1D, worldPosition.getY() - dockedShip.getY() - 1D), 0D, 0.25D), dockedShip);
+                }
 
                 // Check crane ending condition
                 if (craneMode >= 5) {

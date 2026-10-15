@@ -36,9 +36,11 @@ public final class ShipActionConstraintGameTests {
     }
 
     @GameTest(template = "arena", batch = "isolated_action_constraint_goals", timeoutTicks = 200)
-    public static void newFuelOutKeepsGoalsAndStopsThem(GameTestHelper helper) {
-        Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
+    public static void compatibilityFuelOutKeepsGoalsAndStopsThem(GameTestHelper helper) {
+        Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
         try {
+            helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                    "The old setting must exercise NEW fuel constraints, not an old-AI comparison");
             BasicEntityShip ship = ship(helper, context, new Vec3(1.5D, 2D, 2.5D));
             Object[] registered = {null};
             WrappedGoal[] guarding = {null};
@@ -131,25 +133,6 @@ public final class ShipActionConstraintGameTests {
                 ship.decrGrudgeNum(0);
                 helper.assertTrue(!follow.getGoal().canUse(), "Mount must wait while its host is out of fuel");
             }));
-        } catch (Throwable error) {
-            context.close();
-            throw error;
-        }
-    }
-
-    @GameTest(template = "arena", batch = "isolated_action_constraint_legacy", timeoutTicks = 60)
-    public static void legacyFuelOutStillRemovesGoals(GameTestHelper helper) {
-        Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-        try {
-            BasicEntityShip ship = ship(helper, context, new Vec3(1.5D, 2D, 2.5D));
-            helper.runAtTickTime(20, () -> context.stage(() -> {
-                helper.assertTrue(!goals(ship, "goalSelector").isEmpty(), "Fixture must register its goals");
-                ship.setStateMinor(ID.M.NumGrudge, 0);
-                ship.decrGrudgeNum(0);
-            }));
-            helper.runAtTickTime(30, () -> context.finish(() ->
-                    helper.assertTrue(goals(ship, "goalSelector").isEmpty() && goals(ship, "targetSelector").isEmpty(),
-                            "LEGACY must still remove the goals when fuel runs out")));
         } catch (Throwable error) {
             context.close();
             throw error;

@@ -65,6 +65,8 @@ public class InteractHelper {
      * pointer interact method
      */
     public static boolean interactPointer(BasicEntityShip ship, Player player, ItemStack stack) {
+        int moraleBefore = ship.getMorale();
+
         // set ai target
         ship.setAITarget(player);
 
@@ -80,6 +82,10 @@ public class InteractHelper {
         // not owner or no fuel
         else {
             ship.applyEmotesReaction(1);
+        }
+
+        if (!ship.level().isClientSide() && ship.getMorale() != moraleBefore) {
+            ship.sendSyncPacketMinor();
         }
 
         // clear ai target

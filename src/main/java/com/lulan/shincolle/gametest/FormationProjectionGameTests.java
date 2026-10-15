@@ -24,6 +24,10 @@ import java.util.List;
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class FormationProjectionGameTests {
+    /** The length and String hash of the recorded geometry of all formations (see the fixture below). */
+    private static final int GEOMETRY_LENGTH = 2716;
+    private static final int GEOMETRY_HASH = 1438877056;
+
     private FormationProjectionGameTests() { }
 
     @GameTest(template = "arena")
@@ -65,11 +69,12 @@ public final class FormationProjectionGameTests {
     }
 
     @GameTest(template = "arena")
-    public static void allFormationSlotsKeepSafePlacementAndMountAnchorParity(GameTestHelper helper) {
+    public static void allFormationSlotsKeepSafePlacementAndMountAnchor(GameTestHelper helper) {
         PointerSingleModeGameTests.whenFixtureTicking(helper, () -> {
             try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
                  var context = PointerSingleModeGameTests.createContext(helper, "formation_layout", 26404);
                  var online = new FormationGameTestOwner(context.player())) {
+                StringBuilder trace = new StringBuilder();
                 List<BasicEntityShip> ships = new ArrayList<>();
                 for (int slot = 0; slot < 6; slot++) ships.add(PointerSingleModeGameTests.addShip(context, slot,
                         2640400 + slot, new Vec3(4.5D + slot, 2D, 1.5D)));
@@ -89,20 +94,21 @@ public final class FormationProjectionGameTests {
                         helper.assertTrue(ShipFormationStateAdapter.active(ship).isPresent(), "Real six-member formation must activate");
                         for (boolean alongX : new boolean[]{true, false}) for (boolean positive : new boolean[]{true, false}) {
                             double[] position = {anchor.getX(), anchor.getY(), anchor.getZ()};
-                            int[] expected;
-                            try (var legacy = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
-                                expected = FormationHelper.calcFormationPos(type, slot, position, new boolean[]{alongX, positive});
-                            }
-                            helper.assertTrue(Arrays.equals(expected, FormationHelper.calcFormationPos(type, slot,
-                                            position, new boolean[]{alongX, positive})), "Formation geometry must preserve every slot and direction");
+                            int[] placed = FormationHelper.calcFormationPos(type, slot, position,
+                                    new boolean[]{alongX, positive});
+                            trace.append(type).append('/').append(slot).append('/').append(alongX).append(positive)
+                                    .append(Arrays.toString(relative(placed, anchor)));
                             if (type == 2 || type == 3 || type == 5) {
-                                try (var legacy = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
-                                    expected = FormationHelper.calculateFormationPosition2(ship, type, alongX, positive,
-                                            anchor.getX(), anchor.getY(), anchor.getZ(), context.level());
-                                }
-                                helper.assertTrue(Arrays.equals(expected, FormationHelper.calculateFormationPosition2(ship,
-                                        type, alongX, positive, anchor.getX(), anchor.getY(), anchor.getZ(), context.level())),
-                                        "Safe placement and failed-search fallback must remain identical");
+                                // The safe place is the formation place or one within reach of it that can be stood on,
+                                // else the anchor: it depends on the blocks around, so it is not recorded.
+                                int[] safe = FormationHelper.calculateFormationPosition2(ship, type, alongX, positive,
+                                        anchor.getX(), anchor.getY(), anchor.getZ(), context.level());
+                                boolean nearPlace = Math.abs(safe[0] - placed[0]) <= 3 && Math.abs(safe[1] - placed[1]) <= 4
+                                        && Math.abs(safe[2] - placed[2]) <= 3;
+                                helper.assertTrue(nearPlace || Arrays.equals(safe, new int[]{anchor.getX(), anchor.getY(),
+                                                anchor.getZ()}),
+                                        "Safe placement must stay near the formation place or fall back to the anchor: "
+                                                + Arrays.toString(safe) + " for " + Arrays.toString(placed));
                             }
                         }
                     }
@@ -110,8 +116,16 @@ public final class FormationProjectionGameTests {
                     helper.assertTrue(Arrays.equals(shipPlace, FormationHelper.getFormationGuardingPos(mount,
                                     context.player(), 0, 0)), "Mount must use its host's effective formation slot");
                 }
+                // Every slot and direction of every formation, relative to the anchor, as recorded
+                helper.assertTrue(trace.length() == GEOMETRY_LENGTH && trace.toString().hashCode() == GEOMETRY_HASH,
+                        "Formation geometry differs from the recorded one: length=" + trace.length()
+                                + " hash=" + trace.toString().hashCode());
                 helper.succeed();
             }
         });
+    }
+
+    private static int[] relative(int[] placed, BlockPos anchor) {
+        return new int[]{placed[0] - anchor.getX(), placed[1] - anchor.getY(), placed[2] - anchor.getZ()};
     }
 }

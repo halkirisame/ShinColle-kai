@@ -1,10 +1,6 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.handler.ConfigHandler;
-
-import com.lulan.shincolle.ai.ShipManualTargetGoal;
-import com.lulan.shincolle.ai.ShipRangeTargetGoal;
-import com.lulan.shincolle.ai.ShipRevengeTargetGoal;
+import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
@@ -50,8 +46,7 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualCommandHoldsFortySelectorPasses(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                Fixture f = new Fixture(helper)) {
+        try (Fixture f = new Fixture(helper)) {
             check(f.ship.getTarget() == null, "Ship must begin out of combat");
             f.command(f.manual);
             for (int i = 0; i < 40; i++) {
@@ -75,38 +70,43 @@ public final class ShipManualTargetGameTests {
         }
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_revenge_preempts_manual_without_erasing_command")
-    public static void revengePreemptsManualWithoutErasingCommand(GameTestHelper helper) {
-        waitForFixtureChunks(helper, () -> verifyRevengePreemptsManualWithoutErasingCommand(helper));
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_manual_defers_revenge_without_erasing_it")
+    public static void manualDefersRevengeWithoutErasingEither(GameTestHelper helper) {
+        waitForFixtureChunks(helper, () -> verifyManualDefersRevengeWithoutErasingEither(helper));
     }
 
-    private static void verifyRevengePreemptsManualWithoutErasingCommand(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                Fixture f = new Fixture(helper)) {
+    private static void verifyManualDefersRevengeWithoutErasingEither(GameTestHelper helper) {
+        try (Fixture f = new Fixture(helper)) {
             f.startManual();
             f.revenge();
-            check(f.ship.getTarget() == f.other, "Revenge did not preempt manual TARGET mutex");
+            check(f.ship.getTarget() == f.manual, "Revenge replaced the manual target");
             check(f.ship.getManualTarget() == f.manual, "Revenge erased manual command");
+            check(f.ship.getEntityRevengeTarget() == f.other, "The deferred revenge was consumed");
         }
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_manual_resumes_after_revenge_ends")
-    public static void manualResumesAfterRevengeEnds(GameTestHelper helper) {
-        waitForFixtureChunks(helper, () -> verifyManualResumesAfterRevengeEnds(helper));
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_deferred_revenge_fires_when_manual_is_cancelled")
+    public static void deferredRevengeFiresWhenTheManualOrderIsCancelled(GameTestHelper helper) {
+        waitForFixtureChunks(helper, () -> verifyDeferredRevengeFiresWhenTheManualOrderIsCancelled(helper));
     }
 
-    private static void verifyManualResumesAfterRevengeEnds(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                Fixture f = new Fixture(helper)) {
+    private static void verifyDeferredRevengeFiresWhenTheManualOrderIsCancelled(GameTestHelper helper) {
+        try (Fixture f = new Fixture(helper)) {
             f.startManual();
             f.revenge();
-            check(f.ship.getTarget() == f.other, "Revenge must run before testing resumption");
+            check(f.ship.getTarget() == f.manual, "Manual must hold before it is cancelled");
+            f.command(f.manual);
+            check(f.ship.getManualTarget() == null, "Repeating the command must cancel it");
+            for (int i = 0; i < 4; i++) {
+                f.step();
+            }
+            check(f.ship.getTarget() == f.other, "The deferred revenge did not fire after the manual order ended");
+            check(f.ship.getManualTarget() == null, "The cancelled command came back");
             f.other.setHealth(0F);
             for (int i = 0; i < 4; i++) {
                 f.step();
             }
-            check(f.ship.getTarget() == f.manual, "Manual target did not resume after revenge ended");
-            check(f.ship.getManualTarget() == f.manual, "Resumption lost the stored command");
+            check(f.ship.getManualTarget() == null, "The cancelled command came back after the revenge ended");
         }
     }
 
@@ -116,8 +116,7 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyRepeatedPointerCommandTogglesManualOff(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                Fixture f = new Fixture(helper)) {
+        try (Fixture f = new Fixture(helper)) {
             f.startManual();
             f.command(f.other);
             for (int i = 0; i < 4; i++) {
@@ -140,8 +139,7 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualExpiresOnDeathButNeverFromElapsedTicks(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                Fixture f = new Fixture(helper)) {
+        try (Fixture f = new Fixture(helper)) {
             f.startManual();
             for (int i = 0; i < 600; i++) {
                 if (i == 300) {
@@ -171,8 +169,7 @@ public final class ShipManualTargetGameTests {
     }
 
     private static void verifyManualCommandHoldsTargetTheAutoSelectorRejects(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                Fixture f = new Fixture(helper)) {
+        try (Fixture f = new Fixture(helper)) {
             Cow neutral = f.spawnNeutral();
             check(!new TargetHelper.Selector(f.ship).test(neutral),
                     "Fixture premise: the automatic selector must reject this mob");
@@ -259,12 +256,9 @@ public final class ShipManualTargetGameTests {
                 } catch (ReflectiveOperationException e) {
                     throw new AssertionError("Cannot access registered target selector", e);
                 }
-                check(this.selector.getAvailableGoals().stream().anyMatch(g ->
-                        g.getPriority() == 3 && g.getGoal() instanceof ShipManualTargetGoal), "Missing manual priority 3");
-                check(this.selector.getAvailableGoals().stream().anyMatch(g ->
-                        g.getPriority() == 1 && g.getGoal() instanceof ShipRevengeTargetGoal), "Missing revenge priority 1");
-                check(this.selector.getAvailableGoals().stream().anyMatch(g ->
-                        g.getPriority() == 5 && g.getGoal() instanceof ShipRangeTargetGoal), "Missing auto priority 5");
+                check(this.selector.getAvailableGoals().size() == 1 && this.selector.getAvailableGoals().stream()
+                        .anyMatch(g -> g.getPriority() == 1 && g.getGoal() instanceof ShipTargetAuthorityGoal),
+                        "The target authority must be the only registered target goal");
                 this.player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "manual_target"));
                 this.player.moveTo(origin.x, origin.y, origin.z);
                 this.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));

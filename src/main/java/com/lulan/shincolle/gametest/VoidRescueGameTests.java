@@ -40,42 +40,35 @@ public final class VoidRescueGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_void_fall", timeoutTicks = 600)
     public static void endNaturalFallReturnsWithinFortyFallingTicks(GameTestHelper helper) {
-        scene(helper, false, false, false, false);
+        scene(helper, false, false, false);
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_void_early", timeoutTicks = 600)
     public static void negativeYRescuesBeforeFortyTicksAndBypassesCooldownTwice(GameTestHelper helper) {
-        scene(helper, true, false, false, false);
+        scene(helper, true, false, false);
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_void_airborne_owner", timeoutTicks = 600)
     public static void airborneOwnerDefersRescueUntilTwentyTickRetry(GameTestHelper helper) {
-        scene(helper, true, true, false, false);
+        scene(helper, true, true, false);
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_void_disabled", timeoutTicks = 600)
     public static void emptyDimensionListDisablesRescue(GameTestHelper helper) {
-        scene(helper, true, false, true, false);
-    }
-
-    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_void_legacy", timeoutTicks = 600)
-    public static void legacyFallDoesNotUseOwnerRescue(GameTestHelper helper) {
-        scene(helper, false, false, false, true);
+        scene(helper, true, false, true);
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_void_overworld", timeoutTicks = 600)
     public static void defaultOverworldFallDoesNotRescue(GameTestHelper helper) {
-        scene(helper, false, false, false, false, true);
+        scene(helper, false, false, false, true);
     }
 
-    private static void scene(GameTestHelper helper, boolean early, boolean airborne, boolean disabled, boolean legacy) {
-        scene(helper, early, airborne, disabled, legacy, false);
+    private static void scene(GameTestHelper helper, boolean early, boolean airborne, boolean disabled) {
+        scene(helper, early, airborne, disabled, false);
     }
 
     private static void scene(GameTestHelper helper, boolean early, boolean airborne,
-                              boolean disabled, boolean legacy, boolean overworld) {
-        ShipAiAuthorityOverride.useUntilComplete(helper, legacy ? ConfigHandler.ShipAiTargetAuthority.LEGACY
-                : ConfigHandler.ShipAiTargetAuthority.NEW);
+                              boolean disabled, boolean overworld) {
         List<? extends String> previous = ConfigHandler.COMMON.voidRescueDimensions.get();
         ConfigHandler.COMMON.voidRescueDimensions.set(disabled ? List.of() : List.of("minecraft:the_end"));
         VerticalSeparationRecallGameTests.cleanup(helper, () -> ConfigHandler.COMMON.voidRescueDimensions.set(previous));
@@ -120,7 +113,7 @@ public final class VoidRescueGameTests {
                 if (ship.distanceToSqr(owner) < 16D) {
                     rescued[0] = true;
                     firstRescue[0] = helper.getTick();
-                    helper.assertTrue(!disabled && !legacy && !overworld, "Rescue ran when it should be disabled");
+                    helper.assertTrue(!disabled && !overworld, "Rescue ran when it should be disabled");
                     helper.assertTrue(fallTicks[0] <= (airborne ? 24 : 40), "Rescue arrived late: " + fallTicks[0]);
                     helper.assertTrue(ship.shipMovementExecutor().last().orElseThrow().step().reason() == MovementReason.VOID_RESCUE,
                             "Return was not made by the rescue executor");
@@ -155,7 +148,7 @@ public final class VoidRescueGameTests {
                 helper.runAtTickTime(begun + 41, () -> helper.assertTrue(!rescued[0], "Retry did not wait twenty ticks"));
             }
             helper.runAtTickTime(begun + 80, () -> {
-                if (disabled || legacy || overworld) {
+                if (disabled || overworld) {
                     helper.assertTrue(!rescued[0] && ship.getY() < 160D, "Excluded ship did not fall without owner rescue");
                     helper.succeed();
                 } else {
@@ -172,7 +165,7 @@ public final class VoidRescueGameTests {
                     }
                 }
             });
-            if (early && !airborne && !disabled && !legacy && !overworld) {
+            if (early && !airborne && !disabled && !overworld) {
                 helper.runAtTickTime(begun + 84, () -> {
                     helper.assertTrue(rescued[0], "Second rescue was refused by the teleport cooldown");
                     helper.assertTrue(!ship.shipMovementExecutor().lastDenials().contains(TeleportDenial.COOLDOWN),

@@ -56,9 +56,11 @@ public final class MovementLookAuthorityGameTests {
     private static final float WALK_OFF = 30F;
     /**
      * The target is behind a ship that faces where it walks, and a head turns only so far from the
-     * body, so the closest it gets is what the neck leaves; this much more is allowed on top of it.
+     * body, so the closest it gets is what the neck leaves; this much more is allowed on top of it. The
+     * body yaw drifts a few degrees as the ship walks, and which ticks its goals run on depends on its entity
+     * id, so the head was measured up to 124 degrees off; a head turned to the admiral ahead is 180 off.
      */
-    private static final float NECK_SLACK = 15F;
+    private static final float NECK_SLACK = 30F;
     private static final Vec3 SHIP = new Vec3(12.5D, 0D, 2.5D);
     private static final Vec3 AWAY = new Vec3(62.5D, 0D, 2.5D);
     /** Ticks the watch goal is given to start before the attack order, to show the fixture lets it run. */

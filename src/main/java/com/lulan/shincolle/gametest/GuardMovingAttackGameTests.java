@@ -8,7 +8,6 @@ import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.ShipCommand;
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -29,9 +28,9 @@ import java.lang.reflect.Field;
 import java.util.UUID;
 
 /**
- * While a guarding ship moves and attacks, NEW takes the target from the target authority
- * instead of the goal's own nearby search; LEGACY keeps the search. Under NEW the fire control
- * goal fires on the move, so the target it aims at is inspected instead of the guard goal's.
+ * While a guarding ship moves and attacks, it takes the target from the target authority, not from
+ * a search of its own. The fire control goal fires on the move, so the target it aims at is
+ * inspected instead of the guard goal's.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -44,39 +43,19 @@ public final class GuardMovingAttackGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_guard_moving_attack_new",
             timeoutTicks = END + 20)
-    public static void newMovingAttackUsesManualTarget(GameTestHelper helper) {
-        run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, false, true);
+    public static void movingAttackUsesManualTarget(GameTestHelper helper) {
+        run(helper, false);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_guard_moving_attack_passive",
             timeoutTicks = END + 20)
-    public static void newPassiveMovingAttackStillUsesManualTarget(GameTestHelper helper) {
-        run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, true, true);
+    public static void passiveMovingAttackStillUsesManualTarget(GameTestHelper helper) {
+        run(helper, true);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_guard_moving_attack_legacy",
-            timeoutTicks = END + 20)
-    public static void legacyMovingAttackSearchesNearby(GameTestHelper helper) {
-        run(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, false, false);
-    }
-
-    private static void run(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, boolean passive,
-                            boolean expectManual) {
-        ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(mode);
-        GameTestEntities entities;
-        try {
-            entities = GameTestEntities.open(helper);
-        } catch (RuntimeException | Error failure) {
-            authority.close();
-            throw failure;
-        }
-        Runnable close = () -> {
-            try {
-                entities.close();
-            } finally {
-                authority.close();
-            }
-        };
+    private static void run(GameTestHelper helper, boolean passive) {
+        GameTestEntities entities = GameTestEntities.open(helper);
+        Runnable close = entities::close;
         try {
             BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
             helper.assertTrue(ship != null, "failed to create ship");
@@ -98,9 +77,7 @@ public final class GuardMovingAttackGameTests {
             helper.assertTrue(helper.getLevel().addFreshEntity(ship), "failed to add ship");
             // Both targets sit beside the path so the ship passes within range while moving.
             Mob cow = target(helper, entities, EntityType.COW, new Vec3(10.5D, 2D, 2.5D));
-            // LEGACY searches only every 32 ticks, so its control target waits near the start.
-            Mob husk = target(helper, entities, EntityType.HUSK,
-                    expectManual ? new Vec3(10.5D, 2D, -2.5D) : new Vec3(3.5D, 2D, -2.5D));
+            Mob husk = target(helper, entities, EntityType.HUSK, new Vec3(10.5D, 2D, -2.5D));
 
             int[] ammoAtStart = {0};
             boolean[] sawCow = {false};
@@ -108,30 +85,22 @@ public final class GuardMovingAttackGameTests {
             helper.runAtTickTime(START, () -> step(close, () -> {
                 if (passive) ship.setStateFlag(ID.F.PassiveAI, true);
                 BlockPos far = helper.absolutePos(new BlockPos(60, 2, 0));
-                if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                    var id = helper.getLevel().dimension().location();
-                    ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
-                            new CommandStateOp.Apply(new ShipCommand.GuardPosition(
-                                    new DimensionKey(id.getNamespace(), id.getPath()),
-                                    new CommandPos(far.getX(), far.getY(), far.getZ()), false)));
-                } else {
-                    ship.setGuardedPos(far.getX(), far.getY(), far.getZ(), helper.getLevel().dimension(), 1);
-                    ship.setStateFlag(ID.F.CanFollow, false);
-                }
+                var id = helper.getLevel().dimension().location();
+                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
+                        new CommandStateOp.Apply(new ShipCommand.GuardPosition(
+                                new DimensionKey(id.getNamespace(), id.getPath()),
+                                new CommandPos(far.getX(), far.getY(), far.getZ()), false)));
                 // A position order clears the manual attack, so the attack comes second.
-                if (expectManual) {
-                    ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
-                            new CommandStateOp.Apply(new ShipCommand.Attack(ShipCommandStateAdapter.handle(cow))));
-                }
+                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
+                        new CommandStateOp.Apply(new ShipCommand.Attack(ShipCommandStateAdapter.handle(cow))));
                 ammoAtStart[0] = ship.getStateMinor(ID.M.NumAmmoLight);
             }));
             for (int tick = START + 1; tick < END; tick++) {
                 helper.runAtTickTime(tick, () -> step(close, () -> {
-                    Entity aimed = mode == ConfigHandler.ShipAiTargetAuthority.NEW
-                            ? aimedByFireControl(ship, cow, husk) : movingTarget(ship);
+                    Entity aimed = aimedByFireControl(ship, cow, husk);
                     if (aimed == cow) sawCow[0] = true;
-                    // NEW: always the authority's target. LEGACY: its own search, which never picks the cow.
-                    boolean ok = expectManual ? aimed == null || aimed == ship.getEntityTarget() : aimed != cow;
+                    // always the authority's target
+                    boolean ok = aimed == null || aimed == ship.getEntityTarget();
                     if (!ok && wrong[0] == null) wrong[0] = aimed;
                 }));
             }
@@ -141,11 +110,9 @@ public final class GuardMovingAttackGameTests {
                     helper.assertTrue(guarding != null && guarding.isRunning(),
                             "The ship must still be moving to its guard position");
                     helper.assertTrue(wrong[0] == null, "Moving attack aimed at the wrong entity: " + wrong[0]);
-                    if (expectManual) {
-                        helper.assertTrue(sawCow[0], "Moving attack never aimed at the manual target");
-                    }
+                    helper.assertTrue(sawCow[0], "Moving attack never aimed at the manual target");
                     helper.assertTrue(ship.getStateMinor(ID.M.NumAmmoLight) < ammoAtStart[0],
-                            "The ship never fired while moving: " + probe(ship, expectManual ? cow : husk));
+                            "The ship never fired while moving: " + probe(ship, cow));
                     helper.succeed();
                 } finally {
                     close.run();
@@ -188,7 +155,7 @@ public final class GuardMovingAttackGameTests {
         StringBuilder out = new StringBuilder("dist=").append(Math.sqrt(ship.distanceToSqr(target)))
                 .append(" entityTarget=").append(ship.getEntityTarget());
         WrappedGoal wrapped = guarding(ship);
-        for (String name : new String[]{"isMoving", "rangeSq", "onSightTime", "aimTime", "delayTime"}) {
+        for (String name : new String[]{"isMoving"}) {
             try {
                 Field field = ShipGuardingGoal.class.getDeclaredField(name);
                 field.setAccessible(true);
@@ -209,18 +176,6 @@ public final class GuardMovingAttackGameTests {
             if (ShipCommandStateAdapter.handle(candidate).equals(aimed.get())) return candidate;
         }
         return ship;
-    }
-
-    private static Entity movingTarget(Mob mob) {
-        WrappedGoal wrapped = guarding(mob);
-        if (wrapped == null) return null;
-        try {
-            Field field = ShipGuardingGoal.class.getDeclaredField("attackTarget");
-            field.setAccessible(true);
-            return (Entity) field.get(wrapped.getGoal());
-        } catch (ReflectiveOperationException error) {
-            throw new AssertionError("Failed to inspect the moving attack target", error);
-        }
     }
 
     private static GoalSelector selector(Mob mob) {

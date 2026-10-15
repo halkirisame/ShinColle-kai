@@ -23,14 +23,14 @@ class OwnerJumpDetectorTest {
     }
 
     @Test
-    void horizontalThirtyIsInclusiveAndVerticalMovementDoesNotCount() {
-        for (double distance : new double[]{29.9D, 30D, 30.1D}) {
+    void horizontalTwelveIsInclusiveAndVerticalMovementDoesNotCount() {
+        for (double distance : new double[]{11.9D, 12D, 12.1D, 20D, 29.9D}) {
             var observed = OwnerJumpDetector.observe(history(), OVERWORLD, new MovementPoint(distance, 64D, 0D), 20);
-            assertEquals(distance >= 30D, observed.departedFrom().isPresent());
+            assertEquals(distance >= 12D, observed.departedFrom().isPresent());
         }
         assertFalse(OwnerJumpDetector.observe(history(), OVERWORLD, new MovementPoint(0D, 164D, 0D), 20)
                 .departedFrom().isPresent());
-        assertTrue(OwnerJumpDetector.observe(history(), OVERWORLD, new MovementPoint(18D, 64D, 24D), 20)
+        assertTrue(OwnerJumpDetector.observe(history(), OVERWORLD, new MovementPoint(7.2D, 64D, 9.6D), 20)
                 .departedFrom().isPresent());
     }
 
@@ -38,12 +38,12 @@ class OwnerJumpDetectorTest {
     void comparesEveryTickAgainstExactlyTwentyTicksAgo() {
         var state = OwnerJumpDetector.State.initial(OVERWORLD);
         for (int tick = 0; tick < 25; tick++) {
-            var observed = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(tick, 64D, 0D), tick);
+            var observed = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(tick * 0.5D, 64D, 0D), tick);
             assertFalse(observed.departedFrom().isPresent());
             state = observed.state();
         }
-        var jumped = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(35D, 64D, 0D), 25);
-        assertEquals(Optional.of(new MovementPoint(5D, 64D, 0D)), jumped.departedFrom());
+        var jumped = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(20D, 64D, 0D), 25);
+        assertEquals(Optional.of(new MovementPoint(2.5D, 64D, 0D)), jumped.departedFrom());
         assertEquals(20, jumped.state().history().size());
     }
 

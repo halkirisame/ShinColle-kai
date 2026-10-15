@@ -6,7 +6,6 @@ import com.lulan.shincolle.ai.domain.movement.MovementIntent;
 import com.lulan.shincolle.ai.domain.movement.MovementPlan;
 import com.lulan.shincolle.ai.domain.movement.MovementReason;
 import com.lulan.shincolle.ai.domain.movement.MovementStep;
-import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import net.minecraft.world.entity.ai.goal.Goal;
 
@@ -31,31 +30,20 @@ public class ShipSitGoal extends Goal {
     @Override
     public boolean canUse() {
         if (ShipActionGate.blocked(this.ship, ActionKind.MOVEMENT)) return false;
-        if (ShipMovementGate.active()) return ShipMovementGate.intent(this.ship) instanceof MovementIntent.Sit;
-        return this.ship.isOrderedToSit();
+        return ShipMovementGate.intent(this.ship) instanceof MovementIntent.Sit;
     }
 
     @Override
     public void start() {
-        if (!ShipCommandStateAdapter.isNew()) this.ship.setEntitySit(true);
         this.ship.setJumping(false);
     }
 
     @Override
     public void tick() {
         if (ShipActionGate.blocked(this.ship, ActionKind.MOVEMENT)) return;
-        if (ShipMovementGate.active()) {
-            ShipMovementExecutor.run(this.ship, SITTING);
-        } else {
-            this.ship.getNavigation().stop();
-        }
-        if (!ShipCommandStateAdapter.isNew()) this.ship.setManualTarget(null);
+        ShipMovementExecutor.run(this.ship, SITTING);
         this.ship.setTarget(null);
         this.ship.setEntityTarget(null);
     }
 
-    @Override
-    public void stop() {
-        if (!ShipCommandStateAdapter.isNew()) this.ship.setEntitySit(false);
-    }
 }

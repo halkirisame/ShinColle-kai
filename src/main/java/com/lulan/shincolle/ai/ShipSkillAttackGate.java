@@ -54,7 +54,7 @@ public final class ShipSkillAttackGate {
     private ShipSkillAttackGate() { }
 
     public static Optional<SkillProfile> profile(Entity host) {
-        if (!ShipCommandStateAdapter.isNew() || !(host instanceof IShipAttackBase ship)) return Optional.empty();
+        if (!(host instanceof IShipAttackBase ship)) return Optional.empty();
         SkillKind kind;
         if (host instanceof EntityCLTenryuu || host instanceof EntityCLTenryuuMob) kind = SkillKind.TENRYUU;
         else if (host instanceof EntityCLTatsuta || host instanceof EntityCLTatsutaMob) kind = SkillKind.TATSUTA;
@@ -361,9 +361,10 @@ public final class ShipSkillAttackGate {
                 visual(target, SkillVisualEffect.LIGHT_HIT, target.position(), Vec3.ZERO);
                 if (host.getRandom().nextBoolean()) sound(host, SoundEvents.GENERIC_EXPLODE, pitch(host));
                 boolean ship = target instanceof IShipAttackBase;
-                target.setDeltaMovement(target.getDeltaMovement().add(tenryuu ? ship ? 0.02D : 0.05D : 0D,
-                        tenryuu ? ship ? 0.2D : 0.4D : ship ? 0.25D : 0.5D,
-                        tenryuu ? ship ? 0.02D : 0.05D : 0D));
+                double knockback = ship ? 0.02D : 0.05D;
+                double yaw = Math.toRadians(host.getYRot());
+                target.setDeltaMovement(target.getDeltaMovement().add(-Math.sin(yaw) * knockback,
+                        ship ? 0.2D : 0.4D, Math.cos(yaw) * knockback));
                 target.hurtMarked = true;
                 flare(host, target);
             }
@@ -385,6 +386,8 @@ public final class ShipSkillAttackGate {
         visual(host, SkillVisualEffect.PUNCH_FINISH, start, target.position());
         sound(host, ModSounds.SHIP_AP_ATTACK.get(), 1F);
         animation(host, 50);
+        ShipMovementExecutor.run(host, MovementPlan.of(new MovementStep.SkillMotion(
+                MovementBody.SELF, new MovementPoint(0D, 0D, 0D), MovementReason.SKILL_ATTACK)));
         teleport(host, new Vec3(target.getX() + direction.x * 2D, target.getY(), target.getZ() + direction.z * 2D));
         double range = profile.hostile() ? 3.5D + profile.scale() * 0.5D : 3.5D;
         float area = damage * 0.5F;

@@ -3,8 +3,6 @@ package com.lulan.shincolle.gametest;
 import com.lulan.shincolle.handler.ConfigHandler;
 
 import com.lulan.shincolle.ai.ShipGuardingGoal;
-import com.lulan.shincolle.ai.ShipFollowOwnerGoal;
-import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
@@ -227,115 +225,6 @@ public final class GuardDestinationGameTests {
         ship.moveTo(helper.absoluteVec(new Vec3(1.5D, 2D, 1.5D)));
         helper.getLevel().addFreshEntity(ship);
         return ship;
-    }
-
-    @GameTest(template = "arena")
-    public static void mountedAndGroundedCompletedMovesBothRelease(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip grounded = createShip(helper, entities, "grounded completion control");
-            BasicEntityShip mounted = createShip(helper, entities, "mounted completion control");
-            BasicEntityMount mount = entities.add(ModEntities.MOUNT_BAH.get().create(helper.getLevel()));
-            mount.moveTo(mounted.position());
-            helper.getLevel().addFreshEntity(mount);
-            mount.setHost(mounted);
-            helper.assertTrue(mounted.startRiding(mount, true), "Fixture must mount the second ship");
-            BlockPos destination = helper.absolutePos(new BlockPos(1, 2, 1));
-            for (BasicEntityShip ship : List.of(grounded, mounted)) {
-                prepareCompletedMove(helper, ship, destination);
-            }
-            installCompletedPath(mount.getNavigation(), destination);
-            helper.assertTrue(!grounded.getIsRiding() && mounted.getIsRiding(),
-                    "Only the second control must be riding");
-            new ShipGuardingGoal(grounded).canUse();
-            helper.assertTrue(!grounded.hasGuardDestination() && grounded.getStateFlag(ID.F.CanFollow),
-                    "Grounded control must release before checking the mounted ship");
-            new ShipGuardingGoal(mounted).canUse();
-            helper.assertTrue(!mounted.hasGuardDestination() && mounted.getStateFlag(ID.F.CanFollow),
-                    "Grounded control released; mounted ship retained the completed move");
-            helper.assertTrue(mounted.getVehicle() == mount && mount.getHost() == mounted,
-                    "Completion must preserve the mount and its host");
-            helper.assertTrue(!new ShipFollowOwnerGoal(mounted).canUse(),
-                    "Mounted ship must not start its own walking follow goal");
-            ShipGuardingGoal goal = new ShipGuardingGoal(mounted);
-            for (int check = 0; check < 20; check++) {
-                helper.assertTrue(!goal.canUse() && !goal.canContinueToUse(),
-                        "Released mounted move must not restart guarding");
-            }
-            helper.assertTrue(!mounted.shouldReleaseGuardOnArrival() && mount.getNavigation().isDone(),
-                    "Completion must clear the one-shot command and finish navigation");
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "arena")
-    public static void mountedCompletionUsesVehiclePathAtEveryGoalEntry(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = createShip(helper, entities, "vehicle navigation completion");
-            BasicEntityMount mount = entities.add(ModEntities.MOUNT_BAH.get().create(helper.getLevel()));
-            mount.moveTo(ship.position());
-            helper.getLevel().addFreshEntity(mount);
-            mount.setHost(ship);
-            helper.assertTrue(ship.startRiding(mount, true), "Fixture must mount ship");
-            BlockPos destination = helper.absolutePos(new BlockPos(1, 2, 1));
-            for (int entry = 0; entry < 3; entry++) {
-                prepareCompletedMove(helper, ship, destination);
-                mount.getNavigation().stop();
-                ShipGuardingGoal goal = new ShipGuardingGoal(ship);
-                goal.canUse();
-                helper.assertTrue(ship.hasGuardDestination(),
-                        "Stale ship path must not stand in for the vehicle path");
-                ship.getNavigation().stop();
-                installCompletedPath(mount.getNavigation(), destination);
-                if (entry == 0) {
-                    goal.canUse();
-                } else if (entry == 1) {
-                    goal.canContinueToUse();
-                } else {
-                    goal.tick();
-                }
-                helper.assertTrue(!ship.hasGuardDestination() && ship.getStateFlag(ID.F.CanFollow),
-                        "Vehicle completion was not released at goal entry " + entry);
-                helper.assertTrue(ship.getVehicle() == mount, "Completion dismounted the ship");
-            }
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "arena")
-    public static void completedMoveRespectsOtherGuardBlockers(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = createShip(helper, entities, "guard completion blockers");
-            BlockPos destination = helper.absolutePos(new BlockPos(1, 2, 1));
-            for (int blocker = 0; blocker < 4; blocker++) {
-                for (int entry = 0; entry < 3; entry++) {
-                    ship.setEntitySit(false);
-                    ship.setStateTimer(ID.T.CrandDelay, 0);
-                    ship.setStateMinor(ID.M.CraneState, 0);
-                    prepareCompletedMove(helper, ship, destination);
-                    if (blocker == 0) ship.setEntitySit(true);
-                    if (blocker == 1) ship.setStateFlag(ID.F.CanFollow, true);
-                    if (blocker == 2) ship.setStateMinor(ID.M.CraneState, 1);
-                    if (blocker == 3) ship.setStateMinor(ID.M.NumGrudge, 0);
-                    installCompletedPath(ship.getNavigation(), destination);
-                    helper.assertTrue(blocker != 2 || ship.getStateMinor(ID.M.CraneState) == 1,
-                            "Crane fixture must not be rejected by the reactivation cooldown");
-                    ShipGuardingGoal goal = new ShipGuardingGoal(ship);
-                    if (entry == 0) {
-                        helper.assertTrue(!goal.canUse(), "Blocked goal started");
-                    } else if (entry == 1) {
-                        helper.assertTrue(!goal.canContinueToUse(), "Blocked goal continued");
-                    } else {
-                        goal.tick();
-                    }
-                    helper.assertTrue(ship.getGuardedPos(0) == destination.getX(),
-                            "Blocked command was cleared: blocker=" + blocker + " entry=" + entry);
-                }
-            }
-            helper.succeed();
-        }
     }
 
     @GameTest(template = "arena")

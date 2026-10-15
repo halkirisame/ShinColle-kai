@@ -11,7 +11,6 @@ import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.movement.MovementReason;
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
@@ -31,6 +30,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,51 +50,45 @@ public final class TaskMoveGameTests {
     }
 
     @GameTest(template = "arena", batch = "isolated_task_move")
-    public static void cookingReturnsToTheWaypointTheSameUnderEitherAuthority(GameTestHelper helper) {
-        sameCalls(helper, Work.COOKING, MovementReason.TASK_RETURN);
+    public static void cookingReturnsToTheWaypointAsRecorded(GameTestHelper helper) {
+        recordedCall(helper, Work.COOKING, MovementReason.TASK_RETURN);
     }
 
     @GameTest(template = "arena", batch = "isolated_task_move")
-    public static void craftingReturnsToTheWaypointTheSameUnderEitherAuthority(GameTestHelper helper) {
-        sameCalls(helper, Work.CRAFTING, MovementReason.TASK_RETURN);
+    public static void craftingReturnsToTheWaypointAsRecorded(GameTestHelper helper) {
+        recordedCall(helper, Work.CRAFTING, MovementReason.TASK_RETURN);
     }
 
     @GameTest(template = "arena", batch = "isolated_task_move")
-    public static void fishingWalksToItsSpotTheSameUnderEitherAuthority(GameTestHelper helper) {
-        sameCalls(helper, Work.FISHING, MovementReason.TASK_FISHING_SPOT);
+    public static void fishingWalksToItsSpotAsRecorded(GameTestHelper helper) {
+        recordedCall(helper, Work.FISHING, MovementReason.TASK_FISHING_SPOT);
     }
 
-    /** Mining draws its point from the ship's own random numbers, so the two are compared by their range. */
+    /** Mining draws its point from the ship's own random numbers, so it is compared by its range. */
     @GameTest(template = "arena", batch = "isolated_task_move")
-    public static void miningShufflesOnceWithinItsRangeUnderEitherAuthority(GameTestHelper helper) {
-        for (ConfigHandler.ShipAiTargetAuthority mode : ConfigHandler.ShipAiTargetAuthority.values()) {
-            Run run = run(helper, mode, Work.MINING, 64);
-            helper.assertTrue(run.calls().size() == 1, mode + ": one path request at the 64-tick mark: " + run.calls());
-            double[] at = point(run.calls().get(0));
-            helper.assertTrue(at[0] >= run.x() - 4D && at[0] <= run.x() + 4D && at[1] >= run.y() - 2D
-                            && at[1] <= run.y() + 2D && at[2] >= run.z() - 4D && at[2] <= run.z() + 4D,
-                    mode + ": the point must lie within 4 / 2 / 4 of the ship: " + run.calls() + " from " + run.x()
-                            + "," + run.y() + "," + run.z());
-            if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                helper.assertTrue(run.reason() == MovementReason.TASK_MINING_SHUFFLE,
-                        "NEW must leave TASK_MINING_SHUFFLE in the executor: " + run.reason());
-            }
-        }
+    public static void miningShufflesOnceWithinItsRange(GameTestHelper helper) {
+        Run run = run(helper, Work.MINING, 64);
+        helper.assertTrue(run.calls().size() == 1, "One path request at the 64-tick mark: " + run.calls());
+        double[] at = point(run.calls().get(0));
+        helper.assertTrue(at[0] >= run.x() - 4D && at[0] <= run.x() + 4D && at[1] >= run.y() - 2D
+                        && at[1] <= run.y() + 2D && at[2] >= run.z() - 4D && at[2] <= run.z() + 4D,
+                "The point must lie within 4 / 2 / 4 of the ship: " + run.calls() + " from " + run.x()
+                        + "," + run.y() + "," + run.z());
+        helper.assertTrue(run.reason() == MovementReason.TASK_MINING_SHUFFLE,
+                "The executor must hold TASK_MINING_SHUFFLE: " + run.reason());
         helper.succeed();
     }
 
     /** Off the 64-tick mark a mining ship does not walk. */
     @GameTest(template = "arena", batch = "isolated_task_move")
     public static void miningDoesNotWalkOffTheMark(GameTestHelper helper) {
-        for (ConfigHandler.ShipAiTargetAuthority mode : ConfigHandler.ShipAiTargetAuthority.values()) {
-            helper.assertTrue(run(helper, mode, Work.MINING, 65).calls().isEmpty(), mode + ": no walk off the mark");
-        }
+        helper.assertTrue(run(helper, Work.MINING, 65).calls().isEmpty(), "No walk off the mark");
         helper.succeed();
     }
 
     // ---------- when a working ship may walk (P7) ----------
 
-    /** A ship that sits, is leashed, works the crane or has no grudge asks for no path; LEGACY still does. */
+    /** A ship that sits, is leashed, works the crane or has no grudge asks for no path. */
     @GameTest(template = "arena", batch = "isolated_task_move")
     public static void aWorkingShipThatCannotWalkAsksForNoPath(GameTestHelper helper) {
         ArmorStand holder = helper.spawn(EntityType.ARMOR_STAND, new BlockPos(7, 1, 8));
@@ -110,11 +104,8 @@ public final class TaskMoveGameTests {
         for (int i = 0; i < holds.size(); i++) {
             Consumer<BasicEntityShip> hold = holds.get(i);
             for (Work work : Work.values()) {
-                Run now = run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, work, 64, hold);
-                helper.assertTrue(now.calls().isEmpty(), "NEW, " + names[i] + ", " + work + ": no path: " + now.calls());
-                Run legacy = run(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, work, 64, hold);
-                helper.assertTrue(legacy.calls().size() == 1, "LEGACY, " + names[i] + ", " + work
-                        + " is unchanged and asks once: " + legacy.calls());
+                Run now = run(helper, work, 64, hold);
+                helper.assertTrue(now.calls().isEmpty(), names[i] + ", " + work + ": no path: " + now.calls());
             }
         }
         helper.succeed();
@@ -130,12 +121,12 @@ public final class TaskMoveGameTests {
                     new ShipCommand.GuardPosition(new DimensionKey(id.getNamespace(), id.getPath()),
                             new CommandPos(far.getX(), far.getY(), far.getZ()), false)));
         };
-        Run tight = run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, Work.MINING, 64, ship -> {
+        Run tight = run(helper, Work.MINING, 64, ship -> {
             ship.setStateMinor(ID.M.FollowMax, 1);
             guardFar.accept(ship);
         });
         helper.assertTrue(tight.calls().isEmpty(), "A guard far away leaves no point to shuffle to: " + tight.calls());
-        Run wide = run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, Work.MINING, 64, ship -> {
+        Run wide = run(helper, Work.MINING, 64, ship -> {
             ship.setStateMinor(ID.M.FollowMax, 60);
             guardFar.accept(ship);
         });
@@ -143,27 +134,28 @@ public final class TaskMoveGameTests {
         helper.succeed();
     }
 
-    private static void sameCalls(GameTestHelper helper, Work work, MovementReason expected) {
-        Run legacy = run(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, work, 0);
-        Run now = run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, work, 0);
-        helper.assertTrue(legacy.calls().size() == 1, "Fixture: LEGACY must request one path: " + legacy.calls());
-        helper.assertTrue(now.calls().equals(legacy.calls()),
-                "The path requests differ:\n LEGACY " + legacy.calls() + "\n NEW    " + now.calls());
-        helper.assertTrue(now.reason() == expected, "NEW must leave " + expected + " in the executor: " + now.reason());
+    /** The one path request a working ship makes: to its waypoint, or to the middle of its fishing spot. */
+    private static void recordedCall(GameTestHelper helper, Work work, MovementReason expected) {
+        Run now = run(helper, work, 0);
+        BlockPos waypoint = helper.absolutePos(new BlockPos(2, 2, 2));
+        double offset = work == Work.FISHING ? 0.5D : 0D;
+        String recorded = String.format(Locale.ROOT, "moveTo(%.3f,%.3f,%.3f)x1.0=true", waypoint.getX() + offset,
+                (double) waypoint.getY(), waypoint.getZ() + offset);
+        helper.assertTrue(now.calls().equals(List.of(recorded)),
+                "The path request differs from the recorded one:\n RECORDED " + recorded + "\n NOW      " + now.calls());
+        helper.assertTrue(now.reason() == expected, "The executor must hold " + expected + ": " + now.reason());
         helper.succeed();
     }
 
-    private static Run run(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, Work work, int tick) {
-        return run(helper, mode, work, tick, ship -> { });
+    private static Run run(GameTestHelper helper, Work work, int tick) {
+        return run(helper, work, tick, ship -> { });
     }
 
-    private static Run run(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, Work work, int tick,
-                           Consumer<BasicEntityShip> setup) {
+    private static Run run(GameTestHelper helper, Work work, int tick, Consumer<BasicEntityShip> setup) {
         ServerLevel level = helper.getLevel();
         BlockPos waypointPos = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos chestPos = helper.absolutePos(new BlockPos(3, 2, 2));
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             try {
                 if (work != Work.MINING) {
                     level.setBlock(waypointPos, ModBlocks.WAYPOINT.get().defaultBlockState(), 3);

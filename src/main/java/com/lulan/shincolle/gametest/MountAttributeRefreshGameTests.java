@@ -2,7 +2,6 @@ package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -26,7 +25,7 @@ public final class MountAttributeRefreshGameTests {
 
     @GameTest(template = "arena", batch = "isolated_mount_attrs_new", timeoutTicks = 100)
     public static void newHarbourMountTracksAttributesWithoutHealing(GameTestHelper helper) {
-        run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, fixture -> {
+        run(helper, fixture -> {
             for (int phase : new int[]{0, 1, 15, 31}) {
                 fixture.mount.tickCount = 64 + phase;
                 fixture.change(0.3F, 120F, 17F);
@@ -45,37 +44,10 @@ public final class MountAttributeRefreshGameTests {
         });
     }
 
-    @GameTest(template = "arena", batch = "isolated_mount_attrs_legacy", timeoutTicks = 100)
-    public static void legacyHarbourMountKeepsItsInitialAttributes(GameTestHelper helper) {
-        run(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, fixture -> {
-            fixture.change(0.3F, 120F, 17F);
-            fixture.advance(64);
-            fixture.assertCopied(0.1F, 80F, 2F);
-        });
-    }
-
-    @GameTest(template = "arena", batch = "isolated_mount_attrs_switch", timeoutTicks = 100)
-    public static void mountAttributeRefreshUsesCurrentAuthorityWithoutRebuildingGoals(GameTestHelper helper) {
-        run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, fixture -> {
-            fixture.change(0.2F, 100F, 12F);
-            fixture.advance(32);
-            fixture.assertCopied(0.2F, 100F, 12F);
-            ConfigHandler.setShipAiTargetAuthorityForTest(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-            fixture.change(0.3F, 120F, 17F);
-            fixture.advance(64);
-            fixture.assertCopied(0.2F, 100F, 12F);
-            ConfigHandler.setShipAiTargetAuthorityForTest(ConfigHandler.ShipAiTargetAuthority.NEW);
-            fixture.advance(32);
-            fixture.assertCopied(0.3F, 120F, 17F);
-        });
-    }
-
-    private static void run(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode,
-                            java.util.function.Consumer<Fixture> assertions) {
+    private static void run(GameTestHelper helper, java.util.function.Consumer<Fixture> assertions) {
         Vec3 position = new Vec3(3.5D, 2D, 3.5D);
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-                 GameTestEntities entities = GameTestEntities.open(helper)) {
+            try (GameTestEntities entities = GameTestEntities.open(helper)) {
                 Fixture fixture = new Fixture(helper, entities, position);
                 assertions.accept(fixture);
                 helper.succeed();

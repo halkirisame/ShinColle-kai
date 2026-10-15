@@ -14,6 +14,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -74,7 +75,11 @@ public class ModelMountIsH extends ShipModelBaseAdv<Entity> {
     private final ModelPart GlowTopCannonBase;
 
     public ModelMountIsH(ModelPart root) {
-        super();
+        super(RenderType::entityCutout);
+        this.scale = 0.7F;
+        this.offsetX = 0F;
+        this.offsetY = 0.7F;
+        this.offsetZ = 0F;
         this.BodyMain = root.getChild("BodyMain");
         this.Body04 = this.BodyMain.getChild("Body04");
         this.Body01 = this.BodyMain.getChild("Body01");
@@ -406,7 +411,7 @@ public class ModelMountIsH extends ShipModelBaseAdv<Entity> {
         IShipEmotion ent = (IShipEmotion) entity;
         float angleX = Mth.cos(ageInTicks * 0.08F);
 
-        this.offsetY = 0F;
+        this.offsetY = this.getBaseOffsetY();
         if (ent.getShipDepth(0) > 0D) {
             // [PORT] 1.10.2 -> 1.20.1: restore mount water bobbing translation.
             // Visual check required: water bobbing amplitude should match 1.10.2

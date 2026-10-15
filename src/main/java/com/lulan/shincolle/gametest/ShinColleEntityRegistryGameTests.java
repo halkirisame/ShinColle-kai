@@ -79,7 +79,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -126,12 +125,6 @@ public final class ShinColleEntityRegistryGameTests {
     private static void withEntities(GameTestHelper helper, Consumer<GameTestEntities> test) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             test.accept(entities);
-        }
-    }
-
-    private static void withLegacyEntities(GameTestHelper helper, Consumer<GameTestEntities> test) {
-        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
-            withEntities(helper, test);
         }
     }
 
@@ -1208,7 +1201,7 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena", batch = "isolated_goal_throttles_fire_on_both_tick_parities")
     public static void goalThrottlesFireOnBothTickParities(GameTestHelper helper) {
-        withLegacyEntities(helper, entities -> {
+        withEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity entity = entities.add(ModEntities.BB_KONGOU.get().create(level));
@@ -1216,16 +1209,12 @@ public final class ShinColleEntityRegistryGameTests {
                 throw new AssertionError("BB_KONGOU is not BasicEntityShip in goal throttle parity test.");
             }
 
-            assertStartInitializesThrottleFields(new ShipPickItemGoal(ship, 6.0F), ship, 101,
-                    "nextItemScanTick");
-            assertStartInitializesThrottleFields(new ShipGuardingGoal(ship), ship, 101,
-                    "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
             assertStartInitializesThrottleFields(new ShipFollowOwnerGoal(ship), ship, 101,
-                    "nextOwnerResolveTick", "nextParticleTick");
+                    "nextParticleTick");
             ShipRangeAttackGoal rangeAttackGoal = new ShipRangeAttackGoal(ship);
             assertGoalRunsEveryTick(rangeAttackGoal);
             assertStartInitializesThrottleFields(rangeAttackGoal, ship, 101,
-                    "nextAttrTick", "nextRepathTick");
+                    "nextRepathTick");
             ShipAttackOnCollideGoal collideGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
             assertGoalRunsEveryTick(collideGoal);
             assertStartInitializesThrottleFields(collideGoal, ship, 101,
@@ -1238,7 +1227,7 @@ public final class ShinColleEntityRegistryGameTests {
             ShipCarrierAttackGoal carrierAttackGoal = new ShipCarrierAttackGoal(carrier);
             assertGoalRunsEveryTick(carrierAttackGoal);
             assertStartInitializesThrottleFields(carrierAttackGoal, carrierEntity, 101,
-                    "nextAttrTick", "nextRepathTick");
+                    "nextRepathTick");
 
             Entity airplaneEntity = entities.add(ModEntities.AIRPLANE.get().create(level));
             if (!(airplaneEntity instanceof BasicEntityAirplane airplane)) {
@@ -1249,44 +1238,9 @@ public final class ShinColleEntityRegistryGameTests {
             assertStartInitializesThrottleFields(aircraftAttackGoal, airplane, 101,
                     "nextCirclePathTick");
 
-            int evenFires = countPickItemThrottleFires(ship, 2);
-            int oddFires = countPickItemThrottleFires(ship, 3);
-            if (evenFires != 8 || oddFires != 8) {
-                throw new AssertionError("Goal throttle should fire eight times on both tick parities over 128 ticks."
-                        + " even=" + evenFires + " odd=" + oddFires);
-            }
-
-            Entity targetEntity = entities.add(ModEntities.SS_KA.get().create(level));
-            if (!(targetEntity instanceof LivingEntity target)) {
-                throw new AssertionError("SS_KA is not LivingEntity in goal throttle parity test.");
-            }
-
-            Vec3 shipPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
-            ship.moveTo(shipPos.x, shipPos.y, shipPos.z, 0F, 0F);
-            target.moveTo(shipPos.x + 16D, shipPos.y, shipPos.z, 0F, 0F);
-            if (!level.addFreshEntity(ship) || !level.addFreshEntity(target)) {
-                throw new AssertionError("Failed to add entities for melee throttle parity test.");
-            }
-            ship.setTarget(target);
-
-            // the melee goal is only ever registered for ships with melee on
-            ship.setStateFlag(ID.F.UseMelee, true);
-            ShipAttackOnCollideGoal meleeGoal = new ShipAttackOnCollideGoal(ship, 1.0D);
-            if (!meleeGoal.canUse()) {
-                throw new AssertionError("Melee goal should acquire the live target in throttle parity test.");
-            }
-            assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 2);
-            assertGoalThrottleTiming(meleeGoal, ship, "nextRepathTick", 32, 3);
-
-            assertDeclaredIntFields(ShipPickItemGoal.class, "nextItemScanTick");
-            assertDeclaredIntFields(ShipGuardingGoal.class,
-                    "nextAttrTick", "nextFindTargetTick", "nextGuardPosTick");
-            assertDeclaredIntFields(ShipFollowOwnerGoal.class,
-                    "nextOwnerResolveTick", "nextParticleTick");
-            assertDeclaredIntFields(ShipRangeAttackGoal.class,
-                    "nextAttrTick", "nextRepathTick");
-            assertDeclaredIntFields(ShipCarrierAttackGoal.class,
-                    "nextAttrTick", "nextRepathTick");
+            assertDeclaredIntFields(ShipFollowOwnerGoal.class, "nextParticleTick");
+            assertDeclaredIntFields(ShipRangeAttackGoal.class, "nextRepathTick");
+            assertDeclaredIntFields(ShipCarrierAttackGoal.class, "nextRepathTick");
             assertDeclaredIntFields(ShipAttackOnCollideGoal.class, "nextRepathTick");
             assertDeclaredIntFields(ShipAircraftAttackGoal.class, "nextCirclePathTick");
 
@@ -1637,8 +1591,8 @@ public final class ShinColleEntityRegistryGameTests {
 
     // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
-    public static void hostileTargetGoalPrioritiesMatchLegacy(GameTestHelper helper) {
-        withLegacyEntities(helper, entities -> {
+    public static void hostileTargetSelectorHoldsOnlyTheAuthorityGoal(GameTestHelper helper) {
+        withEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity entity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
@@ -1655,14 +1609,15 @@ public final class ShinColleEntityRegistryGameTests {
             invokeNoArgProtected(hostile, "setAITargetList");
 
             GoalSelector targetSelector = extractTargetSelector(hostile);
-            int revengePriority = findGoalPriority(targetSelector, ShipRevengeTargetGoal.class);
-            int rangePriority = findGoalPriority(targetSelector, ShipRangeTargetGoal.class);
+            int authorityPriority = findGoalPriority(targetSelector, ShipTargetAuthorityGoal.class);
 
-            if (revengePriority != 1) {
-                throw new AssertionError("Hostile revenge target priority mismatch. expected=1 actual=" + revengePriority);
+            if (authorityPriority != 1) {
+                throw new AssertionError("Hostile target authority priority mismatch. expected=1 actual="
+                        + authorityPriority);
             }
-            if (rangePriority != 3) {
-                throw new AssertionError("Hostile range target priority mismatch. expected=3 actual=" + rangePriority);
+            if (targetSelector.getAvailableGoals().size() != 1) {
+                throw new AssertionError("Hostile target selector must hold only the target authority goal. goals="
+                        + targetSelector.getAvailableGoals().size());
             }
 
             helper.succeed();
@@ -1707,20 +1662,20 @@ public final class ShinColleEntityRegistryGameTests {
 
     // 2026/04/20：GitHub Copilotによって追加
     @GameTest(template = "arena", batch = "isolated_hostile_range_target_goal_acquires_friendly_ship")
-    public static void hostileRangeTargetGoalAcquiresFriendlyShip(GameTestHelper helper) {
+    public static void hostileTargetAuthorityAcquiresFriendlyShip(GameTestHelper helper) {
         double entityY = helper.getLevel().getSharedSpawnPos().getY() + 1D;
         Vec3 hostilePosition = new Vec3(0.5D, entityY, 0.5D);
         Vec3 friendlyPosition = new Vec3(4.5D, entityY, 0.5D);
         waitForEntityChunks(helper,
                 GameTestVerification.namedFailure(
-                        () -> verifyHostileRangeTargetGoalAcquiresFriendlyShip(helper, hostilePosition, friendlyPosition)),
+                        () -> verifyHostileTargetAuthorityAcquiresFriendlyShip(helper, hostilePosition, friendlyPosition)),
                 hostilePosition, friendlyPosition);
     }
 
-    private static void verifyHostileRangeTargetGoalAcquiresFriendlyShip(GameTestHelper helper,
+    private static void verifyHostileTargetAuthorityAcquiresFriendlyShip(GameTestHelper helper,
                                                                           Vec3 hostilePosition,
                                                                           Vec3 friendlyPosition) {
-        withLegacyEntities(helper, entities -> {
+        withEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity hostileEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
@@ -1747,23 +1702,19 @@ public final class ShinColleEntityRegistryGameTests {
             invokeNoArgProtected(hostile, "setAITargetList");
 
             GoalSelector selector = extractTargetSelector(hostile);
-            ShipRangeTargetGoal rangeGoal = null;
+            ShipTargetAuthorityGoal rangeGoal = null;
             for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
-                if (wrappedGoal.getGoal() instanceof ShipRangeTargetGoal goal) {
+                if (wrappedGoal.getGoal() instanceof ShipTargetAuthorityGoal goal) {
                     rangeGoal = goal;
                     break;
                 }
             }
 
             if (rangeGoal == null) {
-                throw new AssertionError("Hostile target selector has no ShipRangeTargetGoal instance.");
+                throw new AssertionError("Hostile target selector has no ShipTargetAuthorityGoal instance.");
             }
 
-            if (!rangeGoal.canUse()) {
-                throw new AssertionError("Hostile ShipRangeTargetGoal failed to acquire nearby friendly ship.");
-            }
-
-            rangeGoal.start();
+            rangeGoal.tick();
             Entity selected = hostile.getEntityTarget();
             if (!(selected instanceof BasicEntityShip)) {
                 throw new AssertionError("Hostile acquired unexpected target type. expected=friendly ship actual="
@@ -1775,7 +1726,7 @@ public final class ShinColleEntityRegistryGameTests {
 
     // 2026/04/20：GitHub Copilotによって追加
     @GameTest(template = "arena", batch = "isolated_friendly_range_target_goal_acquires_hostile_ship")
-    public static void friendlyRangeTargetGoalAcquiresHostileShip(GameTestHelper helper) {
+    public static void friendlyTargetAuthorityAcquiresHostileShip(GameTestHelper helper) {
         Vec3 friendlyPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
         Vec3 hostilePos = helper.absoluteVec(new Vec3(4.5D, 1.0D, 0.5D));
         // addFreshEntity can succeed while a neighbouring chunk's entity section is still HIDDEN.
@@ -1786,13 +1737,13 @@ public final class ShinColleEntityRegistryGameTests {
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(hostilePos)),
                     "Waiting for the hostile ship's chunk to tick entities");
         }).thenExecute(GameTestVerification.namedFailure(
-                () -> verifyFriendlyRangeTargetGoalAcquiresHostileShip(helper, friendlyPos, hostilePos)))
+                () -> verifyFriendlyTargetAuthorityAcquiresHostileShip(helper, friendlyPos, hostilePos)))
                 .thenSucceed();
     }
 
-    private static void verifyFriendlyRangeTargetGoalAcquiresHostileShip(GameTestHelper helper,
+    private static void verifyFriendlyTargetAuthorityAcquiresHostileShip(GameTestHelper helper,
                                                                          Vec3 friendlyPos, Vec3 hostilePos) {
-        withLegacyEntities(helper, entities -> {
+        withEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
 
             Entity friendlyEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
@@ -1828,23 +1779,19 @@ public final class ShinColleEntityRegistryGameTests {
             invokeNoArgProtected(friendly, "setAITargetList");
 
             GoalSelector selector = extractTargetSelector(friendly);
-            ShipRangeTargetGoal rangeGoal = null;
+            ShipTargetAuthorityGoal rangeGoal = null;
             for (WrappedGoal wrappedGoal : selector.getAvailableGoals()) {
-                if (wrappedGoal.getGoal() instanceof ShipRangeTargetGoal goal) {
+                if (wrappedGoal.getGoal() instanceof ShipTargetAuthorityGoal goal) {
                     rangeGoal = goal;
                     break;
                 }
             }
 
             if (rangeGoal == null) {
-                throw new AssertionError("Friendly target selector has no ShipRangeTargetGoal instance.");
+                throw new AssertionError("Friendly target selector has no ShipTargetAuthorityGoal instance.");
             }
 
-            if (!rangeGoal.canUse()) {
-                throw new AssertionError("Friendly ShipRangeTargetGoal failed to acquire nearby hostile ship.");
-            }
-
-            rangeGoal.start();
+            rangeGoal.tick();
             Entity selected = friendly.getEntityTarget();
             if (!(selected instanceof BasicEntityShipHostile)) {
                 throw new AssertionError("Friendly acquired unexpected target type. expected=hostile ship actual="
@@ -3263,38 +3210,6 @@ public final class ShinColleEntityRegistryGameTests {
     }
 
     @GameTest(template = "arena")
-    public static void rangeTargetStopClearsOnlyItsOwnTarget(GameTestHelper helper) {
-        withEntities(helper, entities -> {
-            ServerLevel level = helper.getLevel();
-            Entity friendlyEntity = entities.add(ModEntities.BB_KONGOU.get().create(level));
-            Entity hostileEntity = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(level));
-            Entity replacement = entities.add(EntityType.ZOMBIE.create(level));
-            if (!(friendlyEntity instanceof BasicEntityShip friendly)
-                    || !(hostileEntity instanceof BasicEntityShipHostile hostile)
-                    || !(replacement instanceof Mob replacementMob)) {
-                throw new AssertionError("Failed to create entities for target-goal stop test.");
-            }
-
-            ShipRangeTargetGoal goal = new ShipRangeTargetGoal(friendly);
-            setRangeGoalTarget(goal, hostile);
-            friendly.setTarget(hostile);
-            goal.stop();
-            if (friendly.getTarget() != null) {
-                throw new AssertionError("Range target goal left its own stopped target on the mob.");
-            }
-
-            setRangeGoalTarget(goal, hostile);
-            friendly.setTarget(replacementMob);
-            goal.stop();
-            if (friendly.getTarget() != replacementMob) {
-                throw new AssertionError("Range target goal cleared a replacement target selected elsewhere.");
-            }
-
-            helper.succeed();
-        });
-    }
-
-    @GameTest(template = "arena")
     public static void marriageRingScanChecksEveryInventoryAndOffhandStack(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         FakePlayer player = FakePlayerFactory.get(level,
@@ -3839,16 +3754,6 @@ public final class ShinColleEntityRegistryGameTests {
         }
     }
 
-    private static void setRangeGoalTarget(ShipRangeTargetGoal goal, Entity target) {
-        try {
-            Field targetField = ShipRangeTargetGoal.class.getDeclaredField("targetEntity");
-            targetField.setAccessible(true);
-            targetField.set(goal, target);
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError("Failed to set range target goal state for regression test.", e);
-        }
-    }
-
     private static ServerPlayer createFollowTestOwner(GameTestHelper helper, ServerLevel level, UUID uuid,
                                                       String name) {
         try {
@@ -3974,41 +3879,6 @@ public final class ShinColleEntityRegistryGameTests {
         }
 
         throw new AssertionError("Failed to find protected method: " + methodName);
-    }
-
-    private static int countPickItemThrottleFires(BasicEntityShip ship, int firstTick) {
-        ShipPickItemGoal goal = new ShipPickItemGoal(ship, 6.0F);
-        Field nextTickField;
-        try {
-            nextTickField = ShipPickItemGoal.class.getDeclaredField("nextItemScanTick");
-            nextTickField.setAccessible(true);
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError("Failed to inspect ShipPickItemGoal throttle state.", e);
-        }
-
-        ship.tickCount = firstTick;
-        goal.start();
-        int fires = 0;
-
-        for (int tick = firstTick; tick < firstTick + 128; tick += 2) {
-            ship.tickCount = tick;
-            try {
-                int before = nextTickField.getInt(goal);
-                goal.tick();
-                int after = nextTickField.getInt(goal);
-                if (after != before) {
-                    if (after != tick + 16) {
-                        throw new AssertionError("Item scan throttle scheduled from the wrong tick. tick=" + tick
-                                + " next=" + after);
-                    }
-                    fires++;
-                }
-            } catch (IllegalAccessException e) {
-                throw new AssertionError("Failed to read ShipPickItemGoal throttle state.", e);
-            }
-        }
-
-        return fires;
     }
 
     private static void assertDeclaredIntFields(Class<?> type, String... fieldNames) {

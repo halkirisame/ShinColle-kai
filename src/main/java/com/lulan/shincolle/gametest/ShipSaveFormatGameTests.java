@@ -177,38 +177,25 @@ public final class ShipSaveFormatGameTests {
     // ===== saves written by the running code =====
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void savedCommandsReloadInLegacy(GameTestHelper helper) {
-        savedCommandsReload(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void savedCommandsReloadInNew(GameTestHelper helper) {
-        savedCommandsReload(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    private static void savedCommandsReload(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority authority) {
+    public static void savedCommandsReload(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             for (Command command : commands()) {
                 CompoundTag saved = new CompoundTag();
-                try (var legacy = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
-                    BasicEntityShip source = ship(helper, entities);
-                    command.setup().accept(source);
-                    source.addAdditionalSaveData(saved);
-                }
+                BasicEntityShip source = ship(helper, entities);
+                command.setup().accept(source);
+                source.addAdditionalSaveData(saved);
                 assertMarked(helper, saved, command.name());
                 CompoundTag unmarked = saved.copy();
                 unmarked.remove(VERSION_KEY);
-                try (var scoped = ShipAiAuthorityOverride.use(authority)) {
-                    BasicEntityShip loaded = ship(helper, entities);
-                    loaded.readAdditionalSaveData(saved);
-                    assertCommand(helper, loaded, authority, command.loaded(), command.order(), command.name());
+                BasicEntityShip loaded = ship(helper, entities);
+                loaded.readAdditionalSaveData(saved);
+                assertCommand(helper, loaded, command.loaded(), command.order(), command.name());
 
-                    BasicEntityShip fromUnmarked = ship(helper, entities);
-                    fromUnmarked.readAdditionalSaveData(unmarked);
-                    String label = command.name() + " without the mark";
-                    assertCommand(helper, fromUnmarked, authority, command.loaded(), command.order(), label);
-                    assertSameShip(helper, loaded, fromUnmarked, label);
-                }
+                BasicEntityShip fromUnmarked = ship(helper, entities);
+                fromUnmarked.readAdditionalSaveData(unmarked);
+                String label = command.name() + " without the mark";
+                assertCommand(helper, fromUnmarked, command.loaded(), command.order(), label);
+                assertSameShip(helper, loaded, fromUnmarked, label);
             }
             helper.succeed();
         }
@@ -254,32 +241,28 @@ public final class ShipSaveFormatGameTests {
         Guard expected = new Guard(10, 60, -7, 0, 1, -1, null, null, false, false, false);
         MovementOrder order = new MovementOrder.GuardPosition(OVERWORLD, new CommandPos(10, 60, -7), false);
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            for (ConfigHandler.ShipAiTargetAuthority authority : ConfigHandler.ShipAiTargetAuthority.values()) {
-                try (var scoped = ShipAiAuthorityOverride.use(authority)) {
-                    BasicEntityShip ship = ship(helper, entities);
-                    CompoundTag nested = nestedLegacySave();
-                    helper.assertTrue(!nested.contains(VERSION_KEY), "The nested save must start without a mark");
-                    ship.readAdditionalSaveData(nested);
-                    String label = "nested save (" + authority + ")";
-                    helper.assertTrue(ship.getLevel() == 25 && ship.getStateMinor(ID.M.NumGrudge) == 200,
-                            label + ": level and grudge were not read");
-                    helper.assertTrue(ship.getStateMinor(ID.M.FollowMin) == 4
-                                    && ship.getStateMinor(ID.M.FollowMax) == 18
-                                    && ship.getStateMinor(ID.M.FleeHP) == 40,
-                            label + ": follow range and flee HP were not read");
-                    helper.assertTrue(ship.getStateMinor(ID.M.FormatPos) == 2
-                                    && ship.getStateMinor(ID.M.Task) == 1
-                                    && ship.getStateMinor(ID.M.TaskSide) == 3,
-                            label + ": formation slot and task were not read");
-                    assertFormationRead(helper, entities, nestedLegacySave(), 1, 2, label);
-                    helper.assertTrue(ship.getStateFlag(ID.F.IsMarried) && "legacy_admiral".equals(ship.ownerName),
-                            label + ": marriage flag and owner name were not read");
-                    assertUndimensionedCommand(helper, ship, authority, expected, order, Level.OVERWORLD, label);
-                    CompoundTag again = new CompoundTag();
-                    ship.addAdditionalSaveData(again);
-                    assertMarked(helper, again, label + " saved again");
-                }
-            }
+            BasicEntityShip ship = ship(helper, entities);
+            CompoundTag nested = nestedLegacySave();
+            helper.assertTrue(!nested.contains(VERSION_KEY), "The nested save must start without a mark");
+            ship.readAdditionalSaveData(nested);
+            String label = "nested save";
+            helper.assertTrue(ship.getLevel() == 25 && ship.getStateMinor(ID.M.NumGrudge) == 200,
+                    label + ": level and grudge were not read");
+            helper.assertTrue(ship.getStateMinor(ID.M.FollowMin) == 4
+                            && ship.getStateMinor(ID.M.FollowMax) == 18
+                            && ship.getStateMinor(ID.M.FleeHP) == 40,
+                    label + ": follow range and flee HP were not read");
+            helper.assertTrue(ship.getStateMinor(ID.M.FormatPos) == 2
+                            && ship.getStateMinor(ID.M.Task) == 1
+                            && ship.getStateMinor(ID.M.TaskSide) == 3,
+                    label + ": formation slot and task were not read");
+            assertFormationRead(helper, entities, nestedLegacySave(), 1, 2, label);
+            helper.assertTrue(ship.getStateFlag(ID.F.IsMarried) && "legacy_admiral".equals(ship.ownerName),
+                    label + ": marriage flag and owner name were not read");
+            assertUndimensionedCommand(helper, ship, expected, order, Level.OVERWORLD, label);
+            CompoundTag again = new CompoundTag();
+            ship.addAdditionalSaveData(again);
+            assertMarked(helper, again, label + " saved again");
             helper.succeed();
         }
     }
@@ -317,25 +300,14 @@ public final class ShipSaveFormatGameTests {
     // ===== saves without a version mark, written value by value =====
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void unmarkedEntitySaveLoadsInLegacy(GameTestHelper helper) {
-        unmarkedEntitySaveLoads(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void unmarkedEntitySaveLoadsInNew(GameTestHelper helper) {
-        unmarkedEntitySaveLoads(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    private static void unmarkedEntitySaveLoads(GameTestHelper helper,
-                                                ConfigHandler.ShipAiTargetAuthority authority) {
-        try (GameTestEntities entities = GameTestEntities.open(helper);
-                var scoped = ShipAiAuthorityOverride.use(authority)) {
+    public static void unmarkedEntitySaveLoads(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             for (Saved saved : unmarkedEntitySaves()) {
                 BasicEntityShip ship = ship(helper, entities);
                 ship.readAdditionalSaveData(saved.nbt().copy());
                 assertSettings(helper, ship, SHIP_UID, saved.name());
                 assertFormationRead(helper, entities, saved.nbt().copy(), 2, 3, saved.name());
-                assertCommand(helper, ship, authority, saved.loaded(), saved.order(), saved.name());
+                assertCommand(helper, ship, saved.loaded(), saved.order(), saved.name());
             }
             helper.succeed();
         }
@@ -384,19 +356,9 @@ public final class ShipSaveFormatGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void unmarkedEggRestoresInLegacy(GameTestHelper helper) {
-        unmarkedEggRestores(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void unmarkedEggRestoresInNew(GameTestHelper helper) {
-        unmarkedEggRestores(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    private static void unmarkedEggRestores(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority authority) {
+    public static void unmarkedEggRestores(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> guarded(helper, () -> {
-            try (GameTestEntities entities = GameTestEntities.open(helper);
-                    var scoped = ShipAiAuthorityOverride.use(authority)) {
+            try (GameTestEntities entities = GameTestEntities.open(helper)) {
                 // An egg carries neither the guard dimension nor the release flag, so a position
                 // guard comes back with the numeric dimension only.
                 Guard follow = new Guard(-1, -1, -1, 0, 0, -1, null, null, true, false, false);
@@ -416,7 +378,7 @@ public final class ShipSaveFormatGameTests {
                     assertFormationRead(helper, entities, egg.nbt().copy(), 2, 3, egg.name());
                     helper.assertTrue(eggOwner(helper).getUUID().equals(ship.getOwnerUUID()),
                             egg.name() + ": the saved owner was not restored");
-                    assertUndimensionedCommand(helper, ship, authority, egg.loaded(), egg.order(),
+                    assertUndimensionedCommand(helper, ship, egg.loaded(), egg.order(),
                             egg.order() instanceof MovementOrder.GuardPosition ? Level.NETHER : null, egg.name());
                     ship.discard();
                 }
@@ -440,26 +402,22 @@ public final class ShipSaveFormatGameTests {
                 nbt -> nbt.putInt(VERSION_KEY, -5),
                 nbt -> nbt.putString(VERSION_KEY, "2"));
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            for (ConfigHandler.ShipAiTargetAuthority authority : ConfigHandler.ShipAiTargetAuthority.values()) {
-                try (var scoped = ShipAiAuthorityOverride.use(authority)) {
-                    for (Consumer<CompoundTag> mark : marks) {
-                        CompoundTag nbt = unmarkedState(SHIP_UID, GUARD_POS.x(), GUARD_POS.y(), GUARD_POS.z(),
-                                -1, 1, -1, false);
-                        nbt.putString("GuardDimension", "minecraft:the_nether");
-                        nbt.putBoolean("ReleaseGuardOnArrival", false);
-                        mark.accept(nbt);
-                        String label = "mark " + nbt.get(VERSION_KEY) + " (" + authority + ")";
+            for (Consumer<CompoundTag> mark : marks) {
+                CompoundTag nbt = unmarkedState(SHIP_UID, GUARD_POS.x(), GUARD_POS.y(), GUARD_POS.z(),
+                        -1, 1, -1, false);
+                nbt.putString("GuardDimension", "minecraft:the_nether");
+                nbt.putBoolean("ReleaseGuardOnArrival", false);
+                mark.accept(nbt);
+                String label = "mark " + nbt.get(VERSION_KEY);
 
-                        BasicEntityShip ship = ship(helper, entities);
-                        ship.readAdditionalSaveData(nbt);
-                        assertSettings(helper, ship, SHIP_UID, label);
-                        assertCommand(helper, ship, authority, expected, order, label);
+                BasicEntityShip ship = ship(helper, entities);
+                ship.readAdditionalSaveData(nbt);
+                assertSettings(helper, ship, SHIP_UID, label);
+                assertCommand(helper, ship, expected, order, label);
 
-                        CompoundTag again = new CompoundTag();
-                        ship.addAdditionalSaveData(again);
-                        assertMarked(helper, again, label + " saved again");
-                    }
-                }
+                CompoundTag again = new CompoundTag();
+                ship.addAdditionalSaveData(again);
+                assertMarked(helper, again, label + " saved again");
             }
             helper.succeed();
         }
@@ -468,20 +426,10 @@ public final class ShipSaveFormatGameTests {
     // ===== the egg a dying ship leaves =====
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void deathEggIsMarkedAndRestoresLikeUnmarkedEggInLegacy(GameTestHelper helper) {
-        deathEggRestores(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, DEATH_SHIP_UID);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void deathEggIsMarkedAndRestoresLikeUnmarkedEggInNew(GameTestHelper helper) {
-        deathEggRestores(helper, ConfigHandler.ShipAiTargetAuthority.NEW, DEATH_SHIP_UID + 1);
-    }
-
-    private static void deathEggRestores(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority authority,
-                                         int shipUid) {
+    public static void deathEggIsMarkedAndRestoresLikeUnmarkedEgg(GameTestHelper helper) {
+        int shipUid = DEATH_SHIP_UID + 1;
         GameTestEntities.whenPositionsTicking(helper, () -> guarded(helper, () -> {
-            try (GameTestEntities entities = GameTestEntities.open(helper);
-                    var scoped = ShipAiAuthorityOverride.use(authority)) {
+            try (GameTestEntities entities = GameTestEntities.open(helper)) {
                 CompoundTag egg = deathEgg(helper, entities, shipUid);
                 assertMarked(helper, egg, "death egg");
                 CompoundTag unmarked = egg.copy();
@@ -493,12 +441,12 @@ public final class ShipSaveFormatGameTests {
 
                 BasicEntityShip marked = hatch(helper, entities, egg);
                 assertSettings(helper, marked, shipUid, "death egg");
-                assertUndimensionedCommand(helper, marked, authority, expected, order, Level.NETHER, "death egg");
+                assertUndimensionedCommand(helper, marked, expected, order, Level.NETHER, "death egg");
                 marked.discard();
 
                 BasicEntityShip plain = hatch(helper, entities, unmarked);
                 assertSettings(helper, plain, shipUid, "death egg without the mark");
-                assertUndimensionedCommand(helper, plain, authority, expected, order, Level.NETHER,
+                assertUndimensionedCommand(helper, plain, expected, order, Level.NETHER,
                         "death egg without the mark");
                 assertSameShip(helper, marked, plain, "death egg without the mark");
                 helper.succeed();
@@ -717,34 +665,23 @@ public final class ShipSaveFormatGameTests {
         helper.assertTrue(expected.equals(state), label + ": typed order " + state + ", expected " + expected);
     }
 
-    /** The loaded fields, and under NEW the order derived from them, which must leave them as they were. */
-    private static void assertCommand(GameTestHelper helper, BasicEntityShip ship,
-                                      ConfigHandler.ShipAiTargetAuthority authority, Guard expected,
+    /** The loaded fields, and the order derived from them, which must leave them as they were. */
+    private static void assertCommand(GameTestHelper helper, BasicEntityShip ship, Guard expected,
                                       MovementOrder order, String label) {
         assertGuard(helper, ship, expected, label);
-        if (authority == ConfigHandler.ShipAiTargetAuthority.NEW) {
-            assertOrder(helper, ship, order, expected.sitting(), label);
-            assertGuard(helper, ship, expected, label + " after the order");
-        } else {
-            helper.assertTrue(ship.getCommandState() == null, label + ": LEGACY must not hold a typed order");
-        }
+        assertOrder(helper, ship, order, expected.sitting(), label);
+        assertGuard(helper, ship, expected, label + " after the order");
     }
 
     /**
      * {@link #assertCommand} for a save that names its guard dimension by number only: deriving
-     * the typed order under NEW writes back the dimension that number stood for.
+     * the typed order writes back the dimension that number stood for.
      */
-    private static void assertUndimensionedCommand(GameTestHelper helper, BasicEntityShip ship,
-                                                   ConfigHandler.ShipAiTargetAuthority authority, Guard expected,
+    private static void assertUndimensionedCommand(GameTestHelper helper, BasicEntityShip ship, Guard expected,
                                                    MovementOrder order, ResourceKey<Level> projected,
                                                    String label) {
-        if (authority == ConfigHandler.ShipAiTargetAuthority.NEW) {
-            assertOrder(helper, ship, order, expected.sitting(), label);
-            assertGuard(helper, ship, expected.withDimension(projected), label + " after the order");
-        } else {
-            assertGuard(helper, ship, expected, label);
-            helper.assertTrue(ship.getCommandState() == null, label + ": LEGACY must not hold a typed order");
-        }
+        assertOrder(helper, ship, order, expected.sitting(), label);
+        assertGuard(helper, ship, expected.withDimension(projected), label + " after the order");
     }
 
     /** A sequence step may only fail through the GameTest exception; anything else stops the server. */

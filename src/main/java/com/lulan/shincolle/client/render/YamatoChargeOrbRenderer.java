@@ -1,9 +1,11 @@
 package com.lulan.shincolle.client.render;
 
+import com.lulan.shincolle.client.YamatoChargeVisuals;
 import com.lulan.shincolle.entity.battleship.EntityBattleshipYamato;
 import com.lulan.shincolle.entity.battleship.EntityBattleshipYamatoMob;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.reference.Values;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -17,6 +19,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
  * Draws the pulsing white charge orb shared by friendly and hostile Yamato.
@@ -65,7 +68,12 @@ public final class YamatoChargeOrbRenderer {
         float radius = baseRadius + pulse + jitter;
 
         poseStack.pushPose();
-        poseStack.translate(0.0D, entity.getBbHeight() * 0.6D, 0.0D);
+        double[] forward = {0.0D, 0.0D};
+        if (entity instanceof LivingEntity living) {
+            float yaw = Mth.rotLerp(partialTick, living.yBodyRotO, living.yBodyRot) % 360F;
+            forward = YamatoChargeVisuals.forwardOffset(entity, yaw * Values.N.DIV_PI_180);
+        }
+        poseStack.translate(forward[0], YamatoChargeVisuals.heightOffset(entity), forward[1]);
         PoseStack.Pose pose = poseStack.last();
         VertexConsumer vertices = bufferSource.getBuffer(ORB_RENDER_TYPE);
         renderDisk(vertices, pose, radius, DiskPlane.XY);

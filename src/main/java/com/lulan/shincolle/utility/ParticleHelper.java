@@ -5,7 +5,6 @@ import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CSpawnParticlePacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -18,7 +17,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
  * <p>
  * The original mod (1.10.2) used numeric particle type IDs:
  * Types 1-49: Position-based particles (explosions, flames, etc.)
- * Types 50+: Entity-attached particles (emotions, status effects, etc.)
+ * Entity-attached packet routes are decoded separately before dispatch.
  * <p>
  * Sprite-based particles (Spray, Smoke) are spawned via level.addParticle()
  * through the registered provider system.
@@ -34,7 +33,7 @@ public class ParticleHelper {
     /**
      * Spawn attack particles at a position. Type IDs match the original mod's
      * particle system.
-     * Types 1-49 are position-based particles, types 50+ are entity-attached.
+     * This method handles only the position-based effect table.
      *
      * @param level the world/level instance
      * @param x     X position
@@ -47,142 +46,8 @@ public class ParticleHelper {
      */
     public static void spawnAttackParticleAt(Level level, double x, double y, double z,
                                              double lookX, double lookY, double lookZ, int type) {
-        if (level != null && level.isClientSide()) {
-            switch (type) {
-                // Basic attack/effect particles (types 1-9)
-                // Light cannon fire: upstream (EntityBattleshipRe.applyParticleAtAttacker,
-                // 1.12.2) pairs this shot with a SHIP_LASER sound and a beam
-                // particle spanning attacker-to-target. lookX/Y/Z here carry the
-                // raw (unnormalized) displacement to the target, so draw an
-                // actual line spanning that distance with the existing
-                // ParticleLine renderer (ported but never wired up to anything)
-                // instead of a puff/spray at the muzzle.
-                case 1 -> {
-                    double dist = Math.sqrt(lookX * lookX + lookY * lookY + lookZ * lookZ);
-                    if (dist > 1.0E-4) {
-                        float dirX = (float) (lookX / dist);
-                        float dirY = (float) (lookY / dist);
-                        float dirZ = (float) (lookZ / dist);
-                        float[] parms = new float[]{
-                                0.12F, (float) dist, 0.2F, // height, forward width, backward width
-                                0.5F, 0.9F, 1.0F, 1.0F,     // R, G, B, A (cyan-white laser)
-                                (float) x, (float) y, (float) z,
-                                dirX, dirY, dirZ
-                        };
-                        spawnLineParticle(level, 0, parms);
-                    }
-                }
-                case 2 -> level.addParticle(ParticleTypes.EXPLOSION_EMITTER, x, y, z, 0, 0, 0);
-                case 3 -> level.addParticle(ParticleTypes.HEART, x, y, z, 0, 0, 0);
-                case 4 -> level.addParticle(ParticleTypes.SMOKE, x, y, z, 0, 0, 0);
-                case 5 -> level.addParticle(ParticleTypes.FLAME, x, y, z, 0, 0, 0);
-                case 6 -> level.addParticle(ParticleTypes.CRIT, x, y, z, lookX, lookY, lookZ);
-                case 25 -> {
-                    int indicatorType = (int) lookY;
-                    spawnTeamCircleAtClient((net.minecraft.client.multiplayer.ClientLevel) level, x, y, z,
-                            indicatorType);
-                }
-                case 7 -> level.addParticle(ParticleTypes.ENCHANTED_HIT, x, y, z, lookX, lookY, lookZ);
-                case 8 -> level.addParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 0, 0, 0);
-                case 9 -> level.addParticle(ParticleTypes.BUBBLE, x, y, z, 0, 0.1, 0);
-
-                // Text/indicator particles (types 10-14) - use custom ParticleTexts
-                case 10 -> spawnTextParticleClient((ClientLevel) level, x, y + 1, z, 1.0f, 0); // miss
-                case 11 -> spawnTextParticleClient((ClientLevel) level, x, y + 1, z, 1.0f, 1); // critical
-                case 12 -> spawnTextParticleClient((ClientLevel) level, x, y + 1, z, 1.0f, 2); // double hit
-                case 13 -> spawnTextParticleClient((ClientLevel) level, x, y + 1, z, 1.0f, 3); // triple hit
-                case 14 -> spawnTextParticleClient((ClientLevel) level, x, y + 1, z, 1.0f, 4); // dodge
-
-                // Weapon effect particles (types 15-20)
-                case 15 -> level.addParticle(ParticleTypes.SPLASH, x, y, z, lookX, lookY, lookZ);
-                case 16 -> {
-                    // multi-explosion (heavy cannon)
-                    for (int i = 0; i < 3; i++) {
-                        double ox = (level.random.nextDouble() - 0.5) * 1.5;
-                        double oz = (level.random.nextDouble() - 0.5) * 1.5;
-                        level.addParticle(ParticleTypes.EXPLOSION, x + ox, y, z + oz, 0, 0, 0);
-                    }
-                }
-                case 17 -> {
-                    // flame burst (incendiary)
-                    for (int i = 0; i < 5; i++) {
-                        double ox = (level.random.nextDouble() - 0.5) * 0.5;
-                        double oy = level.random.nextDouble() * 0.5;
-                        double oz = (level.random.nextDouble() - 0.5) * 0.5;
-                        level.addParticle(ParticleTypes.FLAME, x + ox, y + oy, z + oz, 0, 0.05, 0);
-                    }
-                }
-                case 18 -> level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, x, y, z, 0, 0.15, 0);
-                case 19 -> level.addParticle(ParticleTypes.SONIC_BOOM, x, y, z, 0, 0, 0);
-                case 20 -> {
-                    // electric spark (laser)
-                    for (int i = 0; i < 4; i++) {
-                        double ox = (level.random.nextDouble() - 0.5) * 0.3;
-                        double oy = (level.random.nextDouble() - 0.5) * 0.3;
-                        double oz = (level.random.nextDouble() - 0.5) * 0.3;
-                        level.addParticle(ParticleTypes.ELECTRIC_SPARK, x + ox, y + oy, z + oz, 0, 0, 0);
-                    }
-                }
-
-                // Legacy spray variants (21-39 subset)
-                // 2026/04/07：GitHub Copilotによって確認済み
-                case 29 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 9);
-
-                // Red spray. Marks a ship that could not take an order, and the destination
-                // it could not take. ParticleSpray variant 4 is already pure red, so this
-                // reuses it rather than adding a particle type of its own -- 24 upstream
-                // types are still unported and the numbering is not settled.
-                case 30 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 4);
-
-                // [BETA STOPGAP] Types the original sends but the port never wired.
-                // Implemented against the port's existing particle classes so the
-                // effects exist at all; the numbering is NOT yet aligned with the
-                // upstream 1.10.2 particle table.
-                case 28 -> {
-                    // drip water
-                    double dx = level.random.nextDouble() * 0.7 - 0.35;
-                    double dz = level.random.nextDouble() * 0.7 - 0.35;
-                    level.addParticle(ParticleTypes.DRIPPING_WATER, x + dx, y, z + dz, lookX, lookY, lookZ);
-                }
-                case 31 -> {
-                    // throw snow smoke
-                    for (int i = 0; i < 22; i++) {
-                        double r1 = level.random.nextDouble() - 0.5;
-                        double r2 = level.random.nextDouble();
-                        double r3 = level.random.nextDouble();
-                        double px = x + lookX - 0.5 + 0.05 * i;
-                        double pz = z + lookZ - 0.5 + 0.05 * i;
-                        level.addParticle(ParticleTypes.SNOWFLAKE, px, y + 0.7 + r1, pz,
-                                lookX * 0.3 * r2, 0.05 * r2, lookZ * 0.3 * r2);
-                        level.addParticle(ParticleTypes.SNOWFLAKE, px, y + 0.9 + r1, pz,
-                                lookX * 0.3 * r3, 0.05 * r3, lookZ * 0.3 * r3);
-                    }
-                }
-                // dodge text. The original puts this on type 34; the port's type 14
-                // already renders it, so both reach the same ParticleTexts subtype
-                // until the table is aligned.
-                case 34 -> spawnTextParticleClient((ClientLevel) level, x, y + lookY, z, 1.0f, 4);
-                case 37 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 12);
-                case 38 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 13);
-                case 39 -> spawnSprayParticleVariantClient((ClientLevel) level, x, y, z, lookX, lookY, lookZ, 14);
-
-                // Death smoke particles (types 40-49)
-                case 43 -> {
-                    // death smoke - spawns multiple large smoke columns
-                    double width = 0.6; // approximate entity width for spread
-                    for (int i = 0; i < 3; i++) {
-                        double dx = (level.random.nextDouble() - 0.5) * width;
-                        double dz = (level.random.nextDouble() - 0.5) * width;
-                        level.addParticle(ParticleTypes.LARGE_SMOKE,
-                                x + dx, y + level.random.nextDouble() * 0.5, z + dz,
-                                0, 0.02, 0);
-                    }
-                }
-
-                default -> {
-                    /* Unhandled particle type */
-                }
-            }
+        if (level != null && level.isClientSide() && level instanceof ClientLevel clientLevel) {
+            PositionParticleVisuals.spawn(clientLevel, x, y, z, lookX, lookY, lookZ, type);
         }
     }
 
@@ -286,6 +151,32 @@ public class ParticleHelper {
         }
     }
 
+    /** Spawn the legacy short-lived guard line from a ship to the entity it guards. */
+    public static void spawnGuardLineToEntity(LivingEntity host, Entity target) {
+        if (host != null && target != null && host.level().isClientSide()) {
+            spawnTargetLineClient(host, target, 2);
+        }
+    }
+
+    /** Spawn the legacy long-lived position line from a player to one of the player's ships. */
+    public static void spawnPositionLine(LivingEntity host, Entity target) {
+        if (host != null && target != null && host.level().isClientSide()) {
+            spawnTargetLineClient(host, target, 5);
+        }
+    }
+
+    /** Show the local debug caress height without changing the target's hit state. */
+    public static void spawnCaressPosition(Entity target, float height) {
+        if (target != null && target.isAlive() && target.level().isClientSide()) {
+            spawnCaressPositionClient(target, height);
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    private static void spawnCaressPositionClient(Entity target, float height) {
+        Minecraft.getInstance().particleEngine.add(new ParticleDebugPlane(target, 0, height));
+    }
+
     public static void spawnTeamCircleAtPlayer(net.minecraft.server.level.ServerPlayer player, double x, double y, double z,
                                                int indicatorType) {
         if (player == null) return;
@@ -307,6 +198,19 @@ public class ParticleHelper {
         } finally {
             buf.release();
         }
+    }
+
+    /** Spawn the red marker for an order that could not be accepted. */
+    public static void spawnOrderRejectedParticle(Level level, double x, double y, double z,
+                                                   double vx, double vy, double vz) {
+        if (level != null && level.isClientSide() && level instanceof ClientLevel clientLevel) {
+            PositionParticleVisuals.spray(clientLevel, x, y, z, vx, vy, vz, 4);
+        }
+    }
+
+    /** Spawn blue fire at the equipment's eye position. */
+    public static void spawnEquipmentSparkParticle(Entity entity, double height, double eyeX, double eyeZ) {
+        spawnSparkleParticle(entity, 1, (float) height, (float) eyeX, (float) eyeZ, 0F, 1F, 1F, 1F);
     }
 
     // ========== Custom particle spawn methods ==========
@@ -476,6 +380,12 @@ public class ParticleHelper {
     }
 
     @OnlyIn(Dist.CLIENT)
+    private static void spawnTargetLineClient(LivingEntity host, Entity target, int type) {
+        Minecraft.getInstance().particleEngine.add(
+                new ParticleLaserNoTexture((ClientLevel) host.level(), host, target, 0D, 0D, 0D, 0.1F, type));
+    }
+
+    @OnlyIn(Dist.CLIENT)
     private static void spawnGuardLineToClient(LivingEntity host, double x, double y, double z) {
         Minecraft.getInstance().particleEngine.add(
                 new ParticleLaserNoTexture((ClientLevel) host.level(), host, x, y, z, 0.1F, 3));
@@ -611,10 +521,10 @@ public class ParticleHelper {
     public static void spawnAttackTextParticle(Entity entity, int type) {
         if (entity == null || entity.level().isClientSide())
             return;
-        // type offset: CombatHelper uses 0-3, spawnAttackParticleAt uses 10-13
-        int particleType = 10 + type;
-        S2CSpawnParticlePacket packet = new S2CSpawnParticlePacket(
-                (byte) particleType, entity.getId(), null);
+        if (type < 0 || type > 4) return;
+        int particleType = type == 4 ? 34 : 10 + type;
+        S2CSpawnParticlePacket packet = S2CSpawnParticlePacket.position(particleType, entity.getId(),
+                entity.getX(), entity.getY(), entity.getZ(), 0, entity.getBbHeight() * 1.3D, 0);
         ModNetworking.sendToAllTracking(packet, entity);
     }
 }

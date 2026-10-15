@@ -35,6 +35,30 @@ public class TileEntityWaypoint extends BasicTileEntity implements ITileWaypoint
         super(type, pos, state);
     }
 
+    public static void clientTick(net.minecraft.world.level.Level level, BlockPos pos, BlockState state,
+                                  TileEntityWaypoint tile) {
+        com.lulan.shincolle.client.particle.BlockWaypointVisuals.tick(level, pos, tile);
+    }
+
+    @Override
+    public void setChanged() {
+        super.setChanged();
+        if (level != null && !level.isClientSide()) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(),
+                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        }
+    }
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        return saveWithoutMetadata();
+    }
+
+    @Override
+    public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+
     // ========== Owner ==========
 
     public UUID getOwnerUUID() {

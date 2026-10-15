@@ -70,6 +70,19 @@ public final class ClientRuntimeHelper {
         }
     }
 
+    public static boolean isSprintKeyDown() {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return false;
+        }
+
+        try {
+            Object result = invokeClientAccess("isSprintKeyDown");
+            return result instanceof Boolean b && b;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private static Object invokeClientAccess(String methodName) throws ReflectiveOperationException {
         Class<?> accessClass = Class.forName(CLIENT_ACCESS_CLASS);
         Method method = accessClass.getMethod(methodName);

@@ -1,6 +1,5 @@
 package com.lulan.shincolle.entity.hime;
 
-import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.command.MovementOrder;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
@@ -31,7 +30,7 @@ public final class HimeRiding {
         return !ship.level().isClientSide() && ship.isAlive() && hand == InteractionHand.MAIN_HAND
                 && !player.isShiftKeyDown()
                 && TeamHelper.checkSameOwner(ship, player)
-                && (ShipCommandStateAdapter.isNew() ? ship.getCommandState().sitting() : ship.isOrderedToSit())
+                && ship.getCommandState().sitting()
                 && ship.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED
                 && player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()
                 && player.getPassengers().isEmpty() && !ship.isPassenger();
@@ -85,10 +84,7 @@ public final class HimeRiding {
     }
 
     private boolean hasMovementOrder() {
-        if (ShipCommandStateAdapter.isNew()) {
-            return !(ship.getCommandState().movement() instanceof MovementOrder.Follow);
-        }
-        return !ship.getStateFlag(ID.F.CanFollow);
+        return !(ship.getCommandState().movement() instanceof MovementOrder.Follow);
     }
 
     private boolean eligible(LivingEntity target) {

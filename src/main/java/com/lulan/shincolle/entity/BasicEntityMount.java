@@ -3,7 +3,6 @@ package com.lulan.shincolle.entity;
 import com.lulan.shincolle.ai.ShipActionGate;
 import com.lulan.shincolle.ai.ShipCombatHost;
 import com.lulan.shincolle.ai.ShipMovementExecutor;
-import com.lulan.shincolle.ai.ShipMovementGate;
 import com.lulan.shincolle.ai.ShipMovementHost;
 import com.lulan.shincolle.ai.ShipCombatState;
 import com.lulan.shincolle.ai.ShipFireControlGoal;
@@ -79,7 +78,7 @@ public abstract class BasicEntityMount extends TamableAnimal
      * Whether the floating goal, the depth probe and the liquid movement run as NEW. Fixed each time
      * the goals are registered, so a setting switched while running cannot split the three; not saved.
      */
-    private boolean floatingNew;
+    private boolean floatingRegistered;
 
     /**
      * key input from player riding this mount
@@ -273,7 +272,7 @@ public abstract class BasicEntityMount extends TamableAnimal
 
     public void setAIList() {
         this.clearAITasks();
-        this.floatingNew = ShipCommandStateAdapter.isNew();
+        this.floatingRegistered = true;
 
         BasicEntityMount self = this;
 
@@ -317,51 +316,35 @@ public abstract class BasicEntityMount extends TamableAnimal
 
                 if (--pathfindCooldown <= 0) {
                     pathfindCooldown = 10;
-                    if (ShipMovementGate.active()) {
-                        ShipMovementExecutor.run(self, MovementPlan.of(new MovementStep.PathTo(MovementBody.SELF,
-                                new MovementTarget.Entity(ShipCommandStateAdapter.handle(self.host)), 1.0D,
-                                MovementReason.MOUNT_TO_HOST)));
-                    } else {
-                        self.getNavigation().moveTo(self.host, 1.0D);
-                    }
+                    ShipMovementExecutor.run(self, MovementPlan.of(new MovementStep.PathTo(MovementBody.SELF,
+                            new MovementTarget.Entity(ShipCommandStateAdapter.handle(self.host)), 1.0D,
+                            MovementReason.MOUNT_TO_HOST)));
                 }
 
                 // teleport to host if too far away (> 32 blocks)
                 if (self.distanceToSqr(self.host) > 1024.0D) {
                     LogHelper.diag("DIAG: mount recall host=" + self.host + " mount=" + self
                             + " distSq=" + self.distanceToSqr(self.host));
-                    if (ShipMovementGate.active()) {
-                        // through the same safety rule as every other teleport
-                        ShipMovementExecutor.run(self, MovementPlan.of(new MovementStep.Teleport(MovementBody.SELF,
-                                new MovementPoint(self.host.getX(), self.host.getY(), self.host.getZ()),
-                                MovementReason.MOUNT_RECALL, ShipCommandStateAdapter.handle(self.host).dimension())));
-                    } else {
-                        self.setPos(self.host.getX(), self.host.getY(), self.host.getZ());
-                    }
+                    // Through the same safety rule as every other teleport.
+                    ShipMovementExecutor.run(self, MovementPlan.of(new MovementStep.Teleport(MovementBody.SELF,
+                            new MovementPoint(self.host.getX(), self.host.getY(), self.host.getZ()),
+                            MovementReason.MOUNT_RECALL, ShipCommandStateAdapter.handle(self.host).dimension())));
                 }
             }
 
             @Override
             public void stop() {
-                if (ShipMovementGate.active()) {
-                    ShipMovementExecutor.run(self, ShipMovementExecutor.GOAL_STOPPED);
-                } else {
-                    self.getNavigation().stop();
-                }
+                ShipMovementExecutor.run(self, ShipMovementExecutor.GOAL_STOPPED);
             }
         });
         // NEW: fires for its rider with every weapon on one timer
         this.goalSelector.addGoal(10, new ShipFireControlGoal(this));
         // The mount walks for the ship it carries, as upstream did: the carried ship's own
-        // guard and follow goals stop while it rides. Only the NEW authority restores this.
-        if (ShipCommandStateAdapter.isNew()) {
-            this.goalSelector.addGoal(2, new ShipGuardingGoal(this));
-            this.goalSelector.addGoal(3, new ShipFollowOwnerGoal(this));
-        }
+        // guard and follow goals stop while it rides.
+        this.goalSelector.addGoal(2, new ShipGuardingGoal(this));
+        this.goalSelector.addGoal(3, new ShipFollowOwnerGoal(this));
         // The carried ship's own floating goal stops while it rides; the mount floats for both.
-        if (this.floatingNew) {
-            this.goalSelector.addGoal(22, new ShipFloatingGoal(this));
-        }
+        this.goalSelector.addGoal(22, new ShipFloatingGoal(this));
 
     }
 
@@ -589,12 +572,8 @@ public abstract class BasicEntityMount extends TamableAnimal
         }
 
         if (!player.isShiftKeyDown() && TeamHelper.checkSameOwner(player, this.host)) {
-            if (ShipCommandStateAdapter.isNew()) {
-                this.host.applyCommandState(new CommandIssuer.Player(player.getUUID()),
-                        new CommandStateOp.Apply(new ShipCommand.SetSitting(!this.host.getCommandState().sitting())));
-            } else {
-                this.host.setEntitySit(!this.host.isOrderedToSit());
-            }
+            this.host.applyCommandState(new CommandIssuer.Player(player.getUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.SetSitting(!this.host.getCommandState().sitting())));
             this.jumping = false;
             this.getNavigation().stop();
             this.host.getNavigation().stop();
@@ -854,14 +833,17 @@ public abstract class BasicEntityMount extends TamableAnimal
             this.resolveClientHost();
         }
         super.tick();
+        if (this.level().isClientSide()) {
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
+        }
 
-        if (!this.level().isClientSide() && this.host != null
-                && ShipCommandStateAdapter.isNew() && (this.tickCount & 31) == 0) {
+
+        if (!this.level().isClientSide() && this.host != null && (this.tickCount & 31) == 0) {
             this.setupAttrs();
         }
 
         // NEW: measure the water depth that the floating goal reads, as upstream's onUpdate did.
-        if (!this.level().isClientSide() && this.floatingNew) {
+        if (!this.level().isClientSide() && this.floatingRegistered) {
             EntityHelper.updateShipDepth(this);
         }
 
@@ -912,7 +894,7 @@ public abstract class BasicEntityMount extends TamableAnimal
     public void travel(Vec3 travelVec) {
         // NEW: upstream's liquid movement for a mount the AI drives. Without gravity in liquid
         // the floating goal's small push keeps it at the surface, as it did for ships.
-        if (!this.level().isClientSide() && this.floatingNew
+        if (!this.level().isClientSide() && this.floatingRegistered
                 && EntityHelper.checkEntityIsInLiquid(this)) {
             double startY = this.getY();
             this.moveRelative(this.getSpeed() * 0.4F, travelVec);
@@ -940,12 +922,7 @@ public abstract class BasicEntityMount extends TamableAnimal
 
         if ((this.keyPressed & 16) > 0) {
             this.getJumpControl().jump();
-            if (this.getShipDepth() > 0) {
-                motionY += moveSpeed * 0.1F;
-                if (motionY > 1D) {
-                    motionY = 1D;
-                }
-            }
+            motionY = MountAscendRules.ascend(motionY, moveSpeed, EntityHelper.checkEntityIsInLiquid(this));
         }
 
         if (this.onGround() || EntityHelper.checkEntityIsInLiquid(this)) {

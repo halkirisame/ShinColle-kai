@@ -1,5 +1,6 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.ai.ShipGuardingGoal;
 import com.lulan.shincolle.ai.ShipWanderGoal;
 import com.lulan.shincolle.ai.ShipMovementHost;
 import com.lulan.shincolle.ai.domain.DimensionKey;
@@ -23,7 +24,6 @@ import com.lulan.shincolle.server.CacheDataShip;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import com.lulan.shincolle.utility.EntityHelper;
-import com.lulan.shincolle.utility.FormationHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -44,15 +44,14 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Waypoint traversal and the first steps after a command, now decided in the domain and walked through
- * the executor under NEW. Except where a decision says otherwise, none of it may change what a ship
- * does: each test runs one fixture under LEGACY and under NEW and compares every path request, the guard
- * fields, and the head's aim. A route's path ends at the middle of its block under NEW.
+ * Waypoint traversal and the first steps after a command, decided in the domain and walked through
+ * the executor. Each test runs one fixture and compares every path request, the guard fields, and
+ * the head's aim with the record of the original run of the same fixture. A route's path ends at the
+ * middle of its block.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -63,37 +62,46 @@ public final class WaypointStructureGameTests {
     // ---------- traversal ----------
 
     @GameTest(template = "arena", batch = "isolated_waypoint_structure_traversal")
-    public static void traversalMatchesAcrossAuthorities(GameTestHelper helper) {
-        List<String> legacy = traverse(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-        List<String> now = traverse(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-        List<String> expected = legacy.stream().map(WaypointStructureGameTests::routeEndsAtTheMiddle).toList();
-        helper.assertTrue(now.equals(expected), "Traversal differs between the authorities:\n LEGACY " + legacy
-                + "\n NEW    " + now + "\n EXPECTED " + expected);
-        helper.assertTrue(legacy.stream().filter(line -> line.contains("moveTo(")).count() == 2,
-                "Fixture must advance exactly twice: " + legacy);
-        LogHelper.info("Waypoint traversal parity: " + now);
+    public static void traversalAdvancesAsRecorded(GameTestHelper helper) {
+        List<String> now = traverse(helper);
+        BlockPos a = helper.absolutePos(new BlockPos(2, 2, 2));
+        BlockPos b = helper.absolutePos(new BlockPos(7, 2, 2));
+        BlockPos c = helper.absolutePos(new BlockPos(2, 2, 7));
+        List<String> expected = new ArrayList<>();
+        for (int check = 1; check <= 7; check++) {
+            expected.add("a" + check + " false stay=" + 16 * check + " guard=" + fields(a) + "/1 last=none");
+        }
+        expected.add(path(b));
+        expected.add("a8 true stay=0 guard=" + fields(b) + "/1 last=" + a.toShortString());
+        expected.add("a9 false stay=0 guard=" + fields(b) + "/1 last=" + a.toShortString());
+        expected.add("a10 false stay=0 guard=" + fields(b) + "/1 last=" + a.toShortString());
+        expected.add(path(c));
+        expected.add("b1 true stay=0 guard=" + fields(c) + "/1 last=" + b.toShortString());
+        expected.add("b2 false stay=0 guard=" + fields(c) + "/1 last=" + b.toShortString());
+        expected.add("b3 false stay=0 guard=" + fields(c) + "/1 last=" + b.toShortString());
+        helper.assertTrue(now.equals(expected), "Traversal differs from the recorded one:\n RECORDED " + expected
+                + "\n NOW      " + now);
+        LogHelper.info("Waypoint traversal: " + now);
         helper.succeed();
     }
 
-    private static final Pattern PATH_CALL = Pattern.compile("moveTo\\((-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)\\)");
+    /** The path request to the middle of the block {@code pos}. */
+    private static String path(BlockPos pos) {
+        return String.format(Locale.ROOT, "0:moveTo(%.3f,%.3f,%.3f)x1.0=true", pos.getX() + 0.5D, (double) pos.getY(),
+                pos.getZ() + 0.5D);
+    }
 
-    /** What a legacy path request looks like when its end is moved to the middle of the block. */
-    private static String routeEndsAtTheMiddle(String line) {
-        Matcher match = PATH_CALL.matcher(line);
-        if (!match.find()) return line;
-        return line.substring(0, match.start()) + String.format(Locale.ROOT, "moveTo(%.3f,%s,%.3f)",
-                Double.parseDouble(match.group(1)) + 0.5D, match.group(2), Double.parseDouble(match.group(3)) + 0.5D)
-                + line.substring(match.end());
+    private static String fields(BlockPos pos) {
+        return pos.getX() + "," + pos.getY() + "," + pos.getZ();
     }
 
     /** A to B after a 100-tick wait (seven waits, the eighth check moves on), then B back to its last link C. */
-    private static List<String> traverse(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
+    private static List<String> traverse(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos a = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos b = helper.absolutePos(new BlockPos(7, 2, 2));
         BlockPos c = helper.absolutePos(new BlockPos(2, 2, 7));
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             TileEntityWaypoint first = place(level, a);
             TileEntityWaypoint second = place(level, b);
             place(level, c);
@@ -116,19 +124,17 @@ public final class WaypointStructureGameTests {
             }
             MovementPlanParityGameTests.navigation(ship).recordCalls(null);
 
-            if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                helper.assertTrue(ship.lastWaypointCheck().isPresent(), "NEW must remember its last check");
-                helper.assertTrue(ship.lastWaypointCheck().get().step() instanceof WaypointStep.Skip,
-                        "The last check, at C, must be a skip: " + ship.lastWaypointCheck());
-                helper.assertTrue(((ShipMovementHost) ship).shipMovementExecutor().last().isPresent()
-                                && ((ShipMovementHost) ship).shipMovementExecutor().last().get().step().reason()
-                                == MovementReason.WAYPOINT_ADVANCED,
-                        "A traversal's path must leave WAYPOINT_ADVANCED in the executor: "
-                                + ((ShipMovementHost) ship).shipMovementExecutor().last());
-                helper.assertTrue(((ShipMovementHost) ship).shipMovementExecutor().lastLook().isEmpty(),
-                        "A traversal must not turn the ship's head: "
-                                + ((ShipMovementHost) ship).shipMovementExecutor().lastLook());
-            }
+            helper.assertTrue(ship.lastWaypointCheck().isPresent(), "The ship must remember its last check");
+            helper.assertTrue(ship.lastWaypointCheck().get().step() instanceof WaypointStep.Skip,
+                    "The last check, at C, must be a skip: " + ship.lastWaypointCheck());
+            helper.assertTrue(((ShipMovementHost) ship).shipMovementExecutor().last().isPresent()
+                            && ((ShipMovementHost) ship).shipMovementExecutor().last().get().step().reason()
+                            == MovementReason.WAYPOINT_ADVANCED,
+                    "A traversal's path must leave WAYPOINT_ADVANCED in the executor: "
+                            + ((ShipMovementHost) ship).shipMovementExecutor().last());
+            helper.assertTrue(((ShipMovementHost) ship).shipMovementExecutor().lastLook().isEmpty(),
+                    "A traversal must not turn the ship's head: "
+                            + ((ShipMovementHost) ship).shipMovementExecutor().lastLook());
             return log;
         }
     }
@@ -142,8 +148,7 @@ public final class WaypointStructureGameTests {
         BlockPos a = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos b = helper.absolutePos(new BlockPos(7, 2, 2));
         BlockPos c = helper.absolutePos(new BlockPos(2, 2, 7));
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             place(level, a).setWpStayTime(1);
             TileEntityWaypoint second = place(level, b);
             second.setWpStayTime(1);
@@ -171,8 +176,7 @@ public final class WaypointStructureGameTests {
         ServerLevel level = helper.getLevel();
         BlockPos a = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos plain = helper.absolutePos(new BlockPos(7, 2, 2));
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             place(level, a).setWpStayTime(1);
             BasicEntityShip ship = ship(helper, entities, a);
             guard(level, ship, a);
@@ -202,12 +206,15 @@ public final class WaypointStructureGameTests {
 
     /** m3: the formation members' guard targets after the flagship's traversal; this change does not touch them. */
     @GameTest(template = "arena", batch = "isolated_waypoint_structure_formation")
-    public static void formationMembersAreSentTheSameWayUnderEitherAuthority(GameTestHelper helper) {
-        String legacy = formation(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, 71);
-        String now = formation(helper, ConfigHandler.ShipAiTargetAuthority.NEW, 72);
-        helper.assertTrue(now.equals(legacy), "Formation destinations differ:\n LEGACY " + legacy
-                + "\n NEW    " + now);
-        LogHelper.info("Waypoint formation parity: " + now);
+    public static void formationMembersAreSentAsRecorded(GameTestHelper helper) {
+        String now = formation(helper, 72);
+        BlockPos b = helper.absolutePos(new BlockPos(9, 2, 2));
+        // the formation stands on the floor, two blocks below the waypoint
+        BlockPos floor = b.below(2);
+        String expected = "flagship=" + fields(floor) + "/1 member=" + fields(floor.offset(-3, 0, 0)) + "/1";
+        helper.assertTrue(now.equals(expected), "Formation destinations differ from the recorded ones:\n RECORDED "
+                + expected + "\n NOW      " + now);
+        LogHelper.info("Waypoint formation: " + now);
         helper.succeed();
     }
 
@@ -223,13 +230,12 @@ public final class WaypointStructureGameTests {
         }
     }
 
-    private static String formation(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, int id) {
+    private static String formation(GameTestHelper helper, int id) {
         ServerLevel level = helper.getLevel();
         BlockPos a = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockPos b = helper.absolutePos(new BlockPos(9, 2, 2));
         List<ServerPlayer> players = onlinePlayers(level.getServer().getPlayerList());
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             PointerSingleModeGameTests.TestContext context =
+        try (PointerSingleModeGameTests.TestContext context =
                      PointerSingleModeGameTests.createContext(helper, "waypoint_formation_" + id, id)) {
             place(level, a).setNextWaypoint(b);
             place(level, b);
@@ -270,40 +276,41 @@ public final class WaypointStructureGameTests {
     // ---------- the first steps after a command ----------
 
     @GameTest(template = "arena", batch = "isolated_waypoint_structure_command_ground")
-    public static void guardCommandWalksTheSameOnTheGround(GameTestHelper helper) {
-        commandParity(helper, false, true);
+    public static void guardCommandWalksAsRecordedOnTheGround(GameTestHelper helper) {
+        commandSteps(helper, false, true);
     }
 
     @GameTest(template = "arena", batch = "isolated_waypoint_structure_command_mounted")
-    public static void guardCommandWalksTheSameOnAMount(GameTestHelper helper) {
-        commandParity(helper, true, true);
+    public static void guardCommandWalksAsRecordedOnAMount(GameTestHelper helper) {
+        commandSteps(helper, true, true);
     }
 
     @GameTest(template = "arena", batch = "isolated_waypoint_structure_move_ground")
-    public static void moveCommandWalksTheSameOnTheGround(GameTestHelper helper) {
-        commandParity(helper, false, false);
+    public static void moveCommandWalksAsRecordedOnTheGround(GameTestHelper helper) {
+        commandSteps(helper, false, false);
     }
 
     @GameTest(template = "arena", batch = "isolated_waypoint_structure_move_mounted")
-    public static void moveCommandWalksTheSameOnAMount(GameTestHelper helper) {
-        commandParity(helper, true, false);
+    public static void moveCommandWalksAsRecordedOnAMount(GameTestHelper helper) {
+        commandSteps(helper, true, false);
     }
 
-    private static void commandParity(GameTestHelper helper, boolean mounted, boolean guard) {
-        String legacy = command(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, mounted, guard);
-        String now = command(helper, ConfigHandler.ShipAiTargetAuthority.NEW, mounted, guard);
-        helper.assertTrue(now.equals(legacy), "The command's first steps differ:\n LEGACY " + legacy
-                + "\n NEW    " + now);
-        helper.assertTrue(legacy.contains("moveTo("), "Fixture must request a path: " + legacy);
-        LogHelper.info("Command first-step parity (mounted=" + mounted + ", guard=" + guard + "): " + now);
+    private static void commandSteps(GameTestHelper helper, boolean mounted, boolean guard) {
+        String now = command(helper, mounted, guard);
+        BlockPos target = helper.absolutePos(new BlockPos(8, 2, 5));
+        String expected = String.format(Locale.ROOT, "0:moveTo(%.3f,%.3f,%.3f)x1.0=true guard=%s/%d canFollow=false"
+                        + " sit=false target=null look=%.1f,%.1f,%.1f", (double) target.getX(), (double) target.getY(),
+                (double) target.getZ(), fields(target), guard ? 1 : 0, (double) target.getX(), (double) target.getY(),
+                (double) target.getZ());
+        helper.assertTrue(now.equals(expected), "The command's first steps differ from the recorded ones:\n RECORDED "
+                + expected + "\n NOW      " + now);
+        LogHelper.info("Command first steps (mounted=" + mounted + ", guard=" + guard + "): " + now);
         helper.succeed();
     }
 
-    private static String command(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, boolean mounted,
-                                  boolean guard) {
+    private static String command(GameTestHelper helper, boolean mounted, boolean guard) {
         BlockPos target = helper.absolutePos(new BlockPos(8, 2, 5));
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = ship(helper, entities, helper.absolutePos(new BlockPos(2, 2, 2)));
             BasicEntityMount mount = null;
             if (mounted) {
@@ -316,27 +323,22 @@ public final class WaypointStructureGameTests {
             Mob body = mounted ? mount : ship;
             List<String> log = new ArrayList<>();
             MovementPlanParityGameTests.navigation(body).recordCalls(log);
-            if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                var id = helper.getLevel().dimension().location();
-                DimensionKey dimension = new DimensionKey(id.getNamespace(), id.getPath());
-                CommandPos pos = new CommandPos(target.getX(), target.getY(), target.getZ());
-                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()), new CommandStateOp.Apply(guard
-                        ? new ShipCommand.GuardPosition(dimension, pos, false)
-                        : new ShipCommand.Move(dimension, pos, true)));
-                var executor = ((ShipMovementHost) ship).shipMovementExecutor();
-                helper.assertTrue(executor.last().isPresent()
-                                && executor.last().get().step() instanceof MovementStep.PathTo path
-                                && path.reason() == MovementReason.COMMAND_APPLIED
-                                && path.body() == (mounted ? MovementBody.VEHICLE : MovementBody.SELF),
-                        "The executor's last request must be the command's path from the right body: "
-                                + executor.last());
-                helper.assertTrue(executor.lastLook().isPresent()
-                                && executor.lastLook().get().reason() == LookReason.COMMAND_APPLIED,
-                        "The head must have been asked to look by COMMAND_APPLIED: " + executor.lastLook());
-            } else {
-                FormationHelper.applyShipGuard(ship, target.getX(), target.getY(), target.getZ(), true,
-                        guard ? 1 : 0);
-            }
+            var id = helper.getLevel().dimension().location();
+            DimensionKey dimension = new DimensionKey(id.getNamespace(), id.getPath());
+            CommandPos pos = new CommandPos(target.getX(), target.getY(), target.getZ());
+            ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()), new CommandStateOp.Apply(guard
+                    ? new ShipCommand.GuardPosition(dimension, pos, false)
+                    : new ShipCommand.Move(dimension, pos, true)));
+            var executor = ((ShipMovementHost) ship).shipMovementExecutor();
+            helper.assertTrue(executor.last().isPresent()
+                            && executor.last().get().step() instanceof MovementStep.PathTo path
+                            && path.reason() == MovementReason.COMMAND_APPLIED
+                            && path.body() == (mounted ? MovementBody.VEHICLE : MovementBody.SELF),
+                    "The executor's last request must be the command's path from the right body: "
+                            + executor.last());
+            helper.assertTrue(executor.lastLook().isPresent()
+                            && executor.lastLook().get().reason() == LookReason.COMMAND_APPLIED,
+                    "The head must have been asked to look by COMMAND_APPLIED: " + executor.lastLook());
             MovementPlanParityGameTests.navigation(body).recordCalls(null);
             return String.join(",", log) + " guard=" + guardFields(ship) + " canFollow="
                     + ship.getStateFlag(ID.F.CanFollow) + " sit=" + ship.isOrderedToSit() + " target="
@@ -394,8 +396,12 @@ public final class WaypointStructureGameTests {
                 ships[i] = MovementPlanParityGameTests.friendly(helper, entities, new Vec3(5.5D, 1D, 2.5D + 4 * i));
                 ships[i].setStateMinor(ID.M.FollowMin, followMins[i]);
                 ships[i].setStateMinor(ID.M.FollowMax, followMins[i] + 1);
+                assertFollowDistances(helper, ships[i], followMins[i], "after setting");
             }
             helper.runAtTickTime(20, () -> step(close, () -> {
+                for (int i = 0; i < ships.length; i++) {
+                    assertFollowDistances(helper, ships[i], followMins[i], "before the command");
+                }
                 for (int i = 0; i < ships.length; i++) {
                     BlockPos first = helper.absolutePos(new BlockPos(firstX, 1, 1 + 4 * i));
                     var id = level.dimension().location();
@@ -444,6 +450,34 @@ public final class WaypointStructureGameTests {
 
     // ---------- a ship that is near the middle point, or at the last one, without a path ----------
 
+    @GameTest(template = "arena", batch = "isolated_waypoint_structure_stale_coordinate")
+    public static void aMarkOfAnotherPointMustNotTightenAnEndPoint(GameTestHelper helper) {
+        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
+             GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = MovementPlanParityGameTests.friendly(helper, entities, new Vec3(6.5D, 1D, 3.5D));
+            ship.setStateMinor(ID.M.FollowMin, 4);
+            ship.setStateMinor(ID.M.FollowMax, 5);
+            assertFollowDistances(helper, ship, 4, "before the end guard command");
+            BlockPos end = helper.absolutePos(new BlockPos(2, 1, 3));
+            TileEntityWaypoint waypoint = place(helper.getLevel(), end);
+            var id = helper.getLevel().dimension().location();
+            CommandPos destination = new CommandPos(end.getX(), end.getY(), end.getZ());
+            ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()), new CommandStateOp.Apply(
+                    new ShipCommand.GuardPosition(new DimensionKey(id.getNamespace(), id.getPath()), destination, false)));
+            CommandPos elsewhere = new CommandPos(end.getX() + 10, end.getY(), end.getZ());
+            ship.setPassThroughWaypoint(Optional.of(elsewhere));
+            helper.assertTrue(!waypoint.hasNextWaypoint() && ship.getGuardedPos(0) == end.getX()
+                            && ship.getGuardedPos(1) == end.getY() && ship.getGuardedPos(2) == end.getZ(),
+                    "Fixture: the ship must guard the end point");
+            helper.assertTrue(ship.passThroughWaypoint().filter(elsewhere::equals).isPresent()
+                            && !elsewhere.equals(destination),
+                    "Fixture: the pass-through mark must belong to another coordinate");
+            assertFollowDistances(helper, ship, 4, "before checking the end guard");
+            helper.assertTrue(!new ShipGuardingGoal(ship).canUse(), "Another point's mark must not call an end guard back");
+            helper.succeed();
+        }
+    }
+
     /**
      * A ship that stands inside the guard goal's start distance but outside the arrival range of a middle
      * point, with no path (a wander step or a knock replaced it), goes back to the point and moves on.
@@ -477,6 +511,7 @@ public final class WaypointStructureGameTests {
             helper.assertTrue(ship.getStateMinor(ID.M.FollowMin) == followMin
                             && ship.getStateMinor(ID.M.FollowMax) == followMin + 1,
                     "Fixture: the ship's FollowMin and FollowMax must be set");
+            HorizontalDisplacement displacement = new HorizontalDisplacement();
             helper.onEachTick(() -> fixture.step(() -> MovementPlanParityGameTests.selector(ship)
                     .removeAllGoals(goal -> goal instanceof ShipWanderGoal)));
             helper.runAtTickTime(30, () -> fixture.step(() -> {
@@ -488,11 +523,21 @@ public final class WaypointStructureGameTests {
             }));
             helper.runAtTickTime(31, () -> fixture.step(() -> {
                 ship.getNavigation().stop();
+                helper.assertTrue(ship.getNavigation().isDone() && ship.getNavigation().getPath() == null,
+                        "Fixture: stopping navigation must leave no path");
+                if (!linked) displacement.start = ship.position();
                 helper.assertTrue(ship.distanceToSqr(Vec3.atCenterOf(middle)) > 9D,
                         "Fixture: the ship must stand outside the arrival range");
             }));
+            if (!linked) {
+                for (int tick = 32; tick < 240; tick++) {
+                    int sampleTick = tick;
+                    helper.runAtTickTime(tick, () -> fixture.step(() -> displacement.sample(ship, sampleTick)));
+                }
+            }
             helper.runAtTickTime(240, () -> {
                 try {
+                    if (!linked) displacement.sample(ship, 240);
                     String report = " guard=" + guardFields(ship) + " distSq="
                             + String.format(Locale.ROOT, "%.2f", ship.distanceToSqr(Vec3.atCenterOf(middle)))
                             + " last=" + ship.lastWaypointCheck().map(Object::toString).orElse("none");
@@ -503,6 +548,11 @@ public final class WaypointStructureGameTests {
                         helper.assertTrue(ship.getGuardedPos(0) == middle.getX()
                                         && ship.distanceToSqr(Vec3.atCenterOf(middle)) > 9D,
                                 "The ship must keep standing near the last point:" + report);
+                        LogHelper.info("Waypoint end displacement: max=" + displacement.maximum
+                                + " tick=" + displacement.maximumTick);
+                        helper.assertTrue(displacement.maximum < 1D,
+                                "The end guard moved too far: max=" + displacement.maximum
+                                        + " tick=" + displacement.maximumTick);
                     }
                     helper.succeed();
                 } finally {
@@ -539,8 +589,11 @@ public final class WaypointStructureGameTests {
                             && ship.getStateMinor(ID.M.FollowMax) == 6,
                     "Fixture: the ship must pick items up, with FollowMin 5 and FollowMax 6");
             ItemEntity[] item = new ItemEntity[1];
-            helper.onEachTick(() -> fixture.step(() -> MovementPlanParityGameTests.selector(ship)
-                    .removeAllGoals(goal -> goal instanceof ShipWanderGoal)));
+            PickupObservation pickup = new PickupObservation();
+            helper.onEachTick(() -> fixture.step(() -> {
+                MovementPlanParityGameTests.selector(ship).removeAllGoals(goal -> goal instanceof ShipWanderGoal);
+                if (item[0] != null) pickup.sample(helper, ship, item[0], middle, helper.getTick());
+            }));
             helper.runAtTickTime(30, () -> fixture.step(() -> {
                 var id = level.dimension().location();
                 ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
@@ -548,10 +601,12 @@ public final class WaypointStructureGameTests {
                                 new DimensionKey(id.getNamespace(), id.getPath()),
                                 new CommandPos(middle.getX(), middle.getY(), middle.getZ()), false)));
                 Vec3 at = MovementPlanParityGameTests.ground(helper, new Vec3(10.5D, 1D, 3.5D));
+                helper.assertTrue(!hasCobblestone(ship), "Fixture: the ship must have no cobblestone before the drop");
                 item[0] = fixture.entities.add(new ItemEntity(level, at.x, at.y, at.z, new ItemStack(Items.COBBLESTONE)));
                 item[0].setNoPickUpDelay();
                 item[0].setDeltaMovement(Vec3.ZERO);
                 helper.assertTrue(level.addFreshEntity(item[0]), "Fixture: the item must be added");
+                pickup.sample(helper, ship, item[0], middle, 30);
             }));
             helper.runAtTickTime(160, () -> fixture.step(() -> helper.assertTrue(!item[0].isAlive(),
                     "The ship did not pick the item up: guard=" + guardFields(ship) + " distSq="
@@ -563,6 +618,10 @@ public final class WaypointStructureGameTests {
                                     + " distSq=" + String.format(Locale.ROOT, "%.2f",
                                     ship.distanceToSqr(Vec3.atCenterOf(middle)))
                                     + " last=" + ship.lastWaypointCheck().map(Object::toString).orElse("none"));
+                    helper.assertTrue(pickup.pickupTick >= 30, "The pickup must have been observed");
+                    LogHelper.info("Waypoint pickup distances: min=" + pickup.minimumDistance
+                            + " maxRetreat=" + pickup.maximumRetreat + " pickupTick=" + pickup.pickupTick
+                            + " itemDistance=" + pickup.pickupDistance + " waypointSq=" + pickup.pickupWaypointSq);
                     helper.succeed();
                 } finally {
                     fixture.close();
@@ -673,6 +732,65 @@ public final class WaypointStructureGameTests {
         } catch (Throwable error) {
             fixture.close();
             throw error;
+        }
+    }
+
+    private static void assertFollowDistances(GameTestHelper helper, BasicEntityShip ship, int followMin, String when) {
+        helper.assertTrue(ship.getStateMinor(ID.M.FollowMin) == followMin
+                        && ship.getStateMinor(ID.M.FollowMax) == followMin + 1,
+                "Fixture: FollowMin and FollowMax must remain " + followMin + "/" + (followMin + 1) + " " + when
+                        + ": actual=" + ship.getStateMinor(ID.M.FollowMin) + "/" + ship.getStateMinor(ID.M.FollowMax));
+    }
+
+    private static boolean hasCobblestone(BasicEntityShip ship) {
+        var inventory = ship.getCapaShipInventory();
+        for (int slot = 0; slot < inventory.getSlots(); slot++) {
+            if (inventory.getStackInSlot(slot).is(Items.COBBLESTONE)) return true;
+        }
+        return false;
+    }
+
+    private static final class HorizontalDisplacement {
+        private Vec3 start;
+        private double maximum;
+        private int maximumTick = 31;
+
+        void sample(BasicEntityShip ship, int tick) {
+            double dx = ship.getX() - this.start.x;
+            double dz = ship.getZ() - this.start.z;
+            double distance = Math.sqrt(dx * dx + dz * dz);
+            if (distance > this.maximum) {
+                this.maximum = distance;
+                this.maximumTick = tick;
+            }
+        }
+    }
+
+    private static final class PickupObservation {
+        private double minimumDistance = Double.POSITIVE_INFINITY;
+        private double maximumRetreat;
+        private long pickupTick = -1;
+        private double pickupDistance;
+        private double pickupWaypointSq;
+
+        void sample(GameTestHelper helper, BasicEntityShip ship, ItemEntity item, BlockPos middle, long tick) {
+            if (this.pickupTick >= 0) return;
+            double distance = ship.distanceTo(item);
+            if (!item.isAlive()) {
+                this.pickupTick = tick;
+                this.pickupDistance = distance;
+                this.pickupWaypointSq = ship.distanceToSqr(Vec3.atCenterOf(middle));
+                helper.assertTrue(hasCobblestone(ship), "The vanished drop must be in the ship's inventory: tick=" + tick);
+                helper.assertTrue(this.pickupWaypointSq > 9D,
+                        "Fixture: pickup must be outside the waypoint arrival range: tick=" + tick
+                                + " distSq=" + this.pickupWaypointSq);
+                return;
+            }
+            this.minimumDistance = Math.min(this.minimumDistance, distance);
+            double retreat = distance - this.minimumDistance;
+            this.maximumRetreat = Math.max(this.maximumRetreat, retreat);
+            helper.assertTrue(retreat <= 1D, "The ship moved away from the item before pickup: tick=" + tick
+                    + " distance=" + distance + " min=" + this.minimumDistance + " retreat=" + retreat);
         }
     }
 

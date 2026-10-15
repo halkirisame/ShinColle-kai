@@ -158,21 +158,6 @@ public final class ShipSpecialAttackGameTests {
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_skill_legacy")
-    public static void legacyDoesNotAcquireNewSkillStateOrMultipliers(GameTestHelper helper) {
-        try (var mode = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
-            for (EntityType<? extends Mob> type : java.util.List.<EntityType<? extends Mob>>of(ModEntities.CL_TENRYUU.get(),
-                    ModEntities.CL_TENRYUU_MOB.get(), ModEntities.CL_TATSUTA.get(), ModEntities.CL_TATSUTA_MOB.get(),
-                    ModEntities.BB_NAGATO.get(), ModEntities.BB_NAGATO_MOB.get())) {
-                Mob host = type.create(helper.getLevel());
-                helper.assertTrue(!ShipSkillAttackGate.supported(host)
-                        && ShipSkillAttackGate.baseDamage(host, 0).isEmpty(), "LEGACY must retain existing paths");
-                host.discard();
-            }
-        }
-        helper.succeed();
-    }
-
     private static void continuous(GameTestHelper helper, EntityType<? extends Mob> type, int slashes, boolean beam) {
         fixture(helper, type, (host, target) -> {
             IShipCannonAttack ship = (IShipCannonAttack) host;

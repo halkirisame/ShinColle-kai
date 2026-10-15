@@ -39,7 +39,7 @@ public class ShipWatchClosestGoal extends Goal {
     @Override
     public boolean canUse() {
         if (ShipActionGate.blocked(this.entity, ActionKind.MOVEMENT)) return false;
-        if (ShipMovementGate.active() && ShipMovementGate.decision(this.entity) != null) {
+        if (ShipMovementGate.decision(this.entity) != null) {
             if (!ShipMovementGate.allows(this.entity, MovementActivity.IDLE_LOOK)) {
                 return false;
             }
@@ -108,9 +108,9 @@ public class ShipWatchClosestGoal extends Goal {
         }
     }
 
-    /** NEW: an engaged ship keeps its head on its target, so it must not look around (LEGACY has no decision). */
+    /** An engaged ship keeps its head on its target, so it must not look around. */
     private boolean idleLookForbidden() {
-        MovementDecision decision = ShipMovementGate.active() ? ShipMovementGate.decision(this.entity) : null;
+        MovementDecision decision = ShipMovementGate.decision(this.entity);
         return decision != null && !decision.allows(MovementActivity.IDLE_LOOK);
     }
 }

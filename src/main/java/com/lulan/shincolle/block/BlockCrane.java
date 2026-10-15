@@ -74,7 +74,8 @@ public class BlockCrane extends BasicBlockContainer {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                   BlockEntityType<T> type) {
-        return level.isClientSide ? null
+        return level.isClientSide
+                ? createTickerHelper(type, ModBlockEntities.CRANE.get(), TileEntityCrane::clientTick)
                 : createTickerHelper(type, ModBlockEntities.CRANE.get(), TileEntityCrane::serverTick);
     }
 }

@@ -7,6 +7,7 @@ import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.TaskHelper;
+import java.lang.reflect.Field;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import net.minecraft.core.BlockPos;
@@ -15,6 +16,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -131,6 +133,67 @@ public final class ShipFishingGameTests {
             helper.assertTrue(copy.getHost() == ship, "A copy without a local host reference resolves the tracking id");
             helper.assertTrue(!ModEntities.FISHING_HOOK.get().canSerialize(), "Transient floats must not be saved");
         });
+    }
+
+    @GameTest(template = "arena", batch = "isolated_ship_fishing")
+    public static void aClientTrackingCopyReplacesARemovedHostWithTheSameId(GameTestHelper helper) {
+        fixture(helper, (ship, entities) -> {
+            EntityShipFishingHook copy = entities.add(new EntityShipFishingHook(ModEntities.FISHING_HOOK.get(), ship.level()));
+            copy.setHost(ship);
+            int id = ship.getId();
+            helper.assertTrue(copy.getHost() == ship, "Fixture: the original host is cached");
+            ship.discard();
+            helper.assertTrue(ship.isRemoved(), "Fixture: the old host is removed");
+            helper.assertTrue(helper.getLevel().getEntity(id) == null, "Fixture: old id is no longer registered");
+            BasicEntityShip replacement = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
+            helper.assertTrue(replacement != null, "Fixture: create replacement ship");
+            replacement.setId(id);
+            replacement.setNoAi(true);
+            replacement.moveTo(ship.position().add(1D, 0D, 0D));
+            helper.assertTrue(helper.getLevel().addFreshEntity(replacement), "Fixture: add same-id replacement");
+            helper.assertTrue(helper.getLevel().getEntity(id) == replacement && replacement != ship
+                    && !replacement.isRemoved(), "Fixture: the same id resolves to a new live instance");
+            withClientSide(helper, () -> {
+                helper.assertTrue(copy.getHost() == replacement, "Client tracking must replace the removed same-id host");
+                helper.assertTrue(copy.getHost() == replacement, "The live replacement remains cached");
+            });
+            replacement.discard();
+            helper.assertTrue(replacement.isRemoved() && helper.getLevel().getEntity(id) == null,
+                    "Fixture: replacement tracking is absent");
+            withClientSide(helper, () -> helper.assertTrue(copy.getHost() == null,
+                    "A removed client host must not remain cached while tracking is absent"));
+        });
+    }
+
+    @GameTest(template = "arena", batch = "isolated_ship_fishing")
+    public static void aServerFloatKeepsItsRemovedHostForLifetimeCleanup(GameTestHelper helper) {
+        fixture(helper, (ship, entities) -> {
+            EntityShipFishingHook hook = entities.add(new EntityShipFishingHook(ModEntities.FISHING_HOOK.get(), ship.level()));
+            hook.setHost(ship);
+            ship.discard();
+            helper.assertTrue(ship.isRemoved() && !helper.getLevel().isClientSide(), "Fixture: removed server host");
+            helper.assertTrue(hook.getHost() == ship, "Server host resolution must remain unchanged");
+            hook.tick();
+            helper.assertTrue(hook.isRemoved(), "The server still removes a float whose host was removed");
+        });
+    }
+
+    private static void withClientSide(GameTestHelper helper, Runnable check) {
+        try {
+            Field side = Level.class.getDeclaredField("isClientSide");
+            side.setAccessible(true);
+            boolean original = side.getBoolean(helper.getLevel());
+            // Inject only for synchronous host lookups; restore before any world tick or cleanup.
+            try {
+                side.setBoolean(helper.getLevel(), true);
+                helper.assertTrue(helper.getLevel().isClientSide(), "Fixture: client side predicate");
+                check.run();
+            } finally {
+                side.setBoolean(helper.getLevel(), original);
+            }
+        } catch (ReflectiveOperationException exception) {
+            helper.fail("Cannot inject the client side predicate: " + exception.getMessage());
+        }
     }
 
     @GameTest(template = "arena", batch = "isolated_ship_fishing")

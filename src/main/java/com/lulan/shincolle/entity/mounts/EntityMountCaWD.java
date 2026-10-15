@@ -14,8 +14,8 @@ public class EntityMountCaWD extends BasicEntityMountLarge {
 
     public EntityMountCaWD(EntityType<? extends EntityMountCaWD> type, Level level) {
         super(type, level);
-        this.seatPos = new float[]{0.25F, 1.1F, 0F};
-        this.seatPos2 = new float[]{0.14F, -0.39F, 0F};
+        this.seatPos = new float[]{-0.25F, 1.2F, 0F};
+        this.seatPos2 = new float[]{0.59F, 1.16F, 0F};
     }
 
     @Override

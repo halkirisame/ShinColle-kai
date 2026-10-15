@@ -2,19 +2,24 @@ package com.lulan.shincolle.command;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CSpawnParticlePacket;
 import com.lulan.shincolle.reference.ID;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.level.BaseCommandBlock;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.network.PacketDistributor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +29,7 @@ import java.util.Map;
  * Aliases: /em, /emo, /emote, /emotes
  * <p>
  * Plays an emote on the ship entity the player is looking at.
+ * Non-entity sources display the emote at their execution position.
  * Available to all players (permission level 0).
  */
 public class ShipCmdEmotes {
@@ -197,6 +203,14 @@ public class ShipCmdEmotes {
             return 0;
         }
 
+        if (source.getEntity() == null) {
+            S2CSpawnParticlePacket packet = nonEntityEmotionPacket(source, emoteId);
+            Vec3 position = nonEntityEmotionPosition(source);
+            ModNetworking.sendToNear(packet, new PacketDistributor.TargetPoint(
+                    position.x, position.y, position.z, 64D, source.getLevel().dimension()));
+            return 1;
+        }
+
         // Get player for raycast
         ServerPlayer player;
         try {
@@ -219,8 +233,10 @@ public class ShipCmdEmotes {
         // Check if target is a ship entity (friendly or hostile)
         if (target instanceof BasicEntityShip ship) {
             ship.setStateEmotion(ID.S.Emotion, emoteId, true);
+            ship.applyParticleEmotion(emoteId);
         } else if (target instanceof BasicEntityShipHostile hostileShip) {
             hostileShip.setStateEmotion(ID.S.Emotion, emoteId, true);
+            hostileShip.applyParticleEmotion(emoteId);
         } else {
             source.sendFailure(Component.literal(
                     "[ShinColle] No ship entity found. Look at a ship entity and try again."));
@@ -233,5 +249,21 @@ public class ShipCmdEmotes {
                 "[ShinColle] Emote '" + resolvedName + "' (ID: " + resolvedId + ") applied to ship."), false);
 
         return 1;
+    }
+
+    private static S2CSpawnParticlePacket nonEntityEmotionPacket(CommandSourceStack source, int emotion) {
+        Vec3 position = nonEntityEmotionPosition(source);
+        int entityType = source.source instanceof BaseCommandBlock ? 2 : 0;
+        return S2CSpawnParticlePacket.position(36, 0, position.x, position.y, position.z,
+                0.5D, entityType, emotion);
+    }
+
+    private static Vec3 nonEntityEmotionPosition(CommandSourceStack source) {
+        Vec3 position = source.getPosition();
+        if (source.source instanceof BaseCommandBlock) {
+            BlockPos block = BlockPos.containing(position);
+            return new Vec3(block.getX() + 0.5D, block.getY(), block.getZ() + 0.5D);
+        }
+        return position;
     }
 }

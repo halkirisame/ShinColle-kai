@@ -1,6 +1,11 @@
 package com.lulan.shincolle.client.particle;
 
 import com.lulan.shincolle.reference.Values;
+import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.client.YamatoChargeVisuals;
+import com.lulan.shincolle.entity.IShipEmotion;
+import com.lulan.shincolle.entity.battleship.EntityBattleshipYamato;
+import com.lulan.shincolle.entity.battleship.EntityBattleshipYamatoMob;
 import com.lulan.shincolle.utility.CalcHelper;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
@@ -39,6 +44,8 @@ public class ParticleStickyLightning extends Particle {
     private final float scaleY;
     private final float stemWidth;
     private final float pScale;
+    private final double chargeOffsetX;
+    private final double chargeOffsetZ;
 
     public ParticleStickyLightning(ClientLevel level, Entity entity, float scale, int life, int type) {
         super(level, entity.getX(), entity.getY(), entity.getZ());
@@ -53,6 +60,8 @@ public class ParticleStickyLightning extends Particle {
 
         float hostWidth = entity.getBbWidth();
         float hostHeight = entity.getBbHeight();
+        double[] muzzle = {0D, 0D};
+        if (isYamatoCharge()) muzzle = muzzleOffset(entity);
 
         switch (type) {
             case 1: // yamato cannon charge steady state
@@ -68,9 +77,10 @@ public class ParticleStickyLightning extends Particle {
                 this.stemWidth = 0.01F * hostWidth;
 
                 // random position
-                this.x = this.host.getX() + random.nextFloat() * this.pScale * 2F - this.pScale;
-                this.y = this.host.getY() + hostHeight * 0.6D;
-                this.z = this.host.getZ() + random.nextFloat() * this.pScale * 2F - this.pScale;
+                this.x = this.host.getX() + muzzle[0] + random.nextFloat() * this.pScale * 2F - this.pScale;
+                this.y = this.host.getY() + (isYamatoCharge() ? YamatoChargeVisuals.heightOffset(this.host)
+                        : hostHeight * 0.6D);
+                this.z = this.host.getZ() + muzzle[1] + random.nextFloat() * this.pScale * 2F - this.pScale;
                 break;
             case 2: // yamato cannon charging state IN, LivingEntity ONLY
                 this.rCol = 1F;
@@ -157,6 +167,8 @@ public class ParticleStickyLightning extends Particle {
                 break;
         }// end switch
 
+        this.chargeOffsetX = this.x - this.host.getX() - muzzle[0];
+        this.chargeOffsetZ = this.z - this.host.getZ() - muzzle[1];
         this.prevShape = new double[numStem][6]; // prev lightning shape
     }
 
@@ -252,11 +264,31 @@ public class ParticleStickyLightning extends Particle {
         return ParticleRenderType.CUSTOM;
     }
 
+    private boolean isYamatoCharge() {
+        return this.particleType == 1 && (this.host instanceof EntityBattleshipYamato
+                || this.host instanceof EntityBattleshipYamatoMob);
+    }
+
+    private static double[] muzzleOffset(Entity host) {
+        float bodyYaw = host instanceof LivingEntity living ? living.yBodyRot : 0F;
+        return YamatoChargeVisuals.forwardOffset(host, (bodyYaw % 360) * Values.N.DIV_PI_180);
+    }
+
     @Override
     public void tick() {
         this.xo = this.x;
         this.yo = this.y;
         this.zo = this.z;
+        if (isYamatoCharge()) {
+            if (!this.host.isAlive() || ((IShipEmotion) this.host).getStateEmotion(ID.S.Phase) <= 0) {
+                this.remove();
+                return;
+            }
+            double[] muzzle = muzzleOffset(this.host);
+            this.x = this.host.getX() + muzzle[0] + this.chargeOffsetX;
+            this.y = this.host.getY() + YamatoChargeVisuals.heightOffset(this.host);
+            this.z = this.host.getZ() + muzzle[1] + this.chargeOffsetZ;
+        }
         this.setPos(this.x, this.y, this.z);
 
         if (this.age++ > this.lifetime) {

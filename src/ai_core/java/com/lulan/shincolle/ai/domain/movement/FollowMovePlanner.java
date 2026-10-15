@@ -107,20 +107,29 @@ public final class FollowMovePlanner {
      * @param ownerDistanceSq from the ship to where the owner stands now, not as of the last look
      * @param flagshipPlaceDistanceSq from the ship to the flagship slot worked out for the owner as it stands
      *                        now; positive infinity when it was not worked out, which never counts as arrived
+     * @param ownerAirborne   the owner is gliding or falling; no teleport is planned while it holds
      */
     public record Facts(double distanceSq, FollowRange range, Optional<MovementPoint> owner, DimensionKey dimension,
                         TeleportRule teleport, StuckState stuck, double ownerDistanceSq,
-                        double flagshipPlaceDistanceSq) {
+                        double flagshipPlaceDistanceSq, boolean ownerAirborne) {
+        /** Facts for an owner standing on something, so not airborne. */
+        public Facts(double distanceSq, FollowRange range, Optional<MovementPoint> owner, DimensionKey dimension,
+                     TeleportRule teleport, StuckState stuck, double ownerDistanceSq,
+                     double flagshipPlaceDistanceSq) {
+            this(distanceSq, range, owner, dimension, teleport, stuck, ownerDistanceSq, flagshipPlaceDistanceSq,
+                    false);
+        }
+
         /** Facts whose distance was measured this tick, so the owner is as far as the destination. */
         public Facts(double distanceSq, FollowRange range, Optional<MovementPoint> owner, DimensionKey dimension,
                      TeleportRule teleport, StuckState stuck) {
-            this(distanceSq, range, owner, dimension, teleport, stuck, distanceSq, Double.POSITIVE_INFINITY);
+            this(distanceSq, range, owner, dimension, teleport, stuck, distanceSq, Double.POSITIVE_INFINITY, false);
         }
 
         /** Facts whose flagship slot was not worked out for the owner as it stands now. */
         public Facts(double distanceSq, FollowRange range, Optional<MovementPoint> owner, DimensionKey dimension,
                      TeleportRule teleport, StuckState stuck, double ownerDistanceSq) {
-            this(distanceSq, range, owner, dimension, teleport, stuck, ownerDistanceSq, Double.POSITIVE_INFINITY);
+            this(distanceSq, range, owner, dimension, teleport, stuck, ownerDistanceSq, Double.POSITIVE_INFINITY, false);
         }
     }
 
@@ -157,7 +166,8 @@ public final class FollowMovePlanner {
      * away, or stuck, for longer than the cooldown. The two teleports share one cooldown and the
      * distance one is checked first. The distance one reads the distance stored at the last look; the
      * stuck one, when the destination is the owner or the flagship slot, also asks that the owner, or the
-     * slot as worked out now, is farther than the inner distance.
+     * slot as worked out now, is farther than the inner distance. While the owner is airborne neither teleport
+     * is planned and both timers keep counting, so the one that is due goes the tick the owner has landed.
      */
     public static PlannedMove<MovementState.Follow> move(MovementState.Follow state, Facts facts) {
         List<MovementStep> steps = new ArrayList<>();
@@ -184,14 +194,14 @@ public final class FollowMovePlanner {
             boolean far = false;
             if (facts.distanceSq() > rule.distanceSq()) {
                 farTimer++;
-                if (farTimer > rule.cooldown()) {
+                if (farTimer > rule.cooldown() && !facts.ownerAirborne()) {
                     farTimer = 0;
                     far = true;
                     steps.add(new MovementStep.Teleport(MovementBody.SELF, landing, MovementReason.TELEPORT_FAR,
                             facts.dimension()));
                 }
             }
-            if (!far && timeTimer > rule.cooldown()) {
+            if (!far && timeTimer > rule.cooldown() && !facts.ownerAirborne()) {
                 timeTimer = 0;
                 if (!ownerAlreadyArrivedAt(state, facts)) {
                     steps.add(new MovementStep.Teleport(MovementBody.SELF, landing, MovementReason.TELEPORT_TIME,

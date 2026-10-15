@@ -19,7 +19,8 @@ import net.minecraftforge.fml.common.Mod;
  * A naturally spawned monster can become the nearest automatic target of a ship fixture or wander
  * into a test area. Only the GameTest server is affected; ordinary servers and clients never reach
  * the rule change, and entities that tests add themselves are not natural spawns. GameTest servers
- * also fix ship AI target authority to the default NEW mode instead of the local config file.</p>
+ * also report the ship AI target authority they run under, which is always NEW: the
+ * {@code shincolle.gametest.authority} property is only a compatibility input.</p>
  */
 @Mod.EventBusSubscriber(modid = Reference.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class GameTestWorldRules {
@@ -32,9 +33,11 @@ public final class GameTestWorldRules {
         MinecraftServer server = event.getServer();
         if (server instanceof GameTestServer) {
             server.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, server);
-            String authority = System.getProperty("shincolle.gametest.authority", "NEW");
+            String requested = System.getProperty("shincolle.gametest.authority", "NEW");
             ConfigHandler.setShipAiTargetAuthorityForTest(
-                    ConfigHandler.ShipAiTargetAuthority.valueOf(authority));
+                    ConfigHandler.ShipAiTargetAuthority.valueOf(requested));
+            com.lulan.shincolle.utility.LogHelper.info("GameTest ship AI authority: requested " + requested
+                    + ", effective " + ConfigHandler.shipAiTargetAuthority());
         }
     }
 }

@@ -2,6 +2,7 @@ package com.lulan.shincolle.entity.transport;
 
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.entity.ShipSupportAbilities;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.entity.EntityType;
@@ -47,6 +48,18 @@ public class EntityTransportWa extends BasicEntityShipSmall {
 
         // pick item (high priority, large range for transport)
         this.goalSelector.addGoal(5, new ShipPickItemGoal(this, 8.0F));
+    }
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        ShipSupportAbilities.tickTransport(this);
+    }
+
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        this.setStateMinor(ID.M.DrumState, 2);
     }
 
     @Override
