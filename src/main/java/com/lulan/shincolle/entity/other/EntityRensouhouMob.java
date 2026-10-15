@@ -38,6 +38,14 @@ public class EntityRensouhouMob extends BasicEntitySummon implements IShipEmotio
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        if (this.level().isClientSide()) {
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
+        }
+    }
+
+    @Override
     public EntityDimensions getDimensions(Pose pose) {
         return EntityDimensions.fixed(0.3F, 0.7F);
     }

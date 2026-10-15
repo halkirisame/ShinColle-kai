@@ -14,6 +14,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -77,7 +78,11 @@ public class ModelMountHbH extends ShipModelBaseAdv<Entity> {
     private final ModelPart GlowJaw_1;
 
     public ModelMountHbH(ModelPart root) {
-        super();
+        super(RenderType::entityCutout);
+        this.scale = 0.8F;
+        this.offsetX = 0F;
+        this.offsetY = 1.05F;
+        this.offsetZ = 0F;
         this.BodyMain = root.getChild("BodyMain");
         this.Back01 = this.BodyMain.getChild("Back01");
         this.EquipBaseL = this.BodyMain.getChild("EquipBaseL");
@@ -403,7 +408,7 @@ public class ModelMountHbH extends ShipModelBaseAdv<Entity> {
         IShipEmotion ent = (IShipEmotion) entity;
         float angleX = Mth.cos(ageInTicks * 0.08F);
 
-        this.offsetY = 0F;
+        this.offsetY = this.getBaseOffsetY();
         if (ent.getShipDepth(0) > 0D) {
             // [PORT] 1.10.2 -> 1.20.1: restore mount water bobbing translation.
             // Visual check required: water bobbing amplitude should match 1.10.2
@@ -411,6 +416,11 @@ public class ModelMountHbH extends ShipModelBaseAdv<Entity> {
             // Unverified visually: compare idle-on-water Y oscillation in client
             // runtime.
             this.offsetY += angleX * 0.025F + 0.025F;
+        }
+
+        // Pose translation: upstream setRotationAngles ran in both the renderer and render() scopes.
+        if (ent.getIsSitting()) {
+            this.translateLegacyPose(0F, 0.12F, 0F);
         }
 
         this.showEquip(ent);
@@ -428,8 +438,10 @@ public class ModelMountHbH extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
+        this.applyLegacyPoseTranslation(poseStack);
         poseStack.scale(scale, scale, scale);
         poseStack.translate(offsetX, offsetY, offsetZ);
+        this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();

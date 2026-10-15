@@ -2,7 +2,7 @@ package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.TargetShadowComparison;
 import com.lulan.shincolle.ai.TargetShadowComparison.Outcome;
-import com.lulan.shincolle.ai.ShipRangeTargetGoal;
+import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
 import com.lulan.shincolle.ai.domain.AiDecisionId;
 import com.lulan.shincolle.ai.domain.AiTickContext;
 import com.lulan.shincolle.ai.domain.PerceptionFreshnessPolicy;
@@ -135,7 +135,7 @@ public final class TargetPerceptionGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_perception_shadow_common_pipeline")
-    public static void shadowUsesCommonPipelineWhenOnAndDoesNothingWhenOff(GameTestHelper helper) {
+    public static void shadowCompatibilityNeverObservesOrChangesTarget(GameTestHelper helper) {
         TargetShadowComparison.setEnabled(true);
         TargetShadowComparison.resetCounters();
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
@@ -144,13 +144,14 @@ public final class TargetPerceptionGameTests {
 
             TargetShadowComparison.compare(source, target, 16, 0, false, null);
 
-            TargetShadowComparison.Metrics on = TargetShadowComparison.metrics();
-            helper.assertTrue(TargetShadowComparison.count(Outcome.MATCH) == 1,
-                    "Common perception shadow no longer matched legacy target");
-            helper.assertTrue(on.spatialQueries() == 1 && on.rawCandidates() == 1,
-                    "Shadow did not use one common producer query; metrics=" + on);
-            helper.assertTrue(on.classifications() == 1,
-                    "Current and nearby duplicate was not classified once");
+            helper.assertTrue(!TargetShadowComparison.isEnabled(), "Old requests must not enable comparisons");
+            helper.assertTrue(TargetShadowComparison.metrics().equals(
+                            new TargetShadowComparison.Metrics(0, 0, 0, 0, 0, 0, 0, 0)),
+                    "Retired shadow performed observation work");
+            for (Outcome outcome : Outcome.values()) {
+                helper.assertTrue(TargetShadowComparison.count(outcome) == 0L,
+                        "Retired shadow fabricated " + outcome);
+            }
             helper.assertTrue(source.getTarget() == null,
                     "Diagnostic perception changed target authority");
 
@@ -168,7 +169,7 @@ public final class TargetPerceptionGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_perception_missile_relations")
-    public static void missileRelationsServeLegacyAndStageTwo(GameTestHelper helper) {
+    public static void missileRelationsServeTheOriginalPredicatesAndStageTwo(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip source = friendly(helper, entities);
             source.setPlayerUID(75075);
@@ -208,7 +209,7 @@ public final class TargetPerceptionGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_perception_addon_relations")
-    public static void addonTraitsKeepSameOwnerShipsOutOfLegacyTargets(GameTestHelper helper) {
+    public static void addonTraitsKeepSameOwnerShipsOutOfTargets(GameTestHelper helper) {
         Vec3 origin = helper.absoluteVec(new Vec3(0.5D, 80D, 0.5D));
         helper.startSequence().thenWaitUntil(() -> {
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(origin)),
@@ -266,12 +267,12 @@ public final class TargetPerceptionGameTests {
                         assertPublicPredicates(helper, source, target, sameOwner,
                                 friendlyAutomaticExpected, true);
                         if (sameOwner) {
-                            ShipRangeTargetGoal goal = new ShipRangeTargetGoal(source);
-                            if (goal.canUse()) {
-                                goal.start();
-                            }
+                            ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(source);
+                            source.tickCount += 40;
+                            goal.tick();
                             helper.assertTrue(source.getTarget() != target,
-                                    "Legacy range goal acquired an allied ship with addon traits");
+                                    "The target authority acquired an allied ship with addon traits");
+                            goal.clearLock();
                             source.setTarget(null);
                         }
                     }

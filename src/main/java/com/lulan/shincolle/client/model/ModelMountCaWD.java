@@ -13,6 +13,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -86,7 +87,11 @@ public class ModelMountCaWD extends ShipModelBaseAdv<Entity> {
     private final ModelPart GlowCannonM04;
 
     public ModelMountCaWD(ModelPart root) {
-        super();
+        super(RenderType::entityCutout);
+        this.scale = 1.1F;
+        this.offsetX = 0F;
+        this.offsetY = 0.12F;
+        this.offsetZ = -0.1F;
         this.BodyMain = root.getChild("BodyMain");
         this.Neck = this.BodyMain.getChild("Neck");
         this.Tube01a = this.BodyMain.getChild("Tube01a");
@@ -540,8 +545,6 @@ public class ModelMountCaWD extends ShipModelBaseAdv<Entity> {
         }
 
         // jaw
-        // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.025F + 0.025F;
         this.Jaw01.xRot = angleX * 0.025F + 0.32F;
         // cannon
         this.CannonL02.xRot = angleX * 0.05F - 0.3F;

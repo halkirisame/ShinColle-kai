@@ -38,8 +38,7 @@ public class ShipPickItemGoal extends Goal {
     private int pickDelay;
     private int pickDelayMax;
     private float pickRange;
-    private int nextItemScanTick;
-    /** NEW: the scan time, in place of {@link #nextItemScanTick}, and the item given up on. */
+    /** The scan time and the item given up on. */
     private MovementState.PickItem move = PickItemMovePlanner.initial();
     /** NEW: whether the ship is getting anywhere on its way to the item. */
     private StuckState stuck = StuckState.NONE;
@@ -58,9 +57,7 @@ public class ShipPickItemGoal extends Goal {
         if (ShipActionGate.blocked(this.ship, ActionKind.MOVEMENT)) return false;
         AABB box = this.ship.getBoundingBox().inflate(this.pickRange, this.pickRange * 0.5F + 1.0F, this.pickRange * 1.2F);
         List<ItemEntity> items = this.ship.level().getEntitiesOfClass(ItemEntity.class, box);
-        if (ShipMovementGate.active()) {
-            items = items.stream().filter(this::choosable).toList();
-        }
+        items = items.stream().filter(this::choosable).toList();
 
         if (items.isEmpty()) {
             return false;
@@ -68,15 +65,7 @@ public class ShipPickItemGoal extends Goal {
 
         // sitting, riding, disabled, no fuel, crane state active: skip
         // check Flag PickItem
-        if (ShipMovementGate.active()) {
-            if (!ShipMovementGate.allows(this.ship, MovementActivity.PICK_ITEM)) {
-                return false;
-            }
-        } else if (this.ship.isPassenger() || this.ship.isOrderedToSit() ||
-                !this.ship.getStateFlag(ID.F.PickItem) ||
-                ShipMovementGate.craneBusy(this.ship) ||
-                this.ship.fishHook != null ||
-                this.ship.getStateFlag(ID.F.NoFuel)) {
+        if (!ShipMovementGate.allows(this.ship, MovementActivity.PICK_ITEM)) {
             return false;
         }
 
@@ -92,13 +81,9 @@ public class ShipPickItemGoal extends Goal {
 
     @Override
     public void start() {
-        if (ShipMovementGate.active()) {
-            this.move = PickItemMovePlanner.start(this.move, this.ship.tickCount);
-            this.stuck = StuckState.NONE;
-            this.ship.setPickingItem(true);
-            return;
-        }
-        this.nextItemScanTick = this.ship.tickCount;
+        this.move = PickItemMovePlanner.start(this.move, this.ship.tickCount);
+        this.stuck = StuckState.NONE;
+        this.ship.setPickingItem(true);
     }
 
     @Override
@@ -113,17 +98,9 @@ public class ShipPickItemGoal extends Goal {
 
         // check every 16 ticks
         int now = this.ship.tickCount;
-        boolean newAuthority = ShipMovementGate.active();
-        boolean scan;
-        boolean recovered = false;
-        if (newAuthority) {
-            recovered = this.recoverNew(now);
-            scan = PickItemMovePlanner.scanDue(this.move, now);
-            if (scan) this.move = PickItemMovePlanner.scanned(this.move, now);
-        } else {
-            scan = now >= this.nextItemScanTick;
-            if (scan) this.nextItemScanTick = now + 16;
-        }
+        boolean recovered = this.recoverNew(now);
+        boolean scan = PickItemMovePlanner.scanDue(this.move, now);
+        if (scan) this.move = PickItemMovePlanner.scanned(this.move, now);
         if (scan) {
             updateShipParms();
 
@@ -131,13 +108,9 @@ public class ShipPickItemGoal extends Goal {
             this.entItem = getNearbyItemEntity();
 
             if (this.entItem != null && this.entItem.isAlive()) {
-                if (newAuthority) {
-                    // a recovery path this tick stands in for the regular one
-                    if (!recovered) ShipMovementExecutor.run(this.ship,
-                            PickItemMovePlanner.toItem(ShipCommandStateAdapter.handle(this.entItem)));
-                } else {
-                    ship.getNavigation().moveTo(this.entItem, 1.0D);
-                }
+                // A recovery path this tick stands in for the regular one.
+                if (!recovered) ShipMovementExecutor.run(this.ship,
+                        PickItemMovePlanner.toItem(ShipCommandStateAdapter.handle(this.entItem)));
             }
         }
 
@@ -157,11 +130,9 @@ public class ShipPickItemGoal extends Goal {
                         LogHelper.diag("DIAG: pickitem ship=" + this.ship + " item=" + attemptedStack
                                 + " result=" + (picked ? "picked" : "inventory_full"));
 
-                        if (newAuthority) {
-                            this.move = picked ? PickItemMovePlanner.tookItem(this.move)
-                                    : PickItemMovePlanner.failedTake(this.move,
-                                            ShipCommandStateAdapter.handle(this.entItem), now);
-                        }
+                        this.move = picked ? PickItemMovePlanner.tookItem(this.move)
+                                : PickItemMovePlanner.failedTake(this.move,
+                                        ShipCommandStateAdapter.handle(this.entItem), now);
                         if (picked) {
 
                             // play pickup sound
@@ -189,11 +160,11 @@ public class ShipPickItemGoal extends Goal {
                                 this.entItem = null;
                             }
                         }
-                    } else if (newAuthority) {
+                    } else {
                         this.move = PickItemMovePlanner.failedTake(this.move,
                                 ShipCommandStateAdapter.handle(this.entItem), now);
                     }
-                    if (newAuthority && this.entItem != null && PickItemMovePlanner.untakeable(this.move,
+                    if (this.entItem != null && PickItemMovePlanner.untakeable(this.move,
                             ShipCommandStateAdapter.handle(this.entItem), now)) {
                         // in reach for a good while and still not takeable: leave it, so the goal can end
                         this.move = PickItemMovePlanner.abandon(this.move,
@@ -202,11 +173,7 @@ public class ShipPickItemGoal extends Goal {
                     }
                 }
 
-                if (newAuthority) {
-                    ShipMovementExecutor.run(this.ship, PickItemMovePlanner.reached());
-                } else {
-                    ship.getNavigation().stop();
-                }
+                ShipMovementExecutor.run(this.ship, PickItemMovePlanner.reached());
             }
         }
     }
@@ -239,9 +206,7 @@ public class ShipPickItemGoal extends Goal {
     private ItemEntity getNearbyItemEntity() {
         AABB box = this.ship.getBoundingBox().inflate(this.pickRange, this.pickRange * 0.5F + 1.0F, this.pickRange);
         List<ItemEntity> items = this.ship.level().getEntitiesOfClass(ItemEntity.class, box);
-        if (ShipMovementGate.active()) {
-            items = new ArrayList<>(items.stream().filter(this::choosable).toList());
-        }
+        items = new ArrayList<>(items.stream().filter(this::choosable).toList());
 
         if (!items.isEmpty()) {
             items.sort(Comparator.comparingDouble(this.ship::distanceToSqr));

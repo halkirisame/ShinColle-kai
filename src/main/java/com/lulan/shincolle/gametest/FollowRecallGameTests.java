@@ -101,12 +101,7 @@ public final class FollowRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_follow_recall_jump", timeoutTicks = 600)
     public static void ownerJumpRecallsSixFollowersAndTheSourceHoldExpires(GameTestHelper helper) {
-        runRecall(helper, false);
-    }
-
-    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_follow_recall_legacy", timeoutTicks = 600)
-    public static void legacyOwnerJumpDoesNotAddARecallTicketOrShortWait(GameTestHelper helper) {
-        runRecall(helper, true);
+        runRecall(helper);
     }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_follow_recall_transfer", timeoutTicks = 180)
@@ -156,12 +151,19 @@ public final class FollowRecallGameTests {
         ShipFollowOwnerGoal[] cached = new ShipFollowOwnerGoal[1];
         long start = helper.getTick() + 24;
         helper.runAtTickTime(start, () -> {
+            // The ship's own AI keeps running whatever setNoAi says (it resets the flag every tick), and which
+            // ticks its goals run on depends on its entity id; only the goal made here may move it.
+            ship.goalSelector.removeAllGoals(goal -> true);
             helper.assertTrue(ServerDataManager.getPlayerByUID(newUid) == newOwner, "Recipient must be online");
             long now = level.getServer().getTickCount();
             ShipFollowRecallHandler.forget(oldOwner.getUUID());
             for (long tick = now - 20; tick < now; tick++) ShipFollowRecallHandler.observe(oldOwner, tick);
             oldOwner.moveTo(destination);
+            oldOwner.setOnGround(true);
             ShipFollowRecallHandler.observe(oldOwner, now);
+            // The owner has landed: a settled owner is what lets a held recall be read.
+            for (long tick = now + 1; tick <= now + 45; tick++) ShipFollowRecallHandler.observe(oldOwner, tick);
+            helper.assertTrue(ShipFollowRecallHandler.isSettled(oldOwner.getUUID()), "Fixture owner must be settled");
             helper.assertTrue(ship.shipMovementExecutor().followRecallRemaining(
                     ShipCommandStateAdapter.handle(oldOwner), now).orElse(-1L) == 100L, "Jump must create a real recall");
         });
@@ -185,22 +187,23 @@ public final class FollowRecallGameTests {
             oldOwner.moveTo(destination);
             helper.assertTrue(cached[0].canContinueToUse(), "Goal must still be inside its owner refresh interval");
             cached[0].tick();
-            helper.assertTrue(ship.distanceToSqr(oldOwner) > 256D, "Transferred ship recalled to the previous owner");
+            helper.assertTrue(ship.distanceToSqr(oldOwner) > 256D, "Transferred ship recalled to the previous owner: ship="
+                    + ship.position() + " owner=" + oldOwner.position() + " source=" + source + " last="
+                    + ship.shipMovementExecutor().last() + " denials=" + ship.shipMovementExecutor().lastDenials()
+                    + " serverTick=" + level.getServer().getTickCount() + " tick=" + helper.getTick());
             helper.assertTrue(ship.shipMovementExecutor().followRecallRemaining(ShipCommandStateAdapter.handle(oldOwner),
                     level.getServer().getTickCount()).isEmpty(), "Invalid recall must be discarded, not merely skipped");
             helper.succeed();
         });
     }
 
-    private static void runRecall(GameTestHelper helper, boolean legacy) {
-        Scene scene = new Scene(helper, legacy);
+    private static void runRecall(GameTestHelper helper) {
+        Scene scene = new Scene(helper);
         helper.onEachTick(scene::poll);
     }
 
     private static final class Scene implements AutoCloseable {
         private final GameTestHelper helper;
-        private final boolean legacy;
-        private final ShipAiAuthorityOverride authority;
         private final GameTestEntities entities;
         private final UUID holder = UUID.randomUUID();
         private final ChunkPos source;
@@ -224,11 +227,8 @@ public final class FollowRecallGameTests {
         private boolean measured;
         private boolean crossedSourceBoundary;
 
-        Scene(GameTestHelper helper, boolean legacy) {
+        Scene(GameTestHelper helper) {
             this.helper = helper;
-            this.legacy = legacy;
-            this.authority = ShipAiAuthorityOverride.use(legacy
-                    ? ConfigHandler.ShipAiTargetAuthority.LEGACY : ConfigHandler.ShipAiTargetAuthority.NEW);
             this.entities = GameTestEntities.open(helper);
             ConfigHandler.shipTeleport[0] = 200;
             ConfigHandler.shipTeleport[1] = 256;
@@ -267,14 +267,9 @@ public final class FollowRecallGameTests {
             this.excluded.add(empty);
             BasicEntityShip guarding = ship();
             BlockPos guard = guarding.blockPosition();
-            if (this.legacy) {
-                guarding.setGuardedPos(guard.getX(), guard.getY(), guard.getZ(), level.dimension(), 1);
-                guarding.setStateFlag(ID.F.CanFollow, false);
-            } else {
-                guarding.applyCommandState(new CommandIssuer.Player(this.owner.getUUID()),
-                        new CommandStateOp.Apply(new ShipCommand.GuardPosition(ShipCommandStateAdapter.handle(guarding).dimension(),
-                                new CommandPos(guard.getX(), guard.getY(), guard.getZ()), false)));
-            }
+            guarding.applyCommandState(new CommandIssuer.Player(this.owner.getUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.GuardPosition(ShipCommandStateAdapter.handle(guarding).dimension(),
+                            new CommandPos(guard.getX(), guard.getY(), guard.getZ()), false)));
             this.excluded.add(guarding);
             BasicEntityShip foreign = ship();
             foreign.setOwnerUUID(UUID.randomUUID());
@@ -287,6 +282,7 @@ public final class FollowRecallGameTests {
             this.helper.assertTrue(level.addFreshEntity(this.sourceProbe), "Could not add source hold probe");
             this.observer = event -> {
                 if (!this.closed && event.phase == TickEvent.Phase.START) {
+                    this.owner.setOnGround(true);
                     ShipFollowRecallHandler.observe(this.owner, event.getServer().getTickCount());
                 }
             };
@@ -326,12 +322,10 @@ public final class FollowRecallGameTests {
                     this.identities.add(ship.getUUID());
                     this.shipIds.add(ship.getShipUID());
                     this.helper.assertTrue(ship.getShipUID() > 0, "Fixture needs assigned ship UID");
-                    if (!this.legacy) this.helper.assertTrue(ShipMovementGate.recallEligible(ship, this.owner), "Follower not eligible");
+                    this.helper.assertTrue(ShipMovementGate.recallEligible(ship, this.owner), "Follower not eligible");
                 }
-                if (!this.legacy) {
-                    for (BasicEntityShip ship : this.excluded) {
-                        this.helper.assertTrue(!ShipMovementGate.recallEligible(ship, this.owner), "Excluded ship remained eligible");
-                    }
+                for (BasicEntityShip ship : this.excluded) {
+                    this.helper.assertTrue(!ShipMovementGate.recallEligible(ship, this.owner), "Excluded ship remained eligible");
                 }
                 this.helper.assertTrue(MovementPlanParityGameTests.selector(this.followers.get(0)).getRunningGoals()
                         .noneMatch(goal -> goal.getGoal() instanceof ShipFollowOwnerGoal), "Fixture requires an inactive follow goal");
@@ -343,10 +337,10 @@ public final class FollowRecallGameTests {
                 return;
             }
             long elapsed = level.getServer().getTickCount() - this.jumpedAt;
-            if (!this.legacy && elapsed < 95 && this.followers.stream().anyMatch(ship -> !ship.chunkPosition().equals(this.source))) {
+            if (elapsed < 95 && this.followers.stream().anyMatch(ship -> !ship.chunkPosition().equals(this.source))) {
                 this.crossedSourceBoundary = true;
             }
-            if (!this.legacy && !this.returned && elapsed == 120) {
+            if (!this.returned && elapsed == 120) {
                 BasicEntityShip ship = this.followers.get(0);
                 LogHelper.info("Follow recall state: owner=" + this.owner + ", ownerAlive=" + this.owner.isAlive()
                         + ", resolved=" + ship.getOwner() + ", ship=" + ship
@@ -357,7 +351,7 @@ public final class FollowRecallGameTests {
                                 .map(goal -> goal.getGoal().getClass().getSimpleName()).toList()
                         + ", last=" + ship.shipMovementExecutor().last() + ", denial=" + ship.shipMovementExecutor().lastDenials());
             }
-            if (!this.returned && !this.legacy && this.followers.stream().allMatch(ship -> ship.distanceToSqr(this.owner) < 16D)) {
+            if (!this.returned && this.followers.stream().allMatch(ship -> ship.distanceToSqr(this.owner) < 16D)) {
                 this.returned = true;
                 this.helper.assertTrue(this.crossedSourceBoundary, "Fixture did not exercise walking out of the source chunk");
                 this.helper.assertTrue(elapsed >= 95 && elapsed <= 115, "Recall did not take about five seconds: " + elapsed);
@@ -373,11 +367,9 @@ public final class FollowRecallGameTests {
             if (!this.measured && elapsed >= 390) {
                 this.measured = true;
                 boolean ticking = level.isPositionEntityTicking(BlockPos.containing(this.sourcePoint));
-                this.helper.assertTrue(ticking != this.legacy, "Source ticking was not controlled by the recall hold");
-                if (!this.legacy) {
-                    this.helper.assertTrue(this.returned, "Six followers never returned before hold expiry");
-                    this.helper.assertTrue(this.sourceProbe.tickCount >= 410, "Source probe stopped during recall hold");
-                }
+                this.helper.assertTrue(ticking, "Source ticking was not controlled by the recall hold");
+                this.helper.assertTrue(this.returned, "Six followers never returned before hold expiry");
+                this.helper.assertTrue(this.sourceProbe.tickCount >= 410, "Source probe stopped during recall hold");
                 for (BasicEntityShip ship : this.excluded) {
                     this.helper.assertTrue(ship.distanceToSqr(this.owner) > 256D, "Excluded ship was recalled");
                 }
@@ -403,11 +395,10 @@ public final class FollowRecallGameTests {
             }
             ConfigHandler.shipTeleport[0] = this.oldCooldown;
             ConfigHandler.shipTeleport[1] = this.oldDistance;
-            this.authority.close();
         }
     }
 
-    private static void attachCompletion(GameTestHelper helper, Runnable cleanup) {
+    static void attachCompletion(GameTestHelper helper, Runnable cleanup) {
         try {
             Field field = GameTestHelper.class.getDeclaredField("testInfo");
             field.setAccessible(true);

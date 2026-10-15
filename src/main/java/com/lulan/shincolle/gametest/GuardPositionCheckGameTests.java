@@ -35,8 +35,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Whether a ship counts as standing at its guard place, which keeps it from floating up, is the
- * same under both authorities for every order: following, a one-shot move, a guarded block and a
+ * Whether a ship counts as standing at its guard place, which keeps it from floating up, is
+ * decided for every order: following, a one-shot move, a guarded block and a
  * guarded entity, each inside the distance, outside it, and below the guarded block.
  */
 @GameTestHolder(Reference.MOD_ID)
@@ -50,12 +50,12 @@ public final class GuardPositionCheckGameTests {
     }
 
     @GameTest(template = "arena", timeoutTicks = 100)
-    public static void shipGuardPositionCheckAgreesAcrossAuthorities(GameTestHelper helper) {
+    public static void shipGuardPositionCheckFollowsTheOrder(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> verify(helper, false), SHIP);
     }
 
     @GameTest(template = "arena", timeoutTicks = 100)
-    public static void mountGuardPositionCheckAgreesAcrossAuthorities(GameTestHelper helper) {
+    public static void mountGuardPositionCheckFollowsTheOrder(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> verify(helper, true), SHIP);
     }
 
@@ -191,16 +191,9 @@ public final class GuardPositionCheckGameTests {
     }
 
     private static void expect(List<String> failures, String name, IShipGuardian host, boolean expected) {
-        boolean legacy;
-        boolean modern;
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY)) {
-            legacy = ShipFloatingGoal.isInGuardPosition(host);
-        }
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW)) {
-            modern = ShipFloatingGoal.isInGuardPosition(host);
-        }
-        if (legacy != expected || modern != expected) {
-            failures.add(name + ": expected=" + expected + " legacy=" + legacy + " new=" + modern);
+        boolean actual = ShipFloatingGoal.isInGuardPosition(host);
+        if (actual != expected) {
+            failures.add(name + ": expected=" + expected + " got=" + actual);
         }
     }
 }

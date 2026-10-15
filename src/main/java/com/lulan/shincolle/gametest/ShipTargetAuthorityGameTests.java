@@ -1,7 +1,8 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.ai.ShipRangeTargetGoal;
+import com.lulan.shincolle.ai.AiRandomSource;
 import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
+import com.lulan.shincolle.ai.domain.AiRandomStream;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
@@ -21,8 +22,10 @@ import com.lulan.shincolle.utility.TargetHelper;
 
 import com.mojang.authlib.GameProfile;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.EntityType;
@@ -240,39 +243,10 @@ public final class ShipTargetAuthorityGameTests {
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft",
-            batch = "isolated_target_authority_legacy_hostile_ignores_missile")
-    public static void legacyHostileIgnoresSameMissile(GameTestHelper helper) {
-        waitForFixtureChunks(helper, () -> {
-            try (GameTestEntities entities = GameTestEntities.open(helper)) {
-                BasicEntityShipHostile ship = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
-                ship.setNoAi(true);
-                add(helper, ship, 1D);
-                EntityAbyssMissile missile = missile(helper, entities, ship, 4D, 7115);
-                ShipRangeTargetGoal legacy = new ShipRangeTargetGoal(ship);
-                if (legacy.canUse()) {
-                    legacy.start();
-                }
-                helper.assertTrue(ship.getEntityTarget() != missile,
-                        "LEGACY hostile acquired a non-living missile");
-                helper.succeed();
-            }
-        });
-    }
-
     @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 65,
             batch = "isolated_target_authority_new_aircraft_reacquires_missile")
-    public static void newAircraftReacquiresHostileMissile(GameTestHelper helper) {
-        waitForFixtureChunks(helper, () -> verifyAircraftReacquisition(helper, true));
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 65,
-            batch = "isolated_target_authority_legacy_aircraft_ignores_missile")
-    public static void legacyAircraftDoesNotReacquireMissile(GameTestHelper helper) {
-        waitForFixtureChunks(helper, () -> {
-            ShipAiAuthorityOverride.useUntilComplete(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-            verifyAircraftReacquisition(helper, false);
-        });
+    public static void aircraftReacquiresHostileMissile(GameTestHelper helper) {
+        waitForFixtureChunks(helper, () -> verifyAircraftReacquisition(helper));
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 65,
@@ -312,19 +286,16 @@ public final class ShipTargetAuthorityGameTests {
         });
     }
 
-    private static void verifyAircraftReacquisition(GameTestHelper helper, boolean modern) {
+    private static void verifyAircraftReacquisition(GameTestHelper helper) {
         GameTestEntities entities = GameTestEntities.open(helper);
         try {
-            BasicEntityShip host = modern ? authorityFriendly(helper, entities, 1D, 7116)
-                    : friendlyUnconfigured(helper, entities, 1D, 7116);
+            BasicEntityShip host = authorityFriendly(helper, entities, 1D, 7116);
             ServerPlayer owner = player(helper, entities, 1D, 7116);
             host.setOwnerUUID(owner.getUUID());
             host.setStateFlag(ID.F.AntiAir, true);
             host.setStateMinor(ID.M.NumGrudge, 100_000);
             host.setStateFlag(ID.F.NoFuel, false);
-            if (modern) {
-                rebuildAuthority(host);
-            }
+            rebuildAuthority(host);
             BasicEntityShipHostile enemyHost = hostile(helper, entities, 22D);
             EntityAbyssMissile missile = hostileMissile(helper, entities, enemyHost, 20D);
             enemyHost.discard();
@@ -347,9 +318,8 @@ public final class ShipTargetAuthorityGameTests {
             helper.runAfterDelay(34, () -> {
                 try {
                     helper.assertTrue(plane.isAlive(), "Aircraft disappeared before reacquisition");
-                    helper.assertTrue(modern ? plane.getEntityTarget() == missile
-                                    : plane.getEntityTarget() != missile,
-                            "Aircraft reacquisition ignored the host authority mode");
+                    helper.assertTrue(plane.getEntityTarget() == missile,
+                            "Aircraft did not reacquire the hostile missile through its host's authority");
                     helper.succeed();
                 } finally {
                     entities.close();
@@ -472,28 +442,104 @@ public final class ShipTargetAuthorityGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft",
-            batch = "isolated_target_authority_legacy_auto_parity")
-    public static void legacyAndNewAutoChooseSameTargetWithSameRandom(GameTestHelper helper) {
+            batch = "isolated_target_authority_auto_draw")
+    public static void autoChoosesTheCandidateTheSeededDrawPicks(GameTestHelper helper) {
         withNewAuthority(helper, entities -> {
-            BasicEntityShip legacyShip = friendlyUnconfigured(helper, entities, 1D, 7109);
-            BasicEntityShip newShip = friendly(helper, entities, 1D, 7109);
-            hostile(helper, entities, 3D);
-            hostile(helper, entities, 5D);
-            hostile(helper, entities, 7D);
-            legacyShip.tickCount = 100;
-            newShip.tickCount = 100;
-
-            helper.getLevel().random.setSeed(987654321L);
-            ShipRangeTargetGoal legacy = new ShipRangeTargetGoal(legacyShip);
-            check(legacy.canUse(), "LEGACY AUTO did not find its candidate pool");
-            legacy.start();
-            Entity legacyTarget = legacyShip.getTarget();
-
-            helper.getLevel().random.setSeed(987654321L);
-            ShipTargetAuthorityGoal modern = authorityGoal(newShip);
-            modern.tick();
-            check(newShip.getTarget() == legacyTarget, "LEGACY and NEW consumed the same draw differently");
+            BasicEntityShip ship = friendly(helper, entities, 1D, 7109);
+            List<BasicEntityShipHostile> candidates = List.of(
+                    hostile(helper, entities, 3D), hostile(helper, entities, 5D), hostile(helper, entities, 7D));
+            ShipTargetAuthorityGoal goal = authorityGoal(ship);
+            ship.tickCount = 100;
+            for (long seed : new long[]{987654321L, 11L, 12L, 13L}) {
+                goal.clearLock();
+                ship.setTarget(null);
+                ship.tickCount += 8;
+                helper.getLevel().random.setSeed(seed);
+                // the nearest three are drawn from with one bounded draw of three, nearest first
+                BasicEntityShipHostile expected = candidates.get(RandomSource.create(seed).nextInt(3));
+                goal.tick();
+                helper.assertTrue(ship.getTarget() == expected, "Seed " + seed + " did not pick candidate "
+                        + candidates.indexOf(expected) + " but " + describe(ship.getTarget()) + " at tick "
+                        + ship.tickCount + " lock=" + goal.currentLock());
+            }
         });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft",
+            batch = "isolated_target_authority_random_source_client_contract")
+    public static void randomSourceRequiresAServerLevel(GameTestHelper helper) {
+        withNewAuthority(helper, entities -> {
+            BasicEntityShip ship = friendly(helper, entities, 1D, 7117);
+            try {
+                Field side = Level.class.getDeclaredField("isClientSide");
+                side.setAccessible(true);
+                boolean original = side.getBoolean(helper.getLevel());
+                String rejected = null;
+                try {
+                    // a synchronous injection of the exact side predicate, restored before cleanup
+                    side.setBoolean(helper.getLevel(), true);
+                    try {
+                        AiRandomSource.forEntity(ship, AiRandomStream.TARGET_SELECTION);
+                    } catch (IllegalArgumentException expected) {
+                        rejected = expected.getMessage();
+                    }
+                } finally {
+                    side.setBoolean(helper.getLevel(), original);
+                }
+                helper.assertTrue("AI random sources require a server level".equals(rejected),
+                        "A client level must not give an AI random source: " + rejected);
+            } catch (ReflectiveOperationException failure) {
+                throw new GameTestAssertException("Cannot inject the client side predicate: " + failure);
+            }
+        });
+    }
+
+    private static String describe(Entity entity) {
+        return entity == null ? "null" : entity.getType().toShortString() + '/' + entity.getId();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft",
+            batch = "isolated_target_authority_legacy_setting")
+    public static void compatibilitySettingsRegisterOnlyTheTargetAuthority(GameTestHelper helper) {
+        var previous = ConfigHandler.COMMON.shipAiTargetAuthority.get();
+        boolean previousMarker = ConfigHandler.COMMON.shipAiNewDefaultApplied.get();
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ConfigHandler.COMMON.shipAiTargetAuthority.set(ConfigHandler.ShipAiTargetAuthority.LEGACY);
+            BasicEntityShip friendly = friendlyUnconfigured(helper, entities, 1D, 7119);
+            BasicEntityShipHostile hostile = (BasicEntityShipHostile) entities.add(
+                    ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
+            helper.assertTrue(hostile != null, "Failed to create the hostile compatibility fixture");
+            add(helper, hostile, 12D);
+            for (var stored : ConfigHandler.ShipAiTargetAuthority.values()) {
+                ConfigHandler.COMMON.shipAiTargetAuthority.set(stored);
+                for (boolean marker : new boolean[]{false, true}) {
+                    ConfigHandler.COMMON.shipAiNewDefaultApplied.set(marker);
+                    for (var override : ConfigHandler.ShipAiTargetAuthority.values()) {
+                        try (var scope = ShipAiAuthorityOverride.use(override)) {
+                            helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                                    "Compatibility inputs must still run NEW");
+                            for (Mob ship : List.of(friendly, hostile)) {
+                                rebuildAuthority(ship);
+                                var goals = targetSelector(ship).getAvailableGoals();
+                                helper.assertTrue(goals.size() == 1
+                                                && goals.iterator().next().getGoal() instanceof ShipTargetAuthorityGoal,
+                                        "Compatibility input registered another target authority: " + goals);
+                                helper.assertTrue(ship instanceof BasicEntityShip s ? s.hasTargetAuthority()
+                                                : ((BasicEntityShipHostile) ship).hasTargetAuthority(),
+                                        "Compatibility input left the ship without a target authority");
+                            }
+                        }
+                        helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                                "Closing a compatibility scope must still run NEW");
+                    }
+                }
+            }
+            helper.succeed();
+        } finally {
+            ConfigHandler.COMMON.shipAiTargetAuthority.set(previous);
+            ConfigHandler.COMMON.shipAiNewDefaultApplied.set(previousMarker);
+            ConfigHandler.setShipAiTargetAuthorityForTest(null);
+        }
     }
 
     private static void withNewAuthority(GameTestHelper helper, Verification verification) {

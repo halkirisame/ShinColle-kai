@@ -16,7 +16,6 @@ import com.lulan.shincolle.entity.IShipProjectile;
 import com.lulan.shincolle.entity.battleship.EntityBBKirishimaMob;
 import com.lulan.shincolle.entity.battleship.EntityBBKongou;
 import com.lulan.shincolle.entity.carrier.EntityCarrierAkagi;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -47,27 +46,22 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Under NEW the attack goals read whether they may fire, and at what, from the combat gate; this
- * must not change when they fire. Each test runs one fixture under LEGACY and then under NEW, both
- * spawned at the start of their phase, and compares:
+ * The attack goals read whether they may fire, and at what, from the combat gate; each test runs one
+ * fixture and compares what the ship does with the weapon calls and goal starts and stops recorded
+ * from the original run of the same fixture:
  * <ul>
  *   <li>every call of an attack method, by weapon, recorded by overriding the method;</li>
  *   <li>the ticks on which each watched attack goal starts and stops (the goal registered when
  *       the ship's AI starts up, not the one registered with the entity).</li>
  * </ul>
- * Ticks count from the ship's first tick with a target after its AI started up. When the target
- * is acquired belongs to the target goals, which differ between the authorities by design and are
- * outside the gate; the report shows that tick for both.
- * Under NEW every tick also checks that the gate engages exactly when the conditions it replaced
- * (firing allowed, not sitting, not on a ship mount, a live target from the entity target) hold,
- * and at that same target.
+ * Ticks count from the ship's first tick with a target after its AI started up. Every tick also
+ * checks that the gate engages exactly when the conditions it replaced (firing allowed, not
+ * sitting, not on a ship mount, a live target from the entity target) hold, and at that same target.
  * <p>
- * Under NEW the fire control goal now fires on the ship's one timer. With no other goal cutting
- * in, that timer counts as the attack goals did, so the calls still match. The mount is the
- * exception: the rider's target authority is made again when its AI starts up, leaving the lock
- * empty for a tick; the old mount goal kept shooting its remembered target, while NEW takes the
- * returning lock as a new engagement and aims again. There the weapons and the gaps between the
- * calls must match, counted from the first call.
+ * The fire control goal fires on the ship's one timer. The mount is the exception: the rider's
+ * target authority is made again when its AI starts up, leaving the lock empty for a tick, and the
+ * returning lock counts as a new engagement. There the weapons and the gaps between the calls are
+ * compared, counted from the first call.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -79,72 +73,77 @@ public final class CombatIntentParityGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_cannon",
-            timeoutTicks = 2 * PHASE + 20)
-    public static void cannonFiresOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::cannon);
+            timeoutTicks = PHASE + 20)
+    public static void cannonFiresOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, CombatIntentParityGameTests::cannon,
+                "{cannon=[28:light, 57:heavy, 181:light]}",
+                "{cannon=[0:start]}", false);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_carrier",
-            timeoutTicks = 2 * PHASE + 20)
-    public static void carrierLaunchesOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::carrier);
+            timeoutTicks = PHASE + 20)
+    public static void carrierLaunchesOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, CombatIntentParityGameTests::carrier,
+                "{carrier=[19:airHeavy]}",
+                "{carrier=[0:start]}", false);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_melee",
-            timeoutTicks = 2 * PHASE + 20)
-    public static void meleeStrikesOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::melee);
+            timeoutTicks = PHASE + 20)
+    public static void meleeStrikesOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, CombatIntentParityGameTests::melee,
+                "{melee=[19:melee, 85:melee, 151:melee]}",
+                "{melee=[0:start]}", false);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_hostile",
-            timeoutTicks = 2 * PHASE + 20)
-    public static void hostileCannonFiresOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::hostileCannon);
+            timeoutTicks = PHASE + 20)
+    public static void hostileCannonFiresOnTheRecordedTicks(GameTestHelper helper) {
+        verify(helper, CombatIntentParityGameTests::hostileCannon,
+                "{hostile=[28:light, 57:heavy, 162:light]}",
+                "{hostile=[0:start]}", false);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_hold",
-            timeoutTicks = 2 * PHASE + 20)
-    public static void holdFireConditionsMatchUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::holdFire);
+            timeoutTicks = PHASE + 20)
+    public static void holdFireConditionsKeepTheRecordedBehavior(GameTestHelper helper) {
+        verify(helper, CombatIntentParityGameTests::holdFire,
+                "{sitting=[], crane=[], noFuel=[], free=[28:light, 57:heavy, 181:light]}",
+                "{sitting=[], crane=[], noFuel=[], free=[0:start]}", false);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_mount",
-            timeoutTicks = 2 * PHASE + 20)
-    public static void mountFiresForItsRiderOnSameTicksUnderEitherAuthority(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::mounted, true);
+            timeoutTicks = PHASE + 20)
+    public static void mountFiresForItsRiderOnTheRecordedGaps(GameTestHelper helper) {
+        verify(helper, CombatIntentParityGameTests::mounted,
+                "{rider=[0:light:viaMount, 29:heavy:viaMount, 153:light:viaMount]}",
+                "{rider=[], mount=[1:start]}", true);
     }
 
-    private static void verify(GameTestHelper helper, Scenario scenario) {
-        verify(helper, scenario, false);
-    }
-
-    private static void verify(GameTestHelper helper, Scenario scenario, boolean fromFirstCall) {
-        Outcome legacy = new Outcome();
+    private static void verify(GameTestHelper helper, Scenario scenario, String calls, String goals,
+                               boolean fromFirstCall) {
         Outcome now = new Outcome();
-        phase(helper, 1, ConfigHandler.ShipAiTargetAuthority.LEGACY, scenario, legacy);
-        phase(helper, 2 + PHASE, ConfigHandler.ShipAiTargetAuthority.NEW, scenario, now);
-        // runAtTickTime does not order two runnables of one tick, so no two stages share a tick
-        helper.runAtTickTime(3 + 2 * PHASE, () -> {
-            String report = "\n LEGACY " + legacy + "\n NEW    " + now;
-            helper.assertTrue(legacy.problems.isEmpty() && now.problems.isEmpty(), "Fixture problems:" + report);
-            helper.assertTrue(fromFirstCall ? fromFirst(now.calls).equals(fromFirst(legacy.calls))
-                    : now.calls.equals(legacy.calls), "Attack calls differ:" + report);
-            helper.assertTrue(now.goals.equals(legacy.goals), "Attack goals differ:" + report);
-            // the evidence of a passing run, for the change note and review
-            LogHelper.info("Combat intent parity:" + report);
+        phase(helper, 1, scenario, now);
+        helper.runAtTickTime(2 + PHASE, () -> {
+            String report = "\n NOW " + now;
+            helper.assertTrue(now.problems.isEmpty(), "Fixture problems:" + report);
+            helper.assertTrue((fromFirstCall ? fromFirst(now.calls) : now.calls).toString().equals(calls),
+                    "Attack calls differ from the recorded ones: expected " + calls + report);
+            helper.assertTrue(now.goals.toString().equals(goals),
+                    "Attack goals differ from the recorded ones: expected " + goals + report);
+            LogHelper.info("Combat intent:" + report);
             helper.succeed();
         });
     }
 
-    private static void phase(GameTestHelper helper, int start, ConfigHandler.ShipAiTargetAuthority mode,
-                              Scenario scenario, Outcome result) {
+    private static void phase(GameTestHelper helper, int start, Scenario scenario, Outcome result) {
         Phase[] phase = {null};
-        helper.runAtTickTime(start, () -> phase[0] = Phase.open(helper, mode, scenario));
+        helper.runAtTickTime(start, () -> phase[0] = Phase.open(helper, scenario));
         for (int tick = start + 1; tick < start + PHASE; tick++) {
             helper.runAtTickTime(tick, () -> phase[0].guard(phase[0]::poll));
         }
         helper.runAtTickTime(start + PHASE, () -> phase[0].guard(() -> {
-            phase[0].finish(mode, result);
+            phase[0].finish(result);
             phase[0].close();
         }));
     }
@@ -516,7 +515,6 @@ public final class CombatIntentParityGameTests {
 
     private static final class Phase {
         private final GameTestHelper helper;
-        private final ShipAiAuthorityOverride authority;
         private final GameTestEntities entities;
         private final Fixture fixture;
         private final Map<String, List<String>> goals = new HashMap<>();
@@ -528,26 +526,18 @@ public final class CombatIntentParityGameTests {
         private int gateHolding;
         private boolean closed;
 
-        private Phase(GameTestHelper helper, ShipAiAuthorityOverride authority, GameTestEntities entities,
-                      Fixture fixture) {
+        private Phase(GameTestHelper helper, GameTestEntities entities, Fixture fixture) {
             this.helper = helper;
-            this.authority = authority;
             this.entities = entities;
             this.fixture = fixture;
         }
 
-        static Phase open(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode, Scenario scenario) {
-            ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(mode);
-            GameTestEntities entities = null;
+        static Phase open(GameTestHelper helper, Scenario scenario) {
+            GameTestEntities entities = GameTestEntities.open(helper);
             try {
-                entities = GameTestEntities.open(helper);
-                return new Phase(helper, authority, entities, scenario.create(helper, entities));
+                return new Phase(helper, entities, scenario.create(helper, entities));
             } catch (RuntimeException | Error failure) {
-                try {
-                    if (entities != null) entities.close();
-                } finally {
-                    authority.close();
-                }
+                entities.close();
                 throw failure;
             }
         }
@@ -602,7 +592,7 @@ public final class CombatIntentParityGameTests {
             }
         }
 
-        void finish(ConfigHandler.ShipAiTargetAuthority mode, Outcome result) {
+        void finish(Outcome result) {
             for (Watched watched : this.fixture.watched()) {
                 Integer anchor = acquired(watched.anchor());
                 if (watched.anchor().equals(watched.name())) result.acquired.put(watched.name(), anchor);
@@ -613,11 +603,9 @@ public final class CombatIntentParityGameTests {
                 result.goals.put(watched.name(), relative(this.goals.getOrDefault(watched.name(), List.of()), base));
             }
             result.problems.addAll(this.fixture.check().problems(result));
-            if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                result.gateChecks = "engaged=" + this.gateEngaged + " holding=" + this.gateHolding;
-                if (this.gateEngaged + this.gateHolding == 0) result.problems.add("the gate was never active");
-                result.problems.addAll(this.gateMismatches);
-            }
+            result.gateChecks = "engaged=" + this.gateEngaged + " holding=" + this.gateHolding;
+            if (this.gateEngaged + this.gateHolding == 0) result.problems.add("the gate was never active");
+            result.problems.addAll(this.gateMismatches);
         }
 
         /** The first tick on which the goal that stays is registered and the ship has a target. */
@@ -631,17 +619,13 @@ public final class CombatIntentParityGameTests {
         void close() {
             if (this.closed) return;
             this.closed = true;
-            try {
-                this.entities.close();
-                // aircraft and shells outlive the phase; clear them before the next authority
-                AABB area = new AABB(this.helper.absolutePos(BlockPos.ZERO)).inflate(40D);
-                for (Entity leftover : this.helper.getLevel().getEntitiesOfClass(Entity.class, area,
-                        entity -> entity instanceof BasicEntityAirplane || entity instanceof IShipProjectile
-                                || entity instanceof Projectile)) {
-                    leftover.discard();
-                }
-            } finally {
-                this.authority.close();
+            this.entities.close();
+            // aircraft and shells outlive the phase; clear them
+            AABB area = new AABB(this.helper.absolutePos(BlockPos.ZERO)).inflate(40D);
+            for (Entity leftover : this.helper.getLevel().getEntitiesOfClass(Entity.class, area,
+                    entity -> entity instanceof BasicEntityAirplane || entity instanceof IShipProjectile
+                            || entity instanceof Projectile)) {
+                leftover.discard();
             }
         }
     }

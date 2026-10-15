@@ -191,8 +191,9 @@ public class EntityShipFishingHook extends Entity {
                     1.0F + (this.random.nextFloat() - this.random.nextFloat()) * 0.4F);
         }
         if (this.tickCount == 4 || ((this.tickCount & 63) == 0 && this.random.nextFloat() < 0.35F)) {
-            ((ServerLevel) this.level()).sendParticles(net.minecraft.core.particles.ParticleTypes.FISHING,
-                    this.getX(), this.getY() - 0.1D, this.getZ(), 4, 0.4D, 0.02D, 0.4D, 0D);
+            com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                    com.lulan.shincolle.network.S2CSpawnParticlePacket.position(48, this.getId(),
+                            this.getX(), this.getY() - 0.1D, this.getZ(), 1.5D, 0.25D, 1.5D), this);
         }
     }
 
@@ -369,7 +370,8 @@ public class EntityShipFishingHook extends Entity {
 
     public LivingEntity getHost() {
         int id = this.entityData.get(HOST_ID);
-        if (this.host == null || this.host.getId() != id) {
+        if (this.host == null || this.host.getId() != id
+                || (this.level().isClientSide() && this.host.isRemoved())) {
             Entity entity = this.level().getEntity(id);
             this.host = entity instanceof LivingEntity living ? living : null;
         }

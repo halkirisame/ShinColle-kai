@@ -8,6 +8,8 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 
@@ -15,6 +17,7 @@ import java.util.NoSuchElementException;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Base model class for ShinColle ship entities (1.20.1 port).
@@ -58,6 +61,11 @@ public abstract class ShipModelBaseAdv<T extends Entity> extends EntityModel<T> 
 
     public ShipModelBaseAdv() {
         super();
+    }
+
+    /** For models whose faces must be culled (the default render type draws both sides). */
+    protected ShipModelBaseAdv(Function<ResourceLocation, RenderType> renderType) {
+        super(renderType);
     }
 
     /**
@@ -155,6 +163,12 @@ public abstract class ShipModelBaseAdv<T extends Entity> extends EntityModel<T> 
 
     public float getOffsetY() {
         return this.offsetY;
+    }
+
+    /** Constructor-set base offsetY, kept apart from the per-frame bobbing added in setupAnim. */
+    protected final float getBaseOffsetY() {
+        captureBaseOffsetsIfNeeded();
+        return this.baseOffsetY;
     }
 
     /**

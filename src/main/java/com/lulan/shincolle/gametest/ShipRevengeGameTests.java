@@ -1,6 +1,6 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.ai.ShipRevengeTargetGoal;
+import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
@@ -41,16 +41,21 @@ public final class ShipRevengeGameTests {
     public static void revengeEdgeTriggerRequiresANewTick(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, null, 6201, new Vec3(1D, 4D, 1D));
+            ship.setStateFlag(ID.F.PassiveAI, true);
             Zombie attacker = zombie(helper, entities, new Vec3(3D, 4D, 1D));
-            ShipRevengeTargetGoal goal = new ShipRevengeTargetGoal(ship);
+            ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(ship);
 
             queueRevenge(ship, attacker, 10);
-            helper.assertTrue(goal.canUse(), "A new revenge tick did not trigger the goal");
-            goal.start();
+            goal.tick();
+            helper.assertTrue(ship.getTarget() == attacker, "A new revenge tick did not lock the attacker");
+            goal.clearLock();
+            ship.setTarget(null);
             ship.setEntityRevengeTarget(attacker);
-            helper.assertTrue(!goal.canUse(), "The consumed revenge tick triggered twice");
+            goal.tick();
+            helper.assertTrue(ship.getTarget() == null, "The consumed revenge tick triggered twice");
             queueRevenge(ship, attacker, 11);
-            helper.assertTrue(goal.canUse(), "A later revenge tick did not retrigger the goal");
+            goal.tick();
+            helper.assertTrue(ship.getTarget() == attacker, "A later revenge tick did not trigger again");
             helper.succeed();
         }
     }
@@ -60,16 +65,15 @@ public final class ShipRevengeGameTests {
     public static void revengeConsumptionIsOneShot(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, null, 6202, new Vec3(1D, 4D, 1D));
+            ship.setStateFlag(ID.F.PassiveAI, true);
             Zombie attacker = zombie(helper, entities, new Vec3(3D, 4D, 1D));
-            ShipRevengeTargetGoal goal = new ShipRevengeTargetGoal(ship);
+            ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(ship);
 
             queueRevenge(ship, attacker, 20);
-            helper.assertTrue(goal.canUse(), "Revenge goal did not accept its queued target");
-            goal.start();
+            goal.tick();
+            helper.assertTrue(ship.getTarget() == attacker, "The authority did not lock its queued revenge target");
             helper.assertTrue(ship.getEntityRevengeTarget() == null,
-                    "Starting revenge did not consume the revenge target");
-            ship.setEntityRevengeTarget(attacker);
-            helper.assertTrue(!goal.canUse(), "Consumed revenge was reacquired without a new tick");
+                    "Locking the revenge did not consume the revenge target");
             helper.succeed();
         }
     }
@@ -98,17 +102,29 @@ public final class ShipRevengeGameTests {
             batch = "isolated_revenge_range_is_fixed_at_construction")
     public static void revengeRangeIsFixedAtConstruction(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = friendly(helper, entities, null, 6204, new Vec3(1D, 4D, 1D));
+            BasicEntityShip wide = friendly(helper, entities, null, 6204, new Vec3(1D, 4D, 1D));
+            wide.setStateFlag(ID.F.PassiveAI, true);
             Zombie attacker = zombie(helper, entities, new Vec3(7D, 4D, 1D));
-            ship.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 4F);
-            ShipRevengeTargetGoal goal = new ShipRevengeTargetGoal(ship);
-            ship.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 20F);
+            wide.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 20F);
+            ShipTargetAuthorityGoal control = new ShipTargetAuthorityGoal(wide);
+            queueRevenge(wide, attacker, 30);
+            control.tick();
+            wide.tickCount = 32;
+            control.tick();
+            helper.assertTrue(wide.getTarget() == attacker,
+                    "Fixture: a goal made with a wide attack range must keep an attacker six blocks away");
 
+            BasicEntityShip ship = friendly(helper, entities, null, 6205, new Vec3(1D, 4D, 3D));
+            ship.setStateFlag(ID.F.PassiveAI, true);
+            ship.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 4F);
+            ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(ship);
+            ship.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 20F);
             queueRevenge(ship, attacker, 30);
-            helper.assertTrue(goal.canUse(), "Revenge goal did not accept its queued target");
-            goal.start();
-            helper.assertTrue(!goal.canContinueToUse(),
-                    "Changing attack range after construction changed the revenge goal range");
+            goal.tick();
+            ship.tickCount = 32;
+            goal.tick();
+            helper.assertTrue(ship.getTarget() == null,
+                    "Changing attack range after construction changed the range the revenge lock is kept within");
             helper.succeed();
         }
     }
@@ -215,8 +231,10 @@ public final class ShipRevengeGameTests {
             helper.assertTrue(ship.getEntityRevengeTarget() == arrow,
                     "Propagation did not retain the direct projectile: "
                             + describe(ship.getEntityRevengeTarget()));
-            ShipRevengeTargetGoal goal = new ShipRevengeTargetGoal(ship);
-            helper.assertTrue(!goal.canUse(), "Revenge goal accepted a projectile target");
+            ship.setStateFlag(ID.F.PassiveAI, true);
+            ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(ship);
+            goal.tick();
+            helper.assertTrue(ship.getTarget() == null, "The target authority locked a projectile");
             helper.succeed();
         }
     }

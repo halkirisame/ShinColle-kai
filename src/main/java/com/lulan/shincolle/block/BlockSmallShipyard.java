@@ -5,6 +5,7 @@ import com.lulan.shincolle.init.ModBlockEntities;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.tileentity.TileEntitySmallShipyard;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -149,21 +150,52 @@ public class BlockSmallShipyard extends BasicBlockFacingContainer {
         }
     }
 
+    // Chimney smoke positions in the block's north-facing frame: main, middle, small.
+    private static final double[] SMOKE_MAIN = {0.72D, 1.1D, 0.55D};
+    private static final double[] SMOKE_MIDDLE = {0.22D, 0.8D, 0.7D};
+    private static final double[] SMOKE_SMALL = {0.47D, 0.6D, 0.25D};
+
+    /** Turn a north-facing offset by the block's facing (north, south, west, east). */
+    private static double[] rotateByFace(double[] pos, Direction face) {
+        return switch (face) {
+            case EAST -> new double[] {1D - pos[2], pos[1], pos[0]};
+            case SOUTH -> new double[] {1D - pos[0], pos[1], 1D - pos[2]};
+            case WEST -> new double[] {pos[2], pos[1], 1D - pos[0]};
+            default -> new double[] {pos[0], pos[1], pos[2]};
+        };
+    }
+
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-        if (state.getValue(ACTIVE)) {
-            double x = pos.getX() + 0.5;
-            double y = pos.getY() + 1.0;
-            double z = pos.getZ() + 0.5;
-            // Main smoke
-            level.addParticle(ParticleTypes.SMOKE, x, y + 0.1, z, 0.0, 0.05, 0.0);
-            // Occasional extra smoke
-            if (random.nextInt(3) == 0) {
-                level.addParticle(ParticleTypes.SMOKE,
-                        x + (random.nextDouble() - 0.5) * 0.3, y,
-                        z + (random.nextDouble() - 0.5) * 0.3,
-                        0.0, 0.03, 0.0);
+        if (!state.getValue(ACTIVE)) {
+            return;
+        }
+        Direction face = state.getValue(FACING);
+        double[] main = rotateByFace(SMOKE_MAIN, face);
+        double[] middle = rotateByFace(SMOKE_MIDDLE, face);
+        double[] small = rotateByFace(SMOKE_SMALL, face);
+        // The three chimneys smoke in turn.
+        switch (random.nextInt(3)) {
+            case 0 -> {
+                chimneySmoke(level, pos, main, 3);
+                chimneySmoke(level, pos, small, 2);
             }
+            case 1 -> {
+                chimneySmoke(level, pos, main, 3);
+                chimneySmoke(level, pos, middle, 2);
+            }
+            default -> {
+                chimneySmoke(level, pos, middle, 2);
+                chimneySmoke(level, pos, small, 2);
+            }
+        }
+    }
+
+    private static void chimneySmoke(Level level, BlockPos pos, double[] at, int puffs) {
+        double[] rise = {0D, 0.005D, 0.01D};
+        for (int i = 0; i < puffs; i++) {
+            level.addParticle(ParticleTypes.SMOKE, pos.getX() + at[0], pos.getY() + at[1] + 0.1D * i,
+                    pos.getZ() + at[2], 0D, puffs == 3 ? rise[i] : (i == 0 ? 0D : 0.01D), 0D);
         }
     }
 }

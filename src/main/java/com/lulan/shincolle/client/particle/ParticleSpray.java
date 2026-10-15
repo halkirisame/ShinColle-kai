@@ -200,7 +200,7 @@ public class ParticleSpray extends TextureSheetParticle {
                 this.gCol = 1F;
                 this.bCol = 1F;
                 this.alpha = 1F;
-                this.quadSize = (float) motionY * 3F;
+                this.quadSize = (float) motionY * 0.3F;
                 this.pScale = this.quadSize;
                 this.lifetime = 40;
                 this.x += (random.nextDouble() - 0.5D) * motionY;
@@ -216,7 +216,7 @@ public class ParticleSpray extends TextureSheetParticle {
                 this.bCol = 0F;
                 this.alpha = 0.7F;
                 this.quadSize *= 1.5F;
-                this.pScale = this.quadSize;
+                this.pScale = 1.5F;
                 this.lifetime = 40;
                 this.yd = 0D;
                 break;

@@ -81,6 +81,7 @@ public class ShipFireControlGoal extends Goal {
         if (plan.airLaunchDue()) timing = CombatTimingReducer.onAirLaunchDue(timing, plan.airHeavy());
         float speed = Math.max(this.host.getAttrs().getAttackSpeed(), 0.01F);
         for (WeaponChannel channel : plan.fire()) {
+            if (channel == WeaponChannel.LIGHT && this.host.holdsLightFire()) continue;
             if (ShipSkillAttackGate.running(this.entity)) break;
             int delay = switch (channel) {
                 case LIGHT -> {
@@ -89,7 +90,8 @@ public class ShipFireControlGoal extends Goal {
                 }
                 case HEAVY -> {
                     this.host.attackEntityWithHeavyAmmo(target);
-                    yield Math.max(10, (int) (ConfigHandler.baseAttackSpeed[2] / speed) + ConfigHandler.fixedAttackDelay[2]);
+                    int wait = (int) (ConfigHandler.baseAttackSpeed[2] / speed) + ConfigHandler.fixedAttackDelay[2];
+                    yield Math.max(10, (int) (wait * this.host.heavyDelayScale()));
                 }
                 case AIR -> {
                     IShipAircraftAttack carrier = (IShipAircraftAttack) this.host;

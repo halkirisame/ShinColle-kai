@@ -89,4 +89,23 @@ public final class HostileDespawnGameTests {
             helper.succeed();
         }
     }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void bossRemovableOnlyAfterConfiguredTime(GameTestHelper helper) {
+        // minions: always removable when far away
+        check(BasicEntityShipHostile.canRemoveWhenFarAway(0, 0, 12000), "minion");
+        check(BasicEntityShipHostile.canRemoveWhenFarAway(1, 0, -1), "large minion");
+        // bosses: kept until despawnBoss ticks have passed, never when -1
+        check(!BasicEntityShipHostile.canRemoveWhenFarAway(2, 100, 12000), "fresh boss");
+        check(!BasicEntityShipHostile.canRemoveWhenFarAway(3, 12000, 12000), "boss at limit");
+        check(BasicEntityShipHostile.canRemoveWhenFarAway(3, 12001, 12000), "boss past limit");
+        check(!BasicEntityShipHostile.canRemoveWhenFarAway(2, Integer.MAX_VALUE, -1), "boss, -1");
+        helper.succeed();
+    }
+
+    private static void check(boolean ok, String what) {
+        if (!ok) {
+            throw new AssertionError("Unexpected removeWhenFarAway result: " + what);
+        }
+    }
 }

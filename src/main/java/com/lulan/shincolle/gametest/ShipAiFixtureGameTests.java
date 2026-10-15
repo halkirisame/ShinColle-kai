@@ -1,13 +1,8 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.handler.ConfigHandler;
 
-import com.lulan.shincolle.ai.ShipFleeGoal;
-import com.lulan.shincolle.ai.ShipGuardingGoal;
-import com.lulan.shincolle.ai.ShipManualTargetGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
-import com.lulan.shincolle.ai.ShipRangeTargetGoal;
-import com.lulan.shincolle.ai.ShipRevengeTargetGoal;
+import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
 import com.lulan.shincolle.ai.ShipWatchClosestGoal;
 import com.lulan.shincolle.ai.ShipWanderGoal;
 import com.lulan.shincolle.ai.ShipHostileWanderGoal;
@@ -50,35 +45,6 @@ public final class ShipAiFixtureGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void rangeTargetCooldownIsRelativePerShip(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip first = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), false);
-            BasicEntityShip second = friendly(helper, entities, new Vec3(3.5D, 2D, 1.5D), false);
-            ShipRangeTargetGoal firstGoal = new ShipRangeTargetGoal(first);
-            ShipRangeTargetGoal secondGoal = new ShipRangeTargetGoal(second);
-
-            first.tickCount = 101;
-            firstGoal.canUse();
-            helper.assertTrue(readInt(ShipRangeTargetGoal.class, firstGoal, "nextScanTick") == 109,
-                    "First ship did not schedule its next scan relative to its own first scan.");
-            first.tickCount = 108;
-            firstGoal.canUse();
-            helper.assertTrue(readInt(ShipRangeTargetGoal.class, firstGoal, "nextScanTick") == 109,
-                    "Cooldown call changed the first ship's next scan.");
-            first.tickCount = 109;
-            firstGoal.canUse();
-            helper.assertTrue(readInt(ShipRangeTargetGoal.class, firstGoal, "nextScanTick") == 117,
-                    "First ship did not rescan after exactly eight entity ticks.");
-
-            second.tickCount = 104;
-            secondGoal.canUse();
-            helper.assertTrue(readInt(ShipRangeTargetGoal.class, secondGoal, "nextScanTick") == 112,
-                    "Second ship inherited a modulo phase instead of its own cooldown.");
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void invisibleTargetRequiresFlareOrSearchlight(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
@@ -104,49 +70,6 @@ public final class ShipAiFixtureGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void lightAndHeavyAttacksCanFireOnTheSameTick(GameTestHelper helper) {
-        try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
-            Zombie target = entities.add(EntityType.ZOMBIE.create(helper.getLevel()));
-            helper.assertTrue(target != null, "Failed to create attack target.");
-            move(helper, target, new Vec3(3.5D, 2D, 1.5D));
-            target.setNoAi(true);
-            target.setInvulnerable(true);
-            target.setPersistenceRequired();
-            helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add attack target.");
-            ship.setTarget(target);
-            ship.setStateMinor(ID.M.NumGrudge, 100_000);
-            ship.setStateFlag(ID.F.NoFuel, false);
-            ship.setStateFlag(ID.F.AtkType_Light, true);
-            ship.setStateFlag(ID.F.AtkType_Heavy, true);
-            ship.setStateFlag(ID.F.UseAmmoLight, true);
-            ship.setStateFlag(ID.F.UseAmmoHeavy, true);
-            ship.setAmmoLight(100_000);
-            ship.setAmmoHeavy(100_000);
-
-            ShipRangeAttackGoal goal = new ShipRangeAttackGoal((IShipCannonAttack) ship);
-            helper.assertTrue(goal.canUse(), "Dual-ammo fixture could not start its attack goal.");
-            goal.start();
-            writeInt(ShipRangeAttackGoal.class, goal, "delayLight", 0);
-            writeInt(ShipRangeAttackGoal.class, goal, "delayHeavy", 0);
-            writeInt(ShipRangeAttackGoal.class, goal, "onSightTime", 1_000);
-            int lightBefore = ship.getAmmoLight();
-            int heavyBefore = ship.getAmmoHeavy();
-            goal.tick();
-
-            helper.assertTrue(ship.getAmmoLight() < lightBefore,
-                    "Ready light attack did not consume ammo on the shared tick.");
-            helper.assertTrue(ship.getAmmoHeavy() < heavyBefore,
-                    "Ready heavy attack did not consume ammo on the shared tick.");
-            helper.assertTrue(readInt(ShipRangeAttackGoal.class, goal, "delayLight") > 0,
-                    "Light delay was not reset independently.");
-            helper.assertTrue(readInt(ShipRangeAttackGoal.class, goal, "delayHeavy") > 0,
-                    "Heavy delay was not reset independently.");
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void rangeAttackRejectsSitCraneAndShipMount(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
@@ -156,17 +79,31 @@ public final class ShipAiFixtureGameTests {
             target.setNoAi(true);
             target.setPersistenceRequired();
             helper.assertTrue(helper.getLevel().addFreshEntity(target), "Failed to add blocker target.");
-            ship.setTarget(target);
             ship.setStateFlag(ID.F.AtkType_Light, true);
             ship.setStateFlag(ID.F.UseAmmoLight, true);
             ship.setAmmoLight(100_000);
+            // the target authority locks the attacker the ship is given, so the goal has something to fire at
+            selector(ship, "targetSelector").removeAllGoals(goal -> true);
+            ship.setAITargetList();
+            ship.tickCount = 100;
+            ship.setEntityRevengeTarget(target);
+            ship.setEntityRevengeTime();
+            findGoal(selector(ship, "targetSelector"), ShipTargetAuthorityGoal.class).tick();
             ShipRangeAttackGoal goal = new ShipRangeAttackGoal((IShipCannonAttack) ship);
+            helper.assertTrue(goal.canUse(), "Fixture: the ready ship could not start ranged attack.");
 
             ship.setEntitySit(true);
             helper.assertTrue(!goal.canUse(), "Sitting ship could start ranged attack.");
             ship.setEntitySit(false);
+            ship.tickCount = 110;
+            ship.setEntityRevengeTarget(target);
+            ship.setEntityRevengeTime();
+            findGoal(selector(ship, "targetSelector"), ShipTargetAuthorityGoal.class).tick();
+            helper.assertTrue(goal.canUse(), "Fixture: the standing ship could not start ranged attack.");
+            ship.setStateTimer(ID.T.CrandDelay, 0);
             ship.setStateMinor(ID.M.CraneState, 1);
             helper.assertTrue(!goal.canUse(), "Crane-active ship could start ranged attack.");
+            ship.setStateTimer(ID.T.CrandDelay, 0);
             ship.setStateMinor(ID.M.CraneState, 0);
 
             BasicEntityMount mount = entities.add(ModEntities.MOUNT_CAWD.get().create(helper.getLevel()));
@@ -180,48 +117,20 @@ public final class ShipAiFixtureGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void noFuelClearsMovementAndTargetGoals(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
-            GoalSelector goals = selector(ship, "goalSelector");
-            GoalSelector targets = selector(ship, "targetSelector");
-            goals.removeAllGoals(goal -> true);
-            targets.removeAllGoals(goal -> true);
-            goals.addGoal(1, new ShipFleeGoal(ship));
-            goals.addGoal(2, new ShipGuardingGoal(ship));
-            targets.addGoal(1, new ShipRangeTargetGoal(ship));
-            ship.setDeltaMovement(0.2D, 0.3D, 0.4D);
-            ship.setStateMinor(ID.M.NumGrudge, 0);
-            ship.decrGrudgeNum(0);
-            invokeNoArg(ship, "applyPendingFuelAiRefresh");
-
-            helper.assertTrue(ship.getStateFlag(ID.F.NoFuel), "Zero fuel did not set NoFuel.");
-            helper.assertTrue(goals.getAvailableGoals().isEmpty(), "NoFuel retained movement goals.");
-            helper.assertTrue(targets.getAvailableGoals().isEmpty(), "NoFuel retained target goals.");
-            helper.assertTrue(ship.getNavigation().isDone(), "NoFuel retained a navigation path.");
-            helper.assertTrue(ship.getDeltaMovement().equals(Vec3.ZERO), "NoFuel retained movement velocity.");
-            helper.succeed();
-        }
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void passiveAiOmitsOnlyAutomaticRangeTarget(GameTestHelper helper) {
-        try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                GameTestEntities entities = GameTestEntities.open(helper)) {
+    public static void passiveAiLeavesTheTargetAuthorityAsTheOnlyTargetGoal(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D), true);
             GoalSelector targets = selector(ship, "targetSelector");
-            targets.removeAllGoals(goal -> true);
             ship.setStateFlag(ID.F.PassiveAI, false);
+            targets.removeAllGoals(goal -> true);
             ship.setAITargetList();
-            assertHasGoal(helper, targets, ShipManualTargetGoal.class, true);
-            assertHasGoal(helper, targets, ShipRevengeTargetGoal.class, true);
-            assertHasGoal(helper, targets, ShipRangeTargetGoal.class, true);
+            assertHasGoal(helper, targets, ShipTargetAuthorityGoal.class, true);
+            helper.assertTrue(targets.getAvailableGoals().size() == 1, "The target authority must be the only target goal");
 
             ship.setStateFlag(ID.F.PassiveAI, true);
-            assertHasGoal(helper, targets, ShipManualTargetGoal.class, true);
-            assertHasGoal(helper, targets, ShipRevengeTargetGoal.class, true);
-            assertHasGoal(helper, targets, ShipRangeTargetGoal.class, false);
+            assertHasGoal(helper, targets, ShipTargetAuthorityGoal.class, true);
+            helper.assertTrue(targets.getAvailableGoals().size() == 1,
+                    "Passive AI must not add or drop target goals; the authority reads the flag itself");
             helper.succeed();
         }
     }

@@ -70,13 +70,9 @@ public class ShipHostileWanderGoal extends Goal {
 
     @Override
     public void start() {
-        if (ShipMovementGate.active()) {
-            // the point is drawn in canUse, from the entity random, as before
-            ShipMovementExecutor.run(this.ship, MovementPlan.of(new MovementStep.PathTo(MovementBody.SELF,
-                    new MovementTarget.Point(new MovementPoint(this.targetX, this.targetY, this.targetZ)), this.speed,
-                    MovementReason.WANDER)));
-            return;
-        }
-        this.ship.getNavigation().moveTo(this.targetX, this.targetY, this.targetZ, this.speed);
+        // The point is drawn in canUse, from the entity random, as before.
+        ShipMovementExecutor.run(this.ship, MovementPlan.of(new MovementStep.PathTo(MovementBody.SELF,
+                new MovementTarget.Point(new MovementPoint(this.targetX, this.targetY, this.targetZ)), this.speed,
+                MovementReason.WANDER)));
     }
 }

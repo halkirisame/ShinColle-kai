@@ -1,7 +1,6 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.ai.ShipRangeTargetGoal;
-import com.lulan.shincolle.ai.ShipRevengeTargetGoal;
+import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
@@ -126,9 +125,10 @@ public final class TargetGoalLifecycleGameTests {
     private static void verifyRevengeRetention(GameTestHelper helper, GameTestEntities entities,
                                                IShipAttackBase host) {
         Mob ship = (Mob) host;
-        Zombie first = createZombie(helper, entities, new Vec3(3.5D, 2D, 1.5D), false);
-        Zombie second = createZombie(helper, entities, new Vec3(1.5D, 2D, 3.5D), false);
-        GoalSelector selector = installOnlyTargetGoal(ship, new ShipRevengeTargetGoal(host));
+        Zombie first = createZombie(helper, entities, new Vec3(3.5D, 2D, 1.5D), true);
+        Zombie second = createZombie(helper, entities, new Vec3(1.5D, 2D, 3.5D), true);
+        ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(host);
+        GoalSelector selector = installOnlyTargetGoal(ship, goal);
 
         queueRevengeTarget(host, ship, first, 1);
         selector.tick();
@@ -143,7 +143,8 @@ public final class TargetGoalLifecycleGameTests {
         }
         assertTarget(helper, ship, first,
                 "A later attacker replaced the retained revenge target before the aim window elapsed.");
-        assertGoalRunning(helper, selector, ShipRevengeTargetGoal.class, true);
+        assertGoalRunning(helper, selector, ShipTargetAuthorityGoal.class, true);
+        helper.assertTrue(goal.currentLock().isPresent(), "The revenge lock was lost with the goal still running");
         helper.succeed();
     }
 
@@ -166,17 +167,17 @@ public final class TargetGoalLifecycleGameTests {
         com.mojang.logging.LogUtils.getLogger().info(
                 "Range fixture: host={}, target={}, range={}, searchBox={}",
                 ship.position(), target.position(), range, searchBox);
-        GoalSelector selector = installOnlyTargetGoal(ship, new ShipRangeTargetGoal(host));
+        GoalSelector selector = installOnlyTargetGoal(ship, new ShipTargetAuthorityGoal(host));
 
         selector.tick();
         assertTarget(helper, ship, target, "Range target goal did not acquire its visible target.");
-        assertGoalRunning(helper, selector, ShipRangeTargetGoal.class, true);
+        assertGoalRunning(helper, selector, ShipTargetAuthorityGoal.class, true);
 
         setSightBarrier(helper, Blocks.STONE);
         ship.getSensing().tick();
         selector.tick();
         assertTarget(helper, ship, target, "Range target was cleared during a transient sight loss.");
-        assertGoalRunning(helper, selector, ShipRangeTargetGoal.class, true);
+        assertGoalRunning(helper, selector, ShipTargetAuthorityGoal.class, true);
 
         setSightBarrier(helper, Blocks.AIR);
         ship.getSensing().tick();
@@ -189,39 +190,46 @@ public final class TargetGoalLifecycleGameTests {
                                                     UUID playerUuid) {
         Mob ship = (Mob) host;
         host.getAttrs().getAttrsBuffed()[ID.Attrs.HIT] = 4F;
-        GoalSelector selector = installOnlyTargetGoal(ship, new ShipRevengeTargetGoal(host));
+        // only revenge may lock here; a friendly ship would also pick the zombies on its own
+        host.setStateFlag(ID.F.PassiveAI, true);
+        ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(host);
+        GoalSelector selector = installOnlyTargetGoal(ship, goal);
         Zombie dead;
-        Zombie distant = createZombie(helper, entities, new Vec3(1.5D, 2D, 3.5D), false);
+        Zombie distant = createZombie(helper, entities, new Vec3(1.5D, 2D, 3.5D), true);
         ServerPlayer player = FakePlayerFactory.get(helper.getLevel(),
                 new GameProfile(playerUuid, "shincolle_target_lifecycle"));
         moveTo(helper, player, new Vec3(3.5D, 2D, 3.5D));
         player.getAbilities().invulnerable = false;
 
         try (GameTestEntities deadEntities = GameTestEntities.open(helper)) {
-            dead = createZombie(helper, deadEntities, new Vec3(3.5D, 2D, 1.5D), false);
+            dead = createZombie(helper, deadEntities, new Vec3(3.5D, 2D, 1.5D), true);
             queueRevengeTarget(host, ship, dead, 1);
             selector.tick();
             assertTarget(helper, ship, dead, "Revenge goal did not acquire the death-check target.");
         }
         selector.tick();
-        assertStoppedAndUntargeted(helper, selector, ship, "Revenge goal retained a dead target.");
+        assertStoppedAndUntargeted(helper, goal, ship, "Revenge goal retained a dead target.");
 
         queueRevengeTarget(host, ship, distant, 2);
         selector.tick();
         assertTarget(helper, ship, distant, "Revenge goal did not acquire the range-check target.");
         moveTo(helper, distant, new Vec3(7.5D, 2D, 1.5D));
         selector.tick();
-        assertStoppedAndUntargeted(helper, selector, ship,
-                "Revenge goal retained an out-of-range target.");
+        assertStoppedAndUntargeted(helper, goal, ship, "Revenge goal retained an out-of-range target.");
 
-        queueRevengeTarget(host, ship, player, 3);
-        selector.tick();
-        assertTarget(helper, ship, player, "Revenge goal did not acquire the player target.");
-        player.getAbilities().invulnerable = true;
-        selector.tick();
-        assertStoppedAndUntargeted(helper, selector, ship,
-                "Revenge goal retained an invulnerable player target.");
-        player.getAbilities().invulnerable = false;
+        // a player the hostile ship would pick on its own is not in the world until it is the revenge target
+        helper.getLevel().addNewPlayer(player);
+        try {
+            queueRevengeTarget(host, ship, player, 3);
+            selector.tick();
+            assertTarget(helper, ship, player, "Revenge goal did not acquire the player target.");
+            player.getAbilities().invulnerable = true;
+            selector.tick();
+            assertStoppedAndUntargeted(helper, goal, ship, "Revenge goal retained an invulnerable player target.");
+        } finally {
+            player.getAbilities().invulnerable = false;
+            helper.getLevel().removePlayerImmediately(player, Entity.RemovalReason.DISCARDED);
+        }
         helper.succeed();
     }
 
@@ -288,10 +296,11 @@ public final class TargetGoalLifecycleGameTests {
         entity.moveTo(absolute.x, absolute.y, absolute.z, 0F, 0F);
     }
 
-    private static void assertStoppedAndUntargeted(GameTestHelper helper, GoalSelector selector,
+    /** The authority goal keeps running; what ends is its lock and the target it projects. */
+    private static void assertStoppedAndUntargeted(GameTestHelper helper, ShipTargetAuthorityGoal goal,
                                                     Mob ship, String message) {
         assertTarget(helper, ship, null, message);
-        assertGoalRunning(helper, selector, ShipRevengeTargetGoal.class, false);
+        helper.assertTrue(goal.currentLock().isEmpty(), message + " The lock was kept.");
     }
 
     private static void assertTarget(GameTestHelper helper, Mob ship, Entity expected, String message) {

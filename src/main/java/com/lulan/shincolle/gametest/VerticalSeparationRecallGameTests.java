@@ -9,7 +9,6 @@ import com.lulan.shincolle.ai.domain.movement.MovementPoint;
 import com.lulan.shincolle.ai.domain.movement.MovementReason;
 import com.lulan.shincolle.ai.domain.movement.MovementStep;
 import com.lulan.shincolle.ai.domain.movement.TeleportDenial;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.reference.ID;
@@ -39,7 +38,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_formation", timeoutTicks = 90)
     public static void formationBlockCommandUsesEachShipsAssignedLanding(GameTestHelper helper) {
-        fixture(helper, 15009, false, (context, ships) -> {
+        fixture(helper, 15009, (context, ships) -> {
             FormationGameTestOwner online = new FormationGameTestOwner(context.player());
             cleanup(helper, online::close);
             for (int slot = 1; slot < 6; slot++) {
@@ -81,7 +80,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_group", timeoutTicks = 90)
     public static void groupBlockCommandRecallsSixOwnedShips(GameTestHelper helper) {
-        fixture(helper, 15002, false, (context, ships) -> {
+        fixture(helper, 15002, (context, ships) -> {
             for (int slot = 1; slot < 6; slot++) {
                 BasicEntityShip ship = PointerSingleModeGameTests.addShip(context, slot, 1500200 + slot, HOME.add(slot, 0, 0));
                 prepare(helper, ship, context.player());
@@ -103,7 +102,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_excluded", timeoutTicks = 90)
     public static void seatedLeashedAndCraneShipsKeepNormalCommandBehavior(GameTestHelper helper) {
-        fixture(helper, 15003, false, (context, ships) -> {
+        fixture(helper, 15003, (context, ships) -> {
             BasicEntityShip seated = ships.get(0);
             BasicEntityShip leashed = PointerSingleModeGameTests.addShip(context, 1, 1500301, HOME.add(1D, 0D, 0D));
             BasicEntityShip crane = PointerSingleModeGameTests.addShip(context, 2, 1500302, HOME.add(2D, 0D, 0D));
@@ -140,7 +139,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_return", timeoutTicks = 90)
     public static void returnedShipAndEntityPositionMoveDoNotTeleport(GameTestHelper helper) {
-        fixture(helper, 15004, false, (context, ships) -> {
+        fixture(helper, 15004, (context, ships) -> {
             BasicEntityShip ship = ships.get(0);
             long begun = helper.getTick();
             helper.runAtTickTime(begun + 25, () -> ship.setPos(ship.getX(), context.player().getY() + 12D, ship.getZ()));
@@ -160,7 +159,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_expiry", timeoutTicks = 700)
     public static void expiredWindowLeavesBlockCommandWalking(GameTestHelper helper) {
-        fixture(helper, 15005, false, (context, ships) -> {
+        fixture(helper, 15005, (context, ships) -> {
             BasicEntityShip ship = ships.get(0);
             long begun = helper.getTick();
             helper.runAtTickTime(begun + 25, () -> ship.setPos(ship.getX(), context.player().getY() + 12D, ship.getZ()));
@@ -176,7 +175,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_landing", timeoutTicks = 90)
     public static void blockedLandingRetainsWindowForAnotherDestination(GameTestHelper helper) {
-        fixture(helper, 15006, false, (context, ships) -> {
+        fixture(helper, 15006, (context, ships) -> {
             BasicEntityShip ship = ships.get(0);
             long begun = helper.getTick();
             helper.runAtTickTime(begun + 25, () -> ship.setPos(ship.getX(), context.player().getY() + 12D, ship.getZ()));
@@ -199,7 +198,7 @@ public final class VerticalSeparationRecallGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_cooldown", timeoutTicks = 180)
     public static void recallRespectsCooldownWithoutConsumingWindow(GameTestHelper helper) {
-        fixture(helper, 15007, false, (context, ships) -> {
+        fixture(helper, 15007, (context, ships) -> {
             BasicEntityShip ship = ships.get(0);
             long begun = helper.getTick();
             helper.runAtTickTime(begun + 25, () -> ship.setPos(ship.getX(), context.player().getY() + 12D, ship.getZ()));
@@ -222,24 +221,8 @@ public final class VerticalSeparationRecallGameTests {
         });
     }
 
-    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_vertical_legacy", timeoutTicks = 90)
-    public static void legacySeparatedShipKeepsWalking(GameTestHelper helper) {
-        fixture(helper, 15008, true, (context, ships) -> {
-            BasicEntityShip ship = ships.get(0);
-            long begun = helper.getTick();
-            helper.runAtTickTime(begun + 25, () -> ship.setPos(ship.getX(), context.player().getY() + 12D, ship.getZ()));
-            helper.runAtTickTime(begun + 29, () -> {
-                command(context, context.player().blockPosition().offset(4, 0, 0), true);
-                helper.assertTrue(ship.getY() > context.player().getY() + 10D, "LEGACY command gained a teleport");
-                helper.succeed();
-            });
-        });
-    }
-
-    private static void fixture(GameTestHelper helper, int id, boolean legacy,
+    private static void fixture(GameTestHelper helper, int id,
                                 BiConsumer<PointerSingleModeGameTests.TestContext, List<BasicEntityShip>> body) {
-        ShipAiAuthorityOverride.useUntilComplete(helper, legacy ? ConfigHandler.ShipAiTargetAuthority.LEGACY
-                : ConfigHandler.ShipAiTargetAuthority.NEW);
         GameTestEntities.whenPositionsTicking(helper, () -> {
             var context = PointerSingleModeGameTests.createContext(helper, "vertical" + id, id);
             context.level().addNewPlayer(context.player());
@@ -262,7 +245,6 @@ public final class VerticalSeparationRecallGameTests {
     @GameTest(templateNamespace = "minecraft", template = "empty",
             batch = "isolated_vertical_recall_physics", timeoutTicks = 180)
     public static void naturalFallThenBlockMoveRecallsSeparatedShip(GameTestHelper helper) {
-        ShipAiAuthorityOverride.useUntilComplete(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
         GameTestEntities.whenPositionsTicking(helper, () -> {
             var context = PointerSingleModeGameTests.createContext(helper, "vertical", 15001);
             ServerPlayer owner = context.player();

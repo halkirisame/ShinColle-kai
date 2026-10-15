@@ -158,8 +158,8 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 0.12.0では新AI（NEW）が既定です。既存の `config/shincolle_kai-common.toml` も、
 初回更新時に `shipAiTargetAuthority` だけを一度NEWへ切り替えます。
 
-旧AIを使う場合は、初回更新後に `shipAiTargetAuthority = "LEGACY"` へ変更して
-ワールドに入り直してください。以後の手動選択は保持されます。
+旧AIは廃止しました。`shipAiTargetAuthority` に `LEGACY` が書かれた設定も読み込めますが、
+どの値でも新AI（NEW）で動きます。
 移行済みの印 `shipAiNewDefaultApplied` は変更しないでください。
 
 ### Reforgeからの移行
@@ -220,8 +220,7 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 <!-- traceability: readme.known-issue.emotion begin -->
 - **検証中: 艦の感情・反応。** 感情の表示、音声、押し返し、反撃の修正を実装していますが、
   表情やパーティクルを含む実機確認が残っています。
-  **撫でても士気が増えないという実機報告は未解決です。** 士気加算の自動テストは
-  通っていますが、実際の操作で増えない原因の確認が終わっていません
+  撫でたときに士気が増えることは、実機で確認しました。
 <!-- traceability: readme.known-issue.emotion end -->
 <!-- traceability: readme.known-issue.shipyard-vortex begin -->
 - **検証中: 大型造船所の渦**が建造中も停止時と同じ表示のままだった問題を
@@ -230,9 +229,9 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.12.0 について
+## β版 v1.20.1-0.12.1 について
 
-**β版 `0.12.0`** です。
+**β版 `0.12.1`** です。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
 一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
@@ -242,7 +241,7 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 **ただし未完成の領域と既知の不具合があります。**`1.0.0` はそれらが解消された版の
 ために取ってあります。
 
-既知の不具合: 撫でても士気が上がらない / 艦が手持ちアイテムを表示しない。
+既知の不具合: 艦が手持ちアイテムを表示しない。
 
 新AIが既定になり、追従の呼び戻し・上下離脱の通知・エンドでの奈落救出を実装しました。
 釣り機構、貨物容量、シップタンク、表示と音にも修正を入れています。
@@ -462,8 +461,8 @@ Back up your world before updating and use the same mod version on the server an
 The redesigned ship AI (NEW) is now the default. On the first update, an existing
 `config/shincolle_kai-common.toml` switches `shipAiTargetAuthority` to NEW once.
 
-To use the previous AI, set `shipAiTargetAuthority = "LEGACY"` after the first update
-and re-enter the world. Later manual selections are preserved.
+The previous AI has been removed. A config that says `LEGACY` still loads, but every value
+of `shipAiTargetAuthority` runs the redesigned AI (NEW).
 Leave the migration marker `shipAiNewDefaultApplied` unchanged.
 
 ## Migration from Reforge
@@ -529,8 +528,7 @@ undetermined.
 <!-- traceability: readme.known-issue.emotion-en begin -->
 - **In verification: ship emotional reactions.** Fixes for emotion display, voices,
   pushback and retaliation are implemented, but in-game checks including expressions
-  and particles remain. **Reports that petting does not raise morale are unresolved.**
-  Automated morale tests pass, but the cause of the failure during actual play is unconfirmed
+  and particles remain. Petting raising morale has been confirmed in game
 <!-- traceability: readme.known-issue.emotion-en end -->
 <!-- traceability: readme.known-issue.shipyard-vortex-en begin -->
 - **In verification: the large shipyard's vortex** stayed in its idle appearance even
@@ -540,9 +538,9 @@ undetermined.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.12.0
+## About the beta release, v1.20.1-0.12.1
 
-This is the **beta, `0.12.0`**.
+This is the **beta, `0.12.1`**.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
 a fleet, fight, level up and marry. New players receive a guide book whose "Getting
@@ -552,7 +550,7 @@ and the Abyssal Volcano Core now match ShinColle 1.10.2 again.
 **Some systems are known to be incomplete.** `1.0.0` is reserved for the release where
 they are closed.
 
-Known defects: petting does not raise morale; ships do not render a held item.
+Known defect: ships do not render a held item.
 
 The redesigned AI is now the default, with follow recall, vertical-separation notices
 and void rescue in the End. Fishing, cargo capacity, ship tanks, text and sounds have

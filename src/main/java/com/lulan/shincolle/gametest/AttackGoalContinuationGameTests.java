@@ -1,8 +1,17 @@
 package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
+import com.lulan.shincolle.ai.ShipAttackOnCollideGoal;
+import com.lulan.shincolle.ai.ShipCombatGate;
+import com.lulan.shincolle.ai.ShipCombatHost;
+import com.lulan.shincolle.ai.ShipFireControlGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
+import com.lulan.shincolle.ai.domain.combat.WeaponChannel;
+import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.entity.BasicEntityMount;
+import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAircraftAttack;
+import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipCannonAttack;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
@@ -24,6 +33,7 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -33,6 +43,58 @@ public final class AttackGoalContinuationGameTests {
     private static final int TRANSITION_SELECTOR_TICKS = 6;
 
     private AttackGoalContinuationGameTests() {
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void combatExecutorsWaitForAuthorityAndHost(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            BasicEntityShip ship = entities.add(ModEntities.CV_WO.get().create(helper.getLevel()));
+            helper.assertTrue(ship instanceof IShipAircraftAttack, "The fixture must support aircraft and cannons");
+            prepareHost(helper, ship);
+            ship.setAmmoLight(100_000);
+            ship.setStateFlag(ID.F.UseAmmoLight, true);
+            ship.setStateFlag(ID.F.AtkType_Light, true);
+            ship.setStateFlag(ID.F.UseMelee, true);
+            try {
+                Method clear = BasicEntityShip.class.getDeclaredMethod("clearAITargetTasks");
+                clear.setAccessible(true);
+                clear.invoke(ship);
+            } catch (ReflectiveOperationException failure) {
+                throw new net.minecraft.gametest.framework.GameTestAssertException(
+                        "Cannot clear fixture target authority: " + failure);
+            }
+            Zombie target = createTarget(helper, entities);
+            ship.setTarget(target);
+            helper.assertTrue(!ship.hasTargetAuthority() && ship.getTarget() == target,
+                    "The fixture must have an external target but no target authority");
+            helper.assertTrue(!ShipCombatGate.active(ship) && !ShipCombatGate.active(null),
+                    "Missing authority must leave the combat gate inactive");
+            GoalSelector selector = extractSelector(ship, "goalSelector");
+            selector.removeAllGoals(goal -> true);
+            Goal[] attacks = {new ShipRangeAttackGoal(ship), new ShipCarrierAttackGoal((IShipAircraftAttack) ship),
+                    new ShipAttackOnCollideGoal(ship, 1D), new ShipFireControlGoal(ship)};
+            for (int i = 0; i < attacks.length; i++) {
+                helper.assertTrue(!attacks[i].canUse(), "An executor accepted an external target without authority");
+                selector.addGoal(i, attacks[i]);
+            }
+            var timing = ship.shipCombatState().timing(ship.tickCount);
+            selector.tick();
+            helper.assertTrue(selector.getRunningGoals().findAny().isEmpty()
+                            && ship.shipCombatState().timing(ship.tickCount).equals(timing)
+                            && ship.getStateMinor(ID.M.NumAmmoLight) == 100_000,
+                    "Inactive combat fell back to an attack or advanced the timer");
+            BasicEntityMount mount = entities.add(ModEntities.MOUNT_CAWD.get().create(helper.getLevel()));
+            helper.assertTrue(mount != null && mount.getHost() == null, "The mount fixture must have no host");
+            helper.assertTrue(!ShipCombatGate.active(mount) && !new ShipRangeAttackGoal(mount).canUse()
+                            && !new ShipFireControlGoal(mount).canUse(),
+                    "A hostless mount must not fall back to old attacks");
+            ship.setAITargetList();
+            helper.assertTrue(ship.hasTargetAuthority() && ShipCombatGate.active(ship),
+                    "Registering authority must reopen the gate, without using the external target");
+            helper.assertTrue(!new ShipRangeAttackGoal(ship).canUse(),
+                    "A newly registered authority must not inherit the external target");
+            helper.succeed();
+        }
     }
 
     @GameTest(template = "arena")
@@ -85,7 +147,7 @@ public final class AttackGoalContinuationGameTests {
         GoalSelector selector;
         try (GameTestEntities targetEntities = GameTestEntities.open(helper)) {
             Zombie target = createTarget(helper, targetEntities);
-            ship.setTarget(target);
+            giveTarget(ship, target);
             host.setAmmoLight(100_000);
             host.setStateFlag(ID.F.AtkType_Light, true);
             host.setStateFlag(ID.F.AtkType_Heavy, false);
@@ -99,26 +161,25 @@ public final class AttackGoalContinuationGameTests {
             assertGoalRunning(helper, selector, ShipRangeAttackGoal.class, true);
             helper.assertTrue(goal.getStartCount() == 1,
                     "Cannon goal did not start exactly once. starts=" + goal.getStartCount());
-            int aimTime = readIntField(ShipRangeAttackGoal.class, goal, "aimTime");
-            int delayBeforeLoss = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
-            helper.assertTrue(delayBeforeLoss < aimTime,
-                    "Cannon cooldown did not decrease before sight loss. delay=" + delayBeforeLoss
-                            + " aimTime=" + aimTime);
+            // the one timer holds the cannon's ready tick; the goal's restarts and stops never move it earlier
+            int readyBeforeLoss = readyTick(ship, WeaponChannel.LIGHT);
+            helper.assertTrue(readyBeforeLoss > 0,
+                    "The cannon's ready tick was not set before sight loss. ready=" + readyBeforeLoss);
 
             setSightBarrier(helper, Blocks.STONE);
             awaitInternalStop(helper, ship, selector, goal, ShipRangeAttackGoal.class);
-            int delayAfterLoss = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
-            helper.assertTrue(delayAfterLoss < delayBeforeLoss,
-                    "Cannon cooldown did not advance while the lost-sight stop ran. before="
-                            + delayBeforeLoss + " after=" + delayAfterLoss);
+            int readyAfterLoss = readyTick(ship, WeaponChannel.LIGHT);
+            helper.assertTrue(readyAfterLoss >= readyBeforeLoss,
+                    "The cannon's ready tick moved earlier while the lost-sight stop ran. before="
+                            + readyBeforeLoss + " after=" + readyAfterLoss);
             verifyStillRunningWithoutRestart(helper, ship, selector, goal, ShipRangeAttackGoal.class);
 
             setSightBarrier(helper, Blocks.AIR);
             awaitTargetReacquisition(helper, ship, selector, goal, ShipRangeAttackGoal.class, target);
-            int delayAfterReturn = readIntField(ShipRangeAttackGoal.class, goal, "delayLight");
-            helper.assertTrue(delayAfterReturn <= delayAfterLoss && delayAfterReturn < aimTime,
-                    "Cannon cooldown rewound when sight returned. afterLoss=" + delayAfterLoss
-                            + " afterReturn=" + delayAfterReturn + " aimTime=" + aimTime);
+            int readyAfterReturn = readyTick(ship, WeaponChannel.LIGHT);
+            helper.assertTrue(readyAfterReturn >= readyAfterLoss,
+                    "The cannon's ready tick moved earlier when sight returned. afterLoss=" + readyAfterLoss
+                            + " afterReturn=" + readyAfterReturn);
         }
         tickSelector(ship, selector);
         assertGoalRunning(helper, selector, ShipRangeAttackGoal.class, false);
@@ -131,7 +192,7 @@ public final class AttackGoalContinuationGameTests {
         GoalSelector selector;
         try (GameTestEntities targetEntities = GameTestEntities.open(helper)) {
             Zombie target = createTarget(helper, targetEntities);
-            ship.setTarget(target);
+            giveTarget(ship, target);
             host.setAmmoLight(100_000);
             host.setNumAircraftLight(6);
             host.setStateFlag(ID.F.AtkType_AirLight, true);
@@ -146,9 +207,9 @@ public final class AttackGoalContinuationGameTests {
             assertGoalRunning(helper, selector, ShipCarrierAttackGoal.class, true);
             helper.assertTrue(goal.getStartCount() == 1,
                     "Carrier goal did not start exactly once. starts=" + goal.getStartCount());
-            int delayBeforeLoss = readIntField(ShipCarrierAttackGoal.class, goal, "launchDelay");
-            helper.assertTrue(delayBeforeLoss < 20,
-                    "Carrier launch delay did not decrease before sight loss. delay=" + delayBeforeLoss);
+            int readyBeforeLoss = readyTick(ship, WeaponChannel.AIR);
+            helper.assertTrue(readyBeforeLoss > 0,
+                    "The carrier's ready tick was not set before sight loss. ready=" + readyBeforeLoss);
 
             setSightBarrier(helper, Blocks.STONE);
             awaitInternalStop(helper, ship, selector, goal, ShipCarrierAttackGoal.class);
@@ -156,10 +217,10 @@ public final class AttackGoalContinuationGameTests {
 
             setSightBarrier(helper, Blocks.AIR);
             awaitTargetReacquisition(helper, ship, selector, goal, ShipCarrierAttackGoal.class, target);
-            int delayAfterReturn = readIntField(ShipCarrierAttackGoal.class, goal, "launchDelay");
-            helper.assertTrue(delayAfterReturn <= delayBeforeLoss,
-                    "Carrier launch delay rewound when sight returned. before=" + delayBeforeLoss
-                            + " after=" + delayAfterReturn);
+            int readyAfterReturn = readyTick(ship, WeaponChannel.AIR);
+            helper.assertTrue(readyAfterReturn >= readyBeforeLoss,
+                    "The carrier's ready tick moved earlier when sight returned. before=" + readyBeforeLoss
+                            + " after=" + readyAfterReturn);
         }
         tickSelector(ship, selector);
         assertGoalRunning(helper, selector, ShipCarrierAttackGoal.class, false);
@@ -171,6 +232,10 @@ public final class AttackGoalContinuationGameTests {
             throw new AssertionError("Attack host is not a Mob.");
         }
         moveTo(helper, ship, new Vec3(1.5D, 2D, 1.5D));
+        if (host instanceof BasicEntityShip friendly) {
+            friendly.setStateMinor(ID.M.NumGrudge, 100_000);
+            friendly.setInvulnerable(true);
+        }
         if (host instanceof IShipCannonAttack cannon) {
             cannon.setStateFlag(ID.F.OnSightChase, true);
             cannon.setStateFlag(ID.F.NoFuel, false);
@@ -180,6 +245,10 @@ public final class AttackGoalContinuationGameTests {
             carrier.setStateFlag(ID.F.NoFuel, false);
             carrier.setStateFlag(ID.F.UseMelee, false);
         }
+        helper.assertTrue(!((IShipAttackBase) host).getStateFlag(ID.F.NoFuel)
+                        && (!(host instanceof BasicEntityShip friendly)
+                        || friendly.getStateMinor(ID.M.NumGrudge) > 0),
+                "The continuation fixture must have fuel");
         return ship;
     }
 
@@ -198,12 +267,31 @@ public final class AttackGoalContinuationGameTests {
         return target;
     }
 
+    /** The target authority locks what the ship is given and the fire control goal holds the one timer. */
     private static GoalSelector installOnlyAttackGoal(Mob ship, Goal goal) {
         GoalSelector selector = extractSelector(ship, "goalSelector");
         selector.removeAllGoals(existing -> true);
         extractSelector(ship, "targetSelector").removeAllGoals(existing -> true);
-        selector.addGoal(1, goal);
+        if (ship instanceof BasicEntityShip friendly) {
+            friendly.setAITargetList();
+        } else {
+            ((BasicEntityShipHostile) ship).setAITargetList();
+        }
+        selector.addGoal(10, new ShipFireControlGoal((IShipCannonAttack) ship));
+        selector.addGoal(11, goal);
         return selector;
+    }
+
+    /** A revenge target the authority takes at its next tick. */
+    private static void giveTarget(Mob ship, Entity target) {
+        IShipAttackBase base = (IShipAttackBase) ship;
+        ship.tickCount = 10;
+        base.setEntityRevengeTarget(target);
+        base.setEntityRevengeTime();
+    }
+
+    private static int readyTick(Mob ship, WeaponChannel channel) {
+        return ((ShipCombatHost) ship).shipCombatState().timing(ship.tickCount).readyAt(channel);
     }
 
     private static void awaitInternalStop(GameTestHelper helper, Mob ship, GoalSelector selector,
@@ -255,6 +343,7 @@ public final class AttackGoalContinuationGameTests {
     private static void tickSelector(Mob ship, GoalSelector selector) {
         ship.tickCount++;
         ship.getSensing().tick();
+        extractSelector(ship, "targetSelector").tick();
         selector.tick();
     }
 
@@ -282,14 +371,6 @@ public final class AttackGoalContinuationGameTests {
             }
         }
         helper.assertTrue(false, "Goal selector has no " + type.getSimpleName() + '.');
-    }
-
-    private static int readIntField(Class<?> owner, Object instance, String name) {
-        Object value = readField(owner, instance, name);
-        if (value instanceof Integer integer) {
-            return integer;
-        }
-        throw new AssertionError(name + " is not an int field.");
     }
 
     private static Entity readEntityField(Class<?> owner, Object instance, String name) {

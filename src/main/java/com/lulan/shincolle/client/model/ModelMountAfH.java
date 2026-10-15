@@ -12,6 +12,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -35,7 +36,11 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
     private final ModelPart GlowJaw;
 
     public ModelMountAfH(ModelPart root) {
-        super();
+        super(RenderType::entityCutout);
+        this.scale = 0.7F;
+        this.offsetX = 0F;
+        this.offsetY = 1.10F;
+        this.offsetZ = -0.47F;
         this.BodyMain = root.getChild("BodyMain");
         ModelPart neck = this.BodyMain.getChild("Neck");
         this.Jaw = neck.getChild("Jaw");
@@ -291,7 +296,7 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
 
         float angleX = Mth.cos(ageInTicks * 0.08F);
 
-        this.offsetY = 0F;
+        this.offsetY = this.getBaseOffsetY();
         if (ent.getShipDepth(0) > 0D) {
             // [PORT] 1.10.2 -> 1.20.1: restore mount water bobbing translation.
             // Visual check required: water bobbing amplitude should match 1.10.2
@@ -302,8 +307,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
         }
 
         // Jaw animation
-        // [PORT] Restored from 1.10.2 GlStateManager.translate
-        this.offsetY += angleX * 0.025F + 0.025F;
         this.Jaw.xRot = angleX * 0.1F + 0.4F;
 
         // Cannon oscillation
@@ -320,8 +323,8 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
     public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
-        poseStack.scale(0.7F, 0.7F, 0.7F);
-        poseStack.translate(0F, 1.10F, -0.47F);
+        poseStack.scale(scale, scale, scale);
+        poseStack.translate(offsetX, offsetY, offsetZ);
 
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);

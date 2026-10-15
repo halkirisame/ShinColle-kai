@@ -1,8 +1,6 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.handler.ConfigHandler;
 
-import com.lulan.shincolle.ai.ShipRangeTargetGoal;
 import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
@@ -110,22 +108,19 @@ public final class HostilePlayerUidGameTests {
         }, 1D, 4D, 12D);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_hostile_uid_legacy_anti_air")
-    public static void legacyFriendlyAntiAirTargetsHostileAircraft(GameTestHelper helper) {
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_hostile_uid_new_anti_air_aircraft")
+    public static void newFriendlyAntiAirTargetsHostileAircraft(GameTestHelper helper) {
         waitForPositions(helper, () -> {
-            try (ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                    GameTestEntities entities = GameTestEntities.open(helper)) {
-                BasicEntityShip friendly = friendly(helper, entities, 1D, 9213);
+            try (GameTestEntities entities = GameTestEntities.open(helper)) {
+                AuthorityFriendly friendly = authorityFriendly(helper, entities, 1D, 9213);
                 friendly.setStateFlag(ID.F.AntiAir, true);
                 EntityBBKirishimaMob hostile = hostile(helper, entities, 12D);
                 EntityAirplaneTMob plane = aircraft(helper, entities, hostile, 4D);
                 hostile.discard();
-                ShipRangeTargetGoal legacy = new ShipRangeTargetGoal(friendly);
-                if (legacy.canUse()) {
-                    legacy.start();
-                }
+                ShipTargetAuthorityGoal goal = goal(friendly, BasicEntityShip.class);
+                tick(goal, friendly, 100);
                 helper.assertTrue(friendly.getEntityTarget() == plane,
-                        "LEGACY AntiAir did not acquire hostile aircraft");
+                        "AntiAir did not acquire hostile aircraft");
                 helper.succeed();
             }
         }, 1D, 4D, 12D);

@@ -37,18 +37,15 @@ import java.util.Set;
  * Single entry point through which attack goals read whether their host may fire and at what.
  * It gathers the facts from the host on every call. A ship reads its own target lock, a mount
  * the lock of the ship it carries, and a hostile ship its own lock without action constraints.
- * Only the NEW authority uses it.
  */
 public final class ShipCombatGate {
     private ShipCombatGate() { }
 
     /**
-     * Whether the host reads combat through this gate: under NEW, and only while its lock owner
-     * has a target authority. A host whose goals were registered under LEGACY keeps the target
-     * its LEGACY goals chose until the goals are registered again, as {@code getEntityTarget} does.
+     * Whether the host's lock owner has a target authority. A missing host or authority never
+     * enables another source of attacks.
      */
     public static boolean active(Entity host) {
-        if (!ShipCommandStateAdapter.isNew()) return false;
         BasicEntityShip ship = host instanceof BasicEntityShip s ? s
                 : host instanceof BasicEntityMount mount ? mount.getHost() : null;
         return ship != null ? ship.hasTargetAuthority()

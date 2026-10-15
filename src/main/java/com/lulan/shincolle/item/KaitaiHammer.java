@@ -1,5 +1,12 @@
 package com.lulan.shincolle.item;
 
+import com.lulan.shincolle.entity.BasicEntityMount;
+import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.server.ServerDataManager;
+import com.lulan.shincolle.utility.TeamHelper;
+
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -37,5 +44,35 @@ public class KaitaiHammer extends BasicItem {
 
         result.setCount(1);
         return result;
+    }
+
+    /**
+     * Left click on one's own ship kills it in one hit (it turns back into an item
+     * and loses a level). Costs 1 durability outside creative mode. A ship that
+     * belongs to someone else is left alone, but the click is still consumed.
+     */
+    @Override
+    public boolean onLeftClickEntity(ItemStack stack, Player player, Entity entity) {
+        if (entity instanceof BasicEntityMount mount) {
+            entity = mount.getHost();
+            if (entity == null) {
+                return true;
+            }
+        }
+
+        if (!(entity instanceof BasicEntityShip ship)) {
+            return false;
+        }
+
+        if (!player.level().isClientSide()
+                && (TeamHelper.checkSameOwner(player, ship) || ServerDataManager.checkOP(player))) {
+            ship.hurt(player.damageSources().playerAttack(player), ship.getMaxHealth() * 1.1F);
+
+            if (!player.getAbilities().instabuild) {
+                stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(p.getUsedItemHand()));
+            }
+        }
+
+        return true;
     }
 }

@@ -256,6 +256,9 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         }
 
         super.tick();
+        if (this.level().isClientSide()) {
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
+        }
     }
 
     /**
@@ -320,6 +323,14 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         return super.isOnFire();
     }
 
+    @Override
+    protected void tickDeath() {
+        if (this.level().isClientSide()) {
+            com.lulan.shincolle.client.particle.ProjectileParticleVisuals.airplaneDeath(this);
+        }
+        super.tickDeath();
+    }
+
     // ========== Damage Source ==========
 
     @Override
@@ -329,6 +340,9 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
         // 33% dodge chance against heavy damage
         if (amount > this.getMaxHealth() * 0.5F && this.random.nextInt(3) == 0) {
+            if (this instanceof com.lulan.shincolle.entity.other.EntityAirplane) {
+                com.lulan.shincolle.utility.ParticleHelper.spawnAttackTextParticle(this, 4);
+            }
             return false;
         }
 
@@ -347,6 +361,12 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         // consume ammo
         if (numAmmoLight > 0)
             numAmmoLight--;
+
+        if (!this.level().isClientSide()) {
+            com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                    com.lulan.shincolle.network.S2CSpawnParticlePacket.position(8, this.getId(),
+                            this.getX(), this.getY(), this.getZ(), 0D, 0D, 0D), this);
+        }
 
         // get attack value
         float atk = this.shipAttrs.getAttackDamageAir();

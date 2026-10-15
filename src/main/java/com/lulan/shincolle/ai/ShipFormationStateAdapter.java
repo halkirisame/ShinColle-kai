@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai;
 
-import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.formation.FormationProjection;
 import com.lulan.shincolle.ai.domain.formation.FormationProjector;
 import com.lulan.shincolle.ai.domain.movement.FormationSlot;
@@ -20,7 +19,6 @@ import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.OWNER_UNAVAILABLE;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.MEMBERSHIP_UNAVAILABLE;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.NOT_MEMBER;
-import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.FORMATION_DISABLED;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.INSUFFICIENT_LIVING_MEMBERS;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.INVALID_OBSERVATION;
 
@@ -37,10 +35,6 @@ public final class ShipFormationStateAdapter {
     public void remember(FormationProjection value) { this.projection = value; }
 
     public FormationProjection current() {
-        if (!ShipCommandStateAdapter.isNew()) {
-            invalidate();
-            return new FormationProjection.Inactive(FORMATION_DISABLED);
-        }
         if (!this.ship.isAlive()) return new FormationProjection.Inactive(INSUFFICIENT_LIVING_MEMBERS);
         boolean ready = this.ship.level() instanceof ServerLevel level && level.getEntity(this.ship.getUUID()) == this.ship;
         if (this.projection == null || this.registered != ready || this.observedLevel != this.ship.level()) return refresh();

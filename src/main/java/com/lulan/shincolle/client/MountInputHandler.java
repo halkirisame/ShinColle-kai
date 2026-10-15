@@ -7,11 +7,14 @@ import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.LogHelper;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.client.event.InputEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -25,7 +28,8 @@ import net.minecraftforge.fml.common.Mod;
 public class MountInputHandler {
 
     private static int actionCooldown = 0;
-    private static boolean guiKeyWasDown = false;
+    private static final MountGuiKeyState GUI_KEY = new MountGuiKeyState();
+    private static boolean scanCodeGuiKeyDown;
 
     private MountInputHandler() {
     }
@@ -41,12 +45,16 @@ public class MountInputHandler {
         boolean onMount = player != null && mc.level != null && mc.screen == null
                 && player.getVehicle() instanceof BasicEntityMount;
 
-        // Track the GUI key edge unconditionally so a stale "held" state
-        // from before mounting (or while a screen is open) can't cause a
-        // false press once riding starts.
-        boolean guiKeyDown = onMount && mc.options.keyInventory.isDown();
-        boolean guiKeyPressedThisTick = guiKeyDown && !guiKeyWasDown;
-        guiKeyWasDown = guiKeyDown;
+        InputConstants.Key key = mc.options.keyInventory.getKey();
+        long window = mc.getWindow().getWindow();
+        boolean guiKeyDown = switch (key.getType()) {
+            case KEYSYM -> key.getValue() != GLFW.GLFW_KEY_UNKNOWN
+                    && InputConstants.isKeyDown(window, key.getValue());
+            case MOUSE -> GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+            case SCANCODE -> scanCodeGuiKeyDown;
+        };
+        boolean guiKeyPressedThisTick = GUI_KEY.sample(guiKeyDown, onMount && mc.isWindowActive(),
+                mc.options.keyInventory.isDown());
 
         if (!onMount) {
             actionCooldown = 0;
@@ -82,6 +90,35 @@ public class MountInputHandler {
             LogHelper.diag("DIAG: mount key send keys=" + Integer.toBinaryString(newKeys)
                     + " mount=" + mount + " vehicle=" + player.getVehicle());
             ModNetworking.sendToServer(new C2SInputPacket(C2SInputPacket.MountMove, newKeys));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
+        if (Minecraft.getInstance().options.keyInventory.matches(event.getKeyCode(), event.getScanCode())) {
+            GUI_KEY.pressedInScreen();
+            scanCodeGuiKeyDown = true;
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenKeyReleased(ScreenEvent.KeyReleased.Pre event) {
+        if (Minecraft.getInstance().options.keyInventory.matches(event.getKeyCode(), event.getScanCode())) {
+            scanCodeGuiKeyDown = false;
+        }
+    }
+
+    @SubscribeEvent
+    public static void onScreenMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
+        if (Minecraft.getInstance().options.keyInventory.matchesMouse(event.getButton())) {
+            GUI_KEY.pressedInScreen();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onKeyInput(InputEvent.Key event) {
+        if (Minecraft.getInstance().options.keyInventory.matches(event.getKey(), event.getScanCode())) {
+            scanCodeGuiKeyDown = event.getAction() != GLFW.GLFW_RELEASE;
         }
     }
 

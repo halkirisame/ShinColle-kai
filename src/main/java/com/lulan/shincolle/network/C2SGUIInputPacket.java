@@ -37,8 +37,8 @@ import net.minecraftforge.network.NetworkHooks;
 
 import io.netty.buffer.Unpooled;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -406,7 +406,7 @@ public class C2SGUIInputPacket {
     }
 
     /** Particle type for the red "this ship could not take the order" mark. */
-    private static final byte OutOfFuelParticle = 30;
+    private static final byte OutOfFuelParticle = ParticlePacketRoute.ORDER_REJECTED_TYPE;
 
     /**
      * Mark ships that were dropped from an order because they are out of fuel, and mark the
@@ -450,28 +450,6 @@ public class C2SGUIInputPacket {
         } finally {
             buf.release();
         }
-    }
-
-    private static boolean[] includedSlots(ServerLevel level, CapaTeitoku capa, int teamId, int mode) {
-        boolean[] included = new boolean[CapaTeitoku.SLOT_NUM];
-        for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
-            if (mode == PointerItem.MODE_FORMATION) {
-                included[slot] = true;
-            } else if (mode != PointerItem.MODE_SINGLE) {
-                included[slot] = capa.isShipSelected(teamId, slot);
-            } else if (capa.isShipSelected(teamId, slot)
-                    && hasKnownTeamShip(level, capa, teamId, slot)) {
-                // Original 1.10.2 CapaTeitoku#getShipEntityByMode:
-                // if (this.getSelectStateCurrentTeam(i) && this.teamList[teamId][i] != null)
-                // {
-                // ships.add(this.teamList[teamId][i]);
-                // break;
-                // }
-                included[slot] = true;
-                break;
-            }
-        }
-        return included;
     }
 
     /**
@@ -743,59 +721,9 @@ public class C2SGUIInputPacket {
      * If the clicked ship is not in any team, toggles sit for that ship only.
      */
     private void handleSetSitting(ServerPlayer player) {
-        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
-                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
-            ShipCommandDispatcher.dispatch(player, CommandKind.TOGGLE_SIT, values,
-                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
-                    C2SGUIInputPacket::markOutOfFuel);
-            return;
-        }
-        if (values.length < 4 || !hasPointerInHand(player))
-            return;
-
-        ServerLevel level = player.serverLevel();
-        int mode = values[2];
-        Entity entity = level.getEntity(values[3]);
-
-        if (!(entity instanceof BasicEntityShip clickedShip))
-            return;
-        if ((!TeamHelper.checkSameOwner(player, clickedShip) && !clickedShip.isOwnedBy(player))
-                || !isWithinPointerRange(player, clickedShip))
-            return;
-
-        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (capa == null) {
-            boolean newSit = !clickedShip.isOrderedToSit();
-            clickedShip.setEntitySit(newSit);
-            clickedShip.setRiderAndMountSit();
-            return;
-        }
-
-        int teamId = capa.getSelectTeam();
-        int clickedUid = clickedShip.getStateMinor(ID.M.ShipUID);
-        boolean inTeam = findTeamSlotByUID(capa, teamId, clickedUid) >= 0;
-
-        if (!inTeam) {
-            // A ship outside the selected team is always handled individually.
-            boolean newSit = !clickedShip.isOrderedToSit();
-            clickedShip.setEntitySit(newSit);
-            clickedShip.setRiderAndMountSit();
-        } else {
-            // Formation mode includes the whole team. Single/group modes use the
-            // persisted pointer selection restored from the legacy implementation.
-            boolean newSit = !clickedShip.isOrderedToSit();
-            boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
-            for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-                if (!targetSlots[i]) {
-                    continue;
-                }
-                BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-                if (ship != null) {
-                    ship.setEntitySit(newSit);
-                    ship.setRiderAndMountSit();
-                }
-            }
-        }
+        ShipCommandDispatcher.dispatch(player, CommandKind.TOGGLE_SIT, values,
+                C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                C2SGUIInputPacket::markOutOfFuel);
     }
 
     /**
@@ -877,6 +805,9 @@ public class C2SGUIInputPacket {
             ship.setStateMinor(ID.M.FormatPos, insertSlot);
         }
 
+        if (com.lulan.shincolle.utility.ShipNameTagHelper.refresh(ship)) {
+            ship.sendSyncPacketUnitName();
+        }
         Component shipLabel = Component.translatable("chat.shincolle_kai.pointer.ship_label",
                 Component.translatable("shiptype.shincolle_kai." + ship.getShipType()), ship.getDisplayName());
         player.displayClientMessage(Component.translatable(existingSlot >= 0
@@ -901,62 +832,9 @@ public class C2SGUIInputPacket {
      * values: 0:player eid, 1:(unused dim), 2:mode, 3:target entity id
      */
     private void handleAttackTarget(ServerPlayer player) {
-        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
-                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
-            ShipCommandDispatcher.dispatch(player, CommandKind.ATTACK, values,
-                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
-                    C2SGUIInputPacket::markOutOfFuel);
-            return;
-        }
-        if (values.length < 3 || !hasPointerInHand(player))
-            return;
-        ServerLevel level = player.serverLevel();
-        int mode = values.length >= 4 ? Mth.clamp(values[2], 0, 2) : PointerItem.MODE_FORMATION;
-        int targetId = values.length >= 4 ? values[3] : values[2];
-        Entity target = level.getEntity(targetId);
-        if (!(target instanceof LivingEntity livingTarget)
-                || !isWithinPointerRange(player, target))
-            return;
-        if (TargetHelper.isEntityInvulnerable(target)
-                || TeamHelper.checkSameOwner(player, target)
-                || TeamHelper.checkIsAlly(player, target)) {
-            return;
-        }
-
-        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (capa == null) {
-            return;
-        }
-
-        int teamId = capa.getSelectTeam();
-        List<BasicEntityShip> outOfFuel = new ArrayList<>();
-        boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
-        for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (!targetSlots[i]) {
-                continue;
-            }
-            BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (ship == null || ship.level() != level
-                    || player.distanceToSqr(ship) >= POINTER_RANGE_SQR) {
-                continue;
-            }
-            if (ship.getStateFlag(ID.F.NoFuel)) {
-                outOfFuel.add(ship);
-                continue;
-            }
-            ship.setEntitySit(false);
-            Entity manualTarget = ship.getManualTarget();
-            if (manualTarget != null && manualTarget.getId() == livingTarget.getId()) {
-                ship.setManualTarget(null);
-                ship.setEntityTarget(null);
-            } else {
-                ship.setManualTarget(livingTarget);
-                ship.setEntityTarget(livingTarget);
-            }
-            ship.applyEmotesReaction(5);
-        }
-        markOutOfFuel(player, outOfFuel, target.getX(),
-                target.getY() + target.getBbHeight() * 0.5D, target.getZ());
+        ShipCommandDispatcher.dispatch(player, CommandKind.ATTACK, values,
+                C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                C2SGUIInputPacket::markOutOfFuel);
     }
 
     /**
@@ -964,47 +842,9 @@ public class C2SGUIInputPacket {
      * values: 0:player eid, 1:(unused dim), 2:mode, 3:target entity id
      */
     private void handleGuardEntity(ServerPlayer player) {
-        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
-                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
-            ShipCommandDispatcher.dispatch(player, CommandKind.GUARD_ENTITY, values,
-                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
-                    C2SGUIInputPacket::markOutOfFuel);
-            return;
-        }
-        if (values.length < 3 || !hasPointerInHand(player))
-            return;
-        ServerLevel level = player.serverLevel();
-        int mode = values.length >= 4 ? Mth.clamp(values[2], 0, 2) : PointerItem.MODE_FORMATION;
-        int targetId = values.length >= 4 ? values[3] : values[2];
-        Entity target = level.getEntity(targetId);
-        if (!isWithinPointerRange(player, target))
-            return;
-        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (capa == null) {
-            return;
-        }
-
-        int teamId = capa.getSelectTeam();
-        boolean formationGateOk = mode != PointerItem.MODE_FORMATION
-                || capa.getFormatID(teamId) <= 0
-                || capa.getNumberOfShip(level, teamId) > 4;
-        if (!formationGateOk) {
-            return;
-        }
-
-        boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
-        for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (!targetSlots[i]) {
-                continue;
-            }
-            BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (ship != null && ship.level() == level
-                    && player.distanceToSqr(ship) < POINTER_RANGE_SQR
-                    && !ship.getStateFlag(ID.F.NoFuel)) {
-                FormationHelper.applyShipGuardEntity(ship, target);
-                ship.sendSyncPacketGuard();
-            }
-        }
+        ShipCommandDispatcher.dispatch(player, CommandKind.GUARD_ENTITY, values,
+                C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                C2SGUIInputPacket::markOutOfFuel);
     }
 
     /**
@@ -1020,8 +860,11 @@ public class C2SGUIInputPacket {
         }
 
         int teamId = capa.getSelectTeam();
+        List<BasicEntityShip> removedShips = new ArrayList<>();
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
             int sid = capa.getTeamSID(teamId, i);
+            BasicEntityShip member = resolveTeamShip(player.serverLevel(), capa, teamId, i);
+            if (member != null) removedShips.add(member);
             if (sid > 0) {
                 Entity shipEnt = player.serverLevel().getEntity(sid);
                 if (shipEnt instanceof BasicEntityShip ship) {
@@ -1032,6 +875,11 @@ public class C2SGUIInputPacket {
             capa.setTeamMember(teamId, i, 0);
             capa.setTeamSID(teamId, i, 0);
             capa.setShipSelected(teamId, i, false);
+        }
+        for (BasicEntityShip ship : removedShips) {
+            if (com.lulan.shincolle.utility.ShipNameTagHelper.refresh(ship)) {
+                ship.sendSyncPacketUnitName();
+            }
         }
         ModNetworking.sendToPlayer(S2CGUISyncPacket.syncShipsInTeam(capa, teamId), player);
     }
@@ -1058,140 +906,9 @@ public class C2SGUIInputPacket {
      * 7:(optional) release on arrival. Legacy commands remain persistent guards.
      */
     private void handleSetMove(ServerPlayer player) {
-        if (com.lulan.shincolle.handler.ConfigHandler.shipAiTargetAuthority()
-                == com.lulan.shincolle.handler.ConfigHandler.ShipAiTargetAuthority.NEW) {
-            ShipCommandDispatcher.dispatch(player, CommandKind.MOVE, values,
-                    C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
-                    C2SGUIInputPacket::markOutOfFuel);
-            return;
-        }
-        if (values.length < 7 || !hasPointerInHand(player))
-            return;
-        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        if (capa == null) {
-            return;
-        }
-
-        ServerLevel level = player.serverLevel();
-        int teamId = capa.getSelectTeam();
-        int mode = Mth.clamp(values[2], 0, 2);
-        int guardType = Mth.clamp(values[3], 0, 1);
-        boolean releaseOnArrival = values.length > 7 && values[7] == 1;
-        int gx = values[4];
-        int gy = values[5];
-        int gz = values[6];
-        BlockPos destinationPos = new BlockPos(gx, gy, gz);
-        if (!level.isInWorldBounds(destinationPos)
-                || !isWithinPointerRange(player, destinationPos)) {
-            return;
-        }
-
-        int formatId = capa.getFormatID(teamId);
-        boolean formationMove = mode == 2 && formatId > 0;
-
-        ArrayList<BasicEntityShip> ships = new ArrayList<>();
-        List<BasicEntityShip> outOfFuel = new ArrayList<>();
-        boolean formationMemberMissing = false;
-        boolean[] targetSlots = includedSlots(level, capa, teamId, mode);
-        for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            if (!targetSlots[i]) {
-                continue;
-            }
-            BasicEntityShip ship = resolveTeamShip(level, capa, teamId, i);
-            if (ship == null && formationMove) {
-                int shipUid = capa.getTeamMember(teamId, i);
-                BasicEntityShip persistentShip = ServerDataManager.getShipByUID(shipUid);
-                if (persistentShip != null && persistentShip.getPlayerUID() == capa.getPlayerUID()) {
-                    ship = persistentShip;
-                } else if (shipUid > 0) {
-                    formationMemberMissing = true;
-                }
-            }
-            if (ship != null) {
-                if (ship.getStateFlag(ID.F.NoFuel)) {
-                    outOfFuel.add(ship);
-                } else {
-                    ships.add(ship);
-                }
-            }
-        }
-        markOutOfFuel(player, outOfFuel, gx + 0.5D, gy + 0.5D, gz + 0.5D);
-
-        if (formationMove && formationMemberMissing) {
-            return;
-        }
-        if (ships.isEmpty()) {
-            return;
-        }
-
-        if (formationMove && ships.size() < 5) {
-            return;
-        }
-
-        if (formationMove) {
-            for (BasicEntityShip ship : ships) {
-                if (ship.getStateMinor(ID.M.FormatType) != formatId
-                        || ship.level() != level
-                        || player.distanceToSqr(ship) > 4096D) {
-                    return;
-                }
-            }
-        } else {
-            ships.removeIf(ship -> ship.level() != level || player.distanceToSqr(ship) > 4096D);
-            if (ships.isEmpty()) {
-                return;
-            }
-        }
-
-        BasicEntityShip flagship = ships.get(0);
-        boolean[] facing = FormationHelper.getFormationDirection(
-                gx, gz, flagship.getX(), flagship.getZ());
-
-        int[] oldGuardPos = null;
-        if (formationMove && flagship.hasGuardDestination()) {
-            oldGuardPos = new int[]{flagship.getGuardedPos(0), flagship.getGuardedPos(1),
-                    flagship.getGuardedPos(2)};
-        }
-
-        int[] cursor = {gx, gy, gz};
-        for (BasicEntityShip ship : ships) {
-            if (formationMove) {
-                switch (formatId) {
-                    case 1:
-                    case 4:
-                        cursor = FormationHelper.setFormationPosAndApplyGuardPos1(ship, formatId,
-                                facing[0], facing[1], cursor[0], cursor[1], cursor[2], level);
-                        break;
-                    case 2:
-                    case 3:
-                    case 5:
-                        FormationHelper.setFormationPosAndApplyGuardPos2(ship, formatId,
-                                facing[0], facing[1], gx, gy, gz, level);
-                        break;
-                    default:
-                        FormationHelper.applyShipGuard(ship, gx, gy, gz, true);
-                        break;
-                }
-                ship.applyEmotesReaction(5);
-            } else {
-                boolean changeArrivalMode = values.length > 7 && ship.hasGuardDestination()
-                        && ship.shouldReleaseGuardOnArrival() != releaseOnArrival;
-                FormationHelper.applyShipGuard(ship, gx, gy, gz, changeArrivalMode, guardType);
-            }
-            ship.setReleaseGuardOnArrival(formationMove ? false : releaseOnArrival);
-            ship.sendSyncPacketGuard();
-        }
-
-        if (formationMove && oldGuardPos != null
-                && flagship.getGuardedPos(0) == oldGuardPos[0]
-                && flagship.getGuardedPos(1) == oldGuardPos[1]
-                && flagship.getGuardedPos(2) == oldGuardPos[2]) {
-            for (BasicEntityShip ship : ships) {
-                ship.setGuardedPos(-1, -1, -1, 0, 0);
-                ship.setGuardedEntity(null);
-                ship.setStateFlag(ID.F.CanFollow, true);
-            }
-        }
+        ShipCommandDispatcher.dispatch(player, CommandKind.MOVE, values,
+                C2SGUIInputPacket::resolveTeamShip, C2SGUIInputPacket::hasKnownTeamShip,
+                C2SGUIInputPacket::markOutOfFuel);
     }
 
     /**
@@ -1357,8 +1074,14 @@ public class C2SGUIInputPacket {
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
 
         int teamId = values[2];
-        if (teamId >= 0 && teamId < CapaTeitoku.TEAM_NUM) {
+        if (capa != null && teamId >= 0 && teamId < CapaTeitoku.TEAM_NUM) {
             capa.setUnitName(teamId, stringData);
+            for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+                BasicEntityShip ship = resolveTeamShip(player.serverLevel(), capa, teamId, slot);
+                if (ship != null && com.lulan.shincolle.utility.ShipNameTagHelper.refresh(ship)) {
+                    ship.sendSyncPacketUnitName();
+                }
+            }
             ModNetworking.sendToPlayer(S2CGUISyncPacket.syncUnitNames(capa), player);
         }
     }

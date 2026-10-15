@@ -143,7 +143,7 @@ public class CombatRation extends BasicItem implements IShipCombatRation {
 
     /** NEW: an engaged ship keeps its head on its target, so the ration must not turn it to the player. */
     private static boolean lookForbidden(BasicEntityShip ship) {
-        MovementDecision decision = ShipMovementGate.active() ? ShipMovementGate.decision(ship) : null;
+        MovementDecision decision = ShipMovementGate.decision(ship);
         return decision != null && !decision.allows(MovementActivity.IDLE_LOOK);
     }
 }

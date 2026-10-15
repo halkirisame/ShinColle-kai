@@ -1,5 +1,77 @@
 # 変更履歴 / Changelog
 
+## v1.20.1-0.12.1 (β版)
+
+**β版です。**0.12.0 からの変更は、未移植だった演出と表示の復元、騎乗体まわりの修正、新AIの不具合修正です。
+
+- ウェイポイントやクレーンで、経路設定用の道具を持つと所有者名と前地点・次地点・チェストの座標が表示されるようになりました。
+- 艦の頭上に所属する全チームの名前を表示する演出を復元しました。既存の名札設定・距離とスプリントキーに従って表示します。
+- 高速・低速で通常飛翔するミサイルに、速度に応じて青緑・赤へ変わる航跡を復元しました。
+- デバッグ設定を有効にしてポインタを撫でモードで持つと、狙っている高さに緑の平面が表示されるようになりました。
+- 感情コマンドをコマンドブロックやコンソールから実行すると、その実行位置に感情が表示されるようになりました。
+
+- 飛行場姫・港湾棲姫・北方棲姫の回復量・周期・対象・怨消費を元の MOD に合わせ、味方プレイヤーや同盟艦も回復するようになりました。成功した対象へ回復の線が表示されます。
+- 輸送ワ級が周囲の同じ提督の艦へ怨・軽弾薬・重弾薬を補給する能力と、その対象線を復元しました。ワ級の積載欄も元の MOD と同じ3ページになります。
+
+- 艦タンクで水や溶岩を置いたとき、元の MOD と同じバケツの設置音が鳴るようになりました。
+
+- 大和のビームが敵や味方に当たると、元の MOD と同じ命中音が鳴るようになりました。同じ提督の艦に当たったときもダメージなしで怯み、命中の火花が出ます。
+- 大和がチャージ・発射するとき、元の MOD と同じく一定の確率で声（敵は攻撃音）が鳴るようになりました。
+- 大和の発射時のレーザーと先端の光が、カメラの向きによって消えることがある問題を修正しました。
+- 大和が後ろや横にいる敵へビームを撃つとき、チャージ中に敵のほうへ振り向き、ビームが正面から出るようになりました。
+- 大和がチャージしてからビームを発射するまでの待ち時間を、半分に短縮しました。
+- 大和がビームをチャージしている間は軽砲を撃たず、ビームを発射したあとに撃つようになりました。軽砲が敵を倒してチャージが消えることがなくなります。
+- 大和のチャージ中に出る白い球体と電撃が、艦の中心ではなく立方体と同じ砲口側（艦体の向きの前方）に表示されるようになりました。
+- 大和のチャージ中の震える立方体と放射状の電撃、発射時のビーム先端の立方体とレーザーを、元の MOD どおり表示するようにしました。
+- HbH 騎乗体のレールガンの電撃、レールガンミサイルの先端の電撃、修理女神が発動したときの火花、艦載機が墜ちるときの最後の爆発を、元の MOD どおり表示するようにしました。
+- 守衛対象の艦に向かう守衛線と、指揮棒を持ってスプリントキーを押している間の味方艦の位置線を、元の MOD どおり表示するようにしました。
+- 小造船所の煙が、元の MOD どおり3本の煙突から出るようになりました。艦タンクの水をネザーなどに置くと、水は蒸発して煙が出ます。
+
+- 解体ハンマーで騎乗マウントを左クリックすると通常攻撃になっていた問題を修正しました。自分のマウントを左クリックすると、乗っている艦本体に一撃撃破の効果が働きます。
+
+- 水上を移動する騎乗体・艦の航跡の水しぶきが、実際の10倍の大きさで描かれていた問題を修正しました。元の MOD と同じ大きさ（体の幅に比例）に戻りました。
+
+- 長門の拳フィニッシュの赤い輪の粒が、元の MOD より小さく描かれていた問題を修正しました。元の大きさに戻りました。
+
+- 騎乗体に座っている艦娘・深海棲艦が、勝手に回らず、騎乗体の向きに揃うようにしました。
+
+- 空母棲鬼・空母水鬼の騎乗位置を調整しました。乗っているプレイヤーと姫が、胴にめり込まず、椅子に座ったように見えます。
+
+- 騎乗体に乗ったとき、カメラがモデルの内側に入って画面が暗い面で埋まる問題を修正しました。元の MOD と同じく、モデルの裏面を描かないようにしています。
+
+- 騎乗体 AfH・CaWD が陸上でも上下に揺れていた問題を修正しました。水上にいるときだけ揺れ、AfH は揺れが描画に反映されるようになります。
+
+- 騎乗体 BaH と HbH（座っているとき）の姿勢による下がり量を元の MOD どおりに戻しました。
+
+- 騎乗体（BaH・CaH・CaWD・HbH・IsH・MiH・SuH）の大きさと高さを元の MOD どおりに戻しました。搭乗時にカメラがモデルの内側に入る問題が直ります。
+
+- 騎乗体で水中にいるとき、ジャンプキー(スペース)の長押しで浮上しない問題を修正しました。
+
+- 解体ハンマーで自分の艦を左クリックしても一撃で倒せない問題を修正しました。自分の艦を左クリックすると一撃で倒れて物品に戻ります（レベル-1）。サバイバルではハンマーの耐久が1減り、クリエイティブでは減りません。他人の艦には効きません。
+
+- With the new ship AI, guarding ships reset the far-distance teleport timer when they come within the configured distance or switch to a different point, instead of carrying time over from earlier patrol legs or orders.
+
+- Morale changes from caressing a ship with the pointer now sync immediately to clients instead of waiting for the periodic update.
+
+- 新AIで、エリトラ・ボート・馬などで速く遠くへ移動したとき、置き去りになった追従艦が、提督が着地して落ち着いた後に提督の近くへ来るようにしました。飛行中は空中へ飛ばしません。艦のいた場所が読み込まれていなくても、一時的に読み込んで呼びます（ゲームを再起動すると呼び戻しは行われません）。
+
+- 新AIで、提督がエリトラで滑空中、または高所から落下中は、追従艦が提督のもとへ瞬間移動しなくなりました（空中に出て落下するのを防ぎます）。着地してから呼ばれます。歩行・水中・通常のジャンプ中は変わりません。
+
+- 新AIで、提督が1秒に12ブロック以上動いたとき（エリトラ・氷上のボート・馬など）にも、追従艦の呼び戻しが働くようにしました。これまでは30ブロック以上でした。
+
+- シップタンクで水源・溶岩源を汲んだとき、操作した本人に採取音が聞こえない問題を修正しました。
+
+- 釣り中の艦から離れて戻ったとき、釣り糸が古い艦の位置につながったままになる問題を修正しました。
+
+- 新AIで、龍田のゲイボルグに2・3連撃のダメージ補正が乗る問題を修正しました。
+- 新AIの天龍・龍田の技能による吹き飛ばしを艦の向きにそろえました。
+- 新AIで、長門の決め技の瞬間移動前に移動速度を消し、移動後に流れる問題を修正しました。
+
+- 騎乗中に艦のインベントリをEキーで閉じると、同じ押下で再び開いてしまう問題を修正しました。
+- 大和は戦闘目標を失うとビームのチャージを解除し、次の戦闘で再チャージします。消費済みの弾薬は戻りません。チャージの玉とプラズマは座り・騎乗の姿勢に追従します。
+
+- 通常砲撃と命中の煙・爆発、艦の装備煙・水しぶき・損傷表示、艦載機と連装砲ちゃんの航跡、座騎の水滴、釣りの水面、ウェイポイントとクレーンの接続表示を復元しました。粒子番号の混同も修正し、回避文字・雪の命中・回復・燃料切れの赤い印を区別します。クライアントとサーバーに同じ版のMODが必要です。
+
 ## v1.20.1-0.12.0 (β版)
 
 - 艦の所有権を譲渡した直後、旧提督へ呼び戻される問題を修正しました。
@@ -32,7 +104,7 @@
 
 - シップタンク4種で水源・溶岩源を右クリックして1,000 mBずつ汲めるようにしました。液体入りでも同じ液体を継ぎ足せます。満杯・残容量不足・別液体入りでは源とタンクを変更しません。
 
-- 艦のAIを新しいAI（`shipAiTargetAuthority = NEW`）へ切り替えました。既存の設定も初回更新時にこの項目だけ1度NEWになります。以前のAIに戻す場合は設定をLEGACYへ変更してワールドに入り直してください。その後は手動の選択を維持します。
+- 艦のAIを新しいAI（NEW）に統一しました。旧設定 `shipAiTargetAuthority` のキーと値は読み込めますが、`LEGACY` を指定しても旧AIには戻りません。
 
 - `shipAiTargetAuthority = NEW` で、召喚後に艦本体の移動速度が変わっても騎乗体に反映されず、低速のまま残る問題を修正しました。騎乗体の属性は32 tickごとに本体へ追随し、負傷したHPは回復しません。
 
@@ -96,9 +168,9 @@
 - 深海棲艦と敵艦載機が、自陣営のミサイル・ビーム・艦載機を誤って狙う問題を修正しました。深海棲艦のミサイル・ビーム・設置弾は、深海棲艦側の艦や艦載機を巻き込まなくなりました。艦娘は対空戦闘ONなら深海棲艦が撃ったミサイルと艦載機を迎撃し、OFFなら狙いません。
   あわせて、艦娘のビーム・設置弾(ブラックホールの引き寄せなど)・北方棲姫の浮遊要塞は、持ち主のプレイヤーとそのペットを巻き込まなくなりました(原作どおり)。深海棲艦からプレイヤーへの攻撃は従来どおりです。
 
-- 管理者向けに、艦の攻撃対象選別を変更せず新旧AIの差分を計測する `/shipaishadow` コマンドを追加しました。
+- `/shipaishadow` は互換用に残しています。旧AIとの比較は行わず、比較未実施と表示します。
 
-- 管理者向け設定 `shipAiTargetAuthority` を追加しました。0.12.0の既定は `NEW` で、手動指示、反撃、自動索敵の順に1つの目標権限で管理します。`LEGACY` を選ぶと従来のAIを使えます。
+- 艦の攻撃対象は、手動指示、反撃、自動索敵の順に1つの目標権限で管理します。`shipAiTargetAuthority` は設定ファイルの互換用で、動作するAIを切り替えません。
 
 - プレイヤーが攻撃したときや攻撃されたときに周囲の同じ持ち主の艦娘が加勢し、深海棲艦が攻撃されたときに周囲の深海棲艦が応援する反撃連携を復元しました。
 
@@ -116,7 +188,7 @@
 ### Migration
 
 - 更新前にワールドをバックアップしてください。確認した0.11.0の保存例では、所有者・編成・婚姻・装備・貨物と死亡卵を引き継ぎ、継続プレイと卵からの復活を確認しています。
-- 初回更新時に `config/shincolle_kai-common.toml` の `shipAiTargetAuthority` が一度NEWになります。旧AIを使う場合は初回更新後に `shipAiTargetAuthority = "LEGACY"` へ変更してワールドに入り直してください。その後の手動選択は保持されます。`shipAiNewDefaultApplied` は変更しないでください。
+- `config/shincolle_kai-common.toml` の `shipAiTargetAuthority` と `shipAiNewDefaultApplied` は互換用に残しています。設定値や移行の印にかかわらず、新しいAI（NEW）で動作します。旧AIへ戻す設定はありません。移行の印は変更しないでください。
 - 公開Java APIとKubeJSの定義は維持しています。内部AIクラスへ直接依存するアドオンは互換保証の対象外です。
 
 ### English summary — 0.12.0 (Beta)
@@ -125,7 +197,7 @@
 - Fixes cover fishing, cargo capacity, ship tanks, text overlap, damage voices, level-up sounds and first-person petting-hand rendering. In-game visuals, sounds and the feel of the AI still need verification.
 - The ship AI core uses PolyForm Shield License 1.0.0. Other code, upstream-derived portions and code published in 0.11.0 or earlier remain MIT; see LICENSE for the scope.
 - **Breaking:** use the same 0.12.0 version on the server and every client. Mixed connections with 0.11.0 are not supported.
-- **Migration:** back up your world first. Tested 0.11.0 saves preserve ships, formations, marriage, equipment, cargo and sunk-ship eggs. The first update switches `shipAiTargetAuthority` to NEW once. To use the previous AI, set it to LEGACY after updating and re-enter the world. Leave `shipAiNewDefaultApplied` unchanged. Public Java API and KubeJS definitions are preserved; internal AI dependencies are outside the compatibility guarantee.
+- **Migration:** back up your world first. Tested 0.11.0 saves preserve ships, formations, marriage, equipment, cargo and sunk-ship eggs. Ships now run only the redesigned AI (NEW). The old configuration keys remain readable, but selecting LEGACY does not restore the previous AI. Leave `shipAiNewDefaultApplied` unchanged. Public Java API and KubeJS definitions are preserved; internal AI dependencies are outside the compatibility guarantee.
 - **Known issues:** petting may not raise morale; ships do not render held items. Some ship work tasks, combat effects and models still need in-game checks or restoration.
 
 ## v1.20.1-0.11.0 (β版)

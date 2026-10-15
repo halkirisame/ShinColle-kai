@@ -4,8 +4,8 @@ import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAircraftAttack;
+import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipCannonAttack;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -25,8 +25,8 @@ import java.lang.reflect.Field;
 import java.util.function.Function;
 
 /**
- * Hostile ships carry no movement intent, so their attack goals close in on and stop for their
- * target exactly as under LEGACY, whichever authority is configured.
+ * Hostile ships carry no movement intent, so their attack goals close in on their target while
+ * meleeing and stop for it in range otherwise.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -38,22 +38,22 @@ public final class HostileCombatMoveGameTests {
     }
 
     @GameTest(template = "arena")
-    public static void hostileCannonClosesInUnderEitherAuthority(GameTestHelper helper) {
+    public static void hostileCannonClosesIn(GameTestHelper helper) {
         verify(helper, true, HostileCombatMoveGameTests::cannon);
     }
 
     @GameTest(template = "arena")
-    public static void hostileCannonStopsInRangeUnderEitherAuthority(GameTestHelper helper) {
+    public static void hostileCannonStopsInRange(GameTestHelper helper) {
         verify(helper, false, HostileCombatMoveGameTests::cannon);
     }
 
     @GameTest(template = "arena")
-    public static void hostileCarrierClosesInUnderEitherAuthority(GameTestHelper helper) {
+    public static void hostileCarrierClosesIn(GameTestHelper helper) {
         verify(helper, true, HostileCombatMoveGameTests::carrier);
     }
 
     @GameTest(template = "arena")
-    public static void hostileCarrierStopsInRangeUnderEitherAuthority(GameTestHelper helper) {
+    public static void hostileCarrierStopsInRange(GameTestHelper helper) {
         verify(helper, false, HostileCombatMoveGameTests::carrier);
     }
 
@@ -62,18 +62,15 @@ public final class HostileCombatMoveGameTests {
      * target in range and sight, it must stop a path already under way.
      */
     private static void verify(GameTestHelper helper, boolean melee, Function<GameTestHelper, Setup> factory) {
-        boolean legacy = run(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY, melee, factory);
-        helper.assertTrue(legacy == melee, "Fixture: LEGACY " + (melee ? "did not close in" : "did not stop"));
-        boolean now = run(helper, ConfigHandler.ShipAiTargetAuthority.NEW, melee, factory);
-        helper.assertTrue(now == legacy, "NEW differs from LEGACY: navigating=" + now + " legacy=" + legacy);
+        boolean now = run(helper, melee, factory);
+        helper.assertTrue(now == melee, "The ship " + (melee ? "did not close in" : "did not stop")
+                + ": navigating=" + now);
         helper.succeed();
     }
 
     /** Whether the host is still navigating after its attack goal ran a few ticks. */
-    private static boolean run(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority authority,
-                               boolean melee, Function<GameTestHelper, Setup> factory) {
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(authority);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+    private static boolean run(GameTestHelper helper, boolean melee, Function<GameTestHelper, Setup> factory) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             Setup setup = factory.apply(helper);
             Mob ship = entities.add(setup.ship());
             // the attack range is 0 until the attributes are worked out, as on spawn
@@ -87,13 +84,16 @@ public final class HostileCombatMoveGameTests {
             target.setInvulnerable(true);
             moveTo(helper, target, new Vec3(7.5D, 2D, 1.5D));
             helper.assertTrue(helper.getLevel().addFreshEntity(target), "failed to add target");
-            ship.setTarget(target);
-            helper.assertTrue(((com.lulan.shincolle.entity.IShipAttackBase) ship).getEntityTarget() == target,
-                    "Fixture must give the ship its target");
-
             GoalSelector selector = extractSelector(ship, "goalSelector");
             selector.removeAllGoals(existing -> true);
-            extractSelector(ship, "targetSelector").removeAllGoals(existing -> true);
+            GoalSelector targets = extractSelector(ship, "targetSelector");
+            targets.removeAllGoals(existing -> true);
+            // the host's target authority is ticked by hand here and locks the attacker it is given
+            ((BasicEntityShipHostile) ship).setAITargetList();
+            IShipAttackBase base = (IShipAttackBase) ship;
+            ship.tickCount = 10;
+            base.setEntityRevengeTarget(target);
+            base.setEntityRevengeTime();
             selector.addGoal(1, setup.goal());
             if (!melee) {
                 Vec3 far = helper.absoluteVec(FAR);
@@ -103,10 +103,12 @@ public final class HostileCombatMoveGameTests {
             for (int tick = 0; tick < SELECTOR_TICKS; tick++) {
                 ship.tickCount++;
                 ship.getSensing().tick();
+                targets.tick();
                 selector.tick();
             }
+            helper.assertTrue(base.getEntityTarget() == target, "Fixture must give the ship its target");
             helper.assertTrue(selector.getAvailableGoals().stream().anyMatch(g -> g.isRunning()),
-                    "Fixture: the attack goal did not run under " + authority);
+                    "Fixture: the attack goal did not run");
             return ship.getNavigation().isInProgress();
         }
     }

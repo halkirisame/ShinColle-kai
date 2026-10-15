@@ -565,9 +565,11 @@ public class ClientSetup {
         });
 
         // Smoke particle: requires SpriteSet for animated smoke
-        event.registerSpriteSet(ModParticles.SMOKE_CUSTOM.get(),
-                sprites -> (type, level, x, y, z, xSpeed, ySpeed, zSpeed) ->
-                        new ParticleSmoke(level, x, y, z, xSpeed, ySpeed, zSpeed, 1.0F, sprites));
+        event.registerSpriteSet(ModParticles.SMOKE_CUSTOM.get(), sprites -> {
+            ParticleSmoke.setSharedSprites(sprites);
+            return (type, level, x, y, z, xSpeed, ySpeed, zSpeed) ->
+                    new ParticleSmoke(level, x, y, z, xSpeed, ySpeed, zSpeed, 1.0F, sprites);
+        });
 
         // --- Custom-rendered particles: placeholder providers ---
         // These particles extend Particle (not TextureSheetParticle) and use custom

@@ -18,9 +18,7 @@ import com.lulan.shincolle.ai.domain.movement.MovementTarget;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
-import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -41,11 +39,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Under NEW every movement goal stops and paths through its host's executor, so the executor's last
- * request explains the navigation call made on the same tick. Under LEGACY the executor is never used.
- * The goals here are the ones whose moves are not compared against LEGACY elsewhere: sitting (its
- * reason), a hostile ship's wander, a mount walking back to the ship it carries, and the stop that ends
- * a move order on arrival.
+ * Every movement goal stops and paths through its host's executor, so the executor's last
+ * request explains the navigation call made on the same tick. The goals here are sitting (its
+ * reason), a hostile ship's wander, a mount walking back to the ship it carries, and the stop that
+ * ends a move order on arrival.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -59,18 +56,11 @@ public final class MovementExecutorBoundaryGameTests {
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_executor_sit", timeoutTicks = CHECK_AT + 40)
-    public static void sitStopsThroughTheExecutorUnderNew(GameTestHelper helper) {
+    public static void sitStopsThroughTheExecutor(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            ShipAiAuthorityOverride authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
             GameTestEntities entities = GameTestEntities.open(helper);
             List<String> log = new ArrayList<>();
-            Runnable close = () -> {
-                try {
-                    entities.close();
-                } finally {
-                    authority.close();
-                }
-            };
+            Runnable close = entities::close;
             BasicEntityShip[] ship = {null};
             guarded(close, () -> {
                 ship[0] = MovementPlanParityGameTests.friendly(helper, entities, new Vec3(2.5D, 0D, 2.5D));
@@ -97,51 +87,40 @@ public final class MovementExecutorBoundaryGameTests {
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_executor_hostile_wander", timeoutTicks = 40)
-    public static void hostileWanderPathsThroughTheExecutorOnlyUnderNew(GameTestHelper helper) {
+    public static void hostileWanderPathsThroughTheExecutor(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            wander(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-            wander(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
+            wander(helper);
             helper.succeed();
         }, SPOT);
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_executor_mount", timeoutTicks = 40)
-    public static void mountWalksToItsShipThroughTheExecutorOnlyUnderNew(GameTestHelper helper) {
+    public static void mountWalksToItsShipThroughTheExecutor(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            mountToHost(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-            mountToHost(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
+            mountToHost(helper);
             helper.succeed();
         }, SPOT, AWAY);
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_executor_move_arrived", timeoutTicks = 40)
-    public static void completedMoveStopsThroughTheExecutorOnlyUnderNew(GameTestHelper helper) {
+    public static void completedMoveStopsThroughTheExecutor(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            completedMove(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-            completedMove(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
+            completedMove(helper);
             helper.succeed();
         }, SPOT);
     }
 
-    private static void completedMove(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+    private static void completedMove(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = MovementPlanParityGameTests.friendly(helper, entities, new Vec3(2.5D, 0D, 2.5D));
             // the goal is driven by hand; the selector must not move the ship as well
             ship.setNoAi(true);
             BlockPos destination = helper.absolutePos(new BlockPos(1, 2, 1));
-            if (mode == ConfigHandler.ShipAiTargetAuthority.LEGACY) {
-                ship.setGuardedPos(destination.getX(), destination.getY(), destination.getZ(),
-                        helper.getLevel().dimension(), 1);
-                ship.setStateFlag(ID.F.CanFollow, false);
-                ship.setReleaseGuardOnArrival(true);
-            } else {
-                var id = helper.getLevel().dimension().location();
-                ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
-                        new CommandStateOp.Apply(new ShipCommand.Move(new DimensionKey(id.getNamespace(), id.getPath()),
-                                new CommandPos(destination.getX(), destination.getY(), destination.getZ()), true)));
-            }
-            helper.assertTrue(ship.shouldReleaseGuardOnArrival(), mode + ": the move order does not end on arrival");
+            var id = helper.getLevel().dimension().location();
+            ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.Move(new DimensionKey(id.getNamespace(), id.getPath()),
+                            new CommandPos(destination.getX(), destination.getY(), destination.getZ()), true)));
+            helper.assertTrue(ship.shouldReleaseGuardOnArrival(), "the move order does not end on arrival");
             // a running guard goal in a selector of its own, which stops it once more when it ends
             GoalSelector selector = new GoalSelector(helper.getLevel().getProfilerSupplier());
             selector.addGoal(0, new ShipGuardingGoal(ship));
@@ -157,20 +136,13 @@ public final class MovementExecutorBoundaryGameTests {
             MovementPlanParityGameTests.navigation(ship).recordCalls(log);
             selector.tick();
             MovementPlanParityGameTests.navigation(ship).recordCalls(null);
-            helper.assertTrue(!guard.isRunning(), mode + ": the guard goal kept running");
-            helper.assertTrue(!ship.hasGuardDestination(), mode + ": the move order was not released");
+            helper.assertTrue(!guard.isRunning(), "the guard goal kept running");
+            helper.assertTrue(!ship.hasGuardDestination(), "the move order was not released");
             String stop = ship.tickCount + ":stop";
-            List<String> expected = mode == ConfigHandler.ShipAiTargetAuthority.LEGACY
-                    // the move's stop, the goal's stop, and the selector's stop of the goal
-                    ? List.of(stop, stop, stop)
-                    // the goal's stop and the move's, both by the executor; the selector's adds none
-                    : List.of(stop + ExecutorMarkedLog.BY_EXECUTOR, stop + ExecutorMarkedLog.BY_EXECUTOR);
-            helper.assertTrue(log.equals(expected), mode + ": expected " + expected + ", got " + log);
+            // the goal's stop and the move's, both by the executor; the selector's adds none
+            List<String> expected = List.of(stop + ExecutorMarkedLog.BY_EXECUTOR, stop + ExecutorMarkedLog.BY_EXECUTOR);
+            helper.assertTrue(log.equals(expected), "expected " + expected + ", got " + log);
             Optional<ShipMovementExecutor.Request> last = ((ShipMovementHost) ship).shipMovementExecutor().last();
-            if (mode == ConfigHandler.ShipAiTargetAuthority.LEGACY) {
-                helper.assertTrue(last.isEmpty(), "LEGACY used the movement executor: " + last);
-                return;
-            }
             helper.assertTrue(last.isPresent() && last.get().tick() == ship.tickCount
                     && last.get().step() instanceof MovementStep.Stop arrived
                     && arrived.body() == MovementBody.SELF && arrived.reason() == MovementReason.MOVE_ARRIVED,
@@ -178,9 +150,8 @@ public final class MovementExecutorBoundaryGameTests {
         }
     }
 
-    private static void wander(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+    private static void wander(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShipHostile ship = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
             helper.assertTrue(ship != null, "failed to create hostile ship");
             // the goal is driven by hand; the selector must not move the ship as well
@@ -204,12 +175,8 @@ public final class MovementExecutorBoundaryGameTests {
             String expected = ship.tickCount + ":moveTo(" + MovementPlanParityGameTests.fmt(x) + ","
                     + MovementPlanParityGameTests.fmt(y) + "," + MovementPlanParityGameTests.fmt(z) + ")x0.8=";
             helper.assertTrue(log.size() == 1 && log.get(0).startsWith(expected),
-                    mode + ": expected one path to the chosen point " + expected + ", got " + log);
+                    "expected one path to the chosen point " + expected + ", got " + log);
             Optional<ShipMovementExecutor.Request> last = ((ShipMovementHost) ship).shipMovementExecutor().last();
-            if (mode == ConfigHandler.ShipAiTargetAuthority.LEGACY) {
-                helper.assertTrue(last.isEmpty(), "LEGACY used the movement executor: " + last);
-                return;
-            }
             helper.assertTrue(last.isPresent() && last.get().tick() == ship.tickCount
                     && last.get().step() instanceof MovementStep.PathTo path
                     && path.reason() == MovementReason.WANDER
@@ -218,9 +185,8 @@ public final class MovementExecutorBoundaryGameTests {
         }
     }
 
-    private static void mountToHost(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode);
-             GameTestEntities entities = GameTestEntities.open(helper)) {
+    private static void mountToHost(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = MovementPlanParityGameTests.friendly(helper, entities, new Vec3(2.5D, 0D, 2.5D));
             ship.setNoAi(true);
             BasicEntityMount mount = entities.add(ModEntities.MOUNT_BAH.get().create(helper.getLevel()));
@@ -251,11 +217,7 @@ public final class MovementExecutorBoundaryGameTests {
             Optional<ShipMovementExecutor.Request> stopped = ((ShipMovementHost) mount).shipMovementExecutor().last();
             String walk = pathTick + ":moveTo(" + ship.getType().getDescriptionId() + "@";
             helper.assertTrue(log.size() == 2 && log.get(0).startsWith(walk) && log.get(1).equals(pathTick + ":stop"),
-                    mode + ": expected a path to the ship and then a stop, got " + log);
-            if (mode == ConfigHandler.ShipAiTargetAuthority.LEGACY) {
-                helper.assertTrue(stopped.isEmpty(), "LEGACY used the movement executor: " + stopped);
-                return;
-            }
+                    "expected a path to the ship and then a stop, got " + log);
             helper.assertTrue(path.isPresent() && path.get().tick() == pathTick
                     && path.get().step() instanceof MovementStep.PathTo walkTo
                     && walkTo.reason() == MovementReason.MOUNT_TO_HOST
@@ -270,7 +232,7 @@ public final class MovementExecutorBoundaryGameTests {
 
     private static ShipMovementExecutor.Request last(GameTestHelper helper, Mob host) {
         Optional<ShipMovementExecutor.Request> last = ((ShipMovementHost) host).shipMovementExecutor().last();
-        helper.assertTrue(last.isPresent(), "NEW never used the movement executor");
+        helper.assertTrue(last.isPresent(), "The ship never used the movement executor");
         return last.get();
     }
 

@@ -11,7 +11,8 @@ import java.util.OptionalLong;
 public final class OwnerJumpDetector {
     public static final int WINDOW = 20;
     public static final int HOLD_TICKS = 400;
-    private static final double JUMP_DISTANCE_SQ = 30D * 30D;
+    /** Twelve blocks a second: below an elytra glide, above walking and sprinting. */
+    private static final double JUMP_DISTANCE_SQ = 12D * 12D;
 
     private OwnerJumpDetector() { }
 

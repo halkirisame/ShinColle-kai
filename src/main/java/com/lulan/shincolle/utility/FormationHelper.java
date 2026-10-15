@@ -2,15 +2,19 @@ package com.lulan.shincolle.utility;
 
 import com.lulan.shincolle.ai.ShipFormationStateAdapter;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
+import com.lulan.shincolle.ai.domain.DimensionKey;
+import com.lulan.shincolle.ai.domain.command.CommandDecision;
+import com.lulan.shincolle.ai.domain.command.CommandIssuer;
+import com.lulan.shincolle.ai.domain.command.CommandStateOp;
+import com.lulan.shincolle.ai.domain.command.MovementOrder;
+import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
 import com.lulan.shincolle.ai.domain.formation.FormationLayoutPlanner;
 import com.lulan.shincolle.ai.domain.formation.FormationPattern;
 import com.lulan.shincolle.ai.domain.movement.FormationSlot;
 import com.lulan.shincolle.ai.domain.movement.MovementPoint;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
-import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
-import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.reference.unitclass.AttrsAdv;
 
@@ -83,15 +87,11 @@ public class FormationHelper {
      */
     public static double[] getFormationGuardingPos(IShipAttackBase host, Entity target,
                                                    double oldX, double oldZ) {
-        int formatID = host.getStateMinor(ID.M.FormatType);
-        int formatPos = host.getStateMinor(ID.M.FormatPos);
         double[] pos = new double[]{target.getX(), target.getY(), target.getZ()};
-        if (ShipCommandStateAdapter.isNew()) {
-            var active = ShipFormationStateAdapter.active(host);
-            if (active.isEmpty()) return pos;
-            formatID = active.get().pattern().legacyId();
-            formatPos = active.get().slot().index();
-        }
+        var active = ShipFormationStateAdapter.active(host);
+        if (active.isEmpty()) return pos;
+        int formatID = active.get().pattern().legacyId();
+        int formatPos = active.get().slot().index();
 
         // no formation, return target position
         if (formatID <= 0)
@@ -131,48 +131,12 @@ public class FormationHelper {
      * @return new position {x, y, z}
      */
     public static int[] calcFormationPos(int formatID, int formatPos, double[] flagshipPos, boolean[] faceXP) {
-        if (ShipCommandStateAdapter.isNew()) {
-            var anchor = FormationLayoutPlanner.round(new MovementPoint(flagshipPos[0], flagshipPos[1], flagshipPos[2]));
-            var pattern = FormationPattern.fromLegacy(formatID);
-            if (pattern.isEmpty()) return coordinates(anchor);
-            return coordinates(FormationLayoutPlanner.place(pattern.get(),
-                    FormationSlot.placedAs(FormationSlot.fromLegacy(formatPos)),
-                    new FormationLayoutPlanner.Facing(faceXP[0], faceXP[1]), anchor));
-        }
-        int[] newPos = new int[]{
-                Mth.floor(flagshipPos[0]),
-                (int) (flagshipPos[1] + 0.5D),
-                Mth.floor(flagshipPos[2])
-        };
-
-        // host is flagship
-        if (formatPos == 0) {
-            return newPos;
-        }
-
-        switch (formatID) {
-            case 1: // line ahead
-                for (int i = 0; i < formatPos; i++) {
-                    newPos = nextLineAheadPos(faceXP[0], faceXP[1], newPos[0], newPos[1], newPos[2]);
-                }
-                break;
-            case 4: // echelon
-                for (int i = 0; i < formatPos; i++) {
-                    newPos = nextEchelonPos(faceXP[1], newPos[0], newPos[1], newPos[2]);
-                }
-                break;
-            case 2: // double line
-                newPos = nextDoubleLinePos(faceXP[0], faceXP[1], formatPos, newPos[0], newPos[1], newPos[2]);
-                break;
-            case 3: // diamond
-                newPos = nextDiamondPos(faceXP[0], faceXP[1], formatPos, newPos[0], newPos[1], newPos[2]);
-                break;
-            case 5: // line abreast
-                newPos = nextLineAbreastPos(faceXP[0], formatPos, newPos[0], newPos[1], newPos[2]);
-                break;
-        }
-
-        return newPos;
+        var anchor = FormationLayoutPlanner.round(new MovementPoint(flagshipPos[0], flagshipPos[1], flagshipPos[2]));
+        var pattern = FormationPattern.fromLegacy(formatID);
+        if (pattern.isEmpty()) return coordinates(anchor);
+        return coordinates(FormationLayoutPlanner.place(pattern.get(),
+                FormationSlot.placedAs(FormationSlot.fromLegacy(formatPos)),
+                new FormationLayoutPlanner.Facing(faceXP[0], faceXP[1]), anchor));
     }
 
     /**
@@ -213,16 +177,10 @@ public class FormationHelper {
                                                                   int x, int y, int z, Level level) {
         int[] pos = BlockHelper.getSafeBlockWithin5x5(level, x, y, z);
 
-        if (pos != null && ShipCommandStateAdapter.isNew()) {
+        if (pos != null) {
             var pattern = FormationPattern.fromLegacy(formatType).orElse(FormationPattern.LINE_AHEAD);
             return new FormationPlacement(pos, coordinates(FormationLayoutPlanner.next(pattern,
                     new FormationLayoutPlanner.Facing(alongX, faceP), new CommandPos(pos[0], pos[1], pos[2]))));
-        }
-        if (pos != null) {
-            if (formatType == 4) {
-                return new FormationPlacement(pos, nextEchelonPos(faceP, pos[0], pos[1], pos[2]));
-            }
-            return new FormationPlacement(pos, nextLineAheadPos(alongX, faceP, pos[0], pos[1], pos[2]));
         }
         int[] fallback = new int[]{x, y, z};
         return new FormationPlacement(fallback, fallback);
@@ -242,34 +200,10 @@ public class FormationHelper {
     public static int[] calculateFormationPosition2(BasicEntityShip ship, int formatType,
                                                      boolean alongX, boolean faceP,
                                                      int x, int y, int z, Level level) {
-        if (ShipCommandStateAdapter.isNew()) {
-            var pattern = FormationPattern.fromLegacy(formatType);
-            if (pattern.isEmpty()) return new int[]{x, y, z};
-            return calculateFormationPlacementNew(ship, pattern.get(), new FormationLayoutPlanner.Facing(alongX, faceP),
-                    new CommandPos(x, y, z), new CommandPos(x, y, z), level).position();
-        }
-        int formatPos = ship.getStateMinor(ID.M.FormatPos);
-        if (formatPos < 0 || formatPos > 5) {
-            formatPos = 0;
-        }
-
-        int[] pos = new int[]{x, y, z};
-        switch (formatType) {
-            case 2:
-                pos = nextDoubleLinePos(alongX, faceP, formatPos, x, y, z);
-                break;
-            case 3:
-                pos = nextDiamondPos(alongX, faceP, formatPos, x, y, z);
-                break;
-            case 5:
-                pos = nextLineAbreastPos(alongX, formatPos, x, y, z);
-                break;
-            default:
-                break;
-        }
-
-        int[] safePos = BlockHelper.getSafeBlockWithin5x5(level, pos[0], pos[1], pos[2]);
-        return safePos != null ? safePos : new int[]{x, y, z};
+        var pattern = FormationPattern.fromLegacy(formatType);
+        if (pattern.isEmpty()) return new int[]{x, y, z};
+        return calculateFormationPlacementNew(ship, pattern.get(), new FormationLayoutPlanner.Facing(alongX, faceP),
+                new CommandPos(x, y, z), new CommandPos(x, y, z), level).position();
     }
 
     // ========== Formation Position Functions ==========
@@ -513,45 +447,21 @@ public class FormationHelper {
 
     public static void applyShipGuard(BasicEntityShip ship, int x, int y, int z,
                                       boolean forceSet, int guardType) {
-        if (ship == null)
-            return;
-
+        if (ship == null || ship.level().isClientSide()) return;
         guardType = Mth.clamp(guardType, 0, 1);
-
-        int gx = ship.getStateMinor(ID.M.GuardX);
-        int gy = ship.getStateMinor(ID.M.GuardY);
-        int gz = ship.getStateMinor(ID.M.GuardZ);
-
+        MovementOrder order = ship.getCommandState().movement();
+        boolean positioned = order instanceof MovementOrder.MoveTo || order instanceof MovementOrder.GuardPosition;
+        var id = ship.level().dimension().location();
+        DimensionKey dimension = new DimensionKey(id.getNamespace(), id.getPath());
+        var currentDimension = order instanceof MovementOrder.MoveTo move ? move.dimension()
+                : order instanceof MovementOrder.GuardPosition guard ? guard.dimension() : null;
+        var command = CommandDecision.position(dimension, new CommandPos(x, y, z), false, forceSet, positioned,
+                currentDimension, order.destination().orElse(null), guardType == 1);
         // clear attack target
         ship.setTarget(null);
         ship.setEntityTarget(null);
-
-        // same guard position, cancel guard mode
-        if (!forceSet && gx == x && gy == y && gz == z) {
-            ship.setGuardedPos(-1, -1, -1, 0, 0);
-            ship.setGuardedEntity(null);
-            ship.setStateFlag(ID.F.CanFollow, true);
-        }
-        // apply guard mode
-        else {
-            ship.setEntitySit(false);
-            ship.setGuardedEntity(null);
-            ship.setGuardedPos(x, y, z, ship.level().dimension(), guardType);
-            ship.setStateFlag(ID.F.CanFollow, false);
-
-            if (!ship.getStateFlag(ID.F.NoFuel)) {
-                ship.applyEmotesReaction(5);
-
-                Entity mount = ship.getVehicle();
-                if (mount instanceof BasicEntityMount bm) {
-                    bm.getNavigation().moveTo(x, y, z, 1D);
-                    bm.getLookControl().setLookAt(x, y, z, 30F, 40F);
-                } else {
-                    ship.getNavigation().moveTo(x, y, z, 1D);
-                    ship.getLookControl().setLookAt(x, y, z, 30F, 40F);
-                }
-            }
-        }
+        ship.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.HELPER_COMMAND),
+                new CommandStateOp.Apply(command));
     }
 
     /**
@@ -562,34 +472,11 @@ public class FormationHelper {
      * Otherwise apply entity guard mode.
      */
     public static void applyShipGuardEntity(BasicEntityShip ship, Entity guarded) {
-        if (ship == null || guarded == null)
-            return;
-
-        Entity current = ship.getGuardedEntity();
-
-        // same guard target, cancel guard
-        if (current != null && current.getId() == guarded.getId()) {
-            ship.setGuardedPos(-1, -1, -1, 0, 0);
-            ship.setGuardedEntity(null);
-            ship.setStateFlag(ID.F.CanFollow, true);
-        }
-        // apply guard
-        else {
-            ship.setEntitySit(false);
-            ship.setGuardedEntity(guarded);
-            ship.setGuardedPos(-1, -1, -1, guarded.level().dimension(), 2);
-            ship.setStateFlag(ID.F.CanFollow, false);
-
-            if (!ship.getStateFlag(ID.F.NoFuel)) {
-                ship.applyEmotesReaction(5);
-
-                Entity mount = ship.getVehicle();
-                if (mount instanceof BasicEntityMount bm) {
-                    bm.getNavigation().moveTo(guarded, 1D);
-                } else {
-                    ship.getNavigation().moveTo(guarded, 1D);
-                }
-            }
-        }
+        if (ship == null || guarded == null || ship.level().isClientSide()) return;
+        MovementOrder order = ship.getCommandState().movement();
+        var command = CommandDecision.guardEntity(ShipCommandStateAdapter.handle(guarded),
+                order instanceof MovementOrder.GuardEntity guard ? guard.target() : null);
+        ship.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.HELPER_COMMAND),
+                new CommandStateOp.Apply(command));
     }
 }

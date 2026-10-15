@@ -37,6 +37,74 @@ class ShipAiDefaultConfigTest {
     }
 
     @Test
+    void everyStoredValueAndTestOverrideRunsTheNewAi() {
+        Path path = directory.resolve("compat.toml");
+        try {
+            try (CommentedFileConfig config = CommentedFileConfig.builder(path).sync().build()) {
+                config.load();
+                ConfigHandler.COMMON_SPEC.setConfig(config);
+                for (ConfigHandler.ShipAiTargetAuthority stored : ConfigHandler.ShipAiTargetAuthority.values()) {
+                    ConfigHandler.COMMON.shipAiTargetAuthority.set(stored);
+                    assertEquals(stored, ConfigHandler.COMMON.shipAiTargetAuthority.get());
+                    assertEquals(ConfigHandler.ShipAiTargetAuthority.NEW, ConfigHandler.shipAiTargetAuthority(),
+                            "stored " + stored);
+                    for (ConfigHandler.ShipAiTargetAuthority override : ConfigHandler.ShipAiTargetAuthority.values()) {
+                        ConfigHandler.setShipAiTargetAuthorityForTest(override);
+                        assertEquals(ConfigHandler.ShipAiTargetAuthority.NEW, ConfigHandler.shipAiTargetAuthority(),
+                                "stored " + stored + ", override " + override);
+                    }
+                    ConfigHandler.setShipAiTargetAuthorityForTest(null);
+                    assertEquals(ConfigHandler.ShipAiTargetAuthority.NEW, ConfigHandler.shipAiTargetAuthority(),
+                            "stored " + stored + ", no override");
+                }
+            }
+        } finally {
+            ConfigHandler.setShipAiTargetAuthorityForTest(null);
+            ConfigHandler.COMMON_SPEC.setConfig(null);
+        }
+    }
+
+    @Test
+    void storedSettingsAndMigrationMarkersLoadWithoutSelectingAnOldRuntime() {
+        int fixture = 0;
+        try {
+            for (ConfigHandler.ShipAiTargetAuthority stored : ConfigHandler.ShipAiTargetAuthority.values()) {
+                for (Boolean marker : new Boolean[]{null, false, true}) {
+                    Path path = directory.resolve("loaded-compat-" + fixture++ + ".toml");
+                    try (CommentedFileConfig config = CommentedFileConfig.builder(path).sync().build()) {
+                        config.load();
+                        config.set(ConfigHandler.COMMON.shipAiTargetAuthority.getPath(), stored.name());
+                        if (marker != null) {
+                            config.set(ConfigHandler.COMMON.shipAiNewDefaultApplied.getPath(), marker);
+                        }
+                        config.save();
+                    }
+                    try (CommentedFileConfig config = CommentedFileConfig.builder(path).sync().build()) {
+                        config.load();
+                        assertEquals(marker != null,
+                                config.contains(ConfigHandler.COMMON.shipAiNewDefaultApplied.getPath()));
+                        ConfigHandler.COMMON_SPEC.setConfig(config);
+                        assertEquals(stored, ConfigHandler.COMMON.shipAiTargetAuthority.get());
+                        assertEquals(Boolean.TRUE.equals(marker), ConfigHandler.COMMON.shipAiNewDefaultApplied.get());
+                        for (ConfigHandler.ShipAiTargetAuthority override : ConfigHandler.ShipAiTargetAuthority.values()) {
+                            ConfigHandler.setShipAiTargetAuthorityForTest(override);
+                            assertEquals(ConfigHandler.ShipAiTargetAuthority.NEW, ConfigHandler.shipAiTargetAuthority());
+                        }
+                        ConfigHandler.setShipAiTargetAuthorityForTest(null);
+                        ConfigHandler.applyShipAiNewDefault();
+                        assertEquals(ConfigHandler.ShipAiTargetAuthority.NEW, ConfigHandler.shipAiTargetAuthority());
+                    } finally {
+                        ConfigHandler.COMMON_SPEC.setConfig(null);
+                    }
+                }
+            }
+        } finally {
+            ConfigHandler.setShipAiTargetAuthorityForTest(null);
+            ConfigHandler.COMMON_SPEC.setConfig(null);
+        }
+    }
+
+    @Test
     void legacyMigrationPreservesOtherSettingsAndAChoiceMadeAfterwards() {
         Path path = directory.resolve("existing.toml");
         try {

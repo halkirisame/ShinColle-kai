@@ -1,7 +1,5 @@
 package com.lulan.shincolle.utility;
 
-import com.lulan.shincolle.ai.ShipMovementGate;
-import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
@@ -109,53 +107,10 @@ public class EntityHelper {
      * This is called from {@link BasicEntityShip#aiStep()}, not a Goal, so every
      * ship receives the same 16-tick cadence.
      *
-     * @return true when the caller must synchronize the flag ship's changed guard target
+     * @return true when the waypoint destination changed; the command pipeline synchronizes it
      */
     public static boolean updateWaypointMove(BasicEntityShip ship) {
-        if (ShipMovementGate.active()) {
-            return updateWaypointMoveNew(ship);
-        }
-        if (!ship.hasGuardDestination() || !ship.isGuardedInCurrentDimension()
-                || ship.getGuardedEntity() != null || ship.getIsSitting()
-                || ship.getIsLeashed() || ship.isPassenger()) {
-            return false;
-        }
-
-        if (ship.getStateMinor(ID.M.FormatType) > 0 && ship.getStateMinor(ID.M.FormatPos) > 0) {
-            return false;
-        }
-
-        BlockPos current = new BlockPos(ship.getGuardedPos(0), ship.getGuardedPos(1), ship.getGuardedPos(2));
-        if (!(ship.level().getBlockEntity(current) instanceof TileEntityWaypoint waypoint)
-                || ship.distanceToSqr(Vec3.atCenterOf(current)) >= 9D) {
-            return false;
-        }
-
-        int stayMax = Math.max(ship.getWpStayTimeMax(),
-                BasicEntityShip.wpStayTime2Ticks(waypoint.getWpStayTime()));
-        if (ship.getWpStayTime() < stayMax) {
-            ship.setWpStayTime(ship.getWpStayTime() + 16);
-            return false;
-        }
-
-        ship.setWpStayTime(0);
-        BlockPos destination = null;
-        if (waypoint.hasNextWaypoint()) {
-            BlockPos next = waypoint.getNextWaypoint();
-            if (ship.hasLastWaypoint() && next.equals(ship.getLastWaypoint()) && waypoint.hasLastWaypoint()) {
-                destination = waypoint.getLastWaypoint();
-            } else {
-                destination = next;
-            }
-        }
-
-        setLastWaypointForShipAndPassengers(ship, current);
-        if (destination == null) {
-            return false;
-        }
-
-        applyWaypointDestination(ship, destination);
-        return true;
+        return updateWaypointMoveNew(ship);
     }
 
     /**
@@ -235,9 +190,8 @@ public class EntityHelper {
     }
 
     private static void applyWaypointDestination(BasicEntityShip ship, BlockPos destination) {
-        int formationType = ShipCommandStateAdapter.isNew()
-                ? com.lulan.shincolle.ai.ShipFormationStateAdapter.active(ship).map(a -> a.pattern().legacyId()).orElse(0)
-                : ship.getStateMinor(ID.M.FormatType);
+        int formationType = com.lulan.shincolle.ai.ShipFormationStateAdapter.active(ship)
+                .map(a -> a.pattern().legacyId()).orElse(0);
         if (formationType <= 0) {
             applyWaypointGuard(ship, destination);
             return;
@@ -256,10 +210,8 @@ public class EntityHelper {
         for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
             BasicEntityShip member = ServerDataManager.getShipByUID(capa.getTeamMember(team, slot));
             if (member != null && member.isAlive() && member.level() == serverLevel
-                    && (ShipCommandStateAdapter.isNew()
-                        ? com.lulan.shincolle.ai.ShipFormationStateAdapter.active(member)
-                            .map(a -> a.pattern().legacyId() == formationType).orElse(false)
-                        : member.getStateMinor(ID.M.FormatType) == formationType)) {
+                    && com.lulan.shincolle.ai.ShipFormationStateAdapter.active(member)
+                        .map(a -> a.pattern().legacyId() == formationType).orElse(false)) {
                 ships.add(member);
             }
         }
@@ -272,39 +224,21 @@ public class EntityHelper {
                 ship.getX(), ship.getZ());
         int[] cursor = {destination.getX(), destination.getY(), destination.getZ()};
         for (BasicEntityShip member : ships) {
-            if (ShipCommandStateAdapter.isNew()) {
-                var placement = FormationHelper.calculateFormationPlacementNew(member,
-                        com.lulan.shincolle.ai.domain.formation.FormationPattern.fromLegacy(formationType).orElseThrow(),
-                        new com.lulan.shincolle.ai.domain.formation.FormationLayoutPlanner.Facing(facing[0], facing[1]),
-                        new CommandPos(cursor[0], cursor[1], cursor[2]), commandPos(destination), serverLevel);
-                int[] placed = placement.position();
-                cursor = placement.next();
-                applyWaypointGuard(member, new BlockPos(placed[0], placed[1], placed[2]));
-            } else {
-                switch (formationType) {
-                    case 1, 4 -> cursor = FormationHelper.setFormationPosAndApplyGuardPos1(member, formationType,
-                            facing[0], facing[1], cursor[0], cursor[1], cursor[2], serverLevel);
-                    case 2, 3, 5 -> FormationHelper.setFormationPosAndApplyGuardPos2(member, formationType,
-                            facing[0], facing[1], destination.getX(), destination.getY(), destination.getZ(), serverLevel);
-                    default -> FormationHelper.applyShipGuard(member, destination.getX(), destination.getY(),
-                            destination.getZ(), true);
-                }
-            }
-            if (member != ship && !ShipCommandStateAdapter.isNew()) {
-                member.sendSyncPacketGuard();
-            }
+            var placement = FormationHelper.calculateFormationPlacementNew(member,
+                    com.lulan.shincolle.ai.domain.formation.FormationPattern.fromLegacy(formationType).orElseThrow(),
+                    new com.lulan.shincolle.ai.domain.formation.FormationLayoutPlanner.Facing(facing[0], facing[1]),
+                    new CommandPos(cursor[0], cursor[1], cursor[2]), commandPos(destination), serverLevel);
+            int[] placed = placement.position();
+            cursor = placement.next();
+            applyWaypointGuard(member, new BlockPos(placed[0], placed[1], placed[2]));
         }
     }
 
     private static void applyWaypointGuard(BasicEntityShip ship, BlockPos destination) {
-        if (ShipCommandStateAdapter.isNew()) {
-            var id = ship.level().dimension().location();
-            ship.applyCommandState(new CommandIssuer.Waypoint(), new CommandStateOp.Apply(
-                    new ShipCommand.GuardPosition(new DimensionKey(id.getNamespace(), id.getPath()),
-                            new CommandPos(destination.getX(), destination.getY(), destination.getZ()), false)));
-        } else {
-            FormationHelper.applyShipGuard(ship, destination.getX(), destination.getY(), destination.getZ(), true);
-        }
+        var id = ship.level().dimension().location();
+        ship.applyCommandState(new CommandIssuer.Waypoint(), new CommandStateOp.Apply(
+                new ShipCommand.GuardPosition(new DimensionKey(id.getNamespace(), id.getPath()),
+                        new CommandPos(destination.getX(), destination.getY(), destination.getZ()), false)));
     }
 
     /**

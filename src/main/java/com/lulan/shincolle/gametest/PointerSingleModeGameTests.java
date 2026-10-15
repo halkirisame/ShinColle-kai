@@ -284,29 +284,70 @@ public final class PointerSingleModeGameTests {
         ship.setStateMinor(com.lulan.shincolle.reference.ID.M.FollowMin, 0);
         ship.setStateMinor(com.lulan.shincolle.reference.ID.M.FollowMax, 0);
         ship.setStateFlag(com.lulan.shincolle.reference.ID.F.PassiveAI, true);
+        if (entityGuard) {
+            ship.setStateFlag(com.lulan.shincolle.reference.ID.F.PickItem, false);
+        }
         ship.setNoAi(false);
         BlockPos destination = helper.absolutePos(new BlockPos(9, 1, 4));
         boolean[] reached = {false};
+        boolean[] guardRanBeforeArrival = {false};
         Zombie[] guardTarget = {null};
         boolean[] hadPath = {false};
         String[] firstNull = {null};
         // Commands are issued after the entity's tick-16 deferred AI registration.
         helper.runAtTickTime(25, () -> {
+            helper.assertTrue(ship.tickCount > 16,
+                    "Arrival command fixture issued commands before deferred AI registration");
+            ship.goalSelector.removeAllGoals(goal -> goal instanceof com.lulan.shincolle.ai.ShipWanderGoal);
+            // Discard any wandering path or motion from before the deferred registration.
+            ship.getNavigation().stop();
+            Vec3 start = helper.absoluteVec(new Vec3(4.5D, 1D, 4.5D));
+            ship.moveTo(start.x, start.y, start.z, 0F, 0F);
+            ship.setDeltaMovement(Vec3.ZERO);
+            if (entityGuard) {
+                Zombie target = addTarget(context, new Vec3(9.5D, 1D, 4.5D));
+                guardTarget[0] = target;
+                target.setInvulnerable(true);
+                helper.assertTrue(!ship.getStateFlag(com.lulan.shincolle.reference.ID.F.PickItem),
+                        "Entity guard fixture must disable item pickup");
+                helper.assertTrue(ship.getStateMinor(com.lulan.shincolle.reference.ID.M.FormatType) == 0,
+                        "Entity guard fixture must not have a formation");
+                double startRange = ship.getStateMinor(com.lulan.shincolle.reference.ID.M.FollowMax)
+                        + ship.getBbWidth() * 0.75D;
+                helper.assertTrue(ship.distanceToSqr(target) > startRange * startRange,
+                        "Entity guard target must be outside the guard start range: distanceSq="
+                                + ship.distanceToSqr(target) + ", startRange=" + startRange);
+            }
+            helper.assertTrue(ship.getStateMinor(com.lulan.shincolle.reference.ID.M.FollowMin) == 0
+                            && ship.getStateMinor(com.lulan.shincolle.reference.ID.M.FollowMax) == 0,
+                    "Arrival command fixture must have zero follow distances");
+            helper.assertTrue(ship.getStateMinor(com.lulan.shincolle.reference.ID.M.NumGrudge) > 0
+                            && !ship.getStateFlag(com.lulan.shincolle.reference.ID.F.NoFuel),
+                    "Arrival command fixture must have fuel");
+            for (var goal : ship.goalSelector.getAvailableGoals()) {
+                helper.assertTrue(!(goal.getGoal() instanceof com.lulan.shincolle.ai.ShipWanderGoal),
+                        "Arrival command fixture still has a wander goal");
+            }
             invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SetMove,
                     new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, 1,
                             destination.getX(), destination.getY(), destination.getZ(), persistent ? 0 : 1}),
                     "handleSetMove", context.player());
             if (entityGuard) {
-                Zombie target = addTarget(context, new Vec3(9.5D, 1D, 4.5D));
-                guardTarget[0] = target;
-                target.setInvulnerable(true);
                 invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.GuardEntity,
-                        new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, target.getId()}),
+                        new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, guardTarget[0].getId()}),
                         "handleGuardEntity", context.player());
             }
         });
         helper.onEachTick(() -> {
             var path = ship.getNavigation().getPath();
+            if (entityGuard && guardTarget[0] != null && !reached[0]) {
+                for (var goal : ship.goalSelector.getAvailableGoals()) {
+                    if (goal.isRunning()
+                            && goal.getGoal() instanceof com.lulan.shincolle.ai.ShipGuardingGoal) {
+                        guardRanBeforeArrival[0] = true;
+                    }
+                }
+            }
             if (entityGuard && guardTarget[0] != null && path == null && firstNull[0] == null) {
                 firstNull[0] = "tick=" + ship.tickCount + ", hadPath=" + hadPath[0]
                         + ", zombieAlive=" + guardTarget[0].isAlive()
@@ -324,13 +365,30 @@ public final class PointerSingleModeGameTests {
         });
         helper.runAtTickTime(220, () -> {
             try (context) {
+                var path = ship.getNavigation().getPath();
+                StringBuilder movementGoals = new StringBuilder();
+                for (var goal : ship.goalSelector.getAvailableGoals()) {
+                    if (goal.isRunning()
+                            && goal.getFlags().contains(net.minecraft.world.entity.ai.goal.Goal.Flag.MOVE)) {
+                        movementGoals.append(goal.getGoal().getClass().getSimpleName()).append(';');
+                    }
+                }
                 helper.assertTrue(reached[0], "Ship never completed a reachable path to " + destination
                         + ": " + ship.position() + ", path=" + ship.getNavigation().getPath()
+                        + ", pathTarget=" + (path == null ? null : path.getTarget())
+                        + ", cursor=" + (path == null ? -1 : path.getNextNodeIndex())
+                        + ", nodeCount=" + (path == null ? 0 : path.getNodeCount())
+                        + ", done=" + (path != null && path.isDone())
+                        + ", reachable=" + (path != null && path.canReach())
+                        + ", movementGoals=" + movementGoals
                         + (entityGuard ? ", firstNull={" + firstNull[0] + "}"
                                 + ", finalGuardType=" + ship.getStateMinor(com.lulan.shincolle.reference.ID.M.GuardType)
                                 + ", finalZombieAlive=" + guardTarget[0].isAlive()
-                                + ", finalZombieRemoval=" + guardTarget[0].getRemovalReason() : ""));
+                                + ", finalZombieRemoval=" + guardTarget[0].getRemovalReason()
+                                + ", targetPosition=" + guardTarget[0].position() : ""));
                 if (entityGuard) {
+                    helper.assertTrue(guardRanBeforeArrival[0],
+                            "Entity guard goal never ran before arrival");
                     helper.assertTrue(ship.getStateMinor(com.lulan.shincolle.reference.ID.M.GuardType) == 2
                                     && ship.getGuardedEntity() != null
                                     && !ship.getStateFlag(com.lulan.shincolle.reference.ID.F.CanFollow),

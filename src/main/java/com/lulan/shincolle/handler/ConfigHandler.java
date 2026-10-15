@@ -29,6 +29,10 @@ import java.util.List;
  */
 public class ConfigHandler {
 
+    /**
+     * The stored values of the earlier ship AI switch. They are still read so that older config files and
+     * callers load, but the previous AI is gone: every value runs {@link ShipAiTargetAuthority#NEW}.
+     */
     public enum ShipAiTargetAuthority {
         LEGACY,
         NEW
@@ -36,7 +40,6 @@ public class ConfigHandler {
 
     public static final ForgeConfigSpec COMMON_SPEC;
     public static final Common COMMON;
-    private static volatile ShipAiTargetAuthority shipAiTargetAuthorityTestOverride;
 
     // ========== Cached values for backward compatibility ==========
     /** EasyMode, synchronized from common config. */
@@ -494,13 +497,16 @@ public class ConfigHandler {
         return true;
     }
 
+    /**
+     * The authority ships run under. It is NEW whatever the stored {@code shipAiTargetAuthority} value
+     * or a test override says; those are compatibility inputs and select nothing.
+     */
     public static ShipAiTargetAuthority shipAiTargetAuthority() {
-        ShipAiTargetAuthority override = shipAiTargetAuthorityTestOverride;
-        return override == null ? COMMON.shipAiTargetAuthority.get() : override;
+        return ShipAiTargetAuthority.NEW;
     }
 
+    /** Kept for callers of the earlier switch. It selects nothing: the effective authority is NEW. */
     public static void setShipAiTargetAuthorityForTest(ShipAiTargetAuthority authority) {
-        shipAiTargetAuthorityTestOverride = authority;
     }
 
     public static class Common {
@@ -825,14 +831,13 @@ public class ConfigHandler {
                     .defineInRange("shipEquipSlotsCurios", 6, 0, 10);
 
             shipAiTargetAuthority = builder
-                    .comment("Ship AI: NEW is the redesigned ship AI and the default. "
-                    + "LEGACY keeps the previous AI and will be removed in a later version.",
-                            "Changes apply after ships rebuild their AI, such as after re-entering the world.")
+                    .comment("Ship AI. The previous AI has been removed, so every value runs the redesigned AI (NEW).",
+                            "The key and its values are kept only so that older config files still load.")
                     .defineEnum("shipAiTargetAuthority", ShipAiTargetAuthority.NEW);
 
             shipAiNewDefaultApplied = builder
-                    .comment("Set automatically once shipAiTargetAuthority has been switched to NEW on update.",
-                            "Leave this as it is; to use the previous AI, set shipAiTargetAuthority = \"LEGACY\".")
+                    .comment("Set automatically once when shipAiTargetAuthority was switched to NEW on update.",
+                            "It selects nothing now. Leave this as it is.")
                     .define("shipAiNewDefaultApplied", false);
 
             canTimekeeping = builder

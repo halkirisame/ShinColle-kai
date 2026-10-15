@@ -1,7 +1,6 @@
 package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.ShipFloatingGoal;
-import com.lulan.shincolle.ai.ShipFollowOwnerGoal;
 import com.lulan.shincolle.ai.ShipGuardingGoal;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.DimensionKey;
@@ -155,6 +154,35 @@ public final class MountMovementGameTests {
         }
     }
 
+    @GameTest(template = "arena", batch = "isolated_mount_movement_facing", timeoutTicks = 60)
+    public static void shipOnMountFacesWhereTheMountFaces(GameTestHelper helper) {
+        Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
+        try {
+            BasicEntityShip ship = ship(helper, context, new Vec3(1.5D, 1D, 2.5D));
+            BasicEntityMount mount = mount(helper, context, ship);
+            mount.setNoAi(true);
+            helper.runAtTickTime(10, () -> {
+                mount.setYRot(90F);
+                mount.setYBodyRot(90F);
+                ship.setYRot(10F);
+                ship.setYBodyRot(10F);
+                ship.setYHeadRot(10F);
+            });
+            helper.runAtTickTime(24, () -> context.finish(() -> {
+                helper.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(ship.yBodyRot - mount.yBodyRot)) <= 14.01F,
+                        "The ship must keep the mount's facing, body " + ship.yBodyRot + " mount " + mount.yBodyRot);
+                helper.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(ship.getYRot() - mount.yBodyRot)) <= 14.01F,
+                        "The ship's yaw must follow the mount, yaw " + ship.getYRot() + " mount " + mount.yBodyRot);
+                helper.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(ship.yHeadRot - mount.yBodyRot)) <= 35.01F,
+                        "The ship's head may look around but only within 35 degrees, head " + ship.yHeadRot
+                                + " mount " + mount.yBodyRot);
+            }));
+        } catch (Throwable error) {
+            context.close();
+            throw error;
+        }
+    }
+
     @GameTest(template = "arena", batch = "isolated_mount_movement_floating", timeoutTicks = 260)
     public static void newMountStaysAtSurfaceWithItsShipAboard(GameTestHelper helper) {
         Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
@@ -190,43 +218,9 @@ public final class MountMovementGameTests {
         }
     }
 
-    @GameTest(template = "arena", batch = "isolated_mount_movement_floating_to_legacy", timeoutTicks = 360)
-    public static void mountKeepsNewFloatingUntilItsAiIsRebuiltAfterSwitchToLegacy(GameTestHelper helper) {
-        Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-        try {
-            buildTank(helper);
-            BasicEntityShip ship = ship(helper, context, new Vec3(2.5D, 6.5D, 2.5D));
-            BasicEntityMount mount = mount(helper, context, ship);
-            int surfaceFloorY = helper.absolutePos(new BlockPos(2, 5, 2)).getY();
-            // After the ship re-registered its goals (tick 16) and the mount's goal list is settled.
-            helper.runAtTickTime(30, () -> context.stage(() -> {
-                helper.assertTrue(goal(mount, ShipFloatingGoal.class) != null, "Fixture: a NEW mount must float");
-                ConfigHandler.setShipAiTargetAuthorityForTest(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                helper.assertTrue(!ShipCommandStateAdapter.isNew(), "Fixture: the setting must now read LEGACY");
-            }));
-            // The goals, the depth probe and the liquid movement all stay NEW until setAIList runs again.
-            helper.runAtTickTime(200, () -> context.stage(() -> {
-                helper.assertTrue(goal(mount, ShipFloatingGoal.class) != null,
-                        "The floating goal must stay until the mount's AI is rebuilt");
-                helper.assertTrue(mount.getY() >= surfaceFloorY,
-                        "The mount must keep floating until its AI is rebuilt: y=" + mount.getY()
-                                + " surfaceFloorY=" + surfaceFloorY + " depth=" + mount.getShipDepth());
-                mount.setAIList();
-                helper.assertTrue(goal(mount, ShipFloatingGoal.class) == null,
-                        "Rebuilding under LEGACY must drop the floating goal");
-            }));
-            helper.runAtTickTime(340, () -> context.finish(() ->
-                    helper.assertTrue(mount.getY() < surfaceFloorY - 1,
-                            "A rebuilt LEGACY mount keeps the unchanged (sinking) behavior: y=" + mount.getY()
-                                    + " surfaceFloorY=" + surfaceFloorY)));
-        } catch (Throwable error) {
-            context.close();
-            throw error;
-        }
-    }
-
-    @GameTest(template = "arena", batch = "isolated_mount_movement_floating_to_new", timeoutTicks = 300)
-    public static void mountStaysLegacyUntilItsAiIsRebuiltAfterSwitchToNew(GameTestHelper helper) {
+    /** A stored LEGACY value is only a compatibility input: the mount floats, and still does after its AI is rebuilt. */
+    @GameTest(template = "arena", batch = "isolated_mount_movement_floating_compat", timeoutTicks = 300)
+    public static void mountKeepsFloatingWhateverTheLegacySettingSays(GameTestHelper helper) {
         Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
         try {
             buildTank(helper);
@@ -234,30 +228,18 @@ public final class MountMovementGameTests {
             BasicEntityMount mount = mount(helper, context, ship);
             int surfaceFloorY = helper.absolutePos(new BlockPos(2, 5, 2)).getY();
             helper.runAtTickTime(30, () -> context.stage(() -> {
-                helper.assertTrue(goal(mount, ShipFloatingGoal.class) == null, "Fixture: a LEGACY mount must not float");
-                ConfigHandler.setShipAiTargetAuthorityForTest(ConfigHandler.ShipAiTargetAuthority.NEW);
-                helper.assertTrue(ShipCommandStateAdapter.isNew(), "Fixture: the setting must now read NEW");
-            }));
-            // Still LEGACY in all three: no goal, and it sinks under the unchanged water physics.
-            helper.runAtTickTime(130, () -> context.stage(() -> {
-                helper.assertTrue(goal(mount, ShipFloatingGoal.class) == null,
-                        "No floating goal may appear before the mount's AI is rebuilt");
-                helper.assertTrue(mount.getY() < surfaceFloorY - 1,
-                        "The mount must keep the LEGACY (sinking) behavior until its AI is rebuilt: y=" + mount.getY()
-                                + " surfaceFloorY=" + surfaceFloorY);
-                // Back to the surface (a sunk mount is under water, which counts as a guard position).
-                mount.teleportTo(helper.absoluteVec(new Vec3(2.5D, 6.5D, 2.5D)).x,
-                        helper.absoluteVec(new Vec3(2.5D, 6.5D, 2.5D)).y,
-                        helper.absoluteVec(new Vec3(2.5D, 6.5D, 2.5D)).z);
-                mount.setDeltaMovement(Vec3.ZERO);
+                helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                        "The effective authority must be NEW whatever the setting says");
+                helper.assertTrue(goal(mount, ShipFloatingGoal.class) != null,
+                        "A LEGACY setting must still give the mount its floating goal");
                 mount.setAIList();
                 helper.assertTrue(goal(mount, ShipFloatingGoal.class) != null,
-                        "Rebuilding under NEW must add the floating goal");
+                        "Rebuilding the mount's AI under a LEGACY setting must keep the floating goal");
             }));
-            helper.runAtTickTime(280, () -> context.finish(() -> {
+            helper.runAtTickTime(240, () -> context.finish(() -> {
                 helper.assertTrue(ship.getVehicle() == mount, "The ship must stay on its mount");
-                helper.assertTrue(mount.getY() >= surfaceFloorY,
-                        "The rebuilt NEW mount must float: y=" + mount.getY() + " surfaceFloorY=" + surfaceFloorY);
+                helper.assertTrue(mount.getY() >= surfaceFloorY, "The mount must float: y=" + mount.getY()
+                        + " surfaceFloorY=" + surfaceFloorY);
             }));
         } catch (Throwable error) {
             context.close();
@@ -278,23 +260,6 @@ public final class MountMovementGameTests {
                     }
                 }
             }
-        }
-    }
-
-    @GameTest(template = "arena", batch = "isolated_mount_movement_legacy", timeoutTicks = 40)
-    public static void legacyMountKeepsItsSingleGoal(GameTestHelper helper) {
-        Context context = Context.open(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-        try {
-            BasicEntityShip ship = ship(helper, context, new Vec3(1.5D, 1D, 2.5D));
-            BasicEntityMount mount = mount(helper, context, ship);
-            helper.runAtTickTime(5, () -> context.finish(() ->
-                    helper.assertTrue(goal(mount, ShipGuardingGoal.class) == null
-                                    && goal(mount, ShipFollowOwnerGoal.class) == null
-                                    && goal(mount, ShipFloatingGoal.class) == null,
-                            "LEGACY mounts must keep their unchanged goal list")));
-        } catch (Throwable error) {
-            context.close();
-            throw error;
         }
     }
 

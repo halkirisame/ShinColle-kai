@@ -1,55 +1,31 @@
 package com.lulan.shincolle.client.particle;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.particle.SmokeParticle;
 import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-/**
- * Custom scale smoke particle.
- * Ported from 1.10.2 ParticleSmoke which extended ParticleSmokeNormal.
- */
+/** Smoke using the vanilla motion, lifetime, and scale behavior. */
 @OnlyIn(Dist.CLIENT)
-public class ParticleSmoke extends TextureSheetParticle {
+public class ParticleSmoke extends SmokeParticle {
 
-    private final SpriteSet sprites;
+    private static SpriteSet sharedSprites;
 
     public ParticleSmoke(ClientLevel level, double x, double y, double z,
                          double xSpeed, double ySpeed, double zSpeed, float scale, SpriteSet sprites) {
-        super(level, x, y, z, xSpeed, ySpeed, zSpeed);
-        this.sprites = sprites;
-        this.quadSize *= scale * 0.5F;
-        this.lifetime = (int) (8.0D / (Math.random() * 0.8D + 0.2D)) + 4;
-        this.gravity = 3.0E-6F;
-        this.xd = xSpeed;
-        this.yd = ySpeed;
-        this.zd = zSpeed;
-        this.setSpriteFromAge(sprites);
+        super(level, x, y, z, xSpeed, ySpeed, zSpeed, scale, sprites);
     }
 
-    @Override
-    public ParticleRenderType getRenderType() {
-        return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+    public static void setSharedSprites(SpriteSet sprites) {
+        sharedSprites = sprites;
     }
 
-    @Override
-    public void tick() {
-        this.xo = this.x;
-        this.yo = this.y;
-        this.zo = this.z;
-
-        if (this.age++ >= this.lifetime) {
-            this.remove();
-            return;
-        }
-
-        this.setSpriteFromAge(this.sprites);
-        this.xd *= 0.96D;
-        this.yd *= 0.96D;
-        this.zd *= 0.96D;
-        this.move(this.xd, this.yd, this.zd);
+    public static void spawn(ClientLevel level, double x, double y, double z,
+                             double vx, double vy, double vz, float scale) {
+        if (level == null || Minecraft.getInstance().level != level || sharedSprites == null) return;
+        Minecraft.getInstance().particleEngine.add(new ParticleSmoke(level, x, y, z,
+                vx, vy, vz, scale, sharedSprites));
     }
-
 }

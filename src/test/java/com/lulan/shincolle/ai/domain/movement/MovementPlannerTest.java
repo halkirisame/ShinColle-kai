@@ -252,9 +252,75 @@ class MovementPlannerTest {
     }
 
     @Test
+    void guardRestartsFarTicksAfterComingInsideTheTeleportDistance() {
+        MovementState.Guard state = guard(5, 0, 0, true);
+        for (int tick = 1; tick <= RULE.cooldown(); tick++) {
+            PlannedMove<MovementState.Guard> far = guardMove(state, 257D, false);
+            assertEquals(tick, far.state().farTimer());
+            assertTrue(far.plan().isEmpty());
+            state = far.state();
+        }
+        for (double distanceSq : new double[] {4D, 255D, 256D}) {
+            for (boolean temporary : new boolean[] {false, true}) {
+                PlannedMove<MovementState.Guard> near = guardMove(state, distanceSq, temporary);
+                assertEquals(0, near.state().farTimer(), "distance " + distanceSq);
+                PlannedMove<MovementState.Guard> farAgain = guardMove(near.state(), 257D, temporary);
+                assertEquals(1, farAgain.state().farTimer());
+                assertTrue(farAgain.plan().isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void guardPointDestinationChangesRestartFarTicksOnly() {
+        MovementState.Guard state = guard(5, 70, 199, true);
+        MovementState.Guard changed = GuardMovePlanner.toPoint(state, HOME);
+        assertEquals(new MovementState.Guard(5, 70, 0, 0, HOME, HOME, true), changed);
+        PlannedMove<MovementState.Guard> farAgain = guardMove(changed, 257D, false);
+        assertEquals(1, farAgain.state().farTimer());
+        assertTrue(farAgain.plan().isEmpty());
+    }
+
+    @Test
+    void guardWritingTheSamePointKeepsFarTicks() {
+        MovementState.Guard state = guard(5, 70, 199, true);
+        assertEquals(state, GuardMovePlanner.toPoint(state, new MovementPoint(AWAY.x(), AWAY.y(), AWAY.z())));
+    }
+
+    @Test
+    void guardEntityDestinationChangesKeepFarTicks() {
+        MovementState.Guard state = guard(5, 70, 199, true);
+        MovementState.Guard changed = GuardMovePlanner.toEntity(state, HOME);
+        assertEquals(new MovementState.Guard(5, 70, 199, 0, HOME, HOME, true), changed);
+        assertEquals(new MovementState.Guard(5, 70, 0, 0, AWAY, HOME, true),
+                GuardMovePlanner.toPoint(changed, AWAY));
+    }
+
+    @Test
+    void guardFormationDestinationChangesKeepFarTicks() {
+        MovementState.Guard state = guard(5, 70, 199, true);
+        MovementPoint anchor = new MovementPoint(20D, 64D, 0D);
+        MovementState.Guard changed = GuardMovePlanner.formationPlace(state, HOME, anchor);
+        assertEquals(new MovementState.Guard(5, 70, 199, 0, HOME, anchor, true), changed);
+    }
+
+    @Test
+    void guardDisabledTeleportKeepsFarTicksInsideAndOutsideTheDistance() {
+        MovementState.Guard state = guard(5, 300, 200, true);
+        TeleportRule off = new TeleportRule(false, 200, 256);
+        for (double distanceSq : new double[] {255D, 256D, 257D}) {
+            PlannedMove<MovementState.Guard> disabled = GuardMovePlanner.move(state,
+                    new GuardMovePlanner.Facts(distanceSq, RANGE, false, OVERWORLD, off, StuckState.NONE));
+            assertEquals(state, disabled.state());
+            assertTrue(disabled.plan().isEmpty());
+        }
+    }
+
+    @Test
     void guardTeleportsWhenFarOrStuckForLongerThanTheCooldown() {
         PlannedMove<MovementState.Guard> far = guardMove(guard(5, 300, 200, false), 257D, false);
         assertEquals(List.of(teleport(AWAY, 0.75D, MovementReason.TELEPORT_FAR)), far.plan().steps());
+        assertEquals(0, far.state().farTimer());
         assertEquals(300, far.state().stillTimer());
         PlannedMove<MovementState.Guard> still = guardMove(guard(5, 201, 0, false), 50D, false);
         assertEquals(List.of(teleport(AWAY, 0.75D, MovementReason.TELEPORT_TIME)), still.plan().steps());

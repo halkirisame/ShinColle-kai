@@ -7,7 +7,7 @@ import net.minecraft.gametest.framework.GameTestListener;
 
 import java.lang.reflect.Field;
 
-/** Restores the effective ship AI authority after a scoped GameTest override. */
+/** Compatibility scope for old test callers; every request and its restoration run NEW. */
 final class ShipAiAuthorityOverride implements AutoCloseable {
     private final ConfigHandler.ShipAiTargetAuthority previous;
     private boolean closed;

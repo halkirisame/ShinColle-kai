@@ -93,6 +93,17 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
     public void aiStep() {
         super.aiStep();
 
+        if (!this.level().isClientSide() && this.getStateEmotion(ID.S.Phase) > 0) {
+            Entity target = this.getEntityTarget();
+            if (target == null || !target.isAlive()) {
+                this.setStateEmotion(ID.S.Phase, 0, true);
+            }
+        }
+
+        if (!this.level().isClientSide() && this.getStateEmotion(ID.S.Phase) > 0) {
+            YamatoAim.turnToward(this, this.getEntityTarget(), YamatoAim.TURN_STEP);
+        }
+
         if (this.level().isClientSide() && this.tickCount % 16 == 0
                 && this.getStateEmotion(ID.S.Phase) > 0) {
             ParticleHelper.spawnStickyLightningParticle(this, 0.1F + this.getScaleLevel(), 16, 1);
@@ -110,10 +121,15 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
     @Override
     public boolean attackEntityWithHeavyAmmo(Entity target) {
         setCombatTick(this.tickCount);
+        if (this.random.nextInt(10) > 7 && !this.isSilent()) {
+            this.level().playSound(null, this, ModSounds.SHIP_HIT.get(), this.getSoundSource(),
+                    this.getSoundVolume(), this.getVoicePitch());
+        }
         float atk = getAttackBaseDamage(2, target);
 
         if (getStateEmotion(ID.S.Phase) > 0) {
             // charged: fire the beam
+            YamatoAim.faceIfOff(this, target);
             this.level().playSound(null, this.getX(), this.getY(), this.getZ(),
                     ModSounds.SHIP_YAMATO_SHOT.get(), this.getSoundSource(), 1F, 1F);
 
@@ -123,6 +139,11 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
             EntityProjectileBeam beam = new EntityProjectileBeam(ModEntities.PROJECTILE_BEAM.get(), this.level());
             beam.initBeam(this, beamVector.x, beamVector.y, beamVector.z, atk);
             this.level().addFreshEntity(beam);
+            Vec3 beamDir = beamVector.normalize();
+            com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                    com.lulan.shincolle.network.S2CSpawnParticlePacket.targetParameters(
+                            com.lulan.shincolle.network.ParticlePacketRoute.YAMATO_BOSS_BEAM_TYPE,
+                            this.getId(), beam.getId(), beamDir.x, beamDir.y, beamDir.z), this);
             triggerAttackAnimation();
 
             this.setStateEmotion(ID.S.Phase, 0, true);
@@ -134,10 +155,26 @@ public class EntityBattleshipYamatoMob extends BasicEntityShipHostile {
                     ModSounds.SHIP_YAMATO_READY.get(), this.getSoundSource(), 1F, 1F);
 
             this.setStateEmotion(ID.S.Phase, 1, true);
+            com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                    com.lulan.shincolle.network.S2CSpawnParticlePacket.entityParameters(
+                            com.lulan.shincolle.network.ParticlePacketRoute.YAMATO_CHARGE_TYPE,
+                            this.getId(), 1D + this.getScaleLevel() * 0.4D, 0D, 0D), this);
             applyEmotesReaction(3);
 
             return false;
         }
     }
 
+
+    /** Halves the wait between the charge and the shot; the wait after the shot is unchanged. */
+    @Override
+    public float heavyDelayScale() {
+        return this.getStateEmotion(ID.S.Phase) > 0 ? 0.5F : 1F;
+    }
+
+    /** A charged beam goes out before the light cannons fire again, so a light shot cannot drop the charge. */
+    @Override
+    public boolean holdsLightFire() {
+        return this.getStateEmotion(ID.S.Phase) > 0;
+    }
 }

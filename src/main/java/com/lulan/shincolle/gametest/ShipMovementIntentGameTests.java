@@ -41,26 +41,23 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
- * For every combination of order, sitting, flee, leash and crane, the movement goal that wins
- * under each authority. They agree except where NEW deliberately changed the behaviour: a
- * leashed guard stays put, and a low-health ship stays beside its owner.
+ * For every combination of order, sitting, flee, leash and crane, the movement goal that wins.
+ * Where the intent differs from the earlier goal priorities, it is by decision: a leashed guard
+ * stays put, and a low-health ship stays beside its owner.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class ShipMovementIntentGameTests {
     private enum Winner { SIT, FLEE, GUARD, FOLLOW, NONE }
 
-    private record Scenario(String name, Winner legacy, Winner modern, Consumer<Setup> setup) {
-        Scenario(String name, Winner expected, Consumer<Setup> setup) {
-            this(name, expected, expected, setup);
-        }
+    private record Scenario(String name, Winner expected, Consumer<Setup> setup) {
     }
 
     private ShipMovementIntentGameTests() {
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_intent_parity", timeoutTicks = 60)
-    public static void newIntentPicksTheLegacyMovementGoal(GameTestHelper helper) {
+    public static void intentPicksTheExpectedMovementGoal(GameTestHelper helper) {
         GameTestEntities entities = GameTestEntities.open(helper);
         FakePlayer owner = FakePlayerFactory.get(helper.getLevel(),
                 new GameProfile(UUID.randomUUID(), "movement_intent_owner"));
@@ -85,11 +82,9 @@ public final class ShipMovementIntentGameTests {
                         Setup setup = new Setup(helper, ship, owner);
                         setup.reset();
                         scenario.setup().accept(setup);
-                        Winner legacy = winner(ship, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                        Winner modern = winner(ship, ConfigHandler.ShipAiTargetAuthority.NEW);
-                        if (legacy != scenario.legacy() || modern != scenario.modern()) {
-                            failures.add(scenario.name() + ": expected legacy=" + scenario.legacy()
-                                    + " new=" + scenario.modern() + ", got legacy=" + legacy + " new=" + modern);
+                        Winner winner = winner(ship);
+                        if (winner != scenario.expected()) {
+                            failures.add(scenario.name() + ": expected " + scenario.expected() + ", got " + winner);
                         }
                         setup.reset();
                     }
@@ -106,7 +101,7 @@ public final class ShipMovementIntentGameTests {
     }
 
     @GameTest(template = "arena", batch = "isolated_movement_intent_pick_item", timeoutTicks = 60)
-    public static void newPickItemPermissionMatchesLegacy(GameTestHelper helper) {
+    public static void pickItemPermissionFollowsTheMovementIntent(GameTestHelper helper) {
         GameTestEntities entities = GameTestEntities.open(helper);
         try {
             BasicEntityShip ship = ship(helper, entities);
@@ -209,16 +204,9 @@ public final class ShipMovementIntentGameTests {
     private static void pickCase(List<String> failures, String name, BasicEntityShip ship, boolean expected,
                                  Runnable setup) {
         setup.run();
-        boolean legacy = pick(ship, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-        boolean modern = pick(ship, ConfigHandler.ShipAiTargetAuthority.NEW);
-        if (legacy != expected || modern != expected) {
-            failures.add(name + ": expected=" + expected + " legacy=" + legacy + " new=" + modern);
-        }
-    }
-
-    private static boolean pick(BasicEntityShip ship, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode)) {
-            return new ShipPickItemGoal(ship, 4F).canUse();
+        boolean picks = new ShipPickItemGoal(ship, 4F).canUse();
+        if (picks != expected) {
+            failures.add(name + ": expected=" + expected + " got=" + picks);
         }
     }
 
@@ -229,34 +217,32 @@ public final class ShipMovementIntentGameTests {
                 new Scenario("follow crane", Winner.NONE, s -> s.crane()),
                 new Scenario("follow no grudge", Winner.NONE, s -> s.ship.setStateMinor(ID.M.NumGrudge, 0)),
                 new Scenario("guard", Winner.GUARD, Setup::guard),
-                new Scenario("guard leashed", Winner.GUARD, Winner.NONE, s -> { s.guard(); s.leash(); }),
+                new Scenario("guard leashed", Winner.NONE, s -> { s.guard(); s.leash(); }),
                 new Scenario("guard crane", Winner.NONE, s -> { s.guard(); s.crane(); }),
                 new Scenario("sit", Winner.SIT, Setup::sit),
                 new Scenario("sit while guarding", Winner.SIT, s -> { s.guard(); s.sit(); }),
                 new Scenario("flee from follow", Winner.FLEE, Setup::lowHealth),
                 new Scenario("flee from guard", Winner.FLEE, s -> { s.guard(); s.lowHealth(); }),
                 new Scenario("flee ignores crane", Winner.FLEE, s -> { s.lowHealth(); s.crane(); }),
-                new Scenario("flee not while leashed", Winner.GUARD, Winner.NONE, s -> { s.guard(); s.lowHealth(); s.leash(); }),
-                new Scenario("low health beside owner while guarding", Winner.GUARD, Winner.NONE, s -> {
+                new Scenario("flee not while leashed", Winner.NONE, s -> { s.guard(); s.lowHealth(); s.leash(); }),
+                new Scenario("low health beside owner while guarding", Winner.NONE, s -> {
                     s.guard();
                     s.lowHealth();
                     s.owner.moveTo(s.ship.getX() + 1D, s.ship.getY(), s.ship.getZ());
                 }),
-                new Scenario("low health 3 blocks from owner", Winner.FLEE, Winner.NONE, s -> {
+                new Scenario("low health 3 blocks from owner", Winner.NONE, s -> {
                     s.lowHealth();
                     s.owner.moveTo(s.ship.getX() + 3D, s.ship.getY(), s.ship.getZ());
                 }),
                 new Scenario("sit beats flee", Winner.SIT, s -> { s.lowHealth(); s.sit(); }));
     }
 
-    private static Winner winner(BasicEntityShip ship, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(mode)) {
-            if (new ShipSitGoal(ship).canUse()) return Winner.SIT;
-            if (new ShipFleeGoal(ship).canUse()) return Winner.FLEE;
-            if (new ShipGuardingGoal(ship).canUse()) return Winner.GUARD;
-            if (new ShipFollowOwnerGoal(ship).canUse()) return Winner.FOLLOW;
-            return Winner.NONE;
-        }
+    private static Winner winner(BasicEntityShip ship) {
+        if (new ShipSitGoal(ship).canUse()) return Winner.SIT;
+        if (new ShipFleeGoal(ship).canUse()) return Winner.FLEE;
+        if (new ShipGuardingGoal(ship).canUse()) return Winner.GUARD;
+        if (new ShipFollowOwnerGoal(ship).canUse()) return Winner.FOLLOW;
+        return Winner.NONE;
     }
 
     private static BasicEntityShip ship(GameTestHelper helper, GameTestEntities entities) {
@@ -326,10 +312,8 @@ public final class ShipMovementIntentGameTests {
         }
 
         private void command(ShipCommand command) {
-            try (ShipAiAuthorityOverride ignored = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW)) {
-                this.ship.applyCommandState(new CommandIssuer.Player(this.owner.getUUID()),
-                        new CommandStateOp.Apply(command));
-            }
+            this.ship.applyCommandState(new CommandIssuer.Player(this.owner.getUUID()),
+                    new CommandStateOp.Apply(command));
         }
 
         private DimensionKey dimension() {

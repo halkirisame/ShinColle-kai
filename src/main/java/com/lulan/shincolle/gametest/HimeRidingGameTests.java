@@ -7,7 +7,6 @@ import com.lulan.shincolle.ai.domain.command.ShipCommand;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.hime.HimeRiding;
-import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.network.C2SInputPacket;
@@ -68,27 +67,20 @@ public final class HimeRidingGameTests {
         return player;
     }
 
-    private static void sit(BasicEntityShip ship, FakePlayer owner, boolean modern) {
-        if (modern) {
-            ship.applyCommandState(new CommandIssuer.Player(owner.getUUID()),
-                    new CommandStateOp.Apply(new ShipCommand.SetSitting(true)));
-        } else {
-            ship.setEntitySit(true);
-        }
+    private static void sit(BasicEntityShip ship, FakePlayer owner) {
+        ship.applyCommandState(new CommandIssuer.Player(owner.getUUID()),
+                new CommandStateOp.Apply(new ShipCommand.SetSitting(true)));
     }
 
-    private static void click(GameTestHelper helper, EntityType<? extends BasicEntityShip> type,
-            ConfigHandler.ShipAiTargetAuthority mode) {
-        try (var authority = ShipAiAuthorityOverride.use(mode);
-                var entities = GameTestEntities.open(helper)) {
+    private static void click(GameTestHelper helper, EntityType<? extends BasicEntityShip> type) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = create(helper, entities, type);
             FakePlayer player = owner(helper, ship);
-            sit(ship, player, mode == ConfigHandler.ShipAiTargetAuthority.NEW);
+            sit(ship, player);
             ship.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
             ship.mobInteract(player, InteractionHand.MAIN_HAND);
             helper.assertTrue(ship.getVehicle() == player, "Bored seated hime should ride owner");
-            helper.assertTrue(!ship.isOrderedToSit() && (mode != ConfigHandler.ShipAiTargetAuthority.NEW
-                            || !ship.getCommandState().sitting()),
+            helper.assertTrue(!ship.isOrderedToSit() && !ship.getCommandState().sitting(),
                     "Click should stand once without the normal sit toggle");
             ship.assertCommandProjection();
             helper.succeed();
@@ -96,28 +88,17 @@ public final class HimeRidingGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void northernClickNew(GameTestHelper helper) {
-        click(helper, ModEntities.NORTHERN_HIME.get(), ConfigHandler.ShipAiTargetAuthority.NEW);
+    public static void northernClick(GameTestHelper helper) {
+        click(helper, ModEntities.NORTHERN_HIME.get());
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void northernClickLegacy(GameTestHelper helper) {
-        click(helper, ModEntities.NORTHERN_HIME.get(), ConfigHandler.ShipAiTargetAuthority.LEGACY);
+    public static void ssnhClick(GameTestHelper helper) {
+        click(helper, ModEntities.SSNH.get());
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void ssnhClickNew(GameTestHelper helper) {
-        click(helper, ModEntities.SSNH.get(), ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void ssnhClickLegacy(GameTestHelper helper) {
-        click(helper, ModEntities.SSNH.get(), ConfigHandler.ShipAiTargetAuthority.LEGACY);
-    }
-
-    private static void rejectedClicks(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (var authority = ShipAiAuthorityOverride.use(mode);
-                var entities = GameTestEntities.open(helper)) {
+    private static void verifyRejectedClicks(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             for (EntityType<? extends BasicEntityShip> type :
                     java.util.List.<EntityType<? extends BasicEntityShip>>of(
                             ModEntities.NORTHERN_HIME.get(), ModEntities.SSNH.get(), ModEntities.BB_KONGOU.get())) {
@@ -125,16 +106,11 @@ public final class HimeRidingGameTests {
                         condition++) {
                     BasicEntityShip ship = create(helper, entities, type);
                     FakePlayer player = owner(helper, ship);
-                    boolean modern = mode == ConfigHandler.ShipAiTargetAuthority.NEW;
-                    sit(ship, player, modern);
+                    sit(ship, player);
                     ship.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
                     if (condition == 0) {
-                        if (modern) {
-                            ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
-                                    new CommandStateOp.StandUp());
-                        } else {
-                            ship.setEntitySit(false);
-                        }
+                        ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
+                                new CommandStateOp.StandUp());
                     } else if (condition == 1) {
                         ship.setStateEmotion(ID.S.Emotion, ID.Emotion.NORMAL, false);
                     } else if (condition == 2) {
@@ -144,10 +120,10 @@ public final class HimeRidingGameTests {
                         ship.setOwnerUUID(UUID.randomUUID());
                         ship.setPlayerUID(-1);
                     }
-                    boolean wasSitting = modern ? ship.getCommandState().sitting() : ship.isOrderedToSit();
+                    boolean wasSitting = ship.getCommandState().sitting();
                     ship.mobInteract(player, condition == 4 ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND);
                     helper.assertTrue(ship.getVehicle() == null, "Rejected interaction mounted the ship");
-                    boolean sitting = modern ? ship.getCommandState().sitting() : ship.isOrderedToSit();
+                    boolean sitting = ship.getCommandState().sitting();
                     if (condition == 0 || condition == 1 || condition == 5) {
                         helper.assertTrue(sitting != wasSitting, "Ordinary click should toggle sitting");
                     }
@@ -163,24 +139,18 @@ public final class HimeRidingGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void rejectedClicksNew(GameTestHelper helper) {
-        rejectedClicks(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
+    public static void rejectedClicks(GameTestHelper helper) {
+        verifyRejectedClicks(helper);
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void rejectedClicksLegacy(GameTestHelper helper) {
-        rejectedClicks(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
-    }
-
-    private static void crouchingClick(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (var authority = ShipAiAuthorityOverride.use(mode);
-                var entities = GameTestEntities.open(helper)) {
+    private static void verifyCrouchingClick(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             for (EntityType<? extends BasicEntityShip> type :
                     java.util.List.<EntityType<? extends BasicEntityShip>>of(
                             ModEntities.NORTHERN_HIME.get(), ModEntities.SSNH.get())) {
                 BasicEntityShip ship = create(helper, entities, type);
                 FakePlayer player = owner(helper, ship);
-                sit(ship, player, mode == ConfigHandler.ShipAiTargetAuthority.NEW);
+                sit(ship, player);
                 ship.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
                 player.setShiftKeyDown(true);
                 InteractionResult result = ship.mobInteract(player, InteractionHand.MAIN_HAND);
@@ -194,22 +164,16 @@ public final class HimeRidingGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void crouchingClickNew(GameTestHelper helper) {
-        crouchingClick(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void crouchingClickLegacy(GameTestHelper helper) {
-        crouchingClick(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
+    public static void crouchingClick(GameTestHelper helper) {
+        verifyCrouchingClick(helper);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void heldItemDoesNotMount(GameTestHelper helper) {
-        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-                var entities = GameTestEntities.open(helper)) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = create(helper, entities, ModEntities.SSNH.get());
             FakePlayer player = owner(helper, ship);
-            sit(ship, player, true);
+            sit(ship, player);
             ship.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
             player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
             ship.mobInteract(player, InteractionHand.MAIN_HAND);
@@ -220,12 +184,11 @@ public final class HimeRidingGameTests {
         }
     }
 
-    private static void packetRejected(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (var authority = ShipAiAuthorityOverride.use(mode);
-                var entities = GameTestEntities.open(helper)) {
+    private static void verifyPacketRejected(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = create(helper, entities, ModEntities.SSNH.get());
             FakePlayer player = owner(helper, ship);
-            sit(ship, player, mode == ConfigHandler.ShipAiTargetAuthority.NEW);
+            sit(ship, player);
             ship.setStateEmotion(ID.S.Emotion, ID.Emotion.NORMAL, false);
             Method handler = C2SInputPacket.class.getDeclaredMethod("handleRequestRiding",
                     net.minecraft.server.level.ServerPlayer.class);
@@ -246,22 +209,16 @@ public final class HimeRidingGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void packetRejectedNew(GameTestHelper helper) {
-        packetRejected(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void packetRejectedLegacy(GameTestHelper helper) {
-        packetRejected(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
+    public static void packetRejected(GameTestHelper helper) {
+        verifyPacketRejected(helper);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void packetRejectsRemoteOwner(GameTestHelper helper) {
-        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-                var entities = GameTestEntities.open(helper)) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = create(helper, entities, ModEntities.SSNH.get());
             FakePlayer player = owner(helper, ship);
-            sit(ship, player, true);
+            sit(ship, player);
             ship.setStateEmotion(ID.S.Emotion, ID.Emotion.BORED, false);
             Method handler = C2SInputPacket.class.getDeclaredMethod("handleRequestRiding",
                     net.minecraft.server.level.ServerPlayer.class);
@@ -288,9 +245,8 @@ public final class HimeRidingGameTests {
         }
     }
 
-    private static void dismount(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (var authority = ShipAiAuthorityOverride.use(mode);
-                var entities = GameTestEntities.open(helper)) {
+    private static void verifyDismount(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = create(helper, entities, ModEntities.SSNH.get());
             FakePlayer player = owner(helper, ship);
             helper.assertTrue(ship.startRiding(player, true), "Fixture needs rider");
@@ -307,13 +263,8 @@ public final class HimeRidingGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void dismountNew(GameTestHelper helper) {
-        dismount(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void dismountLegacy(GameTestHelper helper) {
-        dismount(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
+    public static void dismount(GameTestHelper helper) {
+        verifyDismount(helper);
     }
 
     private static void forceDraw(BasicEntityShip ship) {
@@ -335,9 +286,8 @@ public final class HimeRidingGameTests {
         }
     }
 
-    private static void wandering(GameTestHelper helper, ConfigHandler.ShipAiTargetAuthority mode) {
-        try (var authority = ShipAiAuthorityOverride.use(mode);
-                var entities = GameTestEntities.open(helper)) {
+    private static void verifyWandering(GameTestHelper helper) {
+        try (var entities = GameTestEntities.open(helper)) {
             for (EntityType<? extends BasicEntityShip> type :
                     java.util.List.<EntityType<? extends BasicEntityShip>>of(
                             ModEntities.NORTHERN_HIME.get(), ModEntities.SSNH.get())) {
@@ -351,23 +301,15 @@ public final class HimeRidingGameTests {
                 helper.assertTrue(ship.getVehicle() == target, "Hime did not board the nearby allied ship");
                 ship.stopRiding();
                 ship.assertCommandProjection();
-                if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                    ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
-                            new CommandStateOp.Apply(new ShipCommand.GuardPosition(
-                                    new DimensionKey("minecraft", "overworld"), new CommandPos(10, 64, 10), false)));
-                } else {
-                    ship.setStateFlag(ID.F.CanFollow, false);
-                }
+                ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
+                        new CommandStateOp.Apply(new ShipCommand.GuardPosition(
+                                new DimensionKey("minecraft", "overworld"), new CommandPos(10, 64, 10), false)));
                 forceDraw(ship);
                 rideTick(ship);
                 helper.assertTrue(!ship.isPassenger(), "Guarding hime should not wander");
-                if (mode == ConfigHandler.ShipAiTargetAuthority.NEW) {
-                    ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
-                            new CommandStateOp.Apply(new ShipCommand.Follow()));
-                } else {
-                    ship.setStateFlag(ID.F.CanFollow, true);
-                }
-                sit(ship, player, mode == ConfigHandler.ShipAiTargetAuthority.NEW);
+                ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
+                        new CommandStateOp.Apply(new ShipCommand.Follow()));
+                sit(ship, player);
                 forceDraw(ship);
                 rideTick(ship);
                 helper.assertTrue(!ship.isPassenger(), "Seated hime should not wander");
@@ -379,19 +321,13 @@ public final class HimeRidingGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void wanderingNew(GameTestHelper helper) {
-        wandering(helper, ConfigHandler.ShipAiTargetAuthority.NEW);
-    }
-
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void wanderingLegacy(GameTestHelper helper) {
-        wandering(helper, ConfigHandler.ShipAiTargetAuthority.LEGACY);
+    public static void wandering(GameTestHelper helper) {
+        verifyWandering(helper);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void spectatorIsNotRideTarget(GameTestHelper helper) {
-        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-                var entities = GameTestEntities.open(helper)) {
+        try (var entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = create(helper, entities, ModEntities.SSNH.get());
             FakePlayer player = owner(helper, ship);
             player.setGameMode(GameType.SPECTATOR);
@@ -409,8 +345,7 @@ public final class HimeRidingGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void savingPlayerPassengerDismounts(GameTestHelper helper) {
-        try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
-                var entities = GameTestEntities.open(helper)) {
+        try (var entities = GameTestEntities.open(helper)) {
             for (EntityType<? extends BasicEntityShip> type :
                     java.util.List.<EntityType<? extends BasicEntityShip>>of(
                             ModEntities.NORTHERN_HIME.get(), ModEntities.SSNH.get())) {

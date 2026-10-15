@@ -46,10 +46,9 @@ public final class ShipCmdAiShadow {
         Metrics metrics = TargetShadowComparison.metrics();
         String diagStatus = diagEnabled
                 ? " (diag=ON)"
-                : " (diag=OFF: per-diff DIAG lines are not logged)";
+                : " (diag=OFF)";
         return List.of(
-                "[ShinColle] AI target shadow: "
-                        + (TargetShadowComparison.isEnabled() ? "ON" : "OFF") + diagStatus,
+                "[ShinColle] AI target shadow: DISABLED (comparison not performed; NEW authority only)" + diagStatus,
                 "  comparisons=" + metrics.comparisons() + " errors=" + metrics.errors(),
                 "  MATCH=" + TargetShadowComparison.count(Outcome.MATCH)
                         + " DIFF_NON_LIVING=" + TargetShadowComparison.count(Outcome.DIFF_NON_LIVING)

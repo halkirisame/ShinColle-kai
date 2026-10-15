@@ -27,6 +27,10 @@ public final class ClientRuntimeAccess {
         return Minecraft.getInstance().getFrameTime();
     }
 
+    public static boolean isSprintKeyDown() {
+        return Minecraft.getInstance().options.keySprint.isDown();
+    }
+
     public static boolean isControlDown() {
         return Screen.hasControlDown();
     }

@@ -62,7 +62,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -507,10 +506,8 @@ public abstract class BasicEntityShip extends TamableAnimal
         // NEW: fires with every weapon on one timer, whatever goal moves the ship
         this.goalSelector.addGoal(10, new ShipFireControlGoal(this));
 
-        // melee attack; NEW keeps it registered and the goal reads the flag
-        if (getStateFlag(ID.F.UseMelee) || ShipCommandStateAdapter.isNew()) {
-            this.goalSelector.addGoal(15, new ShipAttackOnCollideGoal(this, 1.0D));
-        }
+        // Keep melee registered; the goal reads the flag.
+        this.goalSelector.addGoal(15, new ShipAttackOnCollideGoal(this, 1.0D));
 
         // idle AI
         this.goalSelector.addGoal(23, new ShipFloatingGoal(this));
@@ -534,21 +531,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     public void setAITargetList() {
-        if (ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW) {
-            this.targetAuthorityGoal = new ShipTargetAuthorityGoal(this);
-            this.targetSelector.addGoal(1, this.targetAuthorityGoal);
-            return;
-        }
-        this.targetAuthorityGoal = null;
-        this.targetSelector.addGoal(3, new ShipManualTargetGoal(this));
-        if (this.getStateFlag(ID.F.PassiveAI)) {
-            // passive: revenge and explicit manual commands only
-            this.targetSelector.addGoal(1, new ShipRevengeTargetGoal(this));
-        } else {
-            // active: also allow automatic range targeting
-            this.targetSelector.addGoal(1, new ShipRevengeTargetGoal(this));
-            this.targetSelector.addGoal(5, new ShipRangeTargetGoal(this));
-        }
+        this.targetAuthorityGoal = new ShipTargetAuthorityGoal(this);
+        this.targetSelector.addGoal(1, this.targetAuthorityGoal);
     }
 
     protected void clearAITasks() {
@@ -642,7 +626,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             Entity vehicle = this.recentlyDismountedVanillaVehicle;
             this.recentlyDismountedVanillaVehicle = null;
             if (vehicle != null && !this.isRemoved() && !this.isPassenger()
-                    && ShipCommandStateAdapter.isNew() && this.getCommandState().sitting()
+                    && this.getCommandState().sitting()
                     && vehicle.getRemovalReason() != null && vehicle.getRemovalReason().shouldDestroy()) {
                 this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.VEHICLE_LOST),
                         new CommandStateOp.StandUp());
@@ -650,49 +634,49 @@ public abstract class BasicEntityShip extends TamableAnimal
             this.setNoAi(stopAI);
         }
         super.tick();
+        this.syncRotationToMount();
 
         // update arm swing
         updateSwingTime();
 
         // client side
         if (this.level().isClientSide()) {
-            // water splash particles when moving in water
-            if (this.isInWater() && (this.tickCount & 3) == 0
-                    && this.getDeltaMovement().lengthSqr() > 0.01) {
-                ParticleHelper.spawnSprayParticle(this.level(), this.getX(), this.getY() + 0.1, this.getZ(), 2);
-            }
-            // HP state particle effects (smoke when damaged) - every 16 ticks
-            if ((this.tickCount & 15) == 0) {
-                int hpState = this.getStateEmotion(ID.S.HPState);
-                if (hpState >= ID.HPState.MINOR) {
-                    // MINOR (蟆冗ｴ): light smoke only, 1 particle
-                    this.level().addParticle(ParticleTypes.SMOKE,
-                            this.getX() + (this.random.nextDouble() - 0.5) * this.getBbWidth(),
-                            this.getY() + this.getBbHeight() * 0.5 + this.random.nextDouble() * 0.5,
-                            this.getZ() + (this.random.nextDouble() - 0.5) * this.getBbWidth(),
-                            0, 0.02, 0);
-                    if (hpState >= ID.HPState.MODERATE) {
-                        // MODERATE (荳ｭ遐ｴ): additional fire particle
-                        this.level().addParticle(ParticleTypes.FLAME,
-                                this.getX() + (this.random.nextDouble() - 0.5) * this.getBbWidth(),
-                                this.getY() + this.random.nextDouble() * this.getBbHeight() * 0.5,
-                                this.getZ() + (this.random.nextDouble() - 0.5) * this.getBbWidth(),
-                                0, 0.01, 0);
-                    }
-                    if (hpState >= ID.HPState.HEAVY) {
-                        // HEAVY (螟ｧ遐ｴ): heavy smoke + fire (isOnFire overlay handled separately)
-                        this.level().addParticle(ParticleTypes.LARGE_SMOKE,
-                                this.getX() + (this.random.nextDouble() - 0.5) * this.getBbWidth(),
-                                this.getY() + this.random.nextDouble() * this.getBbHeight(),
-                                this.getZ() + (this.random.nextDouble() - 0.5) * this.getBbWidth(),
-                                0, 0.03, 0);
-                    }
-                }
-            }
-
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
             // Pointer visualization (legacy behavior): owner holding pointer mode 0-2
             // periodically shows team circles on this ship and guard target.
             updateClientPointerIndicator();
+        }
+    }
+
+    private static final float MOUNT_HEAD_TURN_LIMIT = 35F;
+    private static final double MOUNT_HEAD_WATCH_RANGE = 12D;
+    private static final float MOUNT_BODY_LEAN = 0.4F;
+
+    /**
+     * A ship sitting on its mount keeps the mount's facing and does not turn her body on her own
+     * (upstream tied the rider's yaw to the mount). The head faces the front and leans toward a nearby player
+     * (within {@link #MOUNT_HEAD_TURN_LIMIT} degrees); the body follows a little ({@link #MOUNT_BODY_LEAN}).
+     */
+    private void syncRotationToMount() {
+        if (this.getVehicle() instanceof BasicEntityMount mount) {
+            float wanted = 0F;
+            Player watched = this.level().getNearestPlayer(this, MOUNT_HEAD_WATCH_RANGE);
+            if (watched != null) {
+                float toPlayer = (float) (Mth.atan2(watched.getZ() - this.getZ(), watched.getX() - this.getX())
+                        * Mth.RAD_TO_DEG) - 90F;
+                wanted = Mth.clamp(Mth.wrapDegrees(toPlayer - mount.yBodyRot), -MOUNT_HEAD_TURN_LIMIT,
+                        MOUNT_HEAD_TURN_LIMIT);
+            }
+            // The face leans toward the player, and the body follows a little less.
+            float head = Mth.wrapDegrees(this.yHeadRot - mount.yBodyRot);
+            head += (wanted - head) * 0.3F;
+            float body = Mth.wrapDegrees(this.yBodyRot - mount.yBodyRot);
+            body += (wanted * MOUNT_BODY_LEAN - body) * 0.3F;
+            this.yRotO = mount.yBodyRotO + body;
+            this.setYRot(mount.yBodyRot + body);
+            this.yBodyRotO = mount.yBodyRotO + body;
+            this.yBodyRot = mount.yBodyRot + body;
+            this.yHeadRot = mount.yBodyRot + head;
         }
     }
 
@@ -738,6 +722,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             Entity guarded = this.getGuardedEntity();
             if (guarded != null && guarded.level() == this.level()) {
                 ParticleHelper.spawnTeamCircle(guarded, 6);
+                ParticleHelper.spawnGuardLineToEntity(this, guarded);
             }
         }
     }
@@ -789,9 +774,8 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // server side
         if (!level().isClientSide()) {
-            this.commandState.observeAuthority();
+            this.commandState.initialize();
             ShipSkillAttackGate.observe(this);
-            if (!ShipCommandStateAdapter.isNew()) this.formationState.invalidate();
             resolveGuardedEntity();
             EntityHelper.updateShipNavigator(this);
             TargetHelper.updateTarget(this);
@@ -826,11 +810,9 @@ public abstract class BasicEntityShip extends TamableAnimal
                     decrGrudgeNum(0);
                     clearAITasks();
                     clearAITargetTasks();
-                    // NEW keeps its goals while out of fuel and forbids actions instead.
-                    if (ShipCommandStateAdapter.isNew() || !getStateFlag(ID.F.NoFuel)) {
-                        setAIList();
-                        setAITargetList();
-                    }
+                    // Keep goals while out of fuel and forbid actions instead.
+                    setAIList();
+                    setAITargetList();
                     updateChunkLoader();
                     this.initAI = true;
                 }
@@ -847,9 +829,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 // check every 16 ticks
                 if ((tickCount & 15) == 0) {
                     if (this.isAlive()) {
-                        if (EntityHelper.updateWaypointMove(this)) {
-                            if (!ShipCommandStateAdapter.isNew()) sendSyncPacketGuard();
-                        }
+                        EntityHelper.updateWaypointMove(this);
 
                         // cancel mounts if can't summon
                         if (this.hasShipMounts() && !this.canSummonMounts()) {
@@ -932,6 +912,9 @@ public abstract class BasicEntityShip extends TamableAnimal
 
                                 // check every 256 ticks
                                 if ((this.tickCount & 255) == 0) {
+                                    if (com.lulan.shincolle.utility.ShipNameTagHelper.refresh(this)) {
+                                        this.sendSyncPacketUnitName();
+                                    }
                                     if (this.isAlive()) {
                                         // HP regen
                                         if (this.getHealth() < this.getMaxHealth()) {
@@ -1266,6 +1249,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (isTargetHurt) {
             applyEmotesReaction(3);
             ShipSkillAttackGate.ordinaryHit(this, target, 0);
+            applyParticleAtTarget(0, target);
             ShipOnHitEffects.dispatch(this, target, atk);
         }
 
@@ -1333,7 +1317,10 @@ public abstract class BasicEntityShip extends TamableAnimal
         float targetHpBefore = target instanceof LivingEntity le ? le.getHealth() : -1F;
         boolean isTargetHurt = target.hurt(this.damageSources().mobProjectile(this, this), atk);
         float targetHpAfter = target instanceof LivingEntity le2 ? le2.getHealth() : -1F;
-        if (isTargetHurt) ShipSkillAttackGate.ordinaryHit(this, target, 1);
+        if (isTargetHurt) {
+            ShipSkillAttackGate.ordinaryHit(this, target, 1);
+            applyParticleAtTarget(1, target);
+        }
         LogHelper.debug("DEBUG: light attack: " + this + " -> " + target
                 + " dealt atk=" + atk + " hurtAccepted=" + isTargetHurt
                 + " targetHP " + targetHpBefore + " -> " + targetHpAfter);
@@ -1560,6 +1547,9 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (this.decrSupplies(8)) {
             this.setHealth(this.getMaxHealth());
             this.StateTimer[ID.T.ImmuneTime] = 120;
+            ModNetworking.sendToAllTracking(new S2CSpawnParticlePacket(
+                    com.lulan.shincolle.network.ParticlePacketRoute.REPAIR_GODDESS_TYPE,
+                    this.getId(), null), this);
             return true;
         }
         return false;
@@ -1743,17 +1733,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         boolean hasGoals = !this.goalSelector.getAvailableGoals().isEmpty();
         boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
 
-        if (ShipCommandStateAdapter.isNew()) {
-            if (!hasGoals || !hasTargetGoals || !Boolean.valueOf(noFuel).equals(this.lastObservedNoFuel)) {
-                this.fuelAiRefreshPending = true;
-            }
-            return;
-        }
-
-        // Fuel exhaustion must disable both selectors.  Looking only at target
-        // goals left movement-only goals (notably ShipFloatingGoal) running on
-        // ships whose target selector had already become empty.
-        if ((noFuel && (hasGoals || hasTargetGoals)) || (!noFuel && (!hasGoals || !hasTargetGoals))) {
+        if (!hasGoals || !hasTargetGoals || !Boolean.valueOf(noFuel).equals(this.lastObservedNoFuel)) {
             this.fuelAiRefreshPending = true;
         }
     }
@@ -1833,47 +1813,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         boolean hasGoals = !this.goalSelector.getAvailableGoals().isEmpty();
         boolean hasTargetGoals = !this.targetSelector.getAvailableGoals().isEmpty();
 
-        if (ShipCommandStateAdapter.isNew()) {
-            applyNewFuelTransition(noFuel, hasGoals && hasTargetGoals);
-            return;
-        }
-
-        if (noFuel) {
-            if (ShipCommandStateAdapter.isNew()) {
-                this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.NO_FUEL),
-                        new CommandStateOp.ClearManualAttack());
-            } else {
-                this.setManualTarget(null);
-            }
-            // Clear all AI when fuel runs out — ship becomes inert.  Stop an
-            // in-progress path as well, otherwise its MoveControl can retain
-            // a vertical velocity after the goals have been removed.
-            if (hasGoals || hasTargetGoals) {
-                this.setMorale(0);
-                this.getNavigation().stop();
-                this.setDeltaMovement(Vec3.ZERO);
-                clearAITasks();
-                clearAITargetTasks();
-                this.setTarget(null);
-                this.setEntityTarget(null);
-                if (this.getVehicle() instanceof BasicEntityMount mount) {
-                    mount.clearAITasks();
-                }
-                sendSyncPacketEmotion();
-            }
-        } else {
-            if (!hasGoals || !hasTargetGoals) {
-                clearAITasks();
-                clearAITargetTasks();
-                setAIList();
-                setAITargetList();
-                if (this.getVehicle() instanceof BasicEntityMount mount) {
-                    mount.clearAITasks();
-                    mount.setAIList();
-                }
-                sendSyncPacketEmotion();
-            }
-        }
+        applyNewFuelTransition(noFuel, hasGoals && hasTargetGoals);
     }
 
     /**
@@ -2196,49 +2136,19 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
     }
 
-    /**
-     * send attack time particle packet.
-     * <p>
-     * Encodes the attacker's muzzle position plus a velocity vector aimed at
-     * the target, matching the 6-double payload S2CSpawnParticlePacket
-     * expects. Without this, the client falls back to deriving the spawn
-     * point from the entity alone with zero motion - i.e. a directionless
-     * burst on top of the shooter instead of a shot aimed at the target
-     * (upstream 1.12.2 always sent attacker+target so particle types that
-     * use motion, like CRIT/ENCHANTED_HIT, visibly travel toward the hit).
-     */
+    /** Sends the visuals for an attack whose combat execution is already complete. */
     public void applyParticleAtAttacker(int type, Entity target, Entity target2) {
         if (ShipSkillAttackGate.ordinaryVisual(this, type)) return;
         if (target != null && !this.level().isClientSide()) {
             triggerAttackAnimation();
-            double x = this.getX();
-            double y = this.getY() + this.getBbHeight() * 0.5D;
-            double z = this.getZ();
+            com.lulan.shincolle.utility.ShipAttackParticleSender.muzzle(this, target, type);
+        }
+    }
 
-            // Raw (unnormalized) displacement to the target - the client needs
-            // the real distance to draw a beam that actually reaches the
-            // target, not just a short "aim direction" hint.
-            double dx = target.getX() - x;
-            double dy = (target.getY() + target.getBbHeight() * 0.5D) - y;
-            double dz = target.getZ() - z;
-
-            FriendlyByteBuf payloadBuf = new FriendlyByteBuf(io.netty.buffer.Unpooled.buffer(48));
-            payloadBuf.writeDouble(x);
-            payloadBuf.writeDouble(y);
-            payloadBuf.writeDouble(z);
-            payloadBuf.writeDouble(dx);
-            payloadBuf.writeDouble(dy);
-            payloadBuf.writeDouble(dz);
-            byte[] payload = new byte[payloadBuf.readableBytes()];
-            payloadBuf.readBytes(payload);
-            payloadBuf.release();
-
-            LogHelper.debug("DEBUG: muzzle particle: " + this + " type=" + type
-                    + " origin=(" + x + "," + y + "," + z + ")"
-                    + " delta=(" + dx + "," + dy + "," + dz + ")");
-            ModNetworking.sendToAllTracking(
-                    new S2CSpawnParticlePacket((byte) type, this.getId(), payload),
-                    this);
+    /** Sends hit effects only after damage was accepted; skills own their dedicated visuals. */
+    public void applyParticleAtTarget(int type, Entity target) {
+        if (!ShipSkillAttackGate.supported(this)) {
+            com.lulan.shincolle.utility.ShipAttackParticleSender.hit(this, target, type);
         }
     }
 
@@ -2493,17 +2403,8 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         if (!this.level().isClientSide()) {
             if (id == ID.F.UseMelee) {
-                if (ShipCommandStateAdapter.isNew()) {
-                    // rebuilding would throw away the running goals' state
-                    if (par1) addMeleeGoalIfMissing();
-                } else {
-                    clearAITasks();
-                    setAIList();
-                    if (this.getVehicle() instanceof BasicEntityMount mount) {
-                        mount.clearAITasks();
-                        mount.setAIList();
-                    }
-                }
+                // Rebuilding would throw away the running goals' state.
+                if (par1) addMeleeGoalIfMissing();
             } else if (id == ID.F.PassiveAI && this.targetAuthorityGoal == null) {
                 // the target authority reads the flag itself
                 clearAITargetTasks();
@@ -2512,7 +2413,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         }
     }
 
-    /** A ship whose goals were registered before NEW took over may still lack the melee goal. */
+    /** Partial goal registration may still lack the melee executor. */
     private void addMeleeGoalIfMissing() {
         if (this.goalSelector.getAvailableGoals().isEmpty()) return;
         boolean present = this.goalSelector.getAvailableGoals().stream()
@@ -3321,6 +3222,11 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     public void setRiderAndMountSit() {
+        if (!this.level().isClientSide()) {
+            setRiderAndMountSit(new CommandIssuer.Ship(ShipTransitionReason.HELPER_COMMAND));
+            return;
+        }
+        // Client-side projection only; server recipients receive typed sitting orders.
         if (this.getVehicle() instanceof BasicEntityShip mountShip) {
             mountShip.setEntitySit(this.isOrderedToSit());
             if (mountShip.getRidingState() > 0) {
@@ -3345,7 +3251,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         super.removeVehicle();
         if (vehicle != null && (vehicle instanceof Boat || vehicle instanceof AbstractMinecart)
                 && !this.isPassenger() && !this.level().isClientSide()
-                && ShipCommandStateAdapter.isNew() && this.getCommandState().sitting()) {
+                && this.getCommandState().sitting()) {
             if (vehicle.getRemovalReason() != null && vehicle.getRemovalReason().shouldDestroy()) {
                 this.recentlyDismountedVanillaVehicle = null;
                 this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.VEHICLE_LOST),
@@ -3782,15 +3688,10 @@ public abstract class BasicEntityShip extends TamableAnimal
                     // [PORT] 1.10.2 parity: pointer in use should not toggle sit here.
                     if (getPointerInUse(player).isEmpty()) {
                         // toggle sitting (bare hand / non-pointer interaction)
-                        if (ShipCommandStateAdapter.isNew()) {
-                            CommandIssuer issuer = new CommandIssuer.Player(player.getUUID());
-                            this.applyCommandState(issuer, new CommandStateOp.Apply(
-                                    new ShipCommand.SetSitting(!this.getCommandState().sitting())));
-                            this.setRiderAndMountSit(issuer);
-                        } else {
-                            this.setEntitySit(!this.isOrderedToSit());
-                            this.setRiderAndMountSit();
-                        }
+                        CommandIssuer issuer = new CommandIssuer.Player(player.getUUID());
+                        this.applyCommandState(issuer, new CommandStateOp.Apply(
+                                new ShipCommand.SetSitting(!this.getCommandState().sitting())));
+                        this.setRiderAndMountSit(issuer);
                     }
                     return InteractionResult.SUCCESS;
                 }
@@ -3802,11 +3703,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     /** Stand and board the owner from an already validated interaction. */
     public void rideOwner(Player player) {
-        if (ShipCommandStateAdapter.isNew()) {
-            this.applyCommandState(new CommandIssuer.Player(player.getUUID()), new CommandStateOp.StandUp());
-        } else {
-            this.setEntitySit(false);
-        }
+        this.applyCommandState(new CommandIssuer.Player(player.getUUID()), new CommandStateOp.StandUp());
         if (this.startRiding(player, true)) {
             this.getNavigation().stop();
             this.sendSyncPacketRiders();
@@ -3843,7 +3740,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     private void standAfterDamage() {
-        if (ShipCommandStateAdapter.isNew() && !this.level().isClientSide()) {
+        if (!this.level().isClientSide()) {
             this.applyCommandState(new CommandIssuer.Ship(ShipTransitionReason.DAMAGED),
                     new CommandStateOp.StandUp());
         } else {
@@ -3857,18 +3754,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected void tickDeath() {
         ++this.deathTime;
 
-        // spawn smoke on client
         if (this.level().isClientSide()) {
-            if ((this.tickCount & 3) == 0) {
-                double range = this.getBbWidth() * 1.2D;
-                for (int i = 0; i < 5; i++) {
-                    ParticleHelper.spawnAttackParticleAt(this.level(),
-                            this.getX() - range + this.random.nextDouble() * range * 2D,
-                            this.getY() + 0.1D + this.random.nextDouble() * 0.3D,
-                            this.getZ() - range + this.random.nextDouble() * range * 2D,
-                            1.5D, 0D, 0D, 43);
-                }
-            }
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.death(this);
         }
 
         if (this.deathTime == ConfigHandler.deathTime()) {

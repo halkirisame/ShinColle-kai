@@ -80,8 +80,15 @@ public final class GuardMovePlanner {
                 state.anchorResolveAt(), place, guarded, state.moving());
     }
 
-    /** Outside a formation the ship walks to the guarded point or entity itself. */
+    /** A different guarded point starts a new wait for a far-distance teleport. */
     public static MovementState.Guard toPoint(MovementState.Guard state, MovementPoint point) {
+        int farTimer = point.equals(state.destination()) ? state.farTimer() : 0;
+        return new MovementState.Guard(state.repathIn(), state.stillTimer(), farTimer,
+                state.anchorResolveAt(), point, state.anchorMemory(), state.moving());
+    }
+
+    /** Outside a formation the ship follows the guarded entity without restarting the far wait. */
+    public static MovementState.Guard toEntity(MovementState.Guard state, MovementPoint point) {
         return new MovementState.Guard(state.repathIn(), state.stillTimer(), state.farTimer(),
                 state.anchorResolveAt(), point, state.anchorMemory(), state.moving());
     }
@@ -159,6 +166,8 @@ public final class GuardMovePlanner {
                     steps.add(new MovementStep.Teleport(MovementBody.SELF, landing, MovementReason.TELEPORT_FAR,
                             facts.dimension()));
                 }
+            } else if (facts.distanceSq() <= rule.distanceSq()) {
+                farTimer = 0;
             }
             if (!far && stillTimer > rule.cooldown()) {
                 stillTimer = 0;

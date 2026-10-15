@@ -35,6 +35,16 @@ public class BlockWaypoint extends BasicBlockContainer {
         return new TileEntityWaypoint(pos, state);
     }
 
+    @Nullable
+    @Override
+    public <T extends BlockEntity> net.minecraft.world.level.block.entity.BlockEntityTicker<T> getTicker(
+            Level level, BlockState state, net.minecraft.world.level.block.entity.BlockEntityType<T> type) {
+        return level.isClientSide()
+                ? createTickerHelper(type, com.lulan.shincolle.init.ModBlockEntities.WAYPOINT.get(),
+                        TileEntityWaypoint::clientTick)
+                : null;
+    }
+
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hitResult) {

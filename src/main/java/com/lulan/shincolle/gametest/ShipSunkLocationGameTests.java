@@ -344,41 +344,6 @@ public final class ShipSunkLocationGameTests {
         });
     }
 
-    @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void legacySingleStillStopsAtSunkShip(GameTestHelper helper) {
-        int firstUid = 815_247;
-        int secondUid = 815_248;
-        PointerSingleModeGameTests.whenFixtureTicking(helper, () -> {
-            try (var authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.LEGACY);
-                    var context = PointerSingleModeGameTests.createContext(helper, "legacy_sunk_single", 816)) {
-                BasicEntityShip sunkShip = PointerSingleModeGameTests.addShip(context, 0, firstUid,
-                        new Vec3(4.5D, 2D, 1.5D));
-                BasicEntityShip nextShip = PointerSingleModeGameTests.addShip(context, 1, secondUid,
-                        new Vec3(6.5D, 2D, 1.5D));
-                ServerDataManager.updateShipID(sunkShip);
-                CacheDataShip sunk = requireRecord(firstUid);
-                sunk.setSunkLocation(context.level().dimension(), 4, 64, 9);
-                ServerDataManager.setShipWorldData(firstUid, sunk);
-                sunkShip.discard();
-                PointerSingleModeGameTests.select(context.capa(), 0, 1);
-                BlockPos destination = helper.absolutePos(new BlockPos(9, 2, 5));
-
-                PointerSingleModeGameTests.invokePacketHandler(new com.lulan.shincolle.network.C2SGUIInputPacket(
-                        com.lulan.shincolle.network.C2SGUIInputPacket.SetMove,
-                        new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, 1,
-                                destination.getX(), destination.getY(), destination.getZ()}),
-                        "handleSetMove", context.player());
-
-                helper.assertTrue(!nextShip.hasGuardDestination(),
-                        "Legacy single command fell through a sunk first slot");
-                helper.succeed();
-            } finally {
-                ServerDataManager.removeShipData(firstUid);
-                ServerDataManager.removeShipData(secondUid);
-            }
-        });
-    }
-
     private static BasicEntityShip createShip(GameTestEntities entities, ServerLevel level, int uid,
                                                int ownerUid, Vec3 position) {
         BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(level));

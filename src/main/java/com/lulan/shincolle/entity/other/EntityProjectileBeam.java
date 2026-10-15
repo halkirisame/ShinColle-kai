@@ -5,6 +5,8 @@ import com.lulan.shincolle.entity.IShipCustomTexture;
 import com.lulan.shincolle.entity.IShipOwner;
 import com.lulan.shincolle.entity.IShipProjectile;
 import com.lulan.shincolle.equip.ShipOnHitEffects;
+import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
@@ -173,7 +175,7 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
                         || this.damagedTargets.contains(ent)) continue;
                 this.damagedTargets.add(ent);
                 float attack = CombatHelper.modDamageByAdditionAttrs(this.hostShip, ent, this.beamDamage, 0);
-                attack = CombatHelper.applyCombatRateToDamage(this.hostShip, ent, true, 1F, attack);
+                attack = CombatHelper.applyCombatRateToDamage(this.hostShip, ent, false, 1F, attack);
                 attack = CombatHelper.applyDamageReduceOnPlayer(ent, attack);
                 if (ent.hurt(this.damageSources().mobAttack(this.hostEntity), attack)) {
                     ShipOnHitEffects.dispatch(this.hostEntity, ent, attack);
@@ -186,22 +188,35 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
                 continue;
             this.damagedTargets.add(ent);
 
-            if (TeamHelper.checkSameOwner(this, ent))
-                continue;
-            if (!(ent instanceof LivingEntity livingTarget)
-                    || CombatHelper.isFriendlyFire(this.hostEntity, ent)) {
+            playImpactSound();
+            if (!(ent instanceof LivingEntity livingTarget)) {
                 continue;
             }
-            float damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
-            damage = CombatHelper.applyDamageReduceOnPlayer(ent, damage);
+            // Same-owner and friendly-fire targets take no damage but still flinch and show the hit effect.
+            boolean harmless = TeamHelper.checkSameOwner(this, ent)
+                    || CombatHelper.isFriendlyFire(this.hostEntity, ent);
+            float damage = 0F;
+            if (!harmless) {
+                damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
+                damage = CombatHelper.applyDamageReduceOnPlayer(ent, damage);
+            }
             boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), damage);
-            if (hurt) {
+            if (hurt && !harmless) {
                 LogHelper.diag("DIAG: beam hit beam=" + this + " target=" + ent + " damage=" + damage);
             }
             if (hurt) {
-                ShipOnHitEffects.dispatch(this.hostEntity, ent, damage);
+                if (!harmless) ShipOnHitEffects.dispatch(this.hostEntity, ent, damage);
+                com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
+                        com.lulan.shincolle.network.S2CSpawnParticlePacket.position(9, ent.getId(),
+                                ent.getX(), ent.getY(), ent.getZ(), 0D, 0D, 0D), this);
             }
         }
+    }
+
+    private void playImpactSound() {
+        this.level().playSound(null, this.getX(), this.getY(), this.getZ(), ModSounds.SHIP_EXPLODE.get(),
+                this.getSoundSource(), (float) ConfigHandler.volumeAttack() * 1.5F,
+                0.7F / (this.random.nextFloat() * 0.4F + 0.8F));
     }
 
     /**

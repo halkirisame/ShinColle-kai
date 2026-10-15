@@ -348,6 +348,12 @@ public class ParticleLaserNoTexture extends Particle {
         RenderSystem.disableBlend();
     }
 
+    /** The box stays at the spawn point while the shape spans far from it, so frustum culling would hide it. */
+    @Override
+    public boolean shouldCull() {
+        return false;
+    }
+
     @Override
     public ParticleRenderType getRenderType() {
         return ParticleRenderType.CUSTOM;

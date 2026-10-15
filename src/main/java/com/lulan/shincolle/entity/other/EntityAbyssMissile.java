@@ -345,6 +345,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
 
         // ===== CLIENT SIDE: facing =====
         if (this.level().isClientSide()) {
+            com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
             float f1 = Mth.sqrt((float) (this.velX * this.velX + this.velZ * this.velZ));
             this.setXRot((float) (Math.atan2(this.velY, f1)));
             this.setYRot((float) (Math.atan2(this.velX, this.velZ)));

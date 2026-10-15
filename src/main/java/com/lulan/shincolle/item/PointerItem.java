@@ -7,6 +7,7 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.tileentity.ITileGuardPoint;
 import com.lulan.shincolle.utility.ClientRuntimeHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
@@ -247,6 +248,40 @@ public class PointerItem extends BasicItem {
             PointerItem.formatCD--;
             if (PointerItem.formatCD <= 0) {
                 sendFormationChange(player);
+            }
+        }
+
+        // Holding the sprint key shows a line from the player to each ship of the selected team.
+        if (isSelected && (player.tickCount & 7) == 0 && ClientRuntimeHelper.isSprintKeyDown()) {
+            showTeamPositionLines(player);
+        }
+        if (isSelected && player == ClientRuntimeHelper.getClientPlayer() && ConfigHandler.debugMode()
+                && getMode(stack) > MODE_FORMATION && (player.tickCount & 1) == 0) {
+            EntityHitResult hit = rayTraceEntities(player, 6D);
+            if (hit != null) {
+                Entity target = hit.getEntity();
+                double height = target.getBbHeight();
+                int percent = height > 0D ? (int) ((hit.getLocation().y - target.getY()) / height * 100D) : 50;
+                percent = net.minecraft.util.Mth.clamp(percent, 0, 100);
+                ParticleHelper.spawnCaressPosition(target, percent * 0.01F * target.getBbHeight());
+            }
+        }
+    }
+
+    private static void showTeamPositionLines(Player player) {
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return;
+        }
+        int team = capa.getSelectTeam();
+        for (BasicEntityShip ship : player.level().getEntitiesOfClass(BasicEntityShip.class,
+                player.getBoundingBox().inflate(128D))) {
+            for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+                int uid = capa.getTeamMember(team, slot);
+                if (uid > 0 && uid == ship.getStateMinor(ID.M.ShipUID)) {
+                    ParticleHelper.spawnPositionLine(player, ship);
+                    break;
+                }
             }
         }
     }

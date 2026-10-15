@@ -205,7 +205,6 @@ public final class ShipMovementExecutor {
     /** Carries out a guarded teleport and reports success to the transient recall state. */
     public static boolean tryTeleport(Mob host, MovementStep.Teleport teleport) {
         ShipMovementExecutor executor = of(host);
-        if (!ShipMovementGate.active()) return false;
         boolean success = executor.teleport(host, body(host, teleport.body()), teleport);
         executor.last = new Request(host.tickCount, teleport, Optional.empty(), PathOutcome.NONE);
         return success;

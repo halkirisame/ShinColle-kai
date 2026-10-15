@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai;
 
-import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.action.ActionKind;
 import com.lulan.shincolle.ai.domain.command.MovementOrder;
 import com.lulan.shincolle.ai.domain.command.ShipCommandState;
@@ -80,7 +79,7 @@ public class ShipFloatingGoal extends Goal {
         // NEW: the ship's standing order says what the place is; a mount acts for the ship it carries
         BasicEntityShip commanded = host instanceof BasicEntityShip ship ? ship
                 : host instanceof BasicEntityMount mount ? mount.getHost() : null;
-        ShipCommandState command = ShipCommandStateAdapter.isNew() && commanded != null
+        ShipCommandState command = commanded != null
                 ? commanded.getCommandState() : null;
         if (command != null) {
             MovementOrder order = command.movement();
