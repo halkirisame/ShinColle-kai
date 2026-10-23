@@ -244,6 +244,10 @@ public class ModelSubmHime extends ShipModelBaseAdv<Entity> {
         this.EquipT05_1 = this.EquipTBase_1.getChild("EquipT05_1");
         this.EquipT06_1 = this.EquipTBase_1.getChild("EquipT06_1");
         this.EquipT07_1 = this.EquipTBase_1.getChild("EquipT07_1");
+        this.offsetItem = new float[] {0.08F, 1.02F, -0.07F};
+        this.offsetBlock = new float[] {0.08F, 1.02F, -0.07F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

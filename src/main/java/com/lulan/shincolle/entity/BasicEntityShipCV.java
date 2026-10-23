@@ -1,7 +1,7 @@
 package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.equip.ShipEquipmentResolver;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.entity.other.EntityAirplane;
 import com.lulan.shincolle.entity.other.EntityAirplaneTakoyaki;

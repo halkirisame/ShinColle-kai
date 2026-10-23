@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai.domain;
 
-import com.lulan.shincolle.api.target.TargetTrait;
 
 import org.junit.jupiter.api.Test;
 
@@ -391,21 +390,21 @@ class CombatTargetSelectionTest {
             boolean monster,
             boolean shipOwner,
             boolean custom) {
-        Set<TargetTrait> traitSet = new java.util.HashSet<>();
+        Set<TargetTraitKind> traitSet = new java.util.HashSet<>();
         if (airplane) {
-            traitSet.add(TargetTrait.AIRBORNE);
-            traitSet.add(TargetTrait.ANTI_AIR_ELIGIBLE);
+            traitSet.add(TargetTraitKind.AIRBORNE);
+            traitSet.add(TargetTraitKind.ANTI_AIR_ELIGIBLE);
         }
         if (missile) {
-            traitSet.add(TargetTrait.ANTI_AIR_ELIGIBLE);
-            traitSet.add(TargetTrait.SPECIAL);
+            traitSet.add(TargetTraitKind.ANTI_AIR_ELIGIBLE);
+            traitSet.add(TargetTraitKind.SPECIAL);
         }
         if (submarine) {
-            traitSet.add(TargetTrait.SUBMARINE);
-            traitSet.add(TargetTrait.ANTI_SUBMARINE_ELIGIBLE);
+            traitSet.add(TargetTraitKind.SUBMARINE);
+            traitSet.add(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE);
         }
         if (friendlyShip || hostileShip) {
-            traitSet.add(TargetTrait.SHIP);
+            traitSet.add(TargetTraitKind.SHIP);
         }
         return new TargetTraitClassification(
                 airplane,

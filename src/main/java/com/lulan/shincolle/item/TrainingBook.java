@@ -14,7 +14,7 @@ import java.util.List;
 public class TrainingBook extends BasicItem {
 
     public TrainingBook() {
-        super(new Properties().stacksTo(1));
+        super(new Properties());
     }
 
     @Override

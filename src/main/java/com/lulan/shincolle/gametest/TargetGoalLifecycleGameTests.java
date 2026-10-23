@@ -192,6 +192,8 @@ public final class TargetGoalLifecycleGameTests {
         host.getAttrs().getAttrsBuffed()[ID.Attrs.HIT] = 4F;
         // only revenge may lock here; a friendly ship would also pick the zombies on its own
         host.setStateFlag(ID.F.PassiveAI, true);
+        // revenge against a player is opt-in; this test is about releasing the target, not the permission
+        host.setStateFlag(ID.F.RetaliatePlayer, true);
         ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(host);
         GoalSelector selector = installOnlyTargetGoal(ship, goal);
         Zombie dead;

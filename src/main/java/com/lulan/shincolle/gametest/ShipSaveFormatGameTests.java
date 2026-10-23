@@ -57,7 +57,7 @@ import java.util.function.Consumer;
 public final class ShipSaveFormatGameTests {
 
     private static final int MINOR_LENGTH = 45;
-    private static final int FLAG_LENGTH = 27;
+    private static final int FLAG_LENGTH = 28;
     private static final int EMOTION_LENGTH = 8;
 
     private static final DimensionKey OVERWORLD = new DimensionKey("minecraft", "overworld");

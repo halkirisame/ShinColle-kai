@@ -258,6 +258,19 @@ public abstract class ShipModelBaseAdv<T extends Entity> extends EntityModel<T> 
         return side == HumanoidArm.RIGHT ? this.armMain : this.armOff;
     }
 
+    /** Apply the model-sized arm pivots before drawing an item in that hand. */
+    public final boolean applyHeldItemArmTransform(PoseStack poseStack, HumanoidArm side) {
+        ModelPart[] chain = getArmForSide(side);
+        if (chain == null) {
+            return false;
+        }
+        poseStack.scale(this.scale, this.scale, this.scale);
+        for (ModelPart part : chain) {
+            part.translateAndRotate(poseStack);
+        }
+        return true;
+    }
+
     /**
      * Get the held item rendering offset for this model.
      * Override in subclasses for custom positioning.

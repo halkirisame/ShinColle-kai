@@ -1,9 +1,9 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "RB",
-    "WW",
-    "OO"
+    "RBW",
+    "OOO",
+    "O O"
   ],
   "key": {
     "R": {
@@ -13,7 +13,7 @@
       "item": "shincolle_kai:desk_item_book"
     },
     "W": {
-      "item": "minecraft:white_wool"
+      "tag": "minecraft:wool"
     },
     "O": {
       "item": "minecraft:obsidian"

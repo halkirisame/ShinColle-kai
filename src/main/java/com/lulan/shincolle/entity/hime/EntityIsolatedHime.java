@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
+import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -8,16 +9,15 @@ import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.entity.mounts.EntityMountIsH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 
 /**
  * Isolated Island Hime entity - CV type with both cannon and aircraft attacks.
- * Provides DAMAGE_BOOST (Strength) to nearby allied ships.
+ * Its attacks blind, and poison when married with the ring on.
  */
 public class EntityIsolatedHime extends BasicEntityShipCV implements IShipRiderType {
 
@@ -29,8 +29,8 @@ public class EntityIsolatedHime extends BasicEntityShipCV implements IShipRiderT
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.IsolatedHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.AVIATION);
         this.setStateMinor(ID.M.NumState, 8);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BBV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BBV]);
         this.ModelPos = new float[]{0F, 20F, 0F, 45F};
 
         // hybrid attacker: cannon + aircraft
@@ -51,6 +51,12 @@ public class EntityIsolatedHime extends BasicEntityShipCV implements IShipRiderT
 
     public int getEquipType() {
         return 2;
+    }
+
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        ShipClassAttackGate.finalizeEquipment(this);
     }
 
     @Override
@@ -93,36 +99,6 @@ public class EntityIsolatedHime extends BasicEntityShipCV implements IShipRiderT
     @Override
     public BasicEntityMount summonMountEntity() {
         return new EntityMountIsH(ModEntities.MOUNT_ISH.get(), this.level());
-    }
-
-    @Override
-    public void aiStep() {
-        super.aiStep();
-
-        if (!this.level().isClientSide()) {
-            if (this.tickCount % 128 == 0) {
-                // Ring effect: DAMAGE_BOOST (Strength) to nearby ships
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    java.util.UUID ownerUUID = this.getOwnerUUID();
-                    java.util.List<net.minecraft.world.entity.LivingEntity> nearby = this.level().getEntitiesOfClass(
-                            net.minecraft.world.entity.LivingEntity.class,
-                            this.getBoundingBox().inflate(12D),
-                            e -> e != this && e instanceof com.lulan.shincolle.entity.BasicEntityShip ship
-                                    && ownerUUID != null && ownerUUID.equals(ship.getOwnerUUID()));
-                    int maxTargets = getStateMinor(ID.M.ShipLevel) / 50 + 1;
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
-                    int duration = 80 + getStateMinor(ID.M.ShipLevel);
-                    int count = 0;
-                    for (net.minecraft.world.entity.LivingEntity target : nearby) {
-                        if (count >= maxTargets)
-                            break;
-                        target.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, duration, level, false, false));
-                        count++;
-                    }
-                }
-            }
-        }
     }
 
     @Override

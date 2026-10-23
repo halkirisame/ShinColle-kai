@@ -223,17 +223,24 @@ public class TeamHelper {
             return owner.getPlayerUID();
         }
         if (entity instanceof Player player) {
-            CapaTeitoku capa = ServerDataManager.getTeitokuCapability(player);
-            return capa.getPlayerUID();
+            return playerUidOf(player);
         }
         // Check vanilla tameable
         if (entity instanceof OwnableEntity ownable) {
             Entity owner = ownable.getOwner();
             if (owner instanceof Player player) {
-                CapaTeitoku capa = ServerDataManager.getTeitokuCapability(player);
-                return capa.getPlayerUID();
+                return playerUidOf(player);
             }
         }
         return 0;
+    }
+
+    /**
+     * Player UID from the admiral capability. A player being removed (death) has its capabilities
+     * invalidated; the UID recorded when the player was last registered is used then, else 0.
+     */
+    private static int playerUidOf(Player player) {
+        CapaTeitoku capa = ServerDataManager.getTeitokuCapability(player);
+        return capa == null ? ServerDataManager.getKnownPlayerUID(player.getUUID()) : capa.getPlayerUID();
     }
 }

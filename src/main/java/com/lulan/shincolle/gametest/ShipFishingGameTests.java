@@ -199,8 +199,11 @@ public final class ShipFishingGameTests {
     @GameTest(template = "arena", batch = "isolated_ship_fishing")
     public static void luckBuffCanSelectTreasureFromTheVanillaTable(GameTestHelper helper) {
         fixture(helper, (ship, entities) -> {
-            ship.getBuffMap().put(26, 99);
-            helper.assertTrue(ship.getBuffMap().get(26) == 99, "Fixture: luck level 100");
+            ship.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.LUCK, 20_000, 99));
+            helper.assertTrue(ship.getEffect(net.minecraft.world.effect.MobEffects.LUCK).getAmplifier() == 99,
+                    "Fixture: luck effect amplifier 99");
+            helper.assertTrue(ship.getBuffMap().get(26) != null && ship.getBuffMap().get(26) == 99,
+                    "Fixture: luck level 100");
             Set<net.minecraft.world.item.Item> treasures = Set.of(Items.BOW, Items.ENCHANTED_BOOK,
                     Items.FISHING_ROD, Items.NAME_TAG, Items.NAUTILUS_SHELL, Items.SADDLE);
             int before = inventoryCount(ship);

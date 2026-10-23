@@ -224,7 +224,7 @@ public final class ShipCommandDispatcher {
                 continue;
             }
             BasicEntityShip ship = resolved.get(recipient);
-            ShipCommand command = decide(request, ship, target, level, position, formationMove, formatId, sit);
+            ShipCommand command = decide(request, ship, target, level, position, formationMove, formatId, sit, mode);
             long sequence = SEQUENCES.getOrDefault(level.getServer(), 0L);
             SEQUENCES.put(level.getServer(), sequence + 1L);
             accepted.add(new AcceptedEntry(recipient,
@@ -247,7 +247,7 @@ public final class ShipCommandDispatcher {
 
     private static ShipCommand decide(RequestedCommand request, BasicEntityShip ship, Entity target,
                                       ServerLevel level, CommandPos position, boolean formationMove, int formatId,
-                                      boolean sit) {
+                                      boolean sit, CommandMode mode) {
         if (request instanceof RequestedCommand.ToggleSit) {
             return new ShipCommand.SetSitting(sit);
         }
@@ -263,6 +263,8 @@ public final class ShipCommandDispatcher {
         if (formationMove) return new ShipCommand.FormationMove(dimension, position, formatId);
         boolean release = request instanceof RequestedCommand.Move move ? move.releaseOnArrival()
                 : ((RequestedCommand.GuardPosition) request).releaseOnArrival();
+        release = CommandDecision.releaseOnArrival(mode, ship.getStateMinor(ID.M.Task) == 2,
+                request instanceof RequestedCommand.GuardPosition, release);
         boolean explicit = request instanceof RequestedCommand.Move move ? move.explicitArrivalMode()
                 : ((RequestedCommand.GuardPosition) request).explicitArrivalMode();
         MovementOrder movement = state.movement();

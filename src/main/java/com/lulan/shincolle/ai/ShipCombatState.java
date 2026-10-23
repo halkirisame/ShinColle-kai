@@ -17,6 +17,11 @@ public final class ShipCombatState {
     private CombatLoadout loadout = CombatLoadout.NONE;
     private CombatTimingState timing;
     private final ShipSkillAttackState skill = new ShipSkillAttackState();
+    private final RuBurstRuntime ruBurst = new RuBurstRuntime();
+
+    public RuBurstRuntime ruBurst() {
+        return this.ruBurst;
+    }
 
     public ShipSkillAttackState skill() {
         return skill;
@@ -35,6 +40,7 @@ public final class ShipCombatState {
     public void clearWeapons() {
         this.loadout = CombatLoadout.NONE;
         this.skill.clear();
+        this.ruBurst.cancel();
     }
 
     /**

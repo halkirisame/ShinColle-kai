@@ -1,16 +1,17 @@
 package com.lulan.shincolle;
 
+import com.lulan.shincolle.ai.registry.ShipBehaviorRegistries;
 import com.lulan.shincolle.capability.CapabilityHandler;
 import com.lulan.shincolle.command.CommandHandler;
 import com.lulan.shincolle.config.ConfigMining;
-import com.lulan.shincolle.api.equipment.ShipEquipmentProviders;
-import com.lulan.shincolle.api.target.TargetTraits;
 import com.lulan.shincolle.equip.ShipEquipmentOptionalIntegrations;
+import com.lulan.shincolle.equip.ShipEquipmentProviderIndex;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.equip.curios.ShipCuriosRecalcHandler;
 import com.lulan.shincolle.equip.curios.ShipEquipCurioCapabilityHandler;
 import com.lulan.shincolle.equip.tinkers.ShipTinkersIntegration;
 import com.lulan.shincolle.equipdata.EquipDataLoader;
+import com.lulan.shincolle.shipdata.ShipDefinitionLoader;
 import com.lulan.shincolle.handler.BookClientConfig;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.handler.ServerEventHandler;
@@ -56,6 +57,9 @@ public class ShinColle {
         ModRecipes.RECIPE_SERIALIZERS.register(modEventBus);
         ModParticles.PARTICLES.register(modEventBus);
         ModShipAttributes.register(modEventBus);
+        ModEquipmentProviders.register(modEventBus);
+        ModTargetTraits.register(modEventBus);
+        ModShipBehaviors.register(modEventBus);
         ShinColleLootModifiers.register(modEventBus);
 
         // Register config
@@ -95,8 +99,7 @@ public class ShinColle {
         // Lets a ship-equip Curios slot read a plain Tinkers' Construct tool's
         // own material/modifier stats, same optional-dependency pattern as Curios.
         if (ModList.get().isLoaded("tconstruct")) {
-            ShipEquipmentProviders.register(ShipTinkersIntegration.PROVIDER_ID, 0,
-                    ShipTinkersIntegration.INSTANCE);
+            ShipTinkersIntegration.register(ModEquipmentProviders.PROVIDERS);
         }
 
         LOGGER.info("ShinColle: Mod loading initialized.");
@@ -110,6 +113,7 @@ public class ShinColle {
         ModWorldGen.init();
         event.enqueueWork(() -> {
             ModShipAttributes.initializeLayout();
+            ShipEquipmentProviderIndex.sealGlobal();
             ConfigHandler.onShipAttributeLayoutReady();
         });
 
@@ -118,12 +122,9 @@ public class ShinColle {
                 .resolve(Reference.MOD_ID + "-mining.cfg").toFile());
     }
 
-    /** Freezes addon registration after every mod has constructed. */
+    /** The registries are frozen by now. */
     private void loadComplete(FMLLoadCompleteEvent event) {
-        event.enqueueWork(() -> {
-            ShipEquipmentProviders.freeze();
-            TargetTraits.freeze();
-        });
+        ShipBehaviorRegistries.logForeignEntries(LOGGER);
     }
 
     /**
@@ -160,5 +161,6 @@ public class ShinColle {
     @SubscribeEvent
     public void onAddReloadListeners(AddReloadListenerEvent event) {
         event.addListener(new EquipDataLoader());
+        event.addListener(new ShipDefinitionLoader());
     }
 }

@@ -6,6 +6,7 @@ import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.api.equipment.ShipEquipmentContext;
 import com.lulan.shincolle.api.equipment.ShipEquipmentProvider;
+import com.lulan.shincolle.api.experimental.equipment.ShipEquipmentHitCallback;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraft.network.chat.Component;
@@ -14,6 +15,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.DeferredRegister;
 import slimeknights.tconstruct.library.modifiers.ModifierEntry;
 import slimeknights.tconstruct.library.modifiers.ModifierHooks;
 import slimeknights.tconstruct.library.tools.context.ToolAttackContext;
@@ -30,7 +32,7 @@ import java.util.Map;
  * The only class in this mod that touches Tinkers' Construct API types.
  * Referenced only from behind a {@code ModList.get().isLoaded("tconstruct")}
  * check - see {@code ShinColle}'s constructor, which registers the single
- * instance below with the canonical ship-equipment provider registry only
+ * instance below with the ship-equipment provider registry only
  * when Tinkers' is actually present.
  *
  * <p>Rather than requiring a purpose-built item class registered by an
@@ -41,13 +43,18 @@ import java.util.Map;
  * material-derived {@link ToolStats}; modifiers (including material-derived
  * traits, and anything a mod like TiCEX adds) are read generically below.
  */
-public final class ShipTinkersIntegration implements ShipEquipmentProvider {
+public final class ShipTinkersIntegration implements ShipEquipmentProvider, ShipEquipmentHitCallback {
 
     public static final ShipTinkersIntegration INSTANCE = new ShipTinkersIntegration();
     public static final ResourceLocation PROVIDER_ID =
             ResourceLocation.fromNamespaceAndPath(Reference.MOD_ID, "tconstruct_tools");
 
     private ShipTinkersIntegration() {
+    }
+
+    /** Adds the single provider instance to the core provider register; call only when Tinkers' is loaded. */
+    public static void register(DeferredRegister<ShipEquipmentProvider> providers) {
+        providers.register(PROVIDER_ID.getPath(), () -> INSTANCE);
     }
 
     @Override

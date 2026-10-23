@@ -13,9 +13,13 @@ final class EquipmentJsonFormat {
     static final int MAX_COMPATIBLE = 32;
     static final int MAX_ATTACK_EFFECTS = 64;
 
-    static final Set<String> REQUIRED_FIELDS = Set.of("item", "variant", "equip_type");
+    /** Version of the published equipment JSON format; every definition must declare it as {@code "schema"}. */
+    static final int SCHEMA = 4;
+    static final String SCHEMA_FIELD = "schema";
+
+    static final Set<String> REQUIRED_FIELDS = Set.of(SCHEMA_FIELD, "item", "variant", "equip_type");
     static final Set<String> TOP_LEVEL_FIELDS = Set.of(
-            "$schema", "equip_id", "item", "variant", "equip_type", "compatible",
+            "$schema", SCHEMA_FIELD, "equip_id", "item", "variant", "equip_type", "compatible",
             "enchant_type", "develop", "roll_type", "stats", "attack_effects", "availability");
     static final Set<String> DEVELOP_FIELDS = Set.of("material", "amount", "rare_mean");
     static final Set<String> ATTACK_EFFECT_FIELDS = Set.of(

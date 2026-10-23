@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.transport;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.ShipSupportAbilities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.entity.EntityType;
@@ -20,8 +21,8 @@ public class EntityTransportWa extends BasicEntityShipSmall {
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.APWA);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.UNDEFINED);
         this.setStateMinor(ID.M.NumState, 3);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.AP]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.AP]);
         this.ModelPos = new float[]{-3F, 20F, 0F, 45F};
 
         // set attack type: transport has no attack capabilities

@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.battleship;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -22,8 +23,8 @@ public class EntityBattleshipRu extends BasicEntityShip {
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.BBRU);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.BATTLESHIP);
         this.setStateMinor(ID.M.NumState, 4);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BB]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BB]);
         this.ModelPos = new float[]{0F, 25F, 0F, 40F};
 
         // set attack type
@@ -69,13 +70,10 @@ public class EntityBattleshipRu extends BasicEntityShip {
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // marriage ring aura: luck self-buff during daytime
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0 && this.level().isDay()) {
-                    int shipLevel = getStateMinor(ID.M.ShipLevel);
-                    int amp = shipLevel / 80;
-                    int dur = 50 + shipLevel;
-                    this.addEffect(new MobEffectInstance(MobEffects.LUCK, dur, amp, false, false));
+                // ring effect: luck self-buff during daytime
+                if (getStateFlag(ID.F.UseRingEffect) && this.level().isDay()) {
+                    int amp = getStateMinor(ID.M.ShipLevel) / 140;
+                    this.addEffect(new MobEffectInstance(MobEffects.LUCK, 150, amp, false, false));
                 }
             }
         }

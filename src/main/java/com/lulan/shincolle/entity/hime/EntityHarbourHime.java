@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
+import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -8,6 +9,7 @@ import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.ShipSupportAbilities;
 import com.lulan.shincolle.entity.mounts.EntityMountHbH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.entity.EntityType;
@@ -27,8 +29,8 @@ public class EntityHarbourHime extends BasicEntityShipCV implements IShipRiderTy
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.HarbourHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.AVIATION);
         this.setStateMinor(ID.M.NumState, 1);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BBV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BBV]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
 
         // hybrid attacker: cannon + aircraft
@@ -49,6 +51,12 @@ public class EntityHarbourHime extends BasicEntityShipCV implements IShipRiderTy
 
     public int getEquipType() {
         return 2;
+    }
+
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        ShipClassAttackGate.finalizeEquipment(this);
     }
 
     @Override

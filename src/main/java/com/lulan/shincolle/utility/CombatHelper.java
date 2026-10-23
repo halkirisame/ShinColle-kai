@@ -592,4 +592,5 @@ public class CombatHelper {
             hostEntity.level().addFreshEntity(effect);
         }
     }
+
 }

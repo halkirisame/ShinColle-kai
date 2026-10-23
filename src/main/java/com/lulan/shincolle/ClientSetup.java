@@ -125,6 +125,8 @@ public class ClientSetup {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(ModEntities.GENERIC_SHIP.get(), GenericShipRenderer::new);
+        event.registerEntityRenderer(ModEntities.GENERIC_SHIP_HOSTILE.get(), GenericShipRenderer::new);
         // ========== Friendly Ships ==========
 
         // --- Destroyers ---
@@ -478,6 +480,7 @@ public class ClientSetup {
     public static void clientSetup(FMLClientSetupEvent event) {
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onClientLogout);
         event.enqueueWork(() -> {
+            com.lulan.shincolle.client.shipdata.ClientShipDefinitions.initialize();
             MenuScreens.register(ModMenuTypes.SHIP_INVENTORY.get(), GuiShipInventory::new);
             MenuScreens.register(ModMenuTypes.SMALL_SHIPYARD.get(), GuiSmallShipyard::new);
             MenuScreens.register(ModMenuTypes.LARGE_SHIPYARD.get(), GuiLargeShipyard::new);
@@ -503,6 +506,7 @@ public class ClientSetup {
     }
 
     private static void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        com.lulan.shincolle.client.shipdata.ClientShipDefinitions.clear();
         ClientEquipData.clear();
         ClientShipLevelCaps.clear();
     }

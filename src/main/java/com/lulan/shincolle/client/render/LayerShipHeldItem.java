@@ -7,7 +7,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
@@ -75,12 +74,10 @@ public class LayerShipHeldItem<T extends BasicEntityShip> extends RenderLayer<T,
             // Upstream's outer setRotationAngles translation also remained active for layers.
             advModel.applyLegacyPoseTranslation(poseStack);
             boolean isBlock = stack.getItem() instanceof BlockItem;
-            ModelPart[] hand = advModel.getArmForSide(arm);
             float[] offset = advModel.getHeldItemOffset(entity, arm, isBlock ? 1 : 0);
             float[] rotate = advModel.getHeldItemRotate(entity, arm, isBlock ? 1 : 0);
-            float modelScale = advModel.getScale();
 
-            if (hand != null) {
+            if (advModel.getArmForSide(arm) != null) {
                 boolean leftHand = arm == HumanoidArm.LEFT;
 
                 // Apply configurable offset
@@ -89,13 +86,7 @@ public class LayerShipHeldItem<T extends BasicEntityShip> extends RenderLayer<T,
                         offset[1] + (float) ConfigHandler.scaleHeldItem[2],
                         offset[2] + (float) ConfigHandler.scaleHeldItem[3]);
 
-                // Apply arm chain transforms (body -> shoulder -> arm -> hand)
-                // Equivalent to ModelRenderer.postRender() in 1.10.2
-                for (ModelPart part : hand) {
-                    part.translateAndRotate(poseStack);
-                }
-
-                poseStack.scale(modelScale, modelScale, modelScale);
+                advModel.applyHeldItemArmTransform(poseStack, arm);
                 poseStack.mulPose(Axis.XP.rotationDegrees(-90F + rotate[0]));
                 poseStack.mulPose(Axis.YP.rotationDegrees(180F + rotate[1]));
                 poseStack.mulPose(Axis.ZP.rotationDegrees(rotate[2]));

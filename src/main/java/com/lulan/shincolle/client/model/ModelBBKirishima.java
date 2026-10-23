@@ -308,6 +308,10 @@ public class ModelBBKirishima extends ShipModelBaseAdv<Entity> {
         this.GlowNeck = this.GlowBodyMain.getChild("GlowNeck");
         this.GlowHead = this.GlowNeck.getChild("GlowHead");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.1F, 0.86F, -0.12F};
+        this.offsetBlock = new float[] {0.1F, 0.86F, -0.12F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai.domain;
 
-import com.lulan.shincolle.api.target.TargetTrait;
 
 import java.util.Objects;
 
@@ -47,10 +46,10 @@ public final class TargetEligibilityEvaluator {
         if (entity.player()) {
             return traits.customAttackClassListed();
         }
-        if (traits.hasTrait(TargetTrait.ANTI_AIR_ELIGIBLE)) {
+        if (traits.hasTrait(TargetTraitKind.ANTI_AIR_ELIGIBLE)) {
             return policy.antiAir() && relation.banned();
         }
-        if (traits.hasTrait(TargetTrait.ANTI_SUBMARINE_ELIGIBLE)) {
+        if (traits.hasTrait(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE)) {
             return policy.antiSubmarine() && relation.banned();
         }
         if (policy.pvpFirst() && traits.friendlyShipOrMount() && relation.banned()) {

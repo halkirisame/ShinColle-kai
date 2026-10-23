@@ -99,10 +99,11 @@ StartupEvents.registry('item', event => {
 ## 3. Itemを艦装備として定義する
 
 <!-- traceability: kubejs.item-equipment begin -->
-`kubejs/data/kubejs/equipment/sonar_module.json`:
+`kubejs/data/kubejs/shincolle_kai/equipment/sonar_module.json`:
 
 ```json
 {
+  "schema": 4,
   "item": "kubejs:sonar_module",
   "variant": 0,
   "equip_type": "radar_lo",

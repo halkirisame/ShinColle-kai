@@ -153,7 +153,7 @@ public class ShipSpawnEgg extends BasicItem {
 
     // ===== Right Click on Block: Spawn Entity =====
 
-    private static boolean consumeSavedEggXpCost(Player player, CompoundTag nbt) {
+    static boolean consumeSavedEggXpCost(Player player, CompoundTag nbt) {
         if (player == null || nbt == null) {
             return true;
         }
@@ -302,7 +302,7 @@ public class ShipSpawnEgg extends BasicItem {
     /**
      * Initialize a BasicEntityShip from spawn egg NBT data.
      */
-    private static void initShipFromEgg(BasicEntityShip ship, ItemStack eggStack, Player player) {
+    static void initShipFromEgg(BasicEntityShip ship, ItemStack eggStack, Player player) {
         CompoundTag nbt = eggStack.getTag();
         boolean isSavedEgg = nbt != null && nbt.contains("StateMinor");
         CapaTeitoku capa = player != null

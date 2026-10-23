@@ -78,6 +78,7 @@ public class C2SGUIInputPacket {
     public static final byte SwapShip = 33;
     public static final byte HitHeight = 35;
     public static final byte SetUnitName = 36;
+    public static final byte SetRetaliate = 37;
     // op tool
     public static final byte SetUnatkClass = 50;
     public static final byte ShowUnatkClass = 51;
@@ -300,6 +301,9 @@ public class C2SGUIInputPacket {
                 break;
             case ID.B.ShipInv_AutoPump:
                 ship.setStateFlag(ID.F.AutoPump, boolVal);
+                break;
+            case ID.B.ShipInv_RetaliatePlayer:
+                ship.setStateFlag(ID.F.RetaliatePlayer, boolVal);
                 break;
             case ID.B.ShipInv_Task:
                 ship.setStateMinor(ID.M.Task, Mth.clamp(value, 0, 4));
@@ -586,6 +590,9 @@ public class C2SGUIInputPacket {
                         break;
                     case SetUnitName:
                         handleSetUnitName(sender);
+                        break;
+                    case SetRetaliate:
+                        handleSetRetaliate(sender);
                         break;
                     case SetUnatkClass:
                         handleSetUnatkClass(sender);
@@ -946,6 +953,23 @@ public class C2SGUIInputPacket {
     }
 
     /**
+     * Allow or forbid every ship of a team to retaliate against players.
+     * values: 0:player eid, 1:team index, 2:permitted (0/1)
+     */
+    private void handleSetRetaliate(ServerPlayer player) {
+        if (values.length < 3) {
+            return;
+        }
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        int teamId = values[1];
+        if (capa == null || teamId < 0 || teamId >= CapaTeitoku.TEAM_NUM) {
+            return;
+        }
+        capa.setRetaliatePlayer(teamId, values[2] != 0);
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerMisc(capa), player);
+    }
+
+    /**
      * Set the formation type for the selected team.
      * values: 0:player eid, 1:team index, 2:formation id
      */
@@ -961,6 +985,25 @@ public class C2SGUIInputPacket {
         int requestedFormation = Mth.clamp(values[2], 0, 5);
         int numShips = capa.getNumberOfShip(player.serverLevel(), teamId);
         int formationId = numShips > 4 && requestedFormation > 0 ? requestedFormation : 0;
+        // A ship in another team too would keep following that team's formation: take it away
+        for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
+            int uid = capa.getTeamMember(teamId, i);
+            if (uid <= 0) {
+                continue;
+            }
+            for (int k = 0; k < CapaTeitoku.TEAM_NUM; k++) {
+                if (k == teamId || capa.getFormatID(k) == 0 || !capa.isShipInTeam(k, uid)) {
+                    continue;
+                }
+                capa.setFormatID(k, 0);
+                for (int j = 0; j < CapaTeitoku.SLOT_NUM; j++) {
+                    int otherSid = capa.getTeamSID(k, j);
+                    if (otherSid > 0 && player.serverLevel().getEntity(otherSid) instanceof BasicEntityShip other) {
+                        other.setStateMinor(ID.M.FormatType, 0);
+                    }
+                }
+            }
+        }
         capa.setFormatID(teamId, formationId);
         // Update all ships in team
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {

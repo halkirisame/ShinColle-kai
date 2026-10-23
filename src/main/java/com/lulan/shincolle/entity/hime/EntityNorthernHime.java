@@ -2,13 +2,12 @@ package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
-import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.ShipSupportAbilities;
-import com.lulan.shincolle.entity.other.EntityAirplane;
 import com.lulan.shincolle.entity.other.EntityFloatingFort;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.EmotionHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
@@ -16,6 +15,7 @@ import com.lulan.shincolle.utility.ParticleHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 
@@ -34,8 +34,8 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.NorthernHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.AVIATION);
         this.setStateMinor(ID.M.NumState, 4);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BBV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BBV]);
         this.ModelPos = new float[]{0F, 10F, 0F, 45F};
 
         // hybrid attacker: cannon + aircraft
@@ -59,16 +59,19 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
     }
 
     /**
-     * NorthernHime spawns FloatingFort for heavy aircraft attacks
-     * instead of the default EntityAirplaneTakoyaki.
+     * The heavy cannon shot of the northern princess is a floating fortress rather than a missile.
+     * The heavy airplane stays the ordinary takoyaki of every carrier.
      */
     @Override
-    protected BasicEntityAirplane getAttackAirplane(boolean isLight) {
-        if (isLight) {
-            return new EntityAirplane(ModEntities.AIRPLANE.get(), this.level());
-        } else {
-            return new EntityFloatingFort(ModEntities.FLOATING_FORT.get(), this.level());
+    protected boolean launchHeavyEntity(Entity target) {
+        float launchPos = (float) this.getY() + this.getBbHeight();
+        if (this.getShipDepth() > 0D) {
+            launchPos += 0.2F;
         }
+        EntityFloatingFort fort = new EntityFloatingFort(ModEntities.FLOATING_FORT.get(), this.level());
+        fort.initAttrs(this, target, 0, launchPos);
+        this.level().addFreshEntity(fort);
+        return true;
     }
 
     @Override
@@ -112,6 +115,9 @@ public class EntityNorthernHime extends BasicEntityShipCV implements IShipRiderT
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (com.lulan.shincolle.handler.AllySpellDamageGuard.shouldBlock(source, this)) {
+            return false;
+        }
         if (!this.level().isClientSide() && !source.is(DamageTypes.IN_WALL)) {
             this.riding.dismount();
         }

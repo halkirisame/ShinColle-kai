@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.cruiser;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -22,8 +23,8 @@ public class EntityCANe extends BasicEntityShipSmall {
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.CANE);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.CRUISER);
         this.setStateMinor(ID.M.NumState, 0);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.CA]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.CA]);
         this.ModelPos = new float[]{0F, 10F, 0F, 40F};
 
         // set attack type
@@ -58,17 +59,15 @@ public class EntityCANe extends BasicEntityShipSmall {
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // ring effect: speed + jump on self at night
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0 &&
-                        !this.level().isDay()) {
+                // ring effect: speed + jump on self whenever it is not daytime
+                if (getStateFlag(ID.F.UseRingEffect) && !this.level().isDay()) {
                     int level = getStateMinor(ID.M.ShipLevel);
                     this.addEffect(new MobEffectInstance(
                             MobEffects.MOVEMENT_SPEED,
-                            200, level / 70, false, false));
+                            150, level / 70, false, false));
                     this.addEffect(new MobEffectInstance(
                             MobEffects.JUMP,
-                            200, level / 60, false, false));
+                            150, level / 60, false, false));
                 }
             }
         }

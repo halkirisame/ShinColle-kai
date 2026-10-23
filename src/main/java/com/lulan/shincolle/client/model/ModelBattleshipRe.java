@@ -180,6 +180,10 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
         this.TailHeadT01 = this.GlowTailHead1.getChild("TailHeadT01");
         this.TailJawT01 = this.GlowTailJaw1.getChild("TailJawT01");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.04F, 0.42F, -0.04F};
+        this.offsetBlock = new float[] {0.04F, 0.42F, -0.04F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

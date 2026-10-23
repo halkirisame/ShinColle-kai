@@ -533,6 +533,10 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             }
         }
 
+        // Data-defined ships do not have a built-in ship-name glyph.
+        if (ship instanceof com.lulan.shincolle.shipdata.DefinitionBackedShip) {
+            return;
+        }
         int[] nameIcon = Values.ShipNameIconMap.get(ship.getShipClass());
         if (nameIcon == null || nameIcon.length < 3) {
             return;

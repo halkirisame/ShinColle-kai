@@ -11,6 +11,7 @@ final class AdmiralPersistentState {
     private final int[][] teamList;
     private final boolean[][] selectState;
     private final int[] formatID;
+    private final boolean[] retaliatePlayer;
     private final String[] unitNames;
     private boolean hasRing;
     private boolean isRingActive;
@@ -27,6 +28,7 @@ final class AdmiralPersistentState {
         this.teamList = new int[TEAM_NUM][SLOT_NUM];
         this.selectState = new boolean[TEAM_NUM][SLOT_NUM];
         this.formatID = new int[TEAM_NUM];
+        this.retaliatePlayer = new boolean[TEAM_NUM];
         this.unitNames = new String[TEAM_NUM];
         this.bossCooldown = bossCooldownDefault;
         this.playerUID = -1;
@@ -206,6 +208,16 @@ final class AdmiralPersistentState {
         }
     }
 
+    boolean getRetaliatePlayer(int team) {
+        return isValidTeam(team) && retaliatePlayer[team];
+    }
+
+    void setRetaliatePlayer(int team, boolean permitted) {
+        if (isValidTeam(team)) {
+            retaliatePlayer[team] = permitted;
+        }
+    }
+
     String getUnitName(int team) {
         return isValidTeam(team) ? unitNames[team] : "";
     }
@@ -245,6 +257,7 @@ final class AdmiralPersistentState {
             System.arraycopy(other.teamList[team], 0, this.teamList[team], 0, SLOT_NUM);
             System.arraycopy(other.selectState[team], 0, this.selectState[team], 0, SLOT_NUM);
             this.formatID[team] = other.formatID[team];
+            this.retaliatePlayer[team] = other.retaliatePlayer[team];
             this.unitNames[team] = other.unitNames[team];
         }
     }

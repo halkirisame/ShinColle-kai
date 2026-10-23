@@ -161,11 +161,11 @@ public final class EquipmentSyncV2GameTests {
             ClientEquipData.install(retainedSnapshot);
 
             FriendlyByteBuf unknownSchema = new FriendlyByteBuf(Unpooled.buffer());
-            unknownSchema.writeVarInt(EquipmentSyncV2Codec.SCHEMA_VERSION - 1);
+            unknownSchema.writeVarInt(EquipmentSyncV2Codec.WIRE_VERSION - 1);
             assertRejected(unknownSchema, retainedSnapshot, "unknown schema");
 
             FriendlyByteBuf duplicateDefinition = new FriendlyByteBuf(Unpooled.buffer());
-            duplicateDefinition.writeVarInt(EquipmentSyncV2Codec.SCHEMA_VERSION);
+            duplicateDefinition.writeVarInt(EquipmentSyncV2Codec.WIRE_VERSION);
             duplicateDefinition.writeVarInt(2);
             for (int i = 0; i < 2; i++) {
                 writeDefinitionStart(duplicateDefinition, id("sync_test", "duplicate_definition"));
@@ -248,12 +248,12 @@ public final class EquipmentSyncV2GameTests {
             assertRejected(invalidAvailability, retainedSnapshot, "unknown availability name");
 
             FriendlyByteBuf tooManyDefinitions = new FriendlyByteBuf(Unpooled.buffer());
-            tooManyDefinitions.writeVarInt(EquipmentSyncV2Codec.SCHEMA_VERSION);
+            tooManyDefinitions.writeVarInt(EquipmentSyncV2Codec.WIRE_VERSION);
             tooManyDefinitions.writeVarInt(EquipmentSyncV2Codec.MAX_DEFINITIONS + 1);
             assertRejected(tooManyDefinitions, retainedSnapshot, "definition count overflow");
 
             FriendlyByteBuf tooManyDistinct = new FriendlyByteBuf(Unpooled.buffer());
-            tooManyDistinct.writeVarInt(EquipmentSyncV2Codec.SCHEMA_VERSION);
+            tooManyDistinct.writeVarInt(EquipmentSyncV2Codec.WIRE_VERSION);
             int definitionCount = (EquipmentSyncV2Codec.MAX_DISTINCT_ATTRIBUTE_IDS
                     + EquipmentSyncV2Codec.MAX_STATS_PER_DEFINITION)
                     / EquipmentSyncV2Codec.MAX_STATS_PER_DEFINITION;
@@ -446,7 +446,7 @@ public final class EquipmentSyncV2GameTests {
 
     private static FriendlyByteBuf malformedHeader() {
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
-        buffer.writeVarInt(EquipmentSyncV2Codec.SCHEMA_VERSION);
+        buffer.writeVarInt(EquipmentSyncV2Codec.WIRE_VERSION);
         buffer.writeVarInt(1);
         return buffer;
     }

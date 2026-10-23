@@ -154,6 +154,10 @@ public class ModelCarrierWDemon extends ShipModelBaseAdv<Entity> {
         this.EquipR03 = this.EquipR02.getChild("EquipR03");
         this.EquipR04 = this.EquipR03.getChild("EquipR04");
         this.EquipR05 = this.EquipR04.getChild("EquipR05");
+        this.offsetItem = new float[] {0.06F, 0.98F, -0.06F};
+        this.offsetBlock = new float[] {0.06F, 0.98F, -0.06F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02, this.ArmRight03};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02, this.ArmLeft03};
     }
 
     public static LayerDefinition createBodyLayer() {

@@ -25,6 +25,8 @@ class BasicTileInventoryTest {
         SharedConstants.tryDetectVersion();
         Field bootstrapped = Bootstrap.class.getDeclaredField("isBootstrapped");
         bootstrapped.setAccessible(true);
+        // Another test class in the same JVM may already have bootstrapped the registries.
+        if (bootstrapped.getBoolean(null)) return;
         bootstrapped.setBoolean(null, true);
         BuiltInRegistries.bootStrap();
     }

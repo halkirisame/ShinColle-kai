@@ -1,0 +1,418 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "animation.kashima.idle": {
+   "loop": true,
+   "animation_length": 3,
+   "bones": {
+    "BodyMain": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "1.5": [
+       -1.5,
+       0,
+       0
+      ],
+      "3": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    "TailL01": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "1.5": [
+       0,
+       0,
+       -5
+      ],
+      "3": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    "TailR01": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "1.5": [
+       0,
+       0,
+       5
+      ],
+      "3": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    "ArmLeft01": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "1.5": [
+       0,
+       0,
+       -3
+      ],
+      "3": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    "ArmRight01": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "1.5": [
+       0,
+       0,
+       3
+      ],
+      "3": [
+       0,
+       0,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "animation.kashima.move": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "LegLeft01": {
+     "rotation": {
+      "0": [
+       -30,
+       0,
+       0
+      ],
+      "0.5": [
+       30,
+       0,
+       0
+      ],
+      "1": [
+       -30,
+       0,
+       0
+      ]
+     }
+    },
+    "LegRight01": {
+     "rotation": {
+      "0": [
+       30,
+       0,
+       0
+      ],
+      "0.5": [
+       -30,
+       0,
+       0
+      ],
+      "1": [
+       30,
+       0,
+       0
+      ]
+     }
+    },
+    "ArmLeft01": {
+     "rotation": {
+      "0": [
+       25,
+       0,
+       0
+      ],
+      "0.5": [
+       -25,
+       0,
+       0
+      ],
+      "1": [
+       25,
+       0,
+       0
+      ]
+     }
+    },
+    "ArmRight01": {
+     "rotation": {
+      "0": [
+       -25,
+       0,
+       0
+      ],
+      "0.5": [
+       25,
+       0,
+       0
+      ],
+      "1": [
+       -25,
+       0,
+       0
+      ]
+     }
+    },
+    "TailL01": {
+     "rotation": {
+      "0": [
+       8,
+       0,
+       0
+      ],
+      "0.5": [
+       14,
+       0,
+       0
+      ],
+      "1": [
+       8,
+       0,
+       0
+      ]
+     }
+    },
+    "TailR01": {
+     "rotation": {
+      "0": [
+       8,
+       0,
+       0
+      ],
+      "0.5": [
+       14,
+       0,
+       0
+      ],
+      "1": [
+       8,
+       0,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "animation.kashima.sit": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "root": {
+     "position": [
+      0,
+      -27,
+      0
+     ]
+    },
+    "LegLeft01": {
+     "rotation": [
+      -80,
+      -8,
+      0
+     ]
+    },
+    "LegRight01": {
+     "rotation": [
+      -80,
+      8,
+      0
+     ]
+    },
+    "Skirt01": {
+     "rotation": [
+      -20,
+      0,
+      0
+     ]
+    },
+    "Case": {"position": [0, 3.5, 0]}
+   }
+  },
+  "animation.kashima.light_attack": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "ArmRight01": {
+     "rotation": {
+      "0": [
+       -80,
+       0,
+       0
+      ],
+      "0.25": [
+       -95,
+       0,
+       0
+      ],
+      "1": [
+       -80,
+       0,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "animation.kashima.heavy_attack": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "EquipGunL": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "0.1": [
+       10,
+       0,
+       0
+      ],
+      "1": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    "EquipGunR": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "0.1": [
+       10,
+       0,
+       0
+      ],
+      "1": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    "BodyMain": {
+     "rotation": {
+      "0": [
+       0,
+       0,
+       0
+      ],
+      "0.1": [
+       3,
+       0,
+       0
+      ],
+      "1": [
+       0,
+       0,
+       0
+      ]
+     }
+    }
+   }
+  },
+  "animation.kashima.sprint": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "Head": {"rotation": [-8.021409, 0, 0]},
+    "BodyMain": {"rotation": [11.729578, 0, 0]},
+    "Butt": {"rotation": [-7.967886, 0, 0]},
+    "Skirt01": {"rotation": [2.270422, 0, 0]},
+    "Skirt02": {"rotation": [-5.800254, 0, 0]},
+    "ArmLeft01": {"rotation": [-212.264806, 0, 61.847328]},
+    "ArmRight01": {"rotation": [-212.264806, 0, -61.847328]},
+    "LegLeft01": {"rotation": {
+     "0": [25.167325, 0, 0.998867],
+     "0.5": [-32.128455, 0, 0.998867],
+     "1": [25.167325, 0, 0.998867]
+    }},
+    "LegRight01": {"rotation": {
+     "0": [-27.103589, 0, -0.998867],
+     "0.5": [30.192191, 0, -0.998867],
+     "1": [-27.103589, 0, -0.998867]
+    }}
+   }
+  },
+  "animation.kashima.ride": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "root": {"position": [0, -27, 0]},
+    "LegLeft01": {"rotation": [-80, -8, 0]},
+    "LegRight01": {"rotation": [-80, 8, 0]},
+    "Skirt01": {"rotation": [-20, 0, 0]},
+    "Case": {"position": [0, 3.5, 0]}
+   }
+  },
+  "animation.kashima.caress": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "Head": {"rotation": [40.680003, 0, 0]},
+    "BodyMain": {"rotation": [0.001132, 0, 0]},
+    "Butt": {"rotation": [-7.967886, 0, 0]},
+    "ArmLeft01": {"rotation": [-143.509871, 0, 40.647890]},
+    "ArmRight01": {"rotation": [-143.509871, 0, -40.647890]},
+    "ArmLeft02": {"rotation": [0, 0, 51.566202]},
+    "ArmRight02": {"rotation": [0, 0, -51.566202]},
+    "LegLeft01": {"rotation": [7.978591, 0, 0.998867]},
+    "LegRight01": {"rotation": [13.003431, 0, -0.998867]}
+   }
+  },
+  "animation.kashima.no_fuel": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "root": {"position": [0, -38.8, 0]},
+    "Head": {"rotation": [0, 0, 0]},
+    "BodyMain": {"rotation": [86.214091, 0, 0]},
+    "Butt": {"rotation": [-7.967886, 0, 0]},
+    "Skirt01": {"rotation": [5.020619, 0, 0]},
+    "Skirt02": {"rotation": [2.020619, 0, 0]},
+    "ArmLeft01": {"rotation": [-166.428183, 0, 52.107046]},
+    "ArmRight01": {"rotation": [-166.428183, 0, -52.107046]},
+    "ArmLeft02": {"rotation": [0, 0, 57.295780]},
+    "ArmRight02": {"rotation": [0, 0, -57.295780]},
+    "LegLeft01": {"rotation": [21.729578, 179.994691, -10.729578]},
+    "LegRight01": {"rotation": [21.729578, 179.994691, 10.729578]},
+    "LegLeft02": {"rotation": [0, 0, -22.918312]},
+    "LegRight02": {"rotation": [0, 0, 22.918312]}
+   }
+  }
+ }
+}

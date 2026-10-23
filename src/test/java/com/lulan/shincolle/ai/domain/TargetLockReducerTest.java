@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai.domain;
 
-import com.lulan.shincolle.api.target.TargetTrait;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -262,7 +261,7 @@ class TargetLockReducerTest {
                 new EntityClassification(true, false, false, false, false, true, true),
                 new RelationClassification(false, false, false),
                 new TargetTraitClassification(false, false, false, false, false,
-                        false, false, false, false, false, Set.<TargetTrait>of()));
+                        false, false, false, false, false, Set.<TargetTraitKind>of()));
         TargetCandidate candidate = new TargetCandidate(selected, observation, 1D);
         return new TargetState(tick, SOURCE, List.of(candidate), Optional.of(selected));
     }

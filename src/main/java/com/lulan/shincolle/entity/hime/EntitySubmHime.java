@@ -8,6 +8,7 @@ import com.lulan.shincolle.entity.IShipInvisible;
 import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.mounts.EntityMountSuH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -25,14 +26,20 @@ public class EntitySubmHime extends BasicEntityShipSmall implements IShipRiderTy
     private int riderType;
     private float invisibleLevel = 0.3F;
 
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        com.lulan.shincolle.ai.ShipClassAttackGate.finalizeEquipment(this);
+    }
+
     public EntitySubmHime(EntityType<? extends EntitySubmHime> type, Level level) {
         super(type, level);
         this.setStateMinor(ID.M.ShipType, ID.ShipType.HIME);
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.SSHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.SUBMARINE);
         this.setStateMinor(ID.M.NumState, 3);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.SS]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.SS]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
 
         // cannon only

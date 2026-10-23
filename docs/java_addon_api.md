@@ -1,6 +1,6 @@
 # ShinColle-kai Java Addon API
 
-更新: 2026-08-24
+更新: 2026-10-20
 
 ## 配布形態
 
@@ -17,14 +17,37 @@ addonの`mods.toml`には本体への必須依存を記載します。
 [[dependencies.your_addon]]
 modId = "shincolle_kai"
 mandatory = true
-versionRange = "[1.20.1-1.0.0,)"
+versionRange = "[1.20.1-1.0.0,1.20.1-2)"
 ordering = "AFTER"
 side = "BOTH"
 ```
 
-APIは公開前のため、現在は互換性を固定していません。本体内部の
-`com.lulan.shincolle.entity`、`utility`、`reference.ID`、`capability`へ直接依存せず、
+`versionRange`の上限`1.20.1-2`は、API版が変わる次の大きな版（2.0.0）の手前です。
+1.0より前の本体の版はAPIを固定していないため、1.0より前の本体で試すときは範囲を広げてください。
+
+本体内部の`com.lulan.shincolle.entity`、`utility`、`reference.ID`、`capability`などへ直接依存せず、
 `com.lulan.shincolle.api`とMinecraft/Forge APIだけを利用してください。
+
+## 安定APIとexperimental API
+
+| 区分 | パッケージ | 含まれるもの |
+|---|---|---|
+| 安定 | `com.lulan.shincolle.api` | `ShinColleApi`（`MOD_ID`、`API_VERSION`） |
+| 安定 | `api.attribute` | 艦属性の型、layout（読み取りの`current()`）、registryのキー |
+| 安定 | `api.equipment` | `IShipEquipment`、`ShipEquipmentContext`、`ResolvedShipEquipment`、`ShipAttackEffect`、`ShipEquipmentProvider`、`ShipEquipmentProviders`（`REGISTRY_KEY`だけ） |
+| 安定 | `api.ship` | `PlayerOwnedShip` |
+| 安定 | `api.target` | `CoreTargetTraits`（IDの定数とタグを作る関数） |
+| experimental | `api.experimental.equipment` | `ShipEquipmentHitCallback` |
+| experimental | `api.experimental.target` | `TargetTrait`、`TargetTraitRegistries.REGISTRY_KEY` |
+
+安定APIは、公開の型・メソッドの削除、シグネチャの変更、意味の変更をするときだけ
+`ShinColleApi.API_VERSION`を上げます（現在は`1`）。追加では上げません。`api.experimental`は
+予告なく変わり、`API_VERSION`の対象外です。`API_VERSION`は実行中に確かめるための値で、
+依存の宣言は上の`versionRange`（本体の版）で行います。
+
+艦属性のlayoutを作る・差し替える公開の入口はありません。`ShipAttributeLayout.current()`は、
+registryが凍結された後（`FMLCommonSetupEvent`以降）にだけ読めます。それより前に呼ぶと
+`IllegalStateException`になります。
 
 ## 独自の艦属性を登録する
 
@@ -92,17 +115,75 @@ public final class SonarModuleItem extends Item implements IShipEquipment {
 
 <!-- traceability: java-addon.equipment-hit-callback begin -->
 非finite値、未登録属性、現在のlayoutと異なる値は装備単位で拒否されます。解決中にworld、
-entity、元のItemStackを変更してはいけません。攻撃命中後の副作用が必要な場合だけ
-`onShipHit(LivingEntity, Entity, float, ItemStack)`を使い、戦闘判断はserver側で行います。
+entity、元のItemStackを変更してはいけません。
+
+攻撃命中後の副作用が必要な場合だけ、`IShipEquipment`（またはproviderの`ShipEquipmentProvider`）に加えて
+`com.lulan.shincolle.api.experimental.equipment.ShipEquipmentHitCallback`を実装し、
+`onShipHit(LivingEntity, Entity, float, ItemStack)`を書きます。これはexperimentalで、
+攻撃の公開APIと一緒に形が変わりえます。実装したItemまたはproviderだけが呼ばれ、
+戦闘判断はserver側で行います。
 <!-- traceability: java-addon.equipment-hit-callback end -->
+
+## 既存のItemをproviderで装備として扱う
+
+自分で作っていないItem（ほかのMODの道具など）は`IShipEquipment`を実装できません。その場合は
+`ShipEquipmentProvider`を実装し、`ShipEquipmentProviders.REGISTRY_KEY`のForge registryへ登録します。
+`matches`は副作用のない判定、`resolveShipEquipment`は`IShipEquipment`と同じ解決です。
+
+```java
+public static final DeferredRegister<ShipEquipmentProvider> PROVIDERS =
+        DeferredRegister.create(ShipEquipmentProviders.REGISTRY_KEY, "your_addon");
+public static final RegistryObject<ShipEquipmentProvider> SONAR =
+        PROVIDERS.register("sonar_tools", SonarToolProvider::new);
+```
+
+`PROVIDERS.register(modEventBus)`を忘れずに呼びます。複数のproviderが一致しうるときは、
+`priority()`が大きいものから順に調べ、同じ値ならregistry IDの昇順です（既定は0）。最初に
+`matches`が真になったproviderだけが使われ、それが解決に失敗しても下位のproviderへは
+フォールバックしません。Item自身が`IShipEquipment`ならproviderより優先されます。
+registryは起動時に凍結され、保存も同期もされず、上書きもできません。IDは必ずaddon自身の
+namespaceを使います。
+
+## 目標のtraitをタグで割り当てる
+
+艦が目標を選ぶときの区分（対空の対象、対潜の対象）は、entity typeのタグで割り当てます。
+Javaを書く必要はありません。traitのID `<namespace>:<path>` に対応するタグは
+`<namespace>:shincolle_kai/target_trait/<path>`で、ファイルは次の場所です。
+
+```
+data/<namespace>/tags/entity_types/shincolle_kai/target_trait/<path>.json
+```
+
+本体のtraitは2つだけで、IDは`CoreTargetTraits.ANTI_AIR_ELIGIBLE`
+（`shincolle_kai:anti_air_eligible`）と`CoreTargetTraits.ANTI_SUBMARINE_ELIGIBLE`
+（`shincolle_kai:anti_submarine_eligible`）です。自分の飛行体を対空の対象にするには、
+`data/shincolle_kai/tags/entity_types/shincolle_kai/target_trait/anti_air_eligible.json`を
+addonのdata packに置きます。
+
+```json
+{
+  "values": [
+    "your_addon:seaplane"
+  ]
+}
+```
+
+タグはdata packの再読み込み（`/reload`）で変わるので、割り当ても再読み込みで変わります。
+艦載機・ミサイル・潜水型のように、実体のクラスで決まる区分は今までどおりで、タグで外せません。
+`CoreTargetTraits.tag(id)`は、traitのIDからこのタグのキーを作ります。
+
+新しいtraitの登録（`TargetTraitRegistries.REGISTRY_KEY`の`DeferredRegister<TargetTrait>`、
+`com.lulan.shincolle.api.experimental.target`）はexperimentalです。本体が読むのは上の2つだけで、
+addonが登録したtraitを読む側は、1.0より後の公開AI APIと一緒に作ります。それまでは形が変わりえます。
 
 ## equipment JSONを使う
 
 固定値だけならItem APIを実装せず、addonのdatapackへ
-`data/<namespace>/equipment/<path>.json`を置く方法が最も単純です。
+`data/<namespace>/shincolle_kai/equipment/<path>.json`を置く方法が最も単純です。
 
 ```json
 {
+  "schema": 4,
   "item": "your_addon:sonar_module",
   "variant": 0,
   "equip_type": "radar_lo",
@@ -126,6 +207,10 @@ server authoritativeで、クライアントへ同期された定義はtooltip�
 JSONのbase値とItem API/providerのdynamic値は加算されます。同じ値を両方へ重複して書かないで
 ください。JSONはserver authoritativeで、login時と`/reload`後にclientへ同期されます。
 表示用データを独自packetで複製する必要はありません。
+
+`schema`は必須の整数で、現在は`4`だけを受け付けます。欠けている、整数でない、版が違う定義は
+その定義だけ拒否され、ほかの定義は読み込まれます。旧パス`data/<namespace>/equipment/`は
+読まれません。JSONがあれば、名前空間ごとに警告が1回ログへ出ます。
 
 完全なフィールド定義は[JSON Schema](schemas/shincolle_kai-equipment.schema.json)、追加Java MODなしの
 導入例は[JSON-only datapack](../examples/equipment_datapack/README.md)、独自属性・Itemを登録する

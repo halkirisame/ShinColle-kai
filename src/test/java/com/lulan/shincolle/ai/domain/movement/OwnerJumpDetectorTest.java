@@ -44,17 +44,84 @@ class OwnerJumpDetectorTest {
         }
         var jumped = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(20D, 64D, 0D), 25);
         assertEquals(Optional.of(new MovementPoint(2.5D, 64D, 0D)), jumped.departedFrom());
-        assertEquals(20, jumped.state().history().size());
+        assertEquals(1, jumped.state().history().size());
     }
 
     @Test
-    void fastContinuousTravelIsAllowedButOnlyOncePerFourHundredTicks() {
+    void fastContinuousTravelIsDetectedAtMostOncePerTwentyTicks() {
         var state = OwnerJumpDetector.State.initial(OVERWORLD);
         for (int tick = 0; tick <= 420; tick++) {
             var observed = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(tick * 2D, 64D, 0D), tick);
-            assertEquals(tick == 20 || tick == 420, observed.departedFrom().isPresent(), "tick " + tick);
+            assertEquals(tick >= 20 && tick % 20 == 0, observed.departedFrom().isPresent(), "tick " + tick);
             state = observed.state();
         }
+    }
+
+    @Test
+    void aSecondJumpAfterTwentyOrMoreTicksIsDetectedWithoutWaitingForTheHoldToEnd() {
+        for (int gap : new int[]{20, 21, 100, 399, 400, 401}) {
+            var state = history();
+            var first = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(300D, 64D, 0D), 20);
+            assertTrue(first.departedFrom().isPresent(), "first jump, gap " + gap);
+            state = first.state();
+            for (int tick = 21; tick < 20 + gap; tick++) {
+                var still = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(300D, 64D, 0D), tick);
+                assertFalse(still.departedFrom().isPresent(), "gap " + gap + ", tick " + tick);
+                state = still.state();
+            }
+            var second = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(600D, 64D, 0D), 20 + gap);
+            assertEquals(Optional.of(new MovementPoint(300D, 64D, 0D)), second.departedFrom(), "second jump, gap " + gap);
+        }
+    }
+
+    @Test
+    void aSecondJumpBeforeTheWindowHasFilledAgainIsNotDetected() {
+        var first = OwnerJumpDetector.observe(history(), OVERWORLD, new MovementPoint(300D, 64D, 0D), 20);
+        var state = first.state();
+        for (int tick = 21; tick < 39; tick++) {
+            state = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(300D, 64D, 0D), tick).state();
+        }
+        assertFalse(OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(600D, 64D, 0D), 39)
+                .departedFrom().isPresent());
+    }
+
+    @Test
+    void theSameJumpIsNotDetectedTwiceWhileThePreJumpPositionsLeaveTheWindow() {
+        var first = OwnerJumpDetector.observe(history(), OVERWORLD, new MovementPoint(300D, 64D, 0D), 20);
+        assertTrue(first.departedFrom().isPresent());
+        assertEquals(1, first.state().history().size());
+        var state = first.state();
+        // Standing at the destination through the whole window and well past it.
+        for (int tick = 21; tick <= 80; tick++) {
+            var observed = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(300D, 64D, 0D), tick);
+            assertFalse(observed.departedFrom().isPresent(), "tick " + tick);
+            state = observed.state();
+        }
+    }
+
+    @Test
+    void everyDetectionWithinTheHoldStaysRecognisedAfterALaterOne() {
+        var state = history();
+        var first = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(300D, 64D, 0D), 20);
+        state = first.state();
+        assertTrue(state.detectedAt(20));
+        for (int tick = 21; tick < 100; tick++) {
+            state = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(300D, 64D, 0D), tick).state();
+        }
+        var second = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(600D, 64D, 0D), 100);
+        assertTrue(second.departedFrom().isPresent());
+        state = second.state();
+        assertTrue(state.detectedAt(20));
+        assertTrue(state.detectedAt(100));
+        assertFalse(state.detectedAt(21));
+        // The first one leaves the list once it has been held for the full four hundred ticks.
+        for (int tick = 101; tick <= 420; tick++) {
+            state = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(600D, 64D, 0D), tick).state();
+        }
+        assertFalse(state.detectedAt(20));
+        assertTrue(state.detectedAt(100));
+        state = OwnerJumpDetector.observe(state, OVERWORLD, new MovementPoint(600D, 64D, 0D), 500).state();
+        assertFalse(state.detectedAt(100));
     }
 
     @Test

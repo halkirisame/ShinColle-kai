@@ -23,6 +23,10 @@ public final class ShipRevengePropagationHandler {
         Entity attacker = event.getSource().getEntity();
         Entity attackerSource = event.getSource().getDirectEntity();
 
+        if (AllySpellDamageGuard.shouldBlock(event.getSource(), target)) {
+            return;
+        }
+
         if (!target.level().isClientSide() && attackerSource != null) {
             double dist = target.distanceToSqr(attackerSource);
 

@@ -18,8 +18,11 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 
 public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
+    private final float[] offsetItem2 = new float[] {-0.03F, 0.93F, 0.1F};
+
 
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             new ResourceLocation(Reference.MOD_ID, "ss_ro500"), "main");
@@ -107,6 +110,10 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
         this.Flower3 = this.FlowerBase.getChild("Flower3");
         this.Flower4 = this.FlowerBase.getChild("Flower4");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {-0.01F, 1.1F, -0.05F};
+        this.offsetBlock = new float[] {-0.01F, 1.1F, -0.05F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -633,5 +640,13 @@ public class ModelSubmRo500 extends ShipModelBaseAdv<Entity> {
         // leg motion
         this.LegLeft01.xRot = addk1;
         this.LegRight01.xRot = addk2;
+    }
+
+    @Override
+    public float[] getHeldItemOffset(IShipEmotion ent, HumanoidArm side, int type) {
+        if (ent.getIsSprinting()) {
+            return this.offsetItem2;
+        }
+        return this.offsetItem;
     }
 }

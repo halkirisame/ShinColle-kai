@@ -41,6 +41,9 @@ public class ConfigHandler {
     public static final ForgeConfigSpec COMMON_SPEC;
     public static final Common COMMON;
 
+    /** Internal test-only exclusion; ordinary clients and servers never activate it. */
+    public static final ConfigReloadTestBarrier CONFIG_RELOAD_TEST_BARRIER = new ConfigReloadTestBarrier(ConfigHandler.class);
+
     // ========== Cached values for backward compatibility ==========
     /** EasyMode, synchronized from common config. */
     public static volatile boolean easyMode;
@@ -201,6 +204,7 @@ public class ConfigHandler {
      * Called after config load/reload via ModConfigEvent.
      */
     public static synchronized void syncConfig() {
+        CONFIG_RELOAD_TEST_BARRIER.awaitReload();
         easyMode = COMMON.easyMode.get();
         maxLevel = COMMON.maxLevel.get();
         maxLevelUnmarried = COMMON.maxLevelUnmarried.get();

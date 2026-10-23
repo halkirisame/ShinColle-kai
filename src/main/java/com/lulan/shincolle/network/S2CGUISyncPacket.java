@@ -122,6 +122,9 @@ public class S2CGUISyncPacket {
         buf.writeInt(capa.getMarriageNum());
         buf.writeInt(capa.getPlayerUID());
         buf.writeInt(capa.getTeamCooldown());
+        for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
+            buf.writeBoolean(capa.getRetaliatePlayer(i));
+        }
     }
 
     // ========== Factory Methods ==========
@@ -487,6 +490,9 @@ public class S2CGUISyncPacket {
         capa.setMarriageNum(buf.readInt());
         capa.setPlayerUID(buf.readInt());
         capa.setTeamCooldown(buf.readInt());
+        for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
+            capa.setRetaliatePlayer(i, buf.readBoolean());
+        }
     }
 
     @OnlyIn(Dist.CLIENT)

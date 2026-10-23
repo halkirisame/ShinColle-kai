@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "shincolle_kai:combat_ration_2"
+    },
+    {
+      "item": "shincolle_kai:grudge_block"
+    },
+    {
+      "item": "shincolle_kai:polymetal_gravel"
+    }
+  ],
+  "result": {
+    "item": "shincolle_kai:combat_ration_3",
+    "count": 1
+  }
+}

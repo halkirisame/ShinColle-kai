@@ -49,6 +49,7 @@ public class ModItems {
 
     // ========== Special Items ==========
     public static final RegistryObject<Item> SHIP_SPAWN_EGG = ITEMS.register("ship_spawn_egg", ShipSpawnEgg::new);
+    public static final RegistryObject<Item> GENERIC_SHIP_SPAWN_EGG = ITEMS.register("generic_ship_spawn_egg", GenericShipSpawnEgg::new);
     public static final RegistryObject<Item> OWNER_PAPER = ITEMS.register("owner_paper", OwnerPaper::new);
     public static final RegistryObject<Item> MARRIAGE_RING = ITEMS.register("marriage_ring", MarriageRing::new);
     public static final RegistryObject<Item> RECIPE_PAPER = ITEMS.register("recipe_paper", RecipePaper::new);

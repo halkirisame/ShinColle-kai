@@ -21,6 +21,12 @@ public class EntitySubmU511 extends BasicEntityShipSmall implements IShipInvisib
 
     private float invisibleLevel = 0.3F;
 
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        com.lulan.shincolle.ai.ShipClassAttackGate.finalizeEquipment(this);
+    }
+
     public EntitySubmU511(EntityType<? extends EntitySubmU511> type, Level level) {
         super(type, level);
         this.setStateMinor(ID.M.ShipType, ID.ShipType.SUBMARINE);

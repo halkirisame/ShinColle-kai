@@ -83,6 +83,11 @@ public class BuffHelper {
                 return;
         }
 
+        updateAttrsRaw(attrs, getStat, level);
+    }
+
+    /** Uses the same arithmetic for data-defined and built-in ships. */
+    public static void updateAttrsRaw(AttrsAdv attrs, float[] getStat, int level) {
         float[] raw = attrs.getAttrsRaw();
         byte[] bonus = attrs.getAttrsBonus();
         double[] scale = ConfigHandler.scaleShip;
@@ -158,6 +163,11 @@ public class BuffHelper {
             return;
         }
 
+        updateAttrsRawHostile(attrs, shipScale, attrmod);
+    }
+
+    /** Data-defined hostiles supply six modifiers, not friendly base/growth values. */
+    public static void updateAttrsRawHostile(Attrs attrs, int shipScale, float[] attrmod) {
         double[] attrbase;
         float kb = 0.2F;
 
@@ -278,6 +288,9 @@ public class BuffHelper {
         AttrsAdv attrs = (AttrsAdv) ship.getAttrs();
         if (attrs == null)
             return;
+
+        // rebuild the buff map from the same effects this method reads
+        ship.getBuffMap();
 
         // reset potion attrs
         float[] potion = new float[Attrs.AttrsLength];
@@ -647,6 +660,43 @@ public class BuffHelper {
 
             living.addEffect(pe);
         });
+    }
+
+    // ======== Legacy BuffMap Snapshot ========
+
+    /** Legacy protocol ids 1..27 and the effects they stand for; index 0 is unused. */
+    private static final class LegacyBuffs {
+        static final net.minecraft.world.effect.MobEffect[] BY_ID = {
+                null,
+                MobEffects.MOVEMENT_SPEED, MobEffects.MOVEMENT_SLOWDOWN, MobEffects.DIG_SPEED,
+                MobEffects.DIG_SLOWDOWN, MobEffects.DAMAGE_BOOST, MobEffects.HEAL,
+                MobEffects.HARM, MobEffects.JUMP, MobEffects.CONFUSION,
+                MobEffects.REGENERATION, MobEffects.DAMAGE_RESISTANCE, MobEffects.FIRE_RESISTANCE,
+                MobEffects.WATER_BREATHING, MobEffects.INVISIBILITY, MobEffects.BLINDNESS,
+                MobEffects.NIGHT_VISION, MobEffects.HUNGER, MobEffects.WEAKNESS,
+                MobEffects.POISON, MobEffects.WITHER, MobEffects.HEALTH_BOOST,
+                MobEffects.ABSORPTION, MobEffects.SATURATION, MobEffects.GLOWING,
+                MobEffects.LEVITATION, MobEffects.LUCK, MobEffects.UNLUCK
+        };
+
+        private LegacyBuffs() {
+        }
+    }
+
+    /**
+     * Build a fresh legacy-id to amplifier map from the effects the entity has right now.
+     * Internal to the ship base classes: it reads effects only and never calls the buff map
+     * getter, setter or any packet, so it cannot re-enter them.
+     */
+    public static HashMap<Integer, Integer> snapshotLegacyBuffMap(LivingEntity entity) {
+        HashMap<Integer, Integer> snapshot = new HashMap<>();
+        for (int id = 1; id < LegacyBuffs.BY_ID.length; id++) {
+            MobEffectInstance effect = entity.getEffect(LegacyBuffs.BY_ID[id]);
+            if (effect != null && (effect.isInfiniteDuration() || effect.getDuration() > 0)) {
+                snapshot.put(id, effect.getAmplifier());
+            }
+        }
+        return snapshot;
     }
 
     // ======== Potion Level Helpers ========

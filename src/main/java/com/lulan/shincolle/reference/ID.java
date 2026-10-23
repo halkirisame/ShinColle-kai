@@ -105,6 +105,7 @@ public class ID {
         public static final byte ShipInv_Sit = 40;
         public static final byte ShipInv_EmoFlag1 = 41;
         public static final byte ShipInv_EmoFlag2 = 42;
+        public static final byte ShipInv_RetaliatePlayer = 43;
 
         // [PORT] 1.10.2 -> 1.20.1: Metamorph integration is not available in this port.
         // Keep legacy IDs to avoid accidental numeric reuse.
@@ -380,6 +381,7 @@ public class ID {
         public static final byte CanPickItem = 24; // can pick item
         public static final byte ShowHeldItem = 25;
         public static final byte AutoPump = 26;
+        public static final byte RetaliatePlayer = 27;
     }
 
     /**

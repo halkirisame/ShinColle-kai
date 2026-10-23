@@ -71,7 +71,14 @@ public final class ShipRegistrationConsistencyGameTests {
                 }
                 entities.add(entity);
 
-                if (entity instanceof BasicEntityShip ship) {
+                if (entity instanceof com.lulan.shincolle.shipdata.DefinitionBackedShip defined) {
+                    helper.assertTrue(defined.getShipId().isEmpty(), "uninitialized generic ship unexpectedly has an ID");
+                    helper.assertTrue(entity instanceof com.lulan.shincolle.entity.IShipFlags flags
+                            && flags.getStateMinor(ID.M.ShipClass) == 0, "generic ship allocated a numeric class");
+                    for (String lang : List.of("en_us", "ja_jp")) {
+                        helper.assertTrue(langs.get(lang).has(type.getDescriptionId()), "generic entity translation missing");
+                    }
+                } else if (entity instanceof BasicEntityShip ship) {
                     int shipClass = ship.getShipClass();
                     checkUnique(problems, friendlyOwners, shipClass, path);
                     if (!Values.ShipAttrMap.containsKey(shipClass)) {

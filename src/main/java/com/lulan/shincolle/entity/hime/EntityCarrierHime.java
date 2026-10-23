@@ -1,14 +1,15 @@
 package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
+import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.mounts.EntityMountCaH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
@@ -27,8 +28,8 @@ public class EntityCarrierHime extends BasicEntityShipCV implements IShipRiderTy
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.CVHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.CARRIER);
         this.setStateMinor(ID.M.NumState, 3);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.CV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.CV]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
 
         // aircraft only: disable cannon attacks
@@ -49,6 +50,12 @@ public class EntityCarrierHime extends BasicEntityShipCV implements IShipRiderTy
 
     public int getEquipType() {
         return 3;
+    }
+
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        ShipClassAttackGate.finalizeEquipment(this);
     }
 
     @Override
@@ -83,26 +90,9 @@ public class EntityCarrierHime extends BasicEntityShipCV implements IShipRiderTy
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // Ring effect: JUMP to nearby ships
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    java.util.UUID ownerUUID = this.getOwnerUUID();
-                    java.util.List<net.minecraft.world.entity.LivingEntity> nearby = this.level().getEntitiesOfClass(
-                            net.minecraft.world.entity.LivingEntity.class,
-                            this.getBoundingBox().inflate(12D),
-                            e -> e != this && e instanceof com.lulan.shincolle.entity.BasicEntityShip ship
-                                    && ownerUUID != null && ownerUUID.equals(ship.getOwnerUUID()));
-                    int maxTargets = getStateMinor(ID.M.ShipLevel) / 50 + 1;
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
-                    int duration = 80 + getStateMinor(ID.M.ShipLevel);
-                    int count = 0;
-                    for (net.minecraft.world.entity.LivingEntity target : nearby) {
-                        if (count >= maxTargets)
-                            break;
-                        target.addEffect(new MobEffectInstance(MobEffects.JUMP, duration, level, false, false));
-                        count++;
-                    }
-                }
+                // marriage ring aura: jump boost to the same-owner ships around, this one included
+                int shipLevel = getStateMinor(ID.M.ShipLevel);
+                this.applyMarriageFleetAura(shipLevel / 70, 50 + shipLevel, MobEffects.JUMP);
             }
         }
     }

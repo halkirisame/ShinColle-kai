@@ -4,14 +4,12 @@ import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipSummonAttack;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Battleship Ta-class entity (full-size base, summon attack).
@@ -27,8 +25,8 @@ public class EntityBattleshipTa extends BasicEntityShip implements IShipSummonAt
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.BBTA);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.BATTLESHIP);
         this.setStateMinor(ID.M.NumState, 3);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BB]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BB]);
         this.ModelPos = new float[]{0F, 25F, 0F, 40F};
         this.numRensouhou = 0;
 
@@ -89,23 +87,9 @@ public class EntityBattleshipTa extends BasicEntityShip implements IShipSummonAt
                     this.numRensouhou++;
                 }
 
-                // marriage ring aura: movement speed to nearby same-owner ships
-                UUID ownerUUID = this.getOwnerUUID();
-                if (ownerUUID != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    int shipLevel = getStateMinor(ID.M.ShipLevel);
-                    int amp = shipLevel / 80;
-                    int dur = 50 + shipLevel;
-
-                    List<BasicEntityShip> nearby = this.level().getEntitiesOfClass(
-                            BasicEntityShip.class, this.getBoundingBox().inflate(16D, 16D, 16D));
-                    for (BasicEntityShip s : nearby) {
-                        UUID sOwner = s.getOwnerUUID();
-                        if (sOwner != null && sOwner.equals(ownerUUID) && this.distanceToSqr(s) < 256.0D) {
-                            s.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, dur, amp, false, false));
-                        }
-                    }
-                }
+                // marriage ring aura: movement speed to the same-owner ships around, this one included
+                int shipLevel = getStateMinor(ID.M.ShipLevel);
+                this.applyMarriageFleetAura(shipLevel / 80, 50 + shipLevel, MobEffects.MOVEMENT_SPEED);
             }
         }
     }

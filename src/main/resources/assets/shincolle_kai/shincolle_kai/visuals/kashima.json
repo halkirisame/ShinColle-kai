@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "model": "shincolle_kai:geo/kashima.geo.json",
+  "texture": "shincolle_kai:textures/entity/kashima.png",
+  "animation": "shincolle_kai:animations/kashima.animation.json",
+  "scale": 0.46,
+  "shadow_radius": 0.35,
+  "glow_bones": ["Face0", "Face1", "Face2", "Face3", "Face4", "Mouth0", "Mouth1", "Mouth2", "Flush0", "Flush1"],
+  "held_item": {
+    "offset": [0.0625, -0.625, 0.125],
+    "rotate": [0, 0, 0]
+  },
+  "lod": {
+    "distance": 48,
+    "hide_bones": ["Hair02a1", "Hair02bL1", "Hair02bR1", "HairL02", "HairR02", "TailL03", "TailR03", "HatRibbon"]
+  },
+  "rig": {
+    "body": "BodyMain",
+    "head": "Head",
+    "arm_left": "ArmLeft01",
+    "arm_right": "ArmRight01",
+    "leg_left": "LegLeft01",
+    "leg_right": "LegRight01",
+    "equipment": "EquipBase",
+    "face": "Face0",
+    "mouth": "Mouth0",
+    "flush": "Flush0",
+    "held_item": "held_item",
+    "muzzle_light": "muzzle_light",
+    "muzzle_heavy": "muzzle_heavy"
+  },
+  "expressions": {
+    "face": ["Face0", "Face1", "Face2", "Face3", "Face4"],
+    "mouth": ["Mouth0", "Mouth1", "Mouth2"],
+    "flush": ["Flush0", "Flush1"]
+  },
+  "animations": {
+    "idle": "animation.kashima.idle",
+    "move": "animation.kashima.move",
+    "sit": "animation.kashima.sit",
+    "sprint": "animation.kashima.sprint",
+    "ride": "animation.kashima.ride",
+    "caress": "animation.kashima.caress",
+    "no_fuel": "animation.kashima.no_fuel",
+    "light_attack": "animation.kashima.light_attack",
+    "heavy_attack": "animation.kashima.heavy_attack"
+  }
+}

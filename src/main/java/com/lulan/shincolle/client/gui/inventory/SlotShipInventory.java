@@ -1,6 +1,6 @@
 package com.lulan.shincolle.client.gui.inventory;
 
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.equip.ShipEquipmentResolver;
 
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.Slot;

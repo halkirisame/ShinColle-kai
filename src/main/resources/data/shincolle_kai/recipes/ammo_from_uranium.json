@@ -1,0 +1,32 @@
+{
+  "conditions": [
+    {
+      "type": "forge:not",
+      "value": {
+        "type": "forge:tag_empty",
+        "tag": "forge:ingots/uranium"
+      }
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "IGI",
+    "IPI"
+  ],
+  "key": {
+    "I": {
+      "tag": "forge:ingots/uranium"
+    },
+    "G": {
+      "item": "shincolle_kai:grudge"
+    },
+    "P": {
+      "item": "minecraft:gunpowder"
+    }
+  },
+  "result": {
+    "item": "shincolle_kai:ammo",
+    "count": 64
+  }
+}

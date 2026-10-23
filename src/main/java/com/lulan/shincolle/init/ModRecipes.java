@@ -1,5 +1,6 @@
 package com.lulan.shincolle.init;
 
+import com.lulan.shincolle.crafting.RecipeEggDismantle;
 import com.lulan.shincolle.crafting.RecipeEnchantShell;
 import com.lulan.shincolle.reference.Reference;
 
@@ -18,4 +19,7 @@ public class ModRecipes {
 
     public static final RegistryObject<RecipeSerializer<RecipeEnchantShell>> ENCHANT_SHELL = RECIPE_SERIALIZERS
             .register("enchant_shell", RecipeEnchantShell.Serializer::new);
+
+    public static final RegistryObject<RecipeSerializer<RecipeEggDismantle>> EGG_DISMANTLE = RECIPE_SERIALIZERS
+            .register("egg_dismantle", RecipeEggDismantle.Serializer::new);
 }

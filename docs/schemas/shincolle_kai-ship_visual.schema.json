@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://halkirisame.github.io/ShinColle-kai/schemas/ship_visual.schema.json",
+  "title": "ShinColle-kai ship visual (schema 1)",
+  "type": "object",
+  "required": ["schema", "model", "texture", "animation"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema": {"type": "integer", "const": 1},
+    "model": {"$ref": "#/$defs/resource"},
+    "texture": {"$ref": "#/$defs/resource"},
+    "animation": {"$ref": "#/$defs/resource"},
+    "scale": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 16, "default": 1},
+    "shadow_radius": {"type": "number", "minimum": 0, "maximum": 16, "default": 0.35},
+    "rig": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "root": {"$ref": "#/$defs/name"}, "body": {"$ref": "#/$defs/name"}, "head": {"$ref": "#/$defs/name"},
+        "arm_left": {"$ref": "#/$defs/name"}, "arm_right": {"$ref": "#/$defs/name"},
+        "leg_left": {"$ref": "#/$defs/name"}, "leg_right": {"$ref": "#/$defs/name"},
+        "equipment": {"$ref": "#/$defs/name"}, "held_item": {"$ref": "#/$defs/name"},
+        "held_item_left": {"$ref": "#/$defs/name"},
+        "muzzle_light": {"$ref": "#/$defs/name"}, "muzzle_heavy": {"$ref": "#/$defs/name"},
+        "face": {"$ref": "#/$defs/name"}, "mouth": {"$ref": "#/$defs/name"}, "flush": {"$ref": "#/$defs/name"}
+      }
+    },
+    "animations": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "idle": {"$ref": "#/$defs/name"}, "move": {"$ref": "#/$defs/name"}, "sit": {"$ref": "#/$defs/name"},
+        "sprint": {"$ref": "#/$defs/name"}, "ride": {"$ref": "#/$defs/name"},
+        "caress": {"$ref": "#/$defs/name"}, "no_fuel": {"$ref": "#/$defs/name"},
+        "light_attack": {"$ref": "#/$defs/name"}, "heavy_attack": {"$ref": "#/$defs/name"}
+      }
+    },
+    "expressions": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "face": {"type": "array", "minItems": 1, "maxItems": 5, "uniqueItems": true, "items": {"$ref": "#/$defs/name"}},
+        "mouth": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/name"}},
+        "flush": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/name"}}
+      }
+    },
+    "glow_bones": {"$ref": "#/$defs/bones"},
+    "held_item": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "offset": {"$ref": "#/$defs/vector"},
+        "rotate": {"$ref": "#/$defs/vector"}
+      }
+    },
+    "lod": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "distance": {"type": "number", "minimum": 1, "maximum": 256, "default": 48},
+        "hide_bones": {"$ref": "#/$defs/bones"}
+      }
+    }
+  },
+  "$defs": {
+    "resource": {"type": "string", "maxLength": 256, "pattern": "^[a-z0-9_.-]+:[a-z0-9/._-]+$"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^\\u0000-\\u001f\\u007f]+$"},
+    "bones": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/name"}, "default": []},
+    "vector": {
+      "type": "array", "minItems": 3, "maxItems": 3, "default": [0, 0, 0],
+      "items": {"type": "number", "minimum": -1.7976931348623157e308, "maximum": 1.7976931348623157e308}
+    }
+  }
+}

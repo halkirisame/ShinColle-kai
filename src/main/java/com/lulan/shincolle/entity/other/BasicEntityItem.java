@@ -167,7 +167,8 @@ public class BasicEntityItem extends Entity {
             // not OP
             else {
                 // ship spawn egg = owner pick only
-                if (itemstack.getItem() == ModItems.SHIP_SPAWN_EGG.get()) {
+                if (itemstack.getItem() == ModItems.SHIP_SPAWN_EGG.get()
+                        || itemstack.getItem() == ModItems.GENERIC_SHIP_SPAWN_EGG.get()) {
                     CompoundTag nbt = itemstack.getTag();
 
                     // ship egg with tag

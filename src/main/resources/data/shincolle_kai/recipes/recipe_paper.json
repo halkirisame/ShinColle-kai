@@ -8,7 +8,7 @@
       "item": "minecraft:paper"
     },
     {
-      "item": "minecraft:lapis_lazuli"
+      "tag": "forge:gems/lapis"
     }
   ],
   "result": {

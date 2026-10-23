@@ -1,6 +1,5 @@
 package com.lulan.shincolle.gametest;
 
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolverGameTests;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraftforge.event.RegisterGameTestsEvent;

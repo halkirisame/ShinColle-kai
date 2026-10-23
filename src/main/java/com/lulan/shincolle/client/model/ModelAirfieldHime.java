@@ -131,6 +131,10 @@ public class ModelAirfieldHime extends ShipModelBaseAdv<Entity> {
         this.EquipRdR05 = this.EquipRdR04.getChild("EquipRdR05");
         this.EquipRdR06 = this.EquipRdR05.getChild("EquipRdR06");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.08F, 1.02F, -0.07F};
+        this.offsetBlock = new float[] {0.08F, 1.02F, -0.07F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

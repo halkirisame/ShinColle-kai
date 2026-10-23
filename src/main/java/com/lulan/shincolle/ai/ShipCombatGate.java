@@ -144,8 +144,8 @@ public final class ShipCombatGate {
                     && airHeavy;
         }
         return new WeaponReadiness(cannons, ship.useAmmoLight(), ship.hasAmmoLight(),
-                ship.useAmmoHeavy(), ship.hasAmmoHeavy(),
+                ship.useAmmoHeavy() && ShipClassAttackGate.heavyCannonAllowed(host), ship.hasAmmoHeavy(),
                 aircraft, ship.getStateFlag(ID.F.UseAirLight), ship.getStateFlag(ID.F.UseAirHeavy), airLight, airHeavy,
-                ShipMovementGate.craneBusy(ship), ship.getStateFlag(ID.F.UseMelee), host.isPassenger());
+                ShipMovementGate.craneBusy(ship), ship.getStateFlag(ID.F.UseMelee), host.isPassenger(), RuBurstAttackGate.busy(host));
     }
 }

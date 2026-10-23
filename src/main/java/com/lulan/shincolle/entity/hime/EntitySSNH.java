@@ -5,6 +5,7 @@ import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.IShipInvisible;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.nbt.CompoundTag;
@@ -26,14 +27,20 @@ public class EntitySSNH extends BasicEntityShipSmall implements IShipRiderType, 
     private final HimeRiding riding = new HimeRiding(this);
     private float invisibleLevel = 0.35F;
 
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        com.lulan.shincolle.ai.ShipClassAttackGate.finalizeEquipment(this);
+    }
+
     public EntitySSNH(EntityType<? extends EntitySSNH> type, Level level) {
         super(type, level);
         this.setStateMinor(ID.M.ShipType, ID.ShipType.HIME);
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.SSNH);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.SUBMARINE);
         this.setStateMinor(ID.M.NumState, 3);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.SS]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.SS]);
         this.ModelPos = new float[]{0F, 10F, 0F, 45F};
 
         // cannon only
@@ -101,6 +108,9 @@ public class EntitySSNH extends BasicEntityShipSmall implements IShipRiderType, 
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (com.lulan.shincolle.handler.AllySpellDamageGuard.shouldBlock(source, this)) {
+            return false;
+        }
         if (!this.level().isClientSide() && !source.is(DamageTypes.IN_WALL)) {
             this.riding.dismount();
         }

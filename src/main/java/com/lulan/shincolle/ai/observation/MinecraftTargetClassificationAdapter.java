@@ -14,9 +14,8 @@ import com.lulan.shincolle.ai.domain.TargetPredicateKind;
 import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
 import com.lulan.shincolle.ai.domain.TargetTraitClassification;
 import com.lulan.shincolle.ai.domain.TargetTraitClassifier;
+import com.lulan.shincolle.ai.domain.TargetTraitKind;
 import com.lulan.shincolle.ai.domain.TimedObservation;
-import com.lulan.shincolle.api.target.TargetTraits;
-import com.lulan.shincolle.api.target.TargetTrait;
 import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
@@ -98,11 +97,11 @@ public final class MinecraftTargetClassificationAdapter {
         boolean monsterOrSlime = target instanceof Monster || target instanceof Slime;
         boolean shipOwner = target instanceof IShipOwner;
         boolean playerOwned = TeamHelper.getPlayerUID(target) > 0;
-        Set<TargetTrait> registeredTraits = TargetTraits.traitsFor(target.getType());
+        Set<TargetTraitKind> registeredTraits = TargetTraitAssignment.kindsFor(target.getType());
         boolean antiAirEligible = airplane || abyssMissile
-                || registeredTraits.contains(TargetTrait.ANTI_AIR_ELIGIBLE);
+                || registeredTraits.contains(TargetTraitKind.ANTI_AIR_ELIGIBLE);
         boolean antiSubmarineEligible = submarine
-                || registeredTraits.contains(TargetTrait.ANTI_SUBMARINE_ELIGIBLE);
+                || registeredTraits.contains(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE);
         boolean commonAutomaticChecksPass = kind == TargetPredicateKind.FRIENDLY_AUTOMATIC
                 && targetAlive
                 && hostPresent

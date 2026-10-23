@@ -4,14 +4,20 @@ import com.lulan.shincolle.ai.domain.ObservationPosition;
 import com.lulan.shincolle.ai.domain.RawEntityObservation;
 import com.lulan.shincolle.ai.domain.SearchBounds;
 import com.lulan.shincolle.ai.domain.SpatialQuery;
+import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
 import com.lulan.shincolle.ai.domain.TargetPredicateFacts;
+import com.lulan.shincolle.ai.domain.TargetPredicateKind;
+import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
 import com.lulan.shincolle.ai.domain.TargetTraitClassification;
 import com.lulan.shincolle.ai.domain.TargetTraitClassifier;
+import com.lulan.shincolle.ai.domain.TargetTraitKind;
+import com.lulan.shincolle.ai.observation.TargetTraitAssignment;
 import com.lulan.shincolle.ai.observation.MinecraftEntityObservationAdapter;
 import com.lulan.shincolle.ai.observation.MinecraftSpatialCandidateProvider;
+import com.lulan.shincolle.ai.observation.MinecraftTargetClassificationAdapter;
 import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
-import com.lulan.shincolle.api.target.TargetTrait;
-import com.lulan.shincolle.api.target.TargetTraits;
+import com.lulan.shincolle.api.target.CoreTargetTraits;
+import com.lulan.shincolle.init.ModTargetTraits;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraft.gametest.framework.GameTest;
@@ -108,20 +114,14 @@ public final class CombatTargetFoundationGameTests {
         helper.assertTrue(rawCandidateCount.get() == observations.size(),
                 "Spatial profiler candidate count did not match observations");
 
-        TargetTraits.Registry addonTraits = TargetTraits.detached();
-        addonTraits.registerTargetTrait(EntityType.ITEM, TargetTrait.ANTI_AIR_ELIGIBLE);
+        Set<TargetTraitKind> addonKinds = TargetTraitAssignment.assignedKinds(ModTargetTraits.REGISTRY,
+                trait -> trait.id().equals(CoreTargetTraits.ANTI_AIR_ELIGIBLE));
         TargetTraitClassification addonClassification = TargetTraitClassifier.classify(
-                emptyTargetFacts(), addonTraits.traitsFor(target.getType()));
-        helper.assertTrue(addonClassification.traits().equals(Set.of(TargetTrait.ANTI_AIR_ELIGIBLE)),
+                emptyTargetFacts(), addonKinds);
+        helper.assertTrue(addonClassification.traits().equals(Set.of(TargetTraitKind.ANTI_AIR_ELIGIBLE)),
                 "Addon-registered entity type did not receive its target trait");
-        addonTraits.freeze();
-        try {
-            addonTraits.registerTargetTrait(EntityType.ITEM, TargetTrait.SPECIAL);
-            helper.fail("Frozen addon target trait registry accepted another registration");
-            return;
-        } catch (IllegalStateException expected) {
-            // Expected: addon registration closes at load complete.
-        }
+        helper.assertTrue(TargetTraitAssignment.assignedKinds(() -> null, trait -> true).isEmpty(),
+                "A target trait registry that does not exist yet must carry no traits");
 
         MinecraftTargetResolver resolver = new MinecraftTargetResolver(level);
         helper.assertTrue(resolver.resolve(observations.stream()
@@ -131,6 +131,74 @@ public final class CombatTargetFoundationGameTests {
         helper.assertTrue(resolver.resolve(MinecraftEntityObservationAdapter.observe(source).handle())
                         .orElse(null) == source,
                 "Target resolver did not preserve a separate loaded entity identity");
+        helper.succeed();
+    }
+
+    /**
+     * Goes through the production assignment (registry, then entity-type tag) with no override.
+     * The tag file lives in the GameTest-only data set. A marker is used because no other test
+     * spawns one and no vanilla or ShinColle code treats it as a combat target.
+     */
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "target_trait_tag_assignment")
+    public static void targetTraitTagAssignsTraitThroughTheProductionPath(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        for (var entry : ModTargetTraits.REGISTRY.get().getEntries()) {
+            helper.assertTrue(entry.getKey().location().equals(entry.getValue().id()),
+                    "A built-in target trait is registered under an ID other than its own: " + entry.getKey());
+        }
+        helper.assertTrue(EntityType.MARKER.is(CoreTargetTraits.tag(CoreTargetTraits.ANTI_AIR_ELIGIBLE)),
+                "The GameTest data set did not put the marker into the anti-air trait tag");
+
+        ArmorStand source = EntityType.ARMOR_STAND.create(level);
+        helper.assertTrue(source != null, "Could not create the classification source");
+        var marker = EntityType.MARKER.create(level);
+        helper.assertTrue(marker != null, "Could not create the tagged entity");
+        TargetTraitClassification tagged = MinecraftTargetClassificationAdapter.classify(
+                source, marker, TargetPredicateKind.FRIENDLY_AUTOMATIC,
+                new TargetPredicatePolicy(false, true, true, 0, false), 0L, TargetObservationProfiler.NOOP)
+                .classification().value().traits();
+        helper.assertTrue(tagged.hasTrait(TargetTraitKind.ANTI_AIR_ELIGIBLE)
+                        && !tagged.hasTrait(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE),
+                "The tagged entity type did not receive exactly the anti-air trait: " + tagged.traits());
+
+        var item = EntityType.ITEM.create(level);
+        helper.assertTrue(item != null, "Could not create the untagged entity");
+        TargetTraitClassification untagged = MinecraftTargetClassificationAdapter.classify(
+                source, item, TargetPredicateKind.FRIENDLY_AUTOMATIC,
+                new TargetPredicatePolicy(false, true, true, 0, false), 0L, TargetObservationProfiler.NOOP)
+                .classification().value().traits();
+        helper.assertTrue(untagged.traits().isEmpty(),
+                "An entity type outside every trait tag received traits: " + untagged.traits());
+        helper.succeed();
+    }
+
+    /** The shared assignment function keeps no state between calls and ignores traits without a kind. */
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "target_trait_assignment_lifecycle")
+    public static void targetTraitAssignmentReadsTheRegistryAtEveryCall(GameTestHelper helper) {
+        var real = ModTargetTraits.REGISTRY.get();
+        java.util.List<net.minecraftforge.registries.IForgeRegistry<
+                com.lulan.shincolle.api.experimental.target.TargetTrait>> seen =
+                java.util.Arrays.asList(null, real, null, real);
+        int[] next = {0};
+        Set<TargetTraitKind> every = Set.of(TargetTraitKind.ANTI_AIR_ELIGIBLE, TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE);
+        boolean[] expectedPresent = {false, true, false, true};
+        for (boolean expected : expectedPresent) {
+            Set<TargetTraitKind> kinds = TargetTraitAssignment.assignedKinds(() -> seen.get(next[0]++), trait -> true);
+            helper.assertTrue(kinds.equals(expected ? every : Set.of()),
+                    "The assignment kept a result between calls or read a stale registry: " + kinds);
+        }
+
+        var addonTrait = new com.lulan.shincolle.api.experimental.target.TargetTrait(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("shincolle_test", "wet"));
+        var anti = ModTargetTraits.REGISTRY.get().getEntries().iterator().next();
+        var mixed = java.util.List.of(
+                java.util.Map.entry(net.minecraft.resources.ResourceKey.create(
+                        com.lulan.shincolle.api.experimental.target.TargetTraitRegistries.REGISTRY_KEY,
+                        addonTrait.id()), addonTrait),
+                anti);
+        Set<TargetTraitKind> kinds = TargetTraitAssignment.kindsOfEntries(mixed, trait -> true);
+        helper.assertTrue(kinds.size() == 1,
+                "A trait without a kind must be skipped and a built-in one read: " + kinds);
         helper.succeed();
     }
 

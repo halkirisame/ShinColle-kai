@@ -19,6 +19,7 @@ public class CommandHandler {
         ShipCmdChangeOwner.register(event.getDispatcher());
         ShipCmdEmotes.register(event.getDispatcher());
         ShipCmdGetShip.register(event.getDispatcher());
+        ShipCmdSpawnDefinition.register(event.getDispatcher());
         ShipCmdKill.register(event.getDispatcher());
         ShipCmdShipAttrs.register(event.getDispatcher());
         ShipCmdClearDrop.register(event.getDispatcher());

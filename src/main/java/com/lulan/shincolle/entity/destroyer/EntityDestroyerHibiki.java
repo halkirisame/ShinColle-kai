@@ -90,7 +90,7 @@ public class EntityDestroyerHibiki extends BasicEntityShipSmall implements IShip
                 if (player != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
                         getStateMinor(ID.M.NumGrudge) > 0 &&
                         this.distanceToSqr(player) < 256.0D) {
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
+                    int level = getStateMinor(ID.M.ShipLevel) / 45 + 1;
                     player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                             net.minecraft.world.effect.MobEffects.JUMP,
                             80 + getStateMinor(ID.M.ShipLevel), level, false, false));

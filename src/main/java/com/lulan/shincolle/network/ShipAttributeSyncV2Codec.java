@@ -17,7 +17,8 @@ import java.util.Set;
 /** Bounded schema-v2 codec for complete or dirty ship-attribute layers. */
 public final class ShipAttributeSyncV2Codec {
 
-    public static final int SCHEMA_VERSION = 2;
+    /** Network payload version. Unrelated to the {@code "schema"} of published JSON data; it is raised independently. */
+    public static final int WIRE_VERSION = 2;
     public static final int MAX_ATTRIBUTES_PER_LAYER = 4096;
     public static final int MAX_PAYLOAD_BYTES = 1_048_576;
 
@@ -40,7 +41,7 @@ public final class ShipAttributeSyncV2Codec {
         validateHeader(revision, fieldMask);
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
-            buffer.writeVarInt(SCHEMA_VERSION);
+            buffer.writeVarInt(WIRE_VERSION);
             buffer.writeVarLong(revision);
             buffer.writeByte(fieldMask);
             if ((fieldMask & BONUS_MASK) != 0) {
@@ -86,7 +87,7 @@ public final class ShipAttributeSyncV2Codec {
             throw new IllegalArgumentException("ship attribute payload exceeds " + MAX_PAYLOAD_BYTES + " bytes");
         }
         int schema = buffer.readVarInt();
-        if (schema != SCHEMA_VERSION) {
+        if (schema != WIRE_VERSION) {
             throw new IllegalArgumentException("unsupported ship attribute schema " + schema);
         }
         long revision = buffer.readVarLong();

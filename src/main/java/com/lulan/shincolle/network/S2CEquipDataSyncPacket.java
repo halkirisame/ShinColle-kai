@@ -16,7 +16,8 @@ import java.util.function.Supplier;
 /** Synchronizes one complete, already-resolved equipment-data snapshot to a client. */
 public class S2CEquipDataSyncPacket {
 
-    public static final int SCHEMA_VERSION = EquipmentSyncV2Codec.SCHEMA_VERSION;
+    /** Network payload version. Unrelated to the {@code "schema"} of published JSON data; it is raised independently. */
+    public static final int WIRE_VERSION = EquipmentSyncV2Codec.WIRE_VERSION;
     public static final int MAX_DEFINITIONS = EquipmentSyncV2Codec.MAX_DEFINITIONS;
 
     private static final Set<ResourceLocation> REPORTED_MISSING_ITEMS = ConcurrentHashMap.newKeySet();

@@ -7,7 +7,7 @@
   ],
   "key": {
     "I": {
-      "item": "minecraft:diamond"
+      "tag": "forge:gems/diamond"
     },
     "G": {
       "item": "shincolle_kai:grudge"

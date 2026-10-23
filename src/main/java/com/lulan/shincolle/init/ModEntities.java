@@ -29,6 +29,13 @@ public class ModEntities {
 
     // ========== Friendly Ships (MobCategory.CREATURE) ==========
 
+    public static final RegistryObject<EntityType<GenericShipEntity>> GENERIC_SHIP = ENTITIES.register("generic_ship",
+            () -> EntityType.Builder.of(GenericShipEntity::new, MobCategory.CREATURE)
+                    .sized(0.5F, 1.5F).clientTrackingRange(64).updateInterval(1).build("generic_ship"));
+    public static final RegistryObject<EntityType<GenericHostileShipEntity>> GENERIC_SHIP_HOSTILE = ENTITIES.register("generic_ship_hostile",
+            () -> EntityType.Builder.of(GenericHostileShipEntity::new, MobCategory.MONSTER)
+                    .sized(0.5F, 1.5F).clientTrackingRange(64).updateInterval(1).build("generic_ship_hostile"));
+
     // --- Destroyers ---
     public static final RegistryObject<EntityType<EntityDestroyerShimakaze>> DESTROYER_SHIMAKAZE = ENTITIES
             .register("destroyer_shimakaze",
@@ -713,6 +720,8 @@ public class ModEntities {
 
     @SubscribeEvent
     public static void registerAttributes(EntityAttributeCreationEvent event) {
+        event.put(GENERIC_SHIP.get(), BasicEntityShip.createShipAttributes().build());
+        event.put(GENERIC_SHIP_HOSTILE.get(), BasicEntityShipHostile.createHostileShipAttributes().build());
         // Friendly Ships (BasicEntityShip.createShipAttributes)
         event.put(DESTROYER_SHIMAKAZE.get(), BasicEntityShip.createShipAttributes().build());
         event.put(DESTROYER_AKATSUKI.get(), BasicEntityShip.createShipAttributes().build());

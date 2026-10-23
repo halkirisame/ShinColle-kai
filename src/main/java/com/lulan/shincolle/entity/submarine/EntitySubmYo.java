@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.IShipInvisible;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -20,14 +21,20 @@ public class EntitySubmYo extends BasicEntityShipSmall implements IShipInvisible
 
     private float invisibleLevel = 0.2F;
 
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        com.lulan.shincolle.ai.ShipClassAttackGate.finalizeEquipment(this);
+    }
+
     public EntitySubmYo(EntityType<? extends EntitySubmYo> type, Level level) {
         super(type, level);
         this.setStateMinor(ID.M.ShipType, ID.ShipType.SUBMARINE);
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.SSYO);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.SUBMARINE);
         this.setStateMinor(ID.M.NumState, 2);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.SS]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.SS]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
         this.ShipFloatingDepth = 1.0D;
 

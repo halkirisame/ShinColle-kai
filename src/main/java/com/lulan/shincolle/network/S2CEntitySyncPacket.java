@@ -12,6 +12,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -53,6 +54,8 @@ public class S2CEntitySyncPacket {
     public static final byte SyncShip_ID = 10;
     public static final byte SyncShip_UnitName = 11;
     public static final byte SyncShip_Attrs = 12;
+    public static final byte SyncShip_Definition = 13;
+    public static final byte SyncShip_HeldItems = 14;
 
     public static final byte SyncEntity_Emo = 50;
     public static final byte SyncEntity_PlayerUID = 51;
@@ -158,6 +161,16 @@ public class S2CEntitySyncPacket {
 
     // ========== Factory Methods ==========
 
+    public static S2CEntitySyncPacket syncShipDefinition(Entity entity) {
+        com.lulan.shincolle.shipdata.GenericShipState state =
+                ((com.lulan.shincolle.shipdata.DefinitionBackedShip) entity).definitionState();
+        return new S2CEntitySyncPacket(SyncShip_Definition, entity.getId(), toBytes(buf -> {
+            buf.writeUtf(state.shipId(), 64);
+            buf.writeVarLong(state.generation());
+            buf.writeBoolean(state.dormant());
+        }));
+    }
+
     /**
      * Sync all misc states: minor + emotion + flags
      */
@@ -222,9 +235,29 @@ public class S2CEntitySyncPacket {
             buf.writeBoolean(ship.getStateFlag(ID.F.CanPickItem));
             buf.writeBoolean(ship.getStateFlag(ID.F.ShowHeldItem));
             buf.writeBoolean(ship.getStateFlag(ID.F.AutoPump));
+            buf.writeBoolean(ship.getStateFlag(ID.F.RetaliatePlayer));
             buf.writeInt(ship.getTextureID());
+            writeHeldItems(buf, ship);
         });
         return new S2CEntitySyncPacket(SyncShip_AllMisc, ship.getId(), data);
+    }
+
+    /** Sync custom inventory hands without replacing vanilla combat equipment. */
+    public static S2CEntitySyncPacket syncHeldItems(BasicEntityShip ship) {
+        return new S2CEntitySyncPacket(SyncShip_HeldItems, ship.getId(),
+                toBytes(buf -> writeHeldItems(buf, ship)));
+    }
+
+    private static void writeHeldItems(FriendlyByteBuf buf, BasicEntityShip ship) {
+        buf.writeItem(ship.getMainHandItemShip());
+        buf.writeItem(ship.getOffHandItemShip());
+    }
+
+    private static void readHeldItems(FriendlyByteBuf buf, BasicEntityShip ship) {
+        ItemStack mainHand = buf.readItem();
+        ItemStack offHand = buf.readItem();
+        ship.getCapaShipInventory().setStackInSlot(22, mainHand);
+        ship.getCapaShipInventory().setStackInSlot(23, offHand);
     }
 
     /**
@@ -269,6 +302,7 @@ public class S2CEntitySyncPacket {
             buf.writeBoolean(ship.getStateFlag(ID.F.CanPickItem));
             buf.writeBoolean(ship.getStateFlag(ID.F.ShowHeldItem));
             buf.writeBoolean(ship.getStateFlag(ID.F.AutoPump));
+            buf.writeBoolean(ship.getStateFlag(ID.F.RetaliatePlayer));
         });
         return new S2CEntitySyncPacket(SyncShip_Flag, ship.getId(), data);
     }
@@ -613,7 +647,9 @@ public class S2CEntitySyncPacket {
         ship.setStateFlag(ID.F.CanPickItem, buf.readBoolean());
         ship.setStateFlag(ID.F.ShowHeldItem, buf.readBoolean());
         ship.setStateFlag(ID.F.AutoPump, buf.readBoolean());
+        ship.setStateFlag(ID.F.RetaliatePlayer, buf.readBoolean());
         ship.setTextureID(buf.readInt());
+        readHeldItems(buf, ship);
     }
 
     // ========== Handler ==========
@@ -656,6 +692,7 @@ public class S2CEntitySyncPacket {
         ship.setStateFlag(ID.F.CanPickItem, buf.readBoolean());
         ship.setStateFlag(ID.F.ShowHeldItem, buf.readBoolean());
         ship.setStateFlag(ID.F.AutoPump, buf.readBoolean());
+        ship.setStateFlag(ID.F.RetaliatePlayer, buf.readBoolean());
     }
 
     // ========== Handler Methods ==========
@@ -958,6 +995,20 @@ public class S2CEntitySyncPacket {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.wrappedBuffer(payload));
         try {
             switch (type) {
+                case SyncShip_Definition:
+                    if (entity instanceof com.lulan.shincolle.shipdata.DefinitionBackedShip ship) {
+                        ship.definitionState().receive(buf.readUtf(64), buf.readVarLong(), buf.readBoolean());
+                        entity.refreshDimensions();
+                        if (entity instanceof IShipEmotion emotion) {
+                            emotion.setStateMinor(ID.M.ShipType, ship.definitionState().shipType(true));
+                        }
+                    }
+                    break;
+                case SyncShip_HeldItems:
+                    if (entity instanceof BasicEntityShip ship) {
+                        readHeldItems(buf, ship);
+                    }
+                    break;
                 case SyncShip_AllMisc:
                     handleSyncAllMisc(entity, buf);
                     break;

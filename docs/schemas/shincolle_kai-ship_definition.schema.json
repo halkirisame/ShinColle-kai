@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:shincolle-kai:schema:ship_definition:1",
+  "title": "ShinColle-kai ship definition",
+  "description": "One data/<namespace>/shincolle_kai/ships/<path>.json file, at most 65536 UTF-8 bytes and 32 nesting levels. ID comes only from the file path and must satisfy resourceLocation below. Duplicate JSON member names are rejected before validation. Unknown properties are warned about and ignored. Registry existence is checked by the server at reload; visual existence is deliberately deferred to the client placeholder mechanism.",
+  "type": "object",
+  "required": ["schema", "ship_type", "visual", "base_stats"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema": {"type": "integer", "const": 1},
+    "display_name": {"type": "string", "maxLength": 64, "description": "Defaults to the file-derived namespaced ID."},
+    "ship_type": {
+      "type": "string",
+      "enum": [
+        "shincolle_kai:destroyer", "shincolle_kai:light_cruiser", "shincolle_kai:heavy_cruiser",
+        "shincolle_kai:torpedo_cruiser", "shincolle_kai:light_carrier", "shincolle_kai:standard_carrier",
+        "shincolle_kai:battleship", "shincolle_kai:transport", "shincolle_kai:submarine",
+        "shincolle_kai:demon", "shincolle_kai:hime"
+      ]
+    },
+    "visual": {"$ref": "#/$defs/resourceLocation"},
+    "dimensions": {
+      "type": "object", "additionalProperties": true, "default": {},
+      "description": "Dimensions must be at least the smallest positive IEEE 754 float (Float.MIN_VALUE) and remain positive when narrowed to float.",
+      "properties": {
+        "width": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 1.6, "default": 0.5},
+        "height": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 4.4, "default": 1.5}
+      }
+    },
+    "mount_offset": {"type": "number", "minimum": 0, "maximum": 4.4, "default": 0.9, "description": "Riding height in blocks before scale-level scaling."},
+    "equip_type": {"type": "integer", "minimum": 0, "maximum": 3, "default": 1},
+    "attack_profile": {"type": "string", "const": "shincolle_kai:default", "default": "shincolle_kai:default"},
+    "hostile_modifiers": {
+      "type": "object", "additionalProperties": true, "default": {},
+      "description": "Hostile ships use configured scale-tier values times these modifiers; they do not use base_stats or growth. Friendly ships ignore these modifiers. Values must be finite and at least the smallest positive IEEE 754 float (Float.MIN_VALUE), so narrowing to float cannot produce zero.",
+      "properties": {
+        "hp": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 2.4, "default": 1},
+        "atk": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 2.4, "default": 1},
+        "def": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 2.4, "default": 1},
+        "spd": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 2.4, "default": 1},
+        "mov": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 2.4, "default": 1},
+        "hit": {"type": "number", "minimum": 1.401298464324817e-45, "maximum": 2.4, "default": 1}
+      }
+    },
+    "base_stats": {
+      "type": "object",
+      "description": "Friendly ship base-table columns, not the 21 equipment attributes. Hostiles ignore these. Omitted columns are zero. Values must be finite. Bounds are twice the built-in column maxima; this does not change built-in ships.",
+      "additionalProperties": true,
+      "properties": {
+        "hp": {"type": "number", "minimum": 0, "maximum": 700, "default": 0},
+        "atk": {"type": "number", "minimum": 0, "maximum": 110, "default": 0},
+        "def": {"type": "number", "minimum": 0, "maximum": 0.9, "default": 0},
+        "spd": {"type": "number", "minimum": 0, "maximum": 2.4, "default": 0},
+        "mov": {"type": "number", "minimum": 0, "maximum": 1.2, "default": 0},
+        "hit": {"type": "number", "minimum": 0, "maximum": 60, "default": 0}
+      }
+    },
+    "growth": {
+      "type": "object",
+      "default": {},
+      "description": "The corresponding six growth-table columns; omitted columns are zero. All values must be finite.",
+      "additionalProperties": true,
+      "properties": {
+        "hp": {"type": "number", "minimum": 0, "maximum": 3, "default": 0},
+        "atk": {"type": "number", "minimum": 0, "maximum": 2, "default": 0},
+        "def": {"type": "number", "minimum": 0, "maximum": 0.68, "default": 0},
+        "spd": {"type": "number", "minimum": 0, "maximum": 1.5, "default": 0},
+        "mov": {"type": "number", "minimum": 0, "maximum": 2.4, "default": 0},
+        "hit": {"type": "number", "minimum": 0, "maximum": 2, "default": 0}
+      }
+    },
+    "equipment": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true,
+      "properties": {
+        "slots": {"type": "integer", "minimum": 0, "maximum": 16, "default": 0},
+        "initial": {
+          "type": "array", "maxItems": 16, "default": [],
+          "items": {"$ref": "#/$defs/resourceLocation"},
+          "description": "Equipment definition IDs, not Item IDs. Must exist in the server equipment snapshot. Repetition is allowed in different slots. Count must not exceed slots."
+        }
+      },
+      "allOf": [
+        {"if": {"not": {"required": ["slots"]}}, "then": {"properties": {"initial": {"maxItems": 0}}}},
+        {"if": {"properties": {"slots": {"const": 0}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 0}}}},
+        {"if": {"properties": {"slots": {"const": 1}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 1}}}},
+        {"if": {"properties": {"slots": {"const": 2}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 2}}}},
+        {"if": {"properties": {"slots": {"const": 3}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 3}}}},
+        {"if": {"properties": {"slots": {"const": 4}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 4}}}},
+        {"if": {"properties": {"slots": {"const": 5}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 5}}}},
+        {"if": {"properties": {"slots": {"const": 6}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 6}}}},
+        {"if": {"properties": {"slots": {"const": 7}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 7}}}},
+        {"if": {"properties": {"slots": {"const": 8}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 8}}}},
+        {"if": {"properties": {"slots": {"const": 9}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 9}}}},
+        {"if": {"properties": {"slots": {"const": 10}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 10}}}},
+        {"if": {"properties": {"slots": {"const": 11}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 11}}}},
+        {"if": {"properties": {"slots": {"const": 12}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 12}}}},
+        {"if": {"properties": {"slots": {"const": 13}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 13}}}},
+        {"if": {"properties": {"slots": {"const": 14}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 14}}}},
+        {"if": {"properties": {"slots": {"const": 15}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 15}}}}
+      ]
+    },
+    "construction": {"$ref": "#/$defs/acquisition", "default": {}},
+    "spawn": {"$ref": "#/$defs/acquisition", "default": {}},
+    "behavior": {
+      "type": "object", "default": {}, "additionalProperties": true,
+      "properties": {
+        "ai": {"$ref": "#/$defs/behaviorId", "description": "Omission means no explicit AI override. An explicit ID must be selectable in the frozen server registry; no unknown-ID fallback."},
+        "attacks": {
+          "type": "array", "maxItems": 16, "uniqueItems": true, "default": [],
+          "items": {"$ref": "#/$defs/behaviorId"},
+          "description": "Each ID must be selectable in the frozen server registry. Unknown IDs reject the whole definition."
+        }
+      }
+    },
+    "recruitment": {"description": "Reserved, ignored regardless of its value in this version."}
+  },
+  "$defs": {
+    "resourceLocation": {"type": "string", "maxLength": 64, "pattern": "^[a-z0-9_.-]+:[a-z0-9/._-]+(?![\\s\\S])"},
+    "behaviorId": {"type": "string", "maxLength": 64, "pattern": "^shincolle_kai:[a-z0-9/._-]+(?![\\s\\S])"},
+    "acquisition": {
+      "type": "object", "additionalProperties": true,
+      "description": "Declarative eligibility and relative weight only; loading a definition does not yet add any acquisition route.",
+      "properties": {
+        "enabled": {"type": "boolean", "default": false},
+        "weight": {"type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0}
+      }
+    }
+  }
+}

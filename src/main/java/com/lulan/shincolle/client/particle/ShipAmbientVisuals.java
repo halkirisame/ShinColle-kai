@@ -258,6 +258,7 @@ public final class ShipAmbientVisuals {
     }
 
     public static void tick(EntityAbyssMissile missile) {
+        if (!missile.getTrailDelay().allowsEmission()) return;
         if (missile.level().isClientSide() && !missile.isInvisible() && missile.getMissileType() == 2) {
             // railgun: two short lightning strips on the head every tick
             for (int i = 0; i < 2; i++) {

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "shincolle_kai:polymetal_nodule"
+    }
+  ],
+  "result": {
+    "item": "shincolle_kai:abyss_nugget_1",
+    "count": 9
+  }
+}

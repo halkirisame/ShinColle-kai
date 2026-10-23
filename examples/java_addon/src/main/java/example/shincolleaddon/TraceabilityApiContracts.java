@@ -11,10 +11,11 @@ import com.lulan.shincolle.api.equipment.IShipEquipment;
 import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.api.equipment.ShipEquipmentContext;
+import com.lulan.shincolle.api.experimental.equipment.ShipEquipmentHitCallback;
 import com.lulan.shincolle.api.ship.PlayerOwnedShip;
-import com.lulan.shincolle.api.target.TargetTrait;
-import com.lulan.shincolle.api.target.TargetTraits;
+import com.lulan.shincolle.api.target.CoreTargetTraits;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -52,16 +53,16 @@ final class TraceabilityApiContracts {
 
     static void callbackAndOwnershipContracts(PlayerOwnedShip ship, Player owner,
                                               LivingEntity target, ItemStack stack) {
-        IShipEquipment equipment = new ContractEquipment();
+        ShipEquipmentHitCallback equipment = new ContractEquipment();
         equipment.onShipHit(owner, target, 1F, stack);
         boolean ownedByPlayer = ship.isOwnedByPlayer(owner);
     }
 
-    static void targetTraitContract(EntityType<?> addonEntityType) {
-        TargetTraits.registerTargetTrait(addonEntityType, TargetTrait.ANTI_AIR_ELIGIBLE);
+    static TagKey<EntityType<?>> targetTraitContract() {
+        return CoreTargetTraits.tag(CoreTargetTraits.ANTI_AIR_ELIGIBLE);
     }
 
-    private static final class ContractEquipment implements IShipEquipment {
+    private static final class ContractEquipment implements IShipEquipment, ShipEquipmentHitCallback {
 
         @Override
         public ResolvedShipEquipment resolveShipEquipment(ShipEquipmentContext context) {

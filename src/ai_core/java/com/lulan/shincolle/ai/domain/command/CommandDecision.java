@@ -6,6 +6,12 @@ import com.lulan.shincolle.ai.domain.TargetHandle;
 public final class CommandDecision {
     private CommandDecision() { }
 
+    /** Arrival policy for a block order, before repeat-order cancellation is decided. */
+    public static boolean releaseOnArrival(CommandMode mode, boolean fishingTask, boolean guardPosition,
+                                           boolean requestedRelease) {
+        return requestedRelease && !(mode == CommandMode.SINGLE && fishingTask && guardPosition);
+    }
+
     public static ShipCommand attack(TargetHandle target, TargetHandle current) {
         return target.equals(current) ? new ShipCommand.CancelAttack() : new ShipCommand.Attack(target);
     }

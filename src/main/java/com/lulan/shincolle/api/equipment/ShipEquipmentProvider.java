@@ -1,7 +1,5 @@
 package com.lulan.shincolle.api.equipment;
 
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -15,7 +13,13 @@ public interface ShipEquipmentProvider {
     /** Resolves side-safe dynamic values for one stack accepted by {@link #matches(ItemStack)}. */
     ResolvedShipEquipment resolveShipEquipment(ShipEquipmentContext context);
 
-    /** Called after an owning ship hits a target with the existing attack amount. */
-    default void onShipHit(LivingEntity ship, Entity target, float attackAmount, ItemStack stack) {
+    /**
+     * Precedence among providers: higher values are consulted first, and providers with the same value
+     * are consulted in registry ID order. Read each time the provider order is built: for a temporary order
+     * answering a lookup made before registration has finished, and once more for the fixed order built when
+     * it has. Changes after that are not seen.
+     */
+    default int priority() {
+        return 0;
     }
 }

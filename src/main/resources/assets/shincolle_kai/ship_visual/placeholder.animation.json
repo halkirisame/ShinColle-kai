@@ -1,0 +1,14 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "idle": {"loop": true, "animation_length": 1, "bones": {}},
+    "move": {"loop": true, "animation_length": 1, "bones": {}},
+    "sit": {"loop": true, "animation_length": 1, "bones": {}},
+    "sprint": {"loop": true, "animation_length": 1, "bones": {}},
+    "ride": {"loop": true, "animation_length": 1, "bones": {}},
+    "caress": {"loop": true, "animation_length": 1, "bones": {}},
+    "no_fuel": {"loop": true, "animation_length": 1, "bones": {}},
+    "light_attack": {"animation_length": 1, "bones": {}},
+    "heavy_attack": {"animation_length": 1, "bones": {}}
+  }
+}

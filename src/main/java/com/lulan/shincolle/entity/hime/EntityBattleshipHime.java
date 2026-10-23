@@ -1,15 +1,16 @@
 package com.lulan.shincolle.entity.hime;
 
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
+import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.entity.mounts.EntityMountBaH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
@@ -28,8 +29,8 @@ public class EntityBattleshipHime extends BasicEntityShipSmall implements IShipR
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.BBHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.BATTLESHIP);
         this.setStateMinor(ID.M.NumState, 1);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BB]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BB]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
 
         // cannon only
@@ -41,6 +42,12 @@ public class EntityBattleshipHime extends BasicEntityShipSmall implements IShipR
 
     public int getEquipType() {
         return 1;
+    }
+
+    @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        ShipClassAttackGate.finalizeEquipment(this);
     }
 
     @Override
@@ -83,28 +90,9 @@ public class EntityBattleshipHime extends BasicEntityShipSmall implements IShipR
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // Ring effect: DAMAGE_RESISTANCE + FIRE_RESISTANCE to nearby ships
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    java.util.UUID ownerUUID = this.getOwnerUUID();
-                    java.util.List<net.minecraft.world.entity.LivingEntity> nearby = this.level().getEntitiesOfClass(
-                            net.minecraft.world.entity.LivingEntity.class,
-                            this.getBoundingBox().inflate(12D),
-                            e -> e != this && e instanceof com.lulan.shincolle.entity.BasicEntityShip ship
-                                    && ownerUUID != null && ownerUUID.equals(ship.getOwnerUUID()));
-                    int maxTargets = getStateMinor(ID.M.ShipLevel) / 50 + 1;
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
-                    int duration = 80 + getStateMinor(ID.M.ShipLevel);
-                    int count = 0;
-                    for (net.minecraft.world.entity.LivingEntity target : nearby) {
-                        if (count >= maxTargets)
-                            break;
-                        target.addEffect(
-                                new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, duration, level, false, false));
-                        target.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, duration, 0, false, false));
-                        count++;
-                    }
-                }
+                // marriage ring aura: damage resistance and fire resistance to the same-owner ships around, this one included
+                int shipLevel = getStateMinor(ID.M.ShipLevel);
+                this.applyMarriageFleetAura(shipLevel / 70, 50 + shipLevel, MobEffects.DAMAGE_RESISTANCE, MobEffects.FIRE_RESISTANCE);
             }
         }
     }

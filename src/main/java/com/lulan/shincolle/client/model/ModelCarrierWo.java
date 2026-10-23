@@ -160,6 +160,10 @@ public class ModelCarrierWo extends ShipModelBaseAdv<Entity> {
         this.EquipEye01 = this.GlowEquipBase.getChild("EquipEye01");
         this.EquipEye02 = this.GlowEquipBase.getChild("EquipEye02");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.11F, 0.92F, -0.09F};
+        this.offsetBlock = new float[] {0.11F, 0.92F, -0.09F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

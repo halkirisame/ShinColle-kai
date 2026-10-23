@@ -25,6 +25,8 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+jarJar.enable()
+
 def includeKubeJSRuntime = providers.gradleProperty('shincolleKubeJSRuntime')
         .map { Boolean.parseBoolean(it) }
         .getOrElse(false)
@@ -47,9 +49,16 @@ def optionalRuntime = { String property ->
 def includeJEIRuntime = optionalRuntime('shincolleJEIRuntime')
 def includeCuriosRuntime = optionalRuntime('shincolleCuriosRuntime')
 def includeTinkersRuntime = optionalRuntime('shincolleTinkersRuntime')
+def includeFTBQuestsRuntime = !minimalRuntime && providers.gradleProperty('shincolleFTBQuestsRuntime')
+        .map { Boolean.parseBoolean(it) }.getOrElse(false)
 
 // Fixed seed for the flat GameTest world. See prepareGameTestWorld below.
 def gameTestLevelSeed = '105'
+
+// Resources that only the GameTest runs load (src/gametestData/resources). Never part of the shipped jar.
+sourceSets {
+    gametestData
+}
 
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
@@ -97,6 +106,11 @@ minecraft {
 
         gameTestServer {
             workingDirectory project.file('.')
+            mods {
+                "${mod_id}" {
+                    source sourceSets.gametestData
+                }
+            }
             property 'forge.enabledGameTestNamespaces', "${mod_id},minecraft"
             property 'forge.logging.console.level', 'info'
             property 'shincolle.publicationRoot', project.projectDir.absolutePath
@@ -162,8 +176,8 @@ tasks.register('validateAddonExampleApiBoundary') {
 
 tasks.register('validateAddonExampleIsolation') {
     description = 'Ensures the Java addon example is not packaged into the ShinColle-kai release JAR.'
-    dependsOn tasks.named('jar')
-    def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    dependsOn tasks.named('jarJar'), tasks.named('reobfJarJar')
+    def releaseJar = tasks.named('jarJar', Jar).flatMap { it.archiveFile }
     inputs.file(releaseJar)
     doLast {
         def leaked = zipTree(releaseJar.get().asFile).matching {
@@ -205,8 +219,8 @@ tasks.register('validateAiCoreBoundary') {
 
 tasks.register('validateAiCoreInJar') {
     description = 'Ensures the release JAR contains every ship AI domain class and both license texts.'
-    dependsOn tasks.named('jar')
-    def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    dependsOn tasks.named('jarJar'), tasks.named('reobfJarJar')
+    def releaseJar = tasks.named('jarJar', Jar).flatMap { it.archiveFile }
     def coreSources = fileTree('src/ai_core/java') {
         include '**/*.java'
     }
@@ -324,6 +338,10 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 repositories {
+    maven {
+        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+        content { includeGroup 'software.bernie.geckolib' }
+    }
     maven { url 'https://maven.minecraftforge.net/' }
     maven {
         name = "Jared's maven"
@@ -351,6 +369,11 @@ repositories {
         content { includeGroup 'dev.architectury' }
     }
     maven {
+        name = 'FTB'
+        url = 'https://maven.ftb.dev/releases/'
+        content { includeGroup 'dev.ftb.mods' }
+    }
+    maven {
         name = 'Saps'
         url = 'https://maven.saps.dev/minecraft/'
         content { includeGroup 'dev.latvian.mods' }
@@ -365,7 +388,13 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
+    implementation fg.deobf('software.bernie.geckolib:geckolib-forge-1.20.1:4.8.4')
+    jarJar('software.bernie.geckolib:geckolib-forge-1.20.1:[4.8.3,4.8.5)') {
+        jarJar.pin(it, '4.8.4')
+    }
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'com.networknt:json-schema-validator:1.5.9'
 
     // JEI - deobfuscated for dev environment
     compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:15.20.0.129")
@@ -401,6 +430,17 @@ dependencies {
     compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
     compileOnly fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
     compileOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    // Optional quest kill accounting. Opt in to the pinned verification runtime;
+    // neither these mods nor their APIs are bundled into the release JAR.
+    compileOnly(fg.deobf('dev.ftb.mods:ftb-quests-forge:2001.4.12')) { transitive = false }
+    compileOnly(fg.deobf('dev.ftb.mods:ftb-library-forge:2001.2.9')) { transitive = false }
+    compileOnly(fg.deobf('dev.ftb.mods:ftb-teams-forge:2001.3.0')) { transitive = false }
+    if (includeFTBQuestsRuntime) {
+        runtimeOnly(fg.deobf('dev.ftb.mods:ftb-quests-forge:2001.4.12')) { transitive = false }
+        runtimeOnly(fg.deobf('dev.ftb.mods:ftb-library-forge:2001.2.9')) { transitive = false }
+        runtimeOnly(fg.deobf('dev.ftb.mods:ftb-teams-forge:2001.3.0')) { transitive = false }
+        runtimeOnly fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+    }
     if (includeKubeJSRuntime) {
         runtimeOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
         runtimeOnly fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
@@ -440,9 +480,16 @@ dependencies {
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+    // JUnit has no Forge jar-in-jar loader; use the same nested math library as the game.
+    classpath += files(provider {
+        def gecko = configurations.runtimeClasspath.find { it.name.startsWith('geckolib-forge-1.20.1-4.8.4') }
+        zipTree(gecko).matching { include 'META-INF/jarjar/mclib-20.jar' }
+    })
 }
 
 tasks.named('jar', Jar).configure {
+    // Not shipped: the GeckoLib-bundled jarJar output below carries the canonical name.
+    archiveClassifier = 'slim'
     // The root LICENSE carries the MIT notices; src/ai_core/LICENSE covers the ship AI core.
     from('LICENSE') {
         into 'META-INF'
@@ -465,6 +512,17 @@ tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'
 }
 
+tasks.named('jarJar', Jar).configure {
+    // Canonical distributable (bundles GeckoLib): shincolle-kai-<mc>-<version>.jar
+    archiveClassifier = ''
+    from('LICENSE') { into 'META-INF' }
+    from('src/ai_core/LICENSE') {
+        into 'META-INF'
+        rename { 'LICENSE-ai_core' }
+    }
+    finalizedBy 'reobfJarJar'
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.compilerArgs << '-Xlint:all'
@@ -473,7 +531,8 @@ tasks.withType(JavaCompile).configureEach {
 publishing {
     publications {
         register('mavenJava', MavenPublication) {
-            artifact jar
+            // Canonical distributable (bundles GeckoLib), not the -slim jar.
+            artifact tasks.named('jarJar')
         }
     }
     repositories {
@@ -524,10 +583,10 @@ tasks.register('testAiCoreBoundary') {
                 javaStatic: [source: 'import static java.lang.Math.*; class Probe {}', forbidden: false],
                 javaNested: [source: 'class Probe { java . util . Map . Entry value; }', forbidden: false],
                 domainImport: [source: 'import com.lulan.shincolle.ai.domain.TargetHandle; class Probe {}', forbidden: false],
-                traitImport: [source: 'import com.lulan.shincolle.api.target.TargetTrait; class Probe {}', forbidden: false],
-                traitStatic: [source: 'import static com.lulan.shincolle.api.target.TargetTrait.SHIP; class Probe {}', forbidden: false],
-                traitWildcard: [source: 'import static com.lulan.shincolle.api.target.TargetTrait.*; class Probe {}', forbidden: false],
-                traitMember: [source: 'class Probe { Object value = com . lulan . shincolle . api . target . TargetTrait . SHIP; }', forbidden: false],
+                traitImport: [source: 'import com.lulan.shincolle.api.target.TargetTrait; class Probe {}', forbidden: true],
+                traitStatic: [source: 'import static com.lulan.shincolle.api.target.TargetTrait.SHIP; class Probe {}', forbidden: true],
+                traitWildcard: [source: 'import static com.lulan.shincolle.api.target.TargetTrait.*; class Probe {}', forbidden: true],
+                traitMember: [source: 'class Probe { Object value = com . lulan . shincolle . api . target . TargetTrait . SHIP; }', forbidden: true],
                 comments: [source: '// net.minecraft.world.entity.Entity\n/* import net.minecraft.world.entity.Entity; */ class Probe {}', forbidden: false],
                 stringLiteral: [source: 'class Probe { String text = "net.minecraft.world.entity.Entity"; }', forbidden: false],
                 escapedString: [source: 'class Probe { String text = "\\\"net.minecraft.world.entity.Entity\\\""; }', forbidden: false],
@@ -553,9 +612,7 @@ tasks.named('check').configure { dependsOn tasks.named('testAiCoreBoundary') }
 
 class AiCoreBoundaryValidator {
     static boolean allowedReference(String reference) {
-        return reference.startsWith('java.') || reference.startsWith('com.lulan.shincolle.ai.domain.') ||
-                reference == 'com.lulan.shincolle.api.target.TargetTrait' ||
-                reference.startsWith('com.lulan.shincolle.api.target.TargetTrait.')
+        return reference.startsWith('java.') || reference.startsWith('com.lulan.shincolle.ai.domain.')
     }
 
     static String qualifiedName(com.sun.source.tree.Tree tree) {

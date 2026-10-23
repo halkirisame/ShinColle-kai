@@ -5,7 +5,7 @@ import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
 import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.equip.ShipEquipmentResolver;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.equip.ShipEquipSlots;
