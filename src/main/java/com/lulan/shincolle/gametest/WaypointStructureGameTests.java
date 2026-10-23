@@ -592,6 +592,11 @@ public final class WaypointStructureGameTests {
             PickupObservation pickup = new PickupObservation();
             helper.onEachTick(() -> fixture.step(() -> {
                 MovementPlanParityGameTests.selector(ship).removeAllGoals(goal -> goal instanceof ShipWanderGoal);
+                if (item[0] == null) {
+                    for (ItemEntity stray : level.getEntitiesOfClass(ItemEntity.class, ship.getBoundingBox().inflate(16D))) {
+                        stray.discard();
+                    }
+                }
                 if (item[0] != null) pickup.sample(helper, ship, item[0], middle, helper.getTick());
             }));
             helper.runAtTickTime(30, () -> fixture.step(() -> {
