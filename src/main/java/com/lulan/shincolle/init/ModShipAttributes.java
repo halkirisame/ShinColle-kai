@@ -102,7 +102,7 @@ public final class ModShipAttributes {
     }
 
     public static void initializeLayout() {
-        ShipAttributeLayout.initialize(REGISTRY.get());
+        ShipAttributeLayout.current();
     }
 
     private static RegistryObject<ShipAttributeType> register(ResourceLocation id,

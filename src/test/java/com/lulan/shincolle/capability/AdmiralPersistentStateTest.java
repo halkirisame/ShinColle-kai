@@ -112,7 +112,7 @@ class AdmiralPersistentStateTest {
         Field[] fields = Arrays.stream(AdmiralPersistentState.class.getDeclaredFields())
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .toArray(Field[]::new);
-        assertEquals(14, fields.length);
+        assertEquals(15, fields.length);
 
         for (Field field : fields) {
             field.setAccessible(true);
@@ -188,6 +188,8 @@ class AdmiralPersistentStateTest {
             for (boolean[] row : (boolean[][]) field.get(source)) {
                 Arrays.fill(row, true);
             }
+        } else if (type == boolean[].class) {
+            Arrays.fill((boolean[]) field.get(source), true);
         } else if (type == int[].class) {
             Arrays.fill((int[]) field.get(source), 77);
         } else if (type == String[].class) {
@@ -215,6 +217,9 @@ class AdmiralPersistentStateTest {
             for (int row = 0; row < sourceRows.length; row++) {
                 assertNotSame(sourceRows[row], targetRows[row], field.getName() + " row " + row);
             }
+        } else if (sourceValue instanceof boolean[] sourceArray && targetValue instanceof boolean[] targetArray) {
+            assertArrayEquals(sourceArray, targetArray, field.getName());
+            assertNotSame(sourceArray, targetArray, field.getName());
         } else if (sourceValue instanceof int[] sourceArray && targetValue instanceof int[] targetArray) {
             assertArrayEquals(sourceArray, targetArray, field.getName());
             assertNotSame(sourceArray, targetArray, field.getName());

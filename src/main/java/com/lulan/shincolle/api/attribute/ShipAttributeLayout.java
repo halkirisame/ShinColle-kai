@@ -1,7 +1,8 @@
 package com.lulan.shincolle.api.attribute;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.registries.IForgeRegistry;
+import net.minecraftforge.registries.ForgeRegistry;
+import net.minecraftforge.registries.RegistryManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,29 +52,6 @@ public final class ShipAttributeLayout {
     }
 
     /**
-     * Initializes the canonical layout after all code registrations have completed.
-     */
-    public static synchronized ShipAttributeLayout initialize(IForgeRegistry<ShipAttributeType> registry) {
-        Objects.requireNonNull(registry, "registry");
-        Map<ResourceLocation, ShipAttributeType> entries = new HashMap<>();
-        for (ResourceLocation id : registry.getKeys()) {
-            ShipAttributeType previous = entries.put(id, registry.getValue(id));
-            if (previous != null) {
-                throw new IllegalStateException("Duplicate ship attribute ID " + id);
-            }
-        }
-        ShipAttributeLayout candidate = new ShipAttributeLayout(entries);
-        if (current != null) {
-            if (!current.ids.equals(candidate.ids) || !current.types.equals(candidate.types)) {
-                throw new IllegalStateException("Ship attribute layout was already initialized with different entries");
-            }
-            return current;
-        }
-        current = candidate;
-        return current;
-    }
-
-    /**
      * Creates a detached layout for addon validation and tests without changing the canonical layout.
      */
     public static ShipAttributeLayout detached(Map<ResourceLocation, ShipAttributeType> entries) {
@@ -81,12 +59,37 @@ public final class ShipAttributeLayout {
         return new ShipAttributeLayout(Map.copyOf(entries));
     }
 
+    /**
+     * Returns the canonical layout. It is built once from the ship-attribute registry after Forge has frozen
+     * it, so it cannot be created or replaced from outside this class. Asking for it before then (while
+     * mods are still being constructed or registering) throws {@link IllegalStateException}.
+     */
     public static ShipAttributeLayout current() {
         ShipAttributeLayout result = current;
         if (result == null) {
-            throw new IllegalStateException("Ship attribute layout is not initialized yet");
+            result = buildFromFrozenRegistry();
         }
         return result;
+    }
+
+    private static synchronized ShipAttributeLayout buildFromFrozenRegistry() {
+        if (current != null) {
+            return current;
+        }
+        ForgeRegistry<ShipAttributeType> registry =
+                RegistryManager.ACTIVE.getRegistry(ShipAttributeRegistries.REGISTRY_KEY);
+        if (registry == null || !registry.isLocked()) {
+            throw new IllegalStateException("Ship attribute layout is not initialized yet");
+        }
+        Map<ResourceLocation, ShipAttributeType> entries = new HashMap<>();
+        for (ResourceLocation id : registry.getKeys()) {
+            ShipAttributeType previous = entries.put(id, registry.getValue(id));
+            if (previous != null) {
+                throw new IllegalStateException("Duplicate ship attribute ID " + id);
+            }
+        }
+        current = new ShipAttributeLayout(entries);
+        return current;
     }
 
     public int size() {

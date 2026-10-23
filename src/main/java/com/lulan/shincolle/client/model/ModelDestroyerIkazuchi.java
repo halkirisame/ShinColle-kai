@@ -19,8 +19,11 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 
 public class ModelDestroyerIkazuchi extends ShipModelBaseAdv<Entity> {
+    private final float[] offsetItem2 = new float[] {0.06F, 0.81F, -0.1F};
+
 
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             new ResourceLocation(Reference.MOD_ID, "destroyer_ikazuchi"), "main");
@@ -156,6 +159,10 @@ public class ModelDestroyerIkazuchi extends ShipModelBaseAdv<Entity> {
         this.GlowBodyMain = root.getChild("GlowBodyMain");
         this.GlowHead = this.GlowBodyMain.getChild("GlowHead");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.06F, 1.04F, -0.08F};
+        this.offsetBlock = new float[] {0.06F, 1.04F, -0.08F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -970,5 +977,13 @@ public class ModelDestroyerIkazuchi extends ShipModelBaseAdv<Entity> {
         // leg motion
         this.LegLeft01.xRot = addk1;
         this.LegRight01.xRot = addk2;
+    }
+
+    @Override
+    public float[] getHeldItemOffset(IShipEmotion ent, HumanoidArm side, int type) {
+        if (ent.getIsRiding()) {
+            return this.offsetItem2;
+        }
+        return this.offsetItem;
     }
 }

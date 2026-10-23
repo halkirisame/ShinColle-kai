@@ -8,6 +8,7 @@ import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.ShipCommand;
+import com.lulan.shincolle.ai.domain.movement.FollowRecallRequest;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.handler.ShipFollowRecallHandler;
@@ -124,6 +125,7 @@ public final class FollowRecallFastTravelGameTests {
             if (elapsed >= LAND_AT && elapsed < LAND_AT + 400 && elapsed % 20 == 0) rig.trace(elapsed);
             if (arrivedAt[0] < 0 && elapsed > LAND_AT && rig.allFollowersWithin(NEAR_SQ)) {
                 rig.assertIdentity();
+                rig.assertRestoredFollowers();
                 rig.assertExcludedFar();
                 rig.reloadSource();
                 arrivedAt[0] = elapsed;
@@ -132,6 +134,7 @@ public final class FollowRecallFastTravelGameTests {
                 // The source chunk is read from disk again: nothing of the recalled followers is left in it.
                 helper.assertTrue(helper.getLevel().hasChunk(rig.source.x, rig.source.z), "The source chunk did not load again");
                 rig.assertIdentity();
+                rig.assertRestoredFollowers();
                 helper.assertTrue(rig.allFollowersWithin(NEAR_SQ), "A follower left the owner after the source chunk loaded");
                 helper.succeed();
             }
@@ -179,6 +182,105 @@ public final class FollowRecallFastTravelGameTests {
             helper.assertTrue(rig.followers.get(0).shipMovementExecutor().followRecallRemaining(
                     ShipCommandStateAdapter.handle(rig.owner), rig.now()).isEmpty(), "Walking started the recall");
             if (elapsed == 150) helper.succeed();
+        }));
+    }
+
+    /**
+     * A second long teleport inside the first one's four hundred ticks, after the followers have arrived at the first
+     * destination. Its chunk is released and the owner goes far enough that nothing keeps it running.
+     */
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_consecutive_arrived", timeoutTicks = 1000)
+    public static void aSecondLongTeleportInsideFourHundredTicksStillBringsFollowersFromTheFirstDestination(GameTestHelper helper) {
+        Rig rig = new Rig(helper, 7, 3);
+        Vec3 first = rig.landingPoint(512D);
+        Vec3 second = rig.landingPoint(1024D);
+        ChunkPos firstChunk = new ChunkPos(BlockPos.containing(first));
+        long[] secondAt = {-1L};
+        long[] arrivedSecondAt = {-1L};
+        rig.path(elapsed -> secondAt[0] >= 0 && elapsed >= secondAt[0] ? second : first, elapsed -> true);
+        helper.onEachTick(() -> rig.poll(elapsed -> {
+            if (secondAt[0] < 0) {
+                if (elapsed > 5 && rig.allFollowersWithin(NEAR_SQ)) {
+                    helper.assertTrue(elapsed < 300, "The first recall came too late for the second teleport to be inside the hold: " + elapsed);
+                    rig.assertIdentity();
+                    rig.release(first);
+                    secondAt[0] = elapsed + 20;
+                }
+                helper.assertTrue(elapsed < 300, "Followers never came to the first destination: " + rig.describe());
+                return;
+            }
+            if (elapsed == secondAt[0] + 1) {
+                helper.assertTrue(rig.owner.distanceToSqr(second) < 1D, "The owner did not go to the second destination");
+            }
+            if (elapsed == secondAt[0] + 120) rig.trace(elapsed);
+            if (arrivedSecondAt[0] < 0 && elapsed > secondAt[0] + 5 && rig.allFollowersWithin(NEAR_SQ)) {
+                rig.assertIdentity();
+                rig.assertExcludedFar();
+                rig.reload(firstChunk);
+                arrivedSecondAt[0] = elapsed;
+            }
+            if (arrivedSecondAt[0] >= 0 && elapsed == arrivedSecondAt[0] + 40) {
+                helper.assertTrue(helper.getLevel().hasChunk(firstChunk.x, firstChunk.z), "The first destination did not load again");
+                rig.assertIdentity();
+                helper.assertTrue(rig.allFollowersWithin(NEAR_SQ), "A follower left the owner after the first destination loaded");
+                helper.succeed();
+            }
+            helper.assertTrue(elapsed < secondAt[0] + 400, "Followers never came to the second destination; firstDestinationLoaded="
+                    + helper.getLevel().hasChunk(firstChunk.x, firstChunk.z) + ", detected="
+                    + ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), rig.tickAt(secondAt[0])) + ": " + rig.describe()
+                    + rig.trace);
+        }));
+    }
+
+    /**
+     * A second teleport while the followers are still waiting at the source, close enough that they stand inside the
+     * second departure's search area. Their wait is the first one's: neither restarted nor extended.
+     */
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_consecutive_waiting", timeoutTicks = 600)
+    public static void aSecondDepartureWhileFollowersWaitKeepsTheirFirstWait(GameTestHelper helper) {
+        Rig rig = new Rig(helper, 10, 3);
+        // Fourteen blocks in twenty ticks is a departure, and the followers stay inside the second one's search area.
+        Vec3 first = rig.landingPoint(14D);
+        Vec3 second = rig.landingPoint(28D);
+        long secondAt = 40L;
+        long[] detectedAt = {Long.MIN_VALUE};
+        int[] checks = {0};
+        rig.path(elapsed -> elapsed >= secondAt ? second : first, elapsed -> true);
+        helper.onEachTick(() -> rig.poll(elapsed -> {
+            if (elapsed == 2) {
+                double searched = (helper.getLevel().getServer().getPlayerList().getSimulationDistance() + 1) * 16D;
+                helper.assertTrue(Math.abs(rig.sourcePoint.x - first.x) < searched - 1D && Math.abs(rig.sourcePoint.z - first.z) < searched - 1D,
+                        "The followers are outside the second departure's search area: " + searched);
+                var remaining = rig.followers.get(0).shipMovementExecutor().followRecallRemaining(
+                        ShipCommandStateAdapter.handle(rig.owner), rig.now());
+                helper.assertTrue(remaining.isPresent() && remaining.getAsLong() > 0L, "The first departure started no wait: " + remaining);
+                detectedAt[0] = rig.now() + remaining.getAsLong() - FollowRecallRequest.WAIT_TICKS;
+                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), detectedAt[0]), "The first departure is not current");
+            }
+            if (elapsed >= 2 && elapsed <= FollowRecallRequest.WAIT_TICKS - 2) {
+                for (BasicEntityShip ship : rig.followers) {
+                    var remaining = ship.shipMovementExecutor().followRecallRemaining(
+                            ShipCommandStateAdapter.handle(rig.owner), rig.now());
+                    helper.assertTrue(remaining.isPresent() && remaining.getAsLong()
+                                    == detectedAt[0] + FollowRecallRequest.WAIT_TICKS - rig.now(),
+                            "The wait of a follower was dropped or restarted at " + elapsed + ": " + remaining);
+                    checks[0]++;
+                }
+            }
+            if (elapsed == secondAt + 1) {
+                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), detectedAt[0]),
+                        "The first departure is no longer current after the second");
+                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), rig.tickAt(secondAt)),
+                        "The second departure was not detected");
+            }
+            if (elapsed > FollowRecallRequest.WAIT_TICKS && rig.allFollowersWithin(NEAR_SQ)) {
+                helper.assertTrue(checks[0] >= 3 * (FollowRecallRequest.WAIT_TICKS - 4), "Waits were checked too few times: " + checks[0]);
+                helper.assertTrue(rig.owner.distanceToSqr(second) < 1D, "The followers came to a place other than the second destination");
+                rig.assertIdentity();
+                rig.assertExcludedFar();
+                helper.succeed();
+            }
+            helper.assertTrue(elapsed < 400, "Followers never came to the second destination: " + rig.describe());
         }));
     }
 
@@ -263,6 +365,28 @@ public final class FollowRecallFastTravelGameTests {
             return this.helper.getLevel().getServer().getTickCount();
         }
 
+        /** The server tick of the given elapsed time of this run. */
+        long tickAt(long elapsed) {
+            return this.startedAt + elapsed;
+        }
+
+        /** Stops holding the chunk of a point the fixture loaded, so it can really unload once nobody is near. */
+        void release(Vec3 point) {
+            ChunkPos chunk = new ChunkPos(BlockPos.containing(point));
+            if (!this.prepared.remove(chunk)) return;
+            this.helper.getLevel().getChunkSource().removeRegionTicket(PREPARE, chunk, 2, this.holder);
+        }
+
+        /** Loads a chunk again, as another player walking there would. */
+        void reload(ChunkPos chunk) {
+            var level = this.helper.getLevel();
+            level.getChunkSource().addRegionTicket(PREPARE, chunk, 2, this.holder);
+            this.prepared.add(chunk);
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dz = -2; dz <= 2; dz++) level.getChunk(chunk.x + dx, chunk.z + dz);
+            }
+        }
+
         private void create() {
             this.created = true;
             var level = this.helper.getLevel();
@@ -322,9 +446,14 @@ public final class FollowRecallFastTravelGameTests {
                 return;
             }
             for (BasicEntityShip ship : this.followers) {
-                MovementPlanParityGameTests.selector(ship).getAvailableGoals().stream()
-                        .filter(goal -> goal.getGoal() instanceof ShipWanderGoal).toList()
-                        .forEach(goal -> MovementPlanParityGameTests.selector(ship).removeGoal(goal.getGoal()));
+                removeWanderGoal(ship);
+            }
+            // Chunk loading creates a new entity, which registers its goals again at tick 16.
+            for (UUID id : this.identities) {
+                if (level.getEntity(id) instanceof BasicEntityShip ship) {
+                    removeWanderGoal(ship);
+                    assertNoWanderGoal(ship);
+                }
             }
             if (this.startedAt < 0) {
                 for (BasicEntityShip ship : this.followers) {
@@ -353,6 +482,18 @@ public final class FollowRecallFastTravelGameTests {
                 return;
             }
             checks.accept(this.now() - this.startedAt);
+        }
+
+        private void removeWanderGoal(BasicEntityShip ship) {
+            MovementPlanParityGameTests.selector(ship).getAvailableGoals().stream()
+                    .filter(goal -> goal.getGoal() instanceof ShipWanderGoal).toList()
+                    .forEach(goal -> MovementPlanParityGameTests.selector(ship).removeGoal(goal.getGoal()));
+        }
+
+        private void assertNoWanderGoal(BasicEntityShip ship) {
+            this.helper.assertTrue(MovementPlanParityGameTests.selector(ship).getAvailableGoals().stream()
+                    .noneMatch(goal -> goal.getGoal() instanceof ShipWanderGoal),
+                    "Current follower still has a wander goal: " + ship.getUUID() + ", tick=" + ship.tickCount);
         }
 
         final StringBuilder trace = new StringBuilder();
@@ -437,6 +578,18 @@ public final class FollowRecallFastTravelGameTests {
                 this.helper.assertTrue(ship != null && ship.getShipUID() == this.shipIds.get(i), "Recall changed the ship UID");
                 this.helper.assertTrue(ship.getCapaShipInventory().getStackInSlot(0).is(Items.COBBLESTONE)
                         && ship.getCapaShipInventory().getStackInSlot(0).getCount() == 17, "Recall changed inventory");
+            }
+        }
+
+        void assertRestoredFollowers() {
+            var level = this.helper.getLevel();
+            for (int i = 0; i < this.identities.size(); i++) {
+                Entity found = level.getEntity(this.identities.get(i));
+                this.helper.assertTrue(found instanceof BasicEntityShip && found != this.followers.get(i),
+                        "Recalled follower must be a different entity after chunk restoration");
+                BasicEntityShip ship = (BasicEntityShip) found;
+                this.helper.assertTrue(ship.tickCount > 16, "Restored follower has not re-registered its goals yet");
+                assertNoWanderGoal(ship);
             }
         }
 

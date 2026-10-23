@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "ship_type": "shincolle_kai:destroyer",
+  "visual": "shincolle_test:sample_ship",
+  "display_name": "Sample Ship",
+  "base_stats": {"hp": 22, "atk": 4, "def": 0.06, "spd": 1, "mov": 0.5, "hit": 6},
+  "growth": {"hp": 0.32, "atk": 0.28, "def": 0.12, "spd": 0.5, "mov": 1, "hit": 0.4},
+  "hostile_modifiers": {"hp": 0.4, "atk": 0.5, "def": 0.4, "spd": 1.2, "mov": 1.2, "hit": 0.75}
+}

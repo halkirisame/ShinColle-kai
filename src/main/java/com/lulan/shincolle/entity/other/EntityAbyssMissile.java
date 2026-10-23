@@ -1,6 +1,11 @@
 package com.lulan.shincolle.entity.other;
 
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
+import com.lulan.shincolle.ai.domain.combat.ProjectileTrailDelay;
+import com.lulan.shincolle.ai.domain.combat.ClusterProjectileRules;
+import com.lulan.shincolle.ai.domain.combat.ClusterProjectileRules.LaunchCombatSnapshot;
+import com.lulan.shincolle.ai.domain.combat.ClusterProjectileRules.RawVelocity;
+import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.entity.*;
 import com.lulan.shincolle.equip.ShipOnHitEffects;
 import com.lulan.shincolle.handler.ConfigHandler;
@@ -14,6 +19,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -27,6 +34,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
+import net.minecraftforge.network.NetworkHooks;
 
 import java.util.HashMap;
 import java.util.List;
@@ -64,6 +72,8 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     protected Attrs attrs;
     protected int type;
     private boolean impacting;
+    private ProjectileTrailDelay trailDelay = ProjectileTrailDelay.NONE;
+    private java.util.Optional<LaunchCombatSnapshot> launchCombat = java.util.Optional.empty();
 
     public EntityAbyssMissile(EntityType<? extends EntityAbyssMissile> type, Level level) {
         super(type, level);
@@ -102,10 +112,45 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
                             double tarX, float tarY, double tarZ,
                             int lifetime, float addHeight,
                             float initVel, float initAccY1, float initAccY2) {
+        Vec3 origin = host instanceof LivingEntity entity
+                ? new Vec3(entity.getX(), launchY, entity.getZ()) : position();
+        initAtOrigin(host, missileType, moveType, atk, kbValue, origin, tarX, tarY, tarZ,
+                lifetime, addHeight, initVel, initAccY1, initAccY2, ProjectileTrailDelay.NONE);
+    }
+
+    /** Built-in launch adapter only; not an equipment or public extension contract. */
+    public static EntityAbyssMissile createBuiltInLaunch(Level level, IShipAttackBase host, int missileType, int moveType,
+                                                        float attack, float knockback, Vec3 origin,
+                                                        double tarX, float tarY, double tarZ, int lifetime, float addHeight,
+                                                        float speed, float acc1, float acc2, ProjectileTrailDelay delay) {
+        EntityAbyssMissile missile = new EntityAbyssMissile(ModEntities.ABYSS_MISSILE.get(), level);
+        missile.initAtOrigin(host, missileType, moveType, attack, knockback, origin, tarX, tarY, tarZ,
+                lifetime, addHeight, speed, acc1, acc2, delay);
+        return missile;
+    }
+
+    private void initAtOrigin(IShipAttackBase host, int missileType, int moveType, float atk, float kbValue,
+                              Vec3 origin, double tarX, float tarY, double tarZ, int lifetime, float addHeight,
+                              float initVel, float initAccY1, float initAccY2, ProjectileTrailDelay delay) {
+        initLaunch(host, missileType, moveType, atk, kbValue, origin, lifetime, initVel, initAccY1, initAccY2, delay);
+        initTargetTrajectory(tarX, tarY, tarZ, addHeight);
+    }
+
+    private void initRawChild(IShipAttackBase host, Vec3 origin, ClusterProjectileRules.ChildLaunch child) {
+        initLaunch(host, 4, 4, child.combat().attack(), child.combat().knockback(), origin,
+                child.lifetime(), child.speed(), child.acceleration1(), child.acceleration2(), child.trailDelay());
+        this.velX = child.velocity().x();
+        this.velY = child.velocity().y();
+        this.velZ = child.velocity().z();
+    }
+
+    private void initLaunch(IShipAttackBase host, int missileType, int moveType, float atk, float kbValue,
+                            Vec3 origin, int lifetime, double initVel, double initAccY1, double initAccY2,
+                            ProjectileTrailDelay delay) {
+        this.trailDelay = java.util.Objects.requireNonNull(delay, "delay");
+        this.launchCombat = java.util.Optional.of(new LaunchCombatSnapshot(atk, kbValue));
         this.host = host;
-        if (host instanceof LivingEntity le) {
-            this.hostEntity = le;
-        }
+        this.hostEntity = host instanceof LivingEntity le ? le : null;
         this.effectMap = new HashMap<>(host.getAttackEffectMap());
         this.setPlayerUID(host.getPlayerUID());
         this.type = missileType;
@@ -122,10 +167,8 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
         this.attrs.setAttrsBuffed(ID.Attrs.DODGE, 0.5F);
         this.attrs.setAttrsBuffed(ID.Attrs.KB, kbValue);
 
-        // set position at host's XZ and given launch Y
-        if (this.hostEntity != null) {
-            this.setPos(this.hostEntity.getX(), launchY, this.hostEntity.getZ());
-        }
+        // Resolve the launch origin before calculating any direction or trajectory.
+        this.setPos(origin);
 
         // init velocity
         this.vel0 = initVel;
@@ -133,7 +176,9 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
         this.accY2 = initAccY2;
         this.t0 = 0;
         this.t1 = 0;
+    }
 
+    private void initTargetTrajectory(double tarX, float tarY, double tarZ, float addHeight) {
         // calc direction vector to target
         double dx = tarX - this.getX();
         double dy = tarY - this.getY();
@@ -241,35 +286,32 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     }
 
     @Override
+    public Packet<ClientGamePacketListener> getAddEntityPacket() {
+        return NetworkHooks.getEntitySpawningPacket(this);
+    }
+
+    @Override
     public void writeSpawnData(FriendlyByteBuf buffer) {
-        buffer.writeVarInt(this.type);
-        buffer.writeVarInt(this.moveType);
-        buffer.writeVarInt(this.life);
-        buffer.writeVarInt(this.playerUID);
-        buffer.writeDouble(this.velX);
-        buffer.writeDouble(this.velY);
-        buffer.writeDouble(this.velZ);
-        buffer.writeDouble(this.vel0);
-        buffer.writeDouble(this.accY1);
-        buffer.writeDouble(this.accY2);
-        buffer.writeDouble(this.t0);
-        buffer.writeDouble(this.t1);
+        MissileSpawnCodec.write(buffer, new MissileSpawnCodec.Snapshot(this.type, this.moveType, this.life, this.playerUID,
+                this.velX, this.velY, this.velZ, this.vel0, this.accY1, this.accY2, this.t0, this.t1, this.trailDelay));
     }
 
     @Override
     public void readSpawnData(FriendlyByteBuf buffer) {
-        this.type = buffer.readVarInt();
-        this.moveType = buffer.readVarInt();
-        this.life = buffer.readVarInt();
-        this.playerUID = buffer.readVarInt();
-        this.velX = buffer.readDouble();
-        this.velY = buffer.readDouble();
-        this.velZ = buffer.readDouble();
-        this.vel0 = buffer.readDouble();
-        this.accY1 = buffer.readDouble();
-        this.accY2 = buffer.readDouble();
-        this.t0 = buffer.readDouble();
-        this.t1 = buffer.readDouble();
+        MissileSpawnCodec.Snapshot state = MissileSpawnCodec.read(buffer);
+        this.type = state.type();
+        this.moveType = state.move();
+        this.life = state.life();
+        this.playerUID = state.owner();
+        this.velX = state.x();
+        this.velY = state.y();
+        this.velZ = state.z();
+        this.vel0 = state.speed();
+        this.accY1 = state.acc1();
+        this.accY2 = state.acc2();
+        this.t0 = state.t0();
+        this.t1 = state.t1();
+        this.trailDelay = state.delay();
     }
 
     @Override
@@ -280,6 +322,10 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
 
     @Override
     public void readAdditionalSaveData(CompoundTag compound) {
+        this.trailDelay = ProjectileTrailDelay.NONE;
+        this.launchCombat = java.util.Optional.empty();
+        this.host = null;
+        this.hostEntity = null;
         this.type = compound.getInt("MissileType");
         this.moveType = compound.getInt("MovementType");
     }
@@ -295,6 +341,7 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
 
         // update velocity
         handleMissileMovement();
+        this.trailDelay = this.trailDelay.afterUpdate();
 
         // ===== SERVER SIDE =====
         if (!this.level().isClientSide()) {
@@ -308,6 +355,17 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
             if (this.tickCount > this.life) {
                 this.onImpact(null);
                 return;
+            }
+
+            if (this.type == 3 && ClusterProjectileRules.emitsChildAtAge(this.tickCount)) {
+                this.launchCombat.ifPresent(launch -> {
+                    Vec3 displacement = this.getDeltaMovement();
+                    RawVelocity raw = new RawVelocity(displacement.x, displacement.y, displacement.z);
+                    Vec3 origin = this.position().add(0D, ClusterProjectileRules.childVerticalOffset(raw), 0D);
+                    EntityAbyssMissile child = new EntityAbyssMissile(ModEntities.ABYSS_MISSILE.get(), this.level());
+                    child.initRawChild(this.host, origin, ClusterProjectileRules.child(launch, raw));
+                    this.level().addFreshEntity(child);
+                });
             }
 
             // collision checks after 5 ticks (let missile leave host)
@@ -362,6 +420,13 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
      * Update velocity based on movement type
      */
     protected void handleMissileMovement() {
+        if (this.type == 4) {
+            RawVelocity next = new RawVelocity(this.velX, this.velY, this.velZ).afterChildUpdate(this.accY1);
+            this.velX = next.x();
+            this.velY = next.y();
+            this.velZ = next.z();
+            return;
+        }
         switch (this.moveType) {
             case 1: // parabola
                 if (this.tickCount <= this.t0) {
@@ -505,6 +570,10 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
         if (this.impacting)
             return false;
 
+        // spell damage from the owner or an ally must not detonate this missile
+        if (com.lulan.shincolle.handler.AllySpellDamageGuard.shouldBlock(source, this))
+            return false;
+
         if (this.host == null) {
             this.discard();
             return false;
@@ -611,6 +680,10 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     }
 
     // ========== Missile-specific ==========
+
+    public ProjectileTrailDelay getTrailDelay() {
+        return this.trailDelay;
+    }
 
     public int getMissileType() {
         return this.type;

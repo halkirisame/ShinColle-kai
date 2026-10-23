@@ -61,9 +61,18 @@ public final class ShipFormationStateAdapter {
         if (owner == null) return new FormationProjection.Pending(OWNER_UNAVAILABLE);
         CapaTeitoku capa = owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
         if (capa == null) return new FormationProjection.Pending(MEMBERSHIP_UNAVAILABLE);
-        int team = capa.findTeamOfShip(this.ship.getShipUID());
-        if (team < 0) return new FormationProjection.Inactive(NOT_MEMBER);
         ServerLevel level = (ServerLevel) this.ship.level();
+        int shipUid = this.ship.getShipUID();
+        int team = -1;
+        // A ship in several teams follows the first team that has a formation and enough ships
+        for (int k = 0; k < CapaTeitoku.TEAM_NUM; k++) {
+            if (capa.getFormatID(k) > 0 && capa.isShipInTeam(k, shipUid) && capa.getNumberOfShip(level, k) > 4) {
+                team = k;
+                break;
+            }
+        }
+        if (team < 0) team = capa.findTeamOfShip(shipUid);
+        if (team < 0) return new FormationProjection.Inactive(NOT_MEMBER);
         var members = new ArrayList<FormationProjector.Member>();
         for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
             int uid = capa.getTeamMember(team, slot);

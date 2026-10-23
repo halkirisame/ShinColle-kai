@@ -18,14 +18,16 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
- * Loads {@code data/<domain>/equipment/*.json} into {@link EquipDefinition}s,
+ * Loads {@code data/<domain>/shincolle_kai/equipment/*.json} into {@link EquipDefinition}s,
  * keyed by their file-path {@link ResourceLocation}. Any datapack can add, override, or (with
  * {@code "replace"}-style datapack layering) shadow entries here - the point
  * of moving off the old hardcoded {@code Values.EquipAttrsMain}/{@code
@@ -37,7 +39,11 @@ import java.util.Set;
 public class EquipDataLoader extends SimpleJsonResourceReloadListener {
 
     private static final Gson GSON = new Gson();
-    private static final String DIRECTORY = "equipment";
+    private static final String KIND = "equipment";
+    /** Datapack directory this loader reads: {@code data/<domain>/shincolle_kai/equipment}. */
+    static final String DIRECTORY = Reference.MOD_ID + "/" + KIND;
+    /** Directory used before the {@code "schema"} field existed. It is never read, only reported. */
+    static final String LEGACY_DIRECTORY = KIND;
     static final int MAX_STATS_PER_DEFINITION = EquipmentJsonFormat.MAX_STATS;
 
     private static volatile EquipDataSnapshot serverSnapshot = EquipDataSnapshot.EMPTY;
@@ -53,6 +59,7 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> object, ResourceManager resourceManager,
                           ProfilerFiller profiler) {
+        warnAboutLegacyDirectory(resourceManager);
         EquipDataSnapshot candidate = parseDefinitions(object);
         if (!publishCandidate(candidate)) {
             return;
@@ -86,12 +93,33 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
                                 def.legacyEquipId());
                     }
                 }
+            } catch (SchemaRejectedException e) {
+                ShinColle.LOGGER.warn("Rejected ship equipment {}: {}", entry.getKey(), e.getMessage());
             } catch (RuntimeException e) {
                 ShinColle.LOGGER.error("Failed to parse ship equipment {}: {}", entry.getKey(), e.toString());
             }
         }
 
         return new EquipDataSnapshot(definitions, itemVariants, legacyDefinitions);
+    }
+
+    /** Namespaces that still hold files under the legacy directory; each is reported once per reload. */
+    static Set<String> legacyNamespaces(Collection<ResourceLocation> legacyFiles) {
+        Set<String> namespaces = new TreeSet<>();
+        for (ResourceLocation file : legacyFiles) {
+            namespaces.add(file.getNamespace());
+        }
+        return namespaces;
+    }
+
+    private static void warnAboutLegacyDirectory(ResourceManager resourceManager) {
+        Set<String> namespaces = legacyNamespaces(resourceManager.listResources(LEGACY_DIRECTORY,
+                file -> file.getPath().endsWith(".json")).keySet());
+        for (String namespace : namespaces) {
+            ShinColle.LOGGER.warn("Found JSON files under data/{}/{}/, which is no longer read. Move ship "
+                    + "equipment definitions to data/{}/{}/ and add \"schema\": {}", namespace,
+                    LEGACY_DIRECTORY, namespace, DIRECTORY, EquipmentJsonFormat.SCHEMA);
+        }
     }
 
     static boolean publishCandidate(EquipDataSnapshot candidate) {
@@ -107,6 +135,7 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
     }
 
     static EquipDefinition parse(ResourceLocation id, JsonObject json) {
+        requireSchema(json);
         validateKnownFields(json, EquipmentJsonFormat.TOP_LEVEL_FIELDS, "equipment definition");
         for (String field : EquipmentJsonFormat.REQUIRED_FIELDS) {
             if (!json.has(field)) {
@@ -299,6 +328,38 @@ public class EquipDataLoader extends SimpleJsonResourceReloadListener {
             throw new IllegalArgumentException(field + " must be a JSON object");
         }
         return element.getAsJsonObject();
+    }
+
+    /** Rejects a definition whose {@code "schema"} is missing, not an integer, or not the version this loader reads. */
+    static void requireSchema(JsonObject json) {
+        JsonElement element = json.get(EquipmentJsonFormat.SCHEMA_FIELD);
+        if (element == null) {
+            throw new SchemaRejectedException("schema is required (an integer, expected "
+                    + EquipmentJsonFormat.SCHEMA + ")");
+        }
+        int declared;
+        try {
+            if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+                throw new ArithmeticException("not a number");
+            }
+            declared = element.getAsBigDecimal().intValueExact();
+        } catch (ArithmeticException | NumberFormatException exception) {
+            throw new SchemaRejectedException("schema must be an integer (expected "
+                    + EquipmentJsonFormat.SCHEMA + ", got " + element + ")");
+        }
+        if (declared != EquipmentJsonFormat.SCHEMA) {
+            throw new SchemaRejectedException("schema " + declared + " is not supported (this version reads schema "
+                    + EquipmentJsonFormat.SCHEMA + ")");
+        }
+    }
+
+    /** A definition refused for its {@code "schema"} field; reported as a warning, not an error. */
+    static final class SchemaRejectedException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
+        SchemaRejectedException(String message) {
+            super(message);
+        }
     }
 
     private static String requireString(JsonObject json, String field) {

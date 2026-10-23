@@ -28,8 +28,8 @@ import net.minecraftforge.network.simple.SimpleChannel;
  */
 public class ModNetworking {
 
-    // Skill visuals, beam data, and fishing host data require matching client/server jars.
-    private static final String PROTOCOL_VERSION = "13";
+    // Ship identity, definition and inventory hand snapshots require matching client/server jars.
+    private static final String PROTOCOL_VERSION = "17";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),
@@ -116,6 +116,18 @@ public class ModNetworking {
                 .encoder(S2CAttackAnimationPacket::encode)
                 .decoder(S2CAttackAnimationPacket::new)
                 .consumerMainThread(S2CAttackAnimationPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CShipDefinitionSyncPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CShipDefinitionSyncPacket::encode)
+                .decoder(S2CShipDefinitionSyncPacket::new)
+                .consumerMainThread(S2CShipDefinitionSyncPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CShipVisualEventPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CShipVisualEventPacket::encode)
+                .decoder(S2CShipVisualEventPacket::decode)
+                .consumerMainThread(S2CShipVisualEventPacket::handle)
                 .add();
 
         LogHelper.info("ShinColle: Network packets registered (" + packetId + " packets).");

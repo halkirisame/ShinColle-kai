@@ -5,7 +5,10 @@ import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.ShipTransitionReason;
 
 import com.lulan.shincolle.ai.observation.MinecraftTargetClassificationAdapter;
+import com.lulan.shincolle.ai.domain.PlayerRetaliationRule;
 import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
+import com.lulan.shincolle.capability.CapaTeitoku;
+import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.ai.domain.TargetPredicateEvaluator;
 import com.lulan.shincolle.ai.domain.TargetPredicateKind;
 import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
@@ -13,6 +16,7 @@ import com.lulan.shincolle.entity.*;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.server.ServerDataManager;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -306,6 +310,31 @@ public class TargetHelper {
         return targetList.containsKey(targetClass.hashCode());
     }
 
+    /**
+     * Retaliation against a player needs the ship's own permission or the permission
+     * of any fleet it belongs to. Other targets are never restricted.
+     */
+    private static boolean allowsPlayerRetaliation(Entity host, Entity target) {
+        if (!(target instanceof Player) || !(host instanceof BasicEntityShip ship)) {
+            return true;
+        }
+        boolean fleetPermitted = false;
+        if (!ship.level().isClientSide()) {
+            ServerPlayer owner = ServerDataManager.getPlayerByUID(ship.getPlayerUID());
+            CapaTeitoku capa = owner == null ? null
+                    : owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa != null) {
+                for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
+                    if (capa.getRetaliatePlayer(team) && capa.isShipInTeam(team, ship.getShipUID())) {
+                        fleetPermitted = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return PlayerRetaliationRule.allows(true, ship.getStateFlag(ID.F.RetaliatePlayer), fleetPermitted);
+    }
+
     private static boolean evaluatePredicate(
             TargetPredicateKind kind,
             Entity host,
@@ -390,6 +419,9 @@ public class TargetHelper {
 
         @Override
         public boolean test(Entity target) {
+            if (!allowsPlayerRetaliation(host, target)) {
+                return false;
+            }
             return evaluatePredicate(
                     TargetPredicateKind.FRIENDLY_REVENGE,
                     host,

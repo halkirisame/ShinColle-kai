@@ -156,6 +156,10 @@ public class ModelDestroyerInazuma extends ShipModelBaseAdv<Entity> {
         this.GlowBodyMain = root.getChild("GlowBodyMain");
         this.GlowHead = this.GlowBodyMain.getChild("GlowHead");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.06F, 1.04F, -0.08F};
+        this.offsetBlock = new float[] {0.06F, 1.04F, -0.08F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

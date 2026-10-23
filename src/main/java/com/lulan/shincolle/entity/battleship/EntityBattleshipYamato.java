@@ -2,7 +2,6 @@ package com.lulan.shincolle.entity.battleship;
 
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
-import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.ShipInnateAttackEffects;
 import com.lulan.shincolle.entity.other.EntityProjectileBeam;
@@ -11,15 +10,12 @@ import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.ParticleHelper;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Battleship Yamato entity.
@@ -94,24 +90,9 @@ public class EntityBattleshipYamato extends BasicEntityShipSmall {
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // marriage ring aura: damage resistance + fire resistance to nearby same-owner ships
-                UUID ownerUUID = this.getOwnerUUID();
-                if (ownerUUID != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    int shipLevel = getStateMinor(ID.M.ShipLevel);
-                    int amp = shipLevel / 80;
-                    int dur = 50 + shipLevel;
-
-                    List<BasicEntityShip> nearby = this.level().getEntitiesOfClass(
-                            BasicEntityShip.class, this.getBoundingBox().inflate(16D, 16D, 16D));
-                    for (BasicEntityShip s : nearby) {
-                        UUID sOwner = s.getOwnerUUID();
-                        if (sOwner != null && sOwner.equals(ownerUUID) && this.distanceToSqr(s) < 256.0D) {
-                            s.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, dur, amp, false, false));
-                            s.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, dur, amp, false, false));
-                        }
-                    }
-                }
+                // marriage ring aura: damage resistance and fire resistance to the same-owner ships around, this one included
+                int shipLevel = getStateMinor(ID.M.ShipLevel);
+                this.applyMarriageFleetAura(shipLevel / 70, 50 + shipLevel, MobEffects.DAMAGE_RESISTANCE, MobEffects.FIRE_RESISTANCE);
             }
         }
     }

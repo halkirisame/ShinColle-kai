@@ -12,6 +12,7 @@ import com.lulan.shincolle.network.EquipmentSyncV2Codec;
 import com.lulan.shincolle.reference.Reference;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -21,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Focused validation coverage for the dynamic equipment JSON stats object. */
 @GameTestHolder(Reference.MOD_ID)
@@ -70,6 +72,81 @@ public final class EquipDataLoaderGameTests {
                 omitted.rareMean(), omitted.rollType(), null);
         if (normalized.availability() != EquipAvailability.ANY) {
             throw new AssertionError("Null availability was not normalized to any");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void definitionWithoutSchemaIsRejectedAndOthersStillLoad(GameTestHelper helper) {
+        JsonObject missing = minimalDefinition();
+        missing.remove(EquipmentJsonFormat.SCHEMA_FIELD);
+        assertSchemaRejected(missing, "missing schema");
+
+        ResourceLocation validId = id("loader_test", "schema_isolated_valid");
+        ResourceLocation missingId = id("loader_test", "schema_isolated_missing");
+        EquipDataSnapshot isolated = EquipDataLoader.parseDefinitions(Map.of(
+                validId, minimalDefinition(), missingId, missing));
+        if (isolated.get(validId) == null || isolated.get(missingId) != null || isolated.byId().size() != 1) {
+            throw new AssertionError("A definition without schema was not isolated to itself");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void definitionRejectsOlderNewerAndNonIntegerSchema(GameTestHelper helper) {
+        for (int version : new int[]{3, 5}) {
+            assertSchemaRejected(withSchema(version), "schema " + version);
+        }
+
+        JsonObject fractional = minimalDefinition();
+        fractional.addProperty(EquipmentJsonFormat.SCHEMA_FIELD, 4.5D);
+        assertSchemaRejected(fractional, "fractional schema");
+
+        JsonObject text = minimalDefinition();
+        text.addProperty(EquipmentJsonFormat.SCHEMA_FIELD, "4");
+        assertSchemaRejected(text, "string schema");
+
+        JsonObject nullValue = minimalDefinition();
+        nullValue.add(EquipmentJsonFormat.SCHEMA_FIELD, JsonNull.INSTANCE);
+        assertSchemaRejected(nullValue, "null schema");
+
+        JsonObject array = minimalDefinition();
+        array.add(EquipmentJsonFormat.SCHEMA_FIELD, new JsonArray());
+        assertSchemaRejected(array, "array schema");
+
+        EquipDataSnapshot snapshot = EquipDataLoader.parseDefinitions(Map.of(
+                id("loader_test", "schema_older"), withSchema(3),
+                id("loader_test", "schema_newer"), withSchema(5),
+                id("loader_test", "schema_current"), minimalDefinition()));
+        if (snapshot.byId().size() != 1 || snapshot.get(id("loader_test", "schema_current")) == null) {
+            throw new AssertionError("Only the definition with the current schema should have been loaded");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void legacyEquipmentDirectoryIsNotReadAndIsReportedPerNamespace(GameTestHelper helper) {
+        if (!"shincolle_kai/equipment".equals(EquipDataLoader.DIRECTORY)) {
+            throw new AssertionError("Unexpected equipment directory " + EquipDataLoader.DIRECTORY);
+        }
+        if (!"equipment".equals(EquipDataLoader.LEGACY_DIRECTORY)) {
+            throw new AssertionError("Unexpected legacy directory " + EquipDataLoader.LEGACY_DIRECTORY);
+        }
+        FileToIdConverter converter = FileToIdConverter.json(EquipDataLoader.DIRECTORY);
+        ResourceLocation current = id("loader_test", "shincolle_kai/equipment/radar.json");
+        ResourceLocation legacy = id("loader_test", "equipment/radar.json");
+        if (!converter.idToFile(id("loader_test", "radar")).equals(current)) {
+            throw new AssertionError("The loader does not read data/<ns>/shincolle_kai/equipment");
+        }
+        if (legacy.getPath().startsWith(EquipDataLoader.DIRECTORY + "/")) {
+            throw new AssertionError("The legacy path would be read by the loader");
+        }
+
+        Set<String> namespaces = EquipDataLoader.legacyNamespaces(List.of(
+                id("pack_a", "equipment/one.json"), id("pack_a", "equipment/sub/two.json"),
+                id("pack_b", "equipment/three.json")));
+        if (!namespaces.equals(Set.of("pack_a", "pack_b"))) {
+            throw new AssertionError("Legacy files must be reported once per namespace but got " + namespaces);
         }
         helper.succeed();
     }
@@ -256,10 +333,26 @@ public final class EquipDataLoaderGameTests {
 
     private static JsonObject minimalDefinition() {
         JsonObject json = new JsonObject();
+        json.addProperty(EquipmentJsonFormat.SCHEMA_FIELD, EquipmentJsonFormat.SCHEMA);
         json.addProperty("item", "minecraft:stick");
         json.addProperty("variant", 0);
         json.addProperty("equip_type", "cannon_si");
         return json;
+    }
+
+    private static JsonObject withSchema(int version) {
+        JsonObject json = minimalDefinition();
+        json.addProperty(EquipmentJsonFormat.SCHEMA_FIELD, version);
+        return json;
+    }
+
+    private static void assertSchemaRejected(JsonObject json, String name) {
+        try {
+            EquipDataLoader.parse(id("loader_test", "schema_rejected"), json);
+            throw new AssertionError("Expected loader to reject " + name);
+        } catch (EquipDataLoader.SchemaRejectedException expected) {
+            // Expected validation failure.
+        }
     }
 
     private static JsonObject effect(String id, int amplifier, int duration, int chance) {

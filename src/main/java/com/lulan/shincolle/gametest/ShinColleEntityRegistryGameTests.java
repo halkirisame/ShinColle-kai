@@ -910,7 +910,7 @@ public final class ShinColleEntityRegistryGameTests {
             }
 
             hostEntity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
-            targetEntity.moveTo(3.0D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
+            targetEntity.moveTo(2.0D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);
             if (!level.addFreshEntity(hostEntity) || !level.addFreshEntity(targetEntity)) {
                 throw new AssertionError("Failed to add host or target entity for floating fort test.");
             }
@@ -3014,13 +3014,13 @@ public final class ShinColleEntityRegistryGameTests {
             ClientEquipData.install(retainedSnapshot);
 
             FriendlyByteBuf excessiveCount = new FriendlyByteBuf(Unpooled.buffer());
-            excessiveCount.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
+            excessiveCount.writeVarInt(S2CEquipDataSyncPacket.WIRE_VERSION);
             excessiveCount.writeVarInt(S2CEquipDataSyncPacket.MAX_DEFINITIONS + 1);
             assertInvalidSyncKeepsSnapshot(decodeEquipDataPacket(excessiveCount), retainedSnapshot,
                     "definition count overflow");
 
             FriendlyByteBuf invalidStats = new FriendlyByteBuf(Unpooled.buffer());
-            invalidStats.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
+            invalidStats.writeVarInt(S2CEquipDataSyncPacket.WIRE_VERSION);
             invalidStats.writeVarInt(1);
             writeSyncTestResourceLocation(invalidStats, retained.id());
             writeSyncTestResourceLocation(invalidStats, retained.item());
@@ -3032,7 +3032,7 @@ public final class ShinColleEntityRegistryGameTests {
                     "invalid stats count");
 
             FriendlyByteBuf missingReference = new FriendlyByteBuf(Unpooled.buffer());
-            missingReference.writeVarInt(S2CEquipDataSyncPacket.SCHEMA_VERSION);
+            missingReference.writeVarInt(S2CEquipDataSyncPacket.WIRE_VERSION);
             missingReference.writeVarInt(1);
             writeSyncTestDefinition(missingReference, retained);
             missingReference.writeVarInt(1);

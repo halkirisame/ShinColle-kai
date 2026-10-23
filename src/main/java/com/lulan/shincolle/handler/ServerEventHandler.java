@@ -199,8 +199,11 @@ public class ServerEventHandler {
 
         // Definitions must arrive before the attributes calculated from them.
         S2CEquipDataSyncPacket packet = new S2CEquipDataSyncPacket(EquipDataRegistry.server());
+        var ships = new com.lulan.shincolle.network.S2CShipDefinitionSyncPacket(
+                com.lulan.shincolle.shipdata.ShipDefinitionRegistry.server().snapshot());
         for (ServerPlayer player : event.getPlayers()) {
             ModNetworking.sendToPlayer(packet, player);
+            ModNetworking.sendToPlayer(ships, player);
         }
         for (Entity ship : recalculatedShips) {
             ModNetworking.sendToAllTracking(S2CEntitySyncPacket.syncAllAttrs(ship), ship);

@@ -1,16 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:shincolle-kai:schema:equipment:3",
+  "$id": "urn:shincolle-kai:schema:equipment:4",
   "title": "ShinColle-kai ship equipment definition",
-  "description": "One data/<namespace>/equipment/<path>.json definition. The definition ID is derived from its file path.",
+  "description": "One data/<namespace>/shincolle_kai/equipment/<path>.json definition. The definition ID is derived from its file path.",
   "type": "object",
   "required": [
+    "schema",
     "item",
     "variant",
     "equip_type"
   ],
   "additionalProperties": false,
   "properties": {
+    "schema": {
+      "const": 4,
+      "description": "Version of this equipment format. A definition whose schema is missing, not an integer, or not 4 is rejected."
+    },
     "$schema": {
       "type": "string",
       "description": "Optional editor hint. It is not used by the game loader."

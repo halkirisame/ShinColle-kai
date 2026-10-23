@@ -115,6 +115,10 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
         this.GlowNeckCloth = this.GlowBodyMain.getChild("GlowNeckCloth");
         this.GlowHead = this.GlowNeckCloth.getChild("GlowHead");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {-0.16F, 1.24F, -0.03F};
+        this.offsetBlock = new float[] {-0.16F, 1.24F, -0.03F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft};
     }
 
     public static LayerDefinition createBodyLayer() {

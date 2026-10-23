@@ -98,6 +98,11 @@ public class ModelBattleshipTa extends ShipModelBaseAdv<Entity> {
         this.GlowNeckCloth = this.GlowBodyMain.getChild("GlowNeckCloth");
         this.GlowHead = this.GlowNeckCloth.getChild("GlowHead");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {-0.04F, 0.98F, 0.07F};
+        this.offsetBlock = new float[] {-0.04F, 0.98F, 0.07F};
+        this.rotateItem = new float[] {0F, 0F, -180F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

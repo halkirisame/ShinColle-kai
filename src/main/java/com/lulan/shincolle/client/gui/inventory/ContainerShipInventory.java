@@ -1,7 +1,7 @@
 package com.lulan.shincolle.client.gui.inventory;
 
 import com.lulan.shincolle.capability.CapaShipInventory;
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.equip.ShipEquipmentResolver;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.init.ModMenuTypes;

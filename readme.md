@@ -61,8 +61,8 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 
 ## 動作環境
 
-- Minecraft 1.20.1 / Forge 47系(`[47,)`)。開発・検証は 47.4.0 で行っています
-- 前提MODはありません
+- Minecraft 1.20.1 / Forge 47系(`[47,)`。開発と検証は 47.4.0)
+- 前提MODはありません(GeckoLib は JAR に同梱しています)
 
 任意で連携するMOD(無くても動作します):
 
@@ -138,29 +138,7 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 設定ファイルは新規生成されます。旧設定は引き継がれません。
 <!-- traceability: readme.reforge-compatibility end -->
 
-### 0.11.0から0.12.0への互換性
-
-| 種別 | 状態 |
-|---|---|
-| 起動互換性 | 0.11.0で保存したワールドを読み込む確認を行っています |
-| データ互換性 | 確認した保存例では、艦の所有者・編成・婚姻・装備・持ち物と死亡卵を引き継げます |
-| セーブ互換性 | 確認したプレイデータで継続と死亡卵からの復活を確認しています。更新前にワールドをバックアップしてください |
-| API互換性 | 公開Java APIとKubeJSの定義は維持しています。内部AIクラスへ直接依存するアドオンは互換保証の対象外です |
-
-マルチプレイでは、サーバーとすべてのクライアントを同じ0.12.0へ更新してください。
-0.11.0との混在接続はできません。
-
 ## 移行
-
-### 0.11.0からの更新
-
-更新前にワールドをバックアップし、マルチプレイではサーバーと参加者のMODを同じ版へ揃えてください。
-0.12.0では新AI（NEW）が既定です。既存の `config/shincolle_kai-common.toml` も、
-初回更新時に `shipAiTargetAuthority` だけを一度NEWへ切り替えます。
-
-旧AIは廃止しました。`shipAiTargetAuthority` に `LEGACY` が書かれた設定も読み込めますが、
-どの値でも新AI（NEW）で動きます。
-移行済みの印 `shipAiNewDefaultApplied` は変更しないでください。
 
 ### Reforgeからの移行
 
@@ -182,61 +160,19 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 現在把握している、遊ぶうえで影響のある問題です。
 
-**検証中**は、修正を実装して自動テストは通ったものの、実際のゲーム内での確認が
-まだ終わっていないものです。直っているかどうかは未確定として扱ってください。
-
-<!-- traceability: readme.known-issue.pointer-single-ship begin -->
-- **検証中: 指揮棒の単艦モード。** 選択した艦が全て反応する問題を修正しました。
-  自動テストと独立検証は通過していますが、実機確認が残っています
-<!-- traceability: readme.known-issue.pointer-single-ship end -->
-<!-- traceability: readme.known-issue.multiplayer-ownership begin -->
-- **検証中: マルチプレイでの所有権と状態の保持。** 他のプレイヤーが自分の艦や
-  クレーンを操作・破壊できないこと、標的・所有者・チームの状態が再接続や
-  サーバー再起動をまたいで保たれることは実装済みで自動テストを通していますが、
-  2人以上での実機確認が終わっていません
-<!-- traceability: readme.known-issue.multiplayer-ownership end -->
-<!-- traceability: readme.known-issue.item-duplication begin -->
-- **検証中: 自動回収でのアイテム複製。** かまど出力や満杯のスタックを扱うときに
-  アイテムが複製されない・装備欄へ紛れ込まない対応を入れていますが、
-  実機確認が終わっていません
-<!-- traceability: readme.known-issue.item-duplication end -->
-<!-- traceability: readme.known-issue.packet-hardening begin -->
-- **検証中: 不正なパケットへの耐性。** サーバーが不正・過大なパケットで
-  停止しないことと、艦の位置情報が意図せず他プレイヤーへ渡らないことは
-  実装済みですが、通常のクライアント以外での確認が終わっていません
-<!-- traceability: readme.known-issue.packet-hardening end -->
-<!-- traceability: readme.known-issue.ship-tasks-crane begin -->
-- **検証中: 艦の作業とクレーン。** 採掘時の移動と釣り機構には修正を実装していますが、
-  釣りの描画・音・操作や、クレーンを含む実機確認が残っています
-<!-- traceability: readme.known-issue.ship-tasks-crane end -->
 <!-- traceability: readme.known-issue.particles begin -->
 - **未修正: 旧版の一部の戦闘パーティクルは未移植です**（見た目のみ）
 <!-- traceability: readme.known-issue.particles end -->
-<!-- traceability: readme.known-issue.large-construction begin -->
-- **検証中: 大型建造。** 大型造船所を構成するブロック（多金属ブロック・深海重怨念
-  ブロック）を右クリックで設置できず造船所を組み立てられない問題を修正しました。
-  実際に建造できるかは未確認です
-<!-- traceability: readme.known-issue.large-construction end -->
-<!-- traceability: readme.known-issue.emotion begin -->
-- **検証中: 艦の感情・反応。** 感情の表示、音声、押し返し、反撃の修正を実装していますが、
-  表情やパーティクルを含む実機確認が残っています。
-  撫でたときに士気が増えることは、実機で確認しました。
-<!-- traceability: readme.known-issue.emotion end -->
-<!-- traceability: readme.known-issue.shipyard-vortex begin -->
-- **検証中: 大型造船所の渦**が建造中も停止時と同じ表示のままだった問題を
-  修正しました（見た目のみ）。表示は未確認です
-<!-- traceability: readme.known-issue.shipyard-vortex end -->
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.12.1 について
+## β版 v1.20.1-0.13.0 について
 
-**β版 `0.12.1`** です。
+**β版 `0.13.0`** です。
 
 造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
 一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
-案内します。説明書の誤りを直し、原典 1.10.2 と食い違っていたレシピや深海火山コアを
-原典どおりに戻しました。
+案内します。この版では艦AIの改修と不具合の修正を行い、鹿島など新規艦の表示基盤を追加しました。
 
 **ただし未完成の領域と既知の不具合があります。**`1.0.0` はそれらが解消された版の
 ために取ってあります。
@@ -363,8 +299,8 @@ migrated. **Starting in a new world is recommended.**
 
 ## Requirements
 
-- Minecraft 1.20.1 / Forge 47.x (`[47,)`); developed and tested against 47.4.0
-- No other mods are required
+- Minecraft 1.20.1 / Forge 47.x (`[47,)`; developed and tested on 47.4.0)
+- No other mods are required (GeckoLib is bundled in the JAR)
 
 Optional integrations (all work fine when absent):
 
@@ -443,28 +379,6 @@ port and to fix bugs, using the 1.10.2 code and in-game behaviour as the referen
 Config files are regenerated; old settings are not carried over.
 <!-- traceability: readme.reforge-compatibility-en end -->
 
-### Compatibility from 0.11.0 to 0.12.0
-
-| Kind | Status |
-|---|---|
-| World loading | Loading worlds saved in 0.11.0 has been tested |
-| Data | Tested saves preserve ship ownership, formations, marriage, equipment, cargo and sunk-ship eggs |
-| Save continuity | Continued play and revival from saved ship eggs have been tested. Back up your world before updating |
-| API | The public Java API and KubeJS definitions are preserved. Addons that depend directly on internal AI classes are outside the compatibility guarantee |
-
-Update the server and every client to the same 0.12.0 version.
-Mixed 0.11.0/0.12.0 connections are not supported.
-
-## Migration from 0.11.0
-
-Back up your world before updating and use the same mod version on the server and every client.
-The redesigned ship AI (NEW) is now the default. On the first update, an existing
-`config/shincolle_kai-common.toml` switches `shipAiTargetAuthority` to NEW once.
-
-The previous AI has been removed. A config that says `LEGACY` still loads, but every value
-of `shipAiTargetAuthority` runs the redesigned AI (NEW).
-Leave the migration marker `shipAiNewDefaultApplied` unchanged.
-
 ## Migration from Reforge
 
 <!-- traceability: readme.reforge-migration-en begin -->
@@ -485,67 +399,21 @@ A Reforge world will open, but **nothing is migrated automatically.**
 
 Problems currently known to affect play.
 
-**In verification** means a fix is implemented and the automated tests pass, but it
-has not yet been confirmed in an actual game session. Treat whether it is fixed as
-undetermined.
-
-<!-- traceability: readme.known-issue.pointer-single-ship-en begin -->
-- **In verification: the pointer's single-ship mode.** The bug that made every selected
-  ship respond has been fixed and independently reviewed, but still needs an in-game
-  check
-<!-- traceability: readme.known-issue.pointer-single-ship-en end -->
-<!-- traceability: readme.known-issue.multiplayer-ownership-en begin -->
-- **In verification: multiplayer ownership and state persistence.** Automated tests pass
-  for preventing other players from controlling or destroying your ships and cranes, and
-  for preserving target, owner and team state across reconnection and server restarts, but
-  verification with two or more players is not complete
-<!-- traceability: readme.known-issue.multiplayer-ownership-en end -->
-<!-- traceability: readme.known-issue.item-duplication-en begin -->
-- **In verification: item duplication during automatic collection.** Safeguards are in
-  place to prevent duplication or items entering equipment slots when handling furnace
-  outputs and full stacks, but in-game verification is not complete
-<!-- traceability: readme.known-issue.item-duplication-en end -->
-<!-- traceability: readme.known-issue.packet-hardening-en begin -->
-- **In verification: resilience against invalid packets.** Protections are implemented
-  to keep invalid or oversized packets from stopping the server and to prevent ship
-  positions from unintentionally reaching other players, but verification outside a
-  normal client is not complete
-<!-- traceability: readme.known-issue.packet-hardening-en end -->
-<!-- traceability: readme.known-issue.ship-tasks-crane-en begin -->
-- **In verification: ship work tasks and the crane.** Mining movement and fishing
-  have received fixes, but fishing visuals, sound and operation, and in-game checks
-  including the crane, remain to be verified
-<!-- traceability: readme.known-issue.ship-tasks-crane-en end -->
 <!-- traceability: readme.known-issue.particles-en begin -->
 - **Not fixed: some combat particles from the original version are not ported** (cosmetic only)
 <!-- traceability: readme.known-issue.particles-en end -->
-<!-- traceability: readme.known-issue.large-construction-en begin -->
-- **In verification: large construction.** The blocks that make up the large shipyard
-  (polymetal block, heavy grudge block) could not be placed by right-clicking, so the
-  shipyard could not be assembled. This is fixed; whether construction actually works
-  is unconfirmed
-<!-- traceability: readme.known-issue.large-construction-en end -->
-<!-- traceability: readme.known-issue.emotion-en begin -->
-- **In verification: ship emotional reactions.** Fixes for emotion display, voices,
-  pushback and retaliation are implemented, but in-game checks including expressions
-  and particles remain. Petting raising morale has been confirmed in game
-<!-- traceability: readme.known-issue.emotion-en end -->
-<!-- traceability: readme.known-issue.shipyard-vortex-en begin -->
-- **In verification: the large shipyard's vortex** stayed in its idle appearance even
-  while building. This is fixed (cosmetic only); the appearance is unconfirmed
-<!-- traceability: readme.known-issue.shipyard-vortex-en end -->
 
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.12.1
+## About the beta release, v1.20.1-0.13.0
 
-This is the **beta, `0.12.1`**.
+This is the **beta, `0.13.0`**.
 
 The mod is playable end to end - build a shipyard, construct ships, equip them, command
 a fleet, fight, level up and marry. New players receive a guide book whose "Getting
-Started" chapter walks through the basics. The book's errors have been fixed, and recipes
-and the Abyssal Volcano Core now match ShinColle 1.10.2 again.
+Started" chapter walks through the basics. This version reworks the ship AI, fixes bugs,
+and adds the display groundwork for new ships such as Kashima.
 
 **Some systems are known to be incomplete.** `1.0.0` is reserved for the release where
 they are closed.

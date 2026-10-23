@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -26,8 +27,8 @@ public class EntityDestroyerHime extends BasicEntityShipSmall implements IShipRi
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.DDHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.DESTROYER);
         this.setStateMinor(ID.M.NumState, 6);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.DD]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.DD]);
         this.ModelPos = new float[]{0F, 20F, 0F, 45F};
 
         // cannon only
@@ -71,10 +72,11 @@ public class EntityDestroyerHime extends BasicEntityShipSmall implements IShipRi
                 if (player != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
                         getStateMinor(ID.M.NumGrudge) > 0 &&
                         this.distanceToSqr(player) < 256.0D) {
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
+                    int speedLevel = getStateMinor(ID.M.ShipLevel) / 45 + 1;
                     int duration = 80 + getStateMinor(ID.M.ShipLevel);
-                    player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, level, false, false));
-                    player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, duration, level, false, false));
+                    int digLevel = getStateMinor(ID.M.ShipLevel) / 30;
+                    player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, speedLevel, false, false));
+                    player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, duration, digLevel, false, false));
                 }
             }
         }

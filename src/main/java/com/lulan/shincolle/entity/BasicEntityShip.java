@@ -24,7 +24,7 @@ import com.lulan.shincolle.api.attribute.ShipAttributeLayout;
 import com.lulan.shincolle.api.attribute.ShipAttributeValues;
 import com.lulan.shincolle.api.equipment.ResolvedShipEquipment;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.equip.ShipEquipmentResolver;
 import com.lulan.shincolle.api.ship.PlayerOwnedShip;
 import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.capability.CapaShipSavedValues;
@@ -74,6 +74,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.*;
@@ -150,6 +151,9 @@ public abstract class BasicEntityShip extends TamableAnimal
     // fishing hook
     public EntityShipFishingHook fishHook;
     protected CapaShipInventory itemHandler;
+    private ItemStack lastSyncedMainHand = ItemStack.EMPTY;
+    private ItemStack lastSyncedOffHand = ItemStack.EMPTY;
+    private boolean hasSyncedHeldItems;
     protected LivingEntity aiTarget;
     protected Entity guardedEntity;
     @Nullable
@@ -179,6 +183,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected double ShipPrevX;
     protected double ShipPrevY;
     protected double ShipPrevZ;
+    private boolean hasPreviousTravelSample = false;
     /**
      * ship attributes: hp, def, atk, ...
      */
@@ -227,6 +232,8 @@ public abstract class BasicEntityShip extends TamableAnimal
      * attack attributes
      */
     protected HashMap<Integer, Integer> BuffMap;
+    /** The server map changed since the last periodic send. */
+    private boolean buffMapSyncPending;
     protected HashMap<ResourceLocation, ShipAttackEffect> AttackEffectMap;
     protected MissileData[] MissileData;
     // model render
@@ -540,6 +547,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         GoalSelectorHelper.stopAndClear(this.goalSelector);
         ShipSkillAttackGate.cancel(this);
         this.shipCombatState.clearWeapons();
+        RuBurstAttackGate.cancel(this);
         if (wasOrderedToSit) {
             this.setOrderedToSit(true);
             this.setInSittingPose(true);
@@ -583,6 +591,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void readAdditionalSaveData(CompoundTag nbt) {
+        this.hasPreviousTravelSample = false;
         super.readAdditionalSaveData(nbt);
         this.setManualTarget(null);
         this.commandState.onLoad();
@@ -618,6 +627,14 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.calcShipAttributes(31, false);
     }
 
+    @Override
+    protected void setLevel(Level level) {
+        if (this.level() != null && !this.level().dimension().equals(level.dimension())) {
+            this.hasPreviousTravelSample = false;
+        }
+        super.setLevel(level);
+    }
+
     // ========== Tick / aiStep (Update Loop) ==========
 
     @Override
@@ -634,6 +651,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             this.setNoAi(stopAI);
         }
         super.tick();
+        this.tickBuffMapSync();
         this.syncRotationToMount();
 
         // update arm swing
@@ -764,6 +782,27 @@ public abstract class BasicEntityShip extends TamableAnimal
         return ItemStack.EMPTY;
     }
 
+    /**
+     * Marriage ring aura of the ships that strengthen their fleet. When this ship is married, has the ring
+     * switch on and some grudge left, every living ship of the same owner whose box touches the cube 16 blocks
+     * around this ship's box receives the effects, this ship included. Callers run it on the server once per
+     * aura period.
+     */
+    protected final void applyMarriageFleetAura(int amplifier, int duration, MobEffect... effects) {
+        UUID ownerUUID = this.getOwnerUUID();
+        if (ownerUUID == null || !getStateFlag(ID.F.IsMarried) || !getStateFlag(ID.F.UseRingEffect) ||
+                getStateMinor(ID.M.NumGrudge) <= 0) {
+            return;
+        }
+
+        for (BasicEntityShip ship : this.level().getEntitiesOfClass(BasicEntityShip.class,
+                this.getBoundingBox().inflate(16D), e -> e.isAlive() && ownerUUID.equals(e.getOwnerUUID()))) {
+            for (MobEffect effect : effects) {
+                ship.addEffect(new MobEffectInstance(effect, duration, amplifier, false, false));
+            }
+        }
+    }
+
     @Override
     public void aiStep() {
         if (this.tickCount == 5) {
@@ -776,11 +815,19 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (!level().isClientSide()) {
             this.commandState.initialize();
             ShipSkillAttackGate.observe(this);
+            RuBurstAttackGate.observe(this);
             resolveGuardedEntity();
             EntityHelper.updateShipNavigator(this);
             TargetHelper.updateTarget(this);
 
             super.aiStep();
+            RuBurstAttackGate.tick(this);
+            if ((this.tickCount & 7) == 0) {
+                S2CEntitySyncPacket heldItems = createHeldItemUpdate();
+                if (heldItems != null) {
+                    ModNetworking.sendToAllTracking(heldItems, this);
+                }
+            }
             if (stopAI) {
                 this.commandState.assertProjection();
                 return;
@@ -992,7 +1039,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (!this.level().isClientSide()) {
             // recalc raw attrs
             if ((flag & 1) == 1) {
-                BuffHelper.updateAttrsRaw(this.shipAttrs, this.getShipClass(), this.getLevel());
+                this.updateRawAttributes();
                 this.calcShipAttributesAddRaw();
                 this.setUpdateFlag(ID.FlagUpdate.AttrsRaw, true);
                 this.setUpdateFlag(ID.FlagUpdate.AttrsBonus, true);
@@ -1080,7 +1127,15 @@ public abstract class BasicEntityShip extends TamableAnimal
     public void calcShipAttributesAdd() {
     }
 
+    protected void updateRawAttributes() {
+        BuffHelper.updateAttrsRaw(this.shipAttrs, this.getShipClass(), this.getLevel());
+    }
+
     public void calcShipAttributesAddRaw() {
+    }
+
+    protected ItemStack createDeathEggStack() {
+        return new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
     }
 
     public void calcShipAttributesAddEquip() {
@@ -1242,6 +1297,11 @@ public abstract class BasicEntityShip extends TamableAnimal
         addShipExp(ConfigHandler.expGain[0]);
         decrMorale(0);
         setCombatTick(this.tickCount);
+        if (com.lulan.shincolle.ai.ShipClassAttackGate.carrierMelee(this, target, atk)) {
+            applyEmotesReaction(3);
+            if (ConfigHandler.canFlare()) flareTarget(target);
+            return true;
+        }
         triggerAttackAnimation();
 
         boolean isTargetHurt = target.hurt(this.damageSources().mobAttack(this), atk);
@@ -1274,6 +1334,12 @@ public abstract class BasicEntityShip extends TamableAnimal
         decrGrudgeNum(ConfigHandler.consumeGrudgeAction[0]);
         decrMorale(1);
         setCombatTick(this.tickCount);
+
+        if (com.lulan.shincolle.ai.ShipClassAttackGate.lightMissile(this, target)) {
+            applyEmotesReaction(3);
+            if (ConfigHandler.canFlare()) flareTarget(target);
+            return true;
+        }
 
         float atk = getAttackBaseDamage(1, target);
 
@@ -1336,6 +1402,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public boolean attackEntityWithHeavyAmmo(Entity target) {
+        if (RuBurstAttackGate.supported(this)) return RuBurstAttackGate.start(this, target);
         if (ShipSkillAttackGate.running(this)) return false;
         if (!decrAmmoNum(1, this.getAmmoConsumption()))
             return false;
@@ -1359,6 +1426,13 @@ public abstract class BasicEntityShip extends TamableAnimal
         // play attack sound
         applySoundAtAttacker(2, target);
         applyParticleAtAttacker(2, target, target);
+
+        if (launchHeavyEntity(target)) {
+            applyParticleAtTarget(2, target);
+            applyEmotesReaction(3);
+            if (ConfigHandler.canFlare()) flareTarget(target);
+            return true;
+        }
 
         // target position: x and z are doubles, the height stays a float
         double tarX = target.getX();
@@ -1387,9 +1461,19 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     /**
+     * A hull whose heavy cannon shot is not the shared missile launches its own projectile here.
+     *
+     * @return true if the shot was launched; the caller has already charged for it
+     */
+    protected boolean launchHeavyEntity(Entity target) {
+        return false;
+    }
+
+    /**
      * Spawn a missile entity targeting the given position
      */
     public void summonMissile(int attackType, float atk, double tarX, float tarY, double tarZ, float targetHeight) {
+        if (com.lulan.shincolle.ai.ShipClassAttackGate.dualMissiles(this, attackType, atk, tarX, tarY, tarZ, targetHeight)) return;
         float launchPos = (float) this.getY() + this.getBbHeight() * 0.5F;
         int moveType = CombatHelper.calcMissileMoveType(this, tarY, attackType);
         if (moveType == 0) {
@@ -1409,6 +1493,11 @@ public abstract class BasicEntityShip extends TamableAnimal
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (this.level().isClientSide())
+            return false;
+
+        // spell damage from the owner or an ally never reaches this ship, so it also
+        // leaves no revenge target, stand-up or morale loss behind
+        if (com.lulan.shincolle.handler.AllySpellDamageGuard.shouldBlock(source, this))
             return false;
 
         boolean checkDEF = true;
@@ -1565,6 +1654,9 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         java.util.Optional<Float> skillDamage = ShipSkillAttackGate.baseDamage(this, type);
         if (skillDamage.isPresent()) return skillDamage.get();
+
+        java.util.Optional<Float> classDamage = com.lulan.shincolle.ai.ShipClassAttackGate.baseDamage(this, type);
+        if (classDamage.isPresent()) return classDamage.get();
 
         return switch (type) {
             case 1 -> // light cannon: apply AA/ASM bonus
@@ -2032,8 +2124,8 @@ public abstract class BasicEntityShip extends TamableAnimal
      */
     protected void updateMorale() {
         int m = this.getMorale();
-        // out of combat: last combat > 600 ticks ago (~30 sec)
-        boolean outOfCombat = (this.tickCount - this.getCombatTick()) > 600;
+        // out of combat: last combat > 128 ticks ago (~6.4 sec)
+        boolean outOfCombat = (this.tickCount - this.getCombatTick()) > 128;
 
         if (outOfCombat) {
             if (m < ID.Morale.L_Normal + 1000) {
@@ -2814,7 +2906,30 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public HashMap<Integer, Integer> getBuffMap() {
+        if (!this.level().isClientSide()) {
+            this.refreshBuffMap();
+        }
         return this.BuffMap;
+    }
+
+    /** Replace the server map with the current effects; a dead or removed ship has none. */
+    private void refreshBuffMap() {
+        HashMap<Integer, Integer> current = this.isAlive()
+                ? BuffHelper.snapshotLegacyBuffMap(this) : new HashMap<>();
+        if (!current.equals(this.BuffMap)) {
+            this.BuffMap = current;
+            this.buffMapSyncPending = true;
+        }
+    }
+
+    private void tickBuffMapSync() {
+        if (!this.level().isClientSide() && (this.tickCount & 15) == 0) {
+            this.refreshBuffMap();
+            if (this.buffMapSyncPending) {
+                this.buffMapSyncPending = false;
+                this.sendSyncPacketBuffmap();
+            }
+        }
     }
 
     @Override
@@ -3714,6 +3829,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void die(DamageSource source) {
+        RuBurstAttackGate.ended(this, com.lulan.shincolle.ai.domain.combat.RuBurstDecision.Reason.NOT_ALIVE);
         ShipSkillAttackGate.cancel(this);
         boolean wasDead = this.dead;
         this.setManualTarget(null);
@@ -3765,8 +3881,8 @@ public abstract class BasicEntityShip extends TamableAnimal
                 this.setStateFlag(ID.F.CanDrop, false);
 
                 // save ship attributes to ship spawn egg
-                ItemStack egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
-                CompoundTag eggNbt = new CompoundTag();
+                ItemStack egg = createDeathEggStack();
+                CompoundTag eggNbt = egg.getOrCreateTag();
                 CapaShipSavedValues.saveNBTData(eggNbt, this);
                 eggNbt.putInt("ShipClass", this.getShipClass());
                 eggNbt.put(CapaShipInventory.InvName, this.itemHandler.serializeNBT());
@@ -3906,7 +4022,14 @@ public abstract class BasicEntityShip extends TamableAnimal
     // ========== Remove / Cleanup ==========
 
     @Override
+    protected void removeAfterChangingDimensions() {
+        RuBurstAttackGate.ended(this, com.lulan.shincolle.ai.domain.combat.RuBurstDecision.Reason.DIMENSION_CHANGED);
+        super.removeAfterChangingDimensions();
+    }
+
+    @Override
     public void remove(RemovalReason reason) {
+        RuBurstAttackGate.ended(this, com.lulan.shincolle.ai.domain.combat.RuBurstDecision.Reason.REMOVED);
         this.setManualTarget(null);
         // clear chunk loader
         this.clearChunkLoader();
@@ -4020,8 +4143,8 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // calc total consumption
         int valueConsume = (int) Mth.sqrt((float) (distX * distX + distY * distY + distZ * distZ));
-        if (ShipPrevY <= 0D)
-            valueConsume = 0; // do not decrGrudge if ShipPrev not inited
+        if (!hasPreviousTravelSample)
+            valueConsume = 0; // The first sample has no previous endpoint to charge.
 
         // morale-- per 2 blocks
         int m = (int) ((float) valueConsume * 0.5F);
@@ -4050,6 +4173,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         ShipPrevX = getX();
         ShipPrevY = getY();
         ShipPrevZ = getZ();
+        hasPreviousTravelSample = true;
     }
 
     // ========== Body / Outfit ==========
@@ -4225,6 +4349,22 @@ public abstract class BasicEntityShip extends TamableAnimal
     }
 
     // ========== Misc Methods ==========
+
+    /** Create a hand delta only when a copied server inventory snapshot changes. */
+    @Nullable
+    private S2CEntitySyncPacket createHeldItemUpdate() {
+        ItemStack mainHand = this.getMainHandItemShip();
+        ItemStack offHand = this.getOffHandItemShip();
+        if (this.hasSyncedHeldItems && ItemStack.matches(mainHand, this.lastSyncedMainHand)
+                && ItemStack.matches(offHand, this.lastSyncedOffHand)) {
+            return null;
+        }
+        S2CEntitySyncPacket packet = S2CEntitySyncPacket.syncHeldItems(this);
+        this.lastSyncedMainHand = mainHand.copy();
+        this.lastSyncedOffHand = offHand.copy();
+        this.hasSyncedHeldItems = true;
+        return packet;
+    }
 
     /**
      * Get main hand item (from ship inventory slot 22).
@@ -4856,6 +4996,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Heavy ammo attack on coordinate position (for naval bombardment).
      */
     public boolean attackEntityWithHeavyAmmo(BlockPos target) {
+        if (RuBurstAttackGate.supported(this)) return RuBurstAttackGate.start(this, target);
         if (target == null)
             return false;
         if (!decrAmmoNum(1, this.getAmmoConsumption()))

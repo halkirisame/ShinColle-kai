@@ -30,11 +30,11 @@ public final class EquipmentPublicationGameTests {
             System.getProperty("shincolle.publicationRoot", ".")).toAbsolutePath().normalize();
     private static final Path SCHEMA = projectPath("docs", "schemas", "shincolle_kai-equipment.schema.json");
     private static final Path DATAPACK_EXAMPLE = projectPath("examples", "equipment_datapack", "data",
-            "shincolle_example", "equipment", "observation_spyglass.json");
+            "shincolle_example", "shincolle_kai", "equipment", "observation_spyglass.json");
     private static final Path ADDON_EXAMPLE = projectPath("examples", "java_addon", "src", "main", "resources",
-            "data", "shincolle_example", "equipment", "sonar_module.json");
+            "data", "shincolle_example", "shincolle_kai", "equipment", "sonar_module.json");
     private static final Path EQUIPMENT_DATA = projectPath("src", "main", "resources", "data",
-            "shincolle_kai", "equipment");
+            "shincolle_kai", "shincolle_kai", "equipment");
     private static final ResourceLocation CUSTOM_ATTRIBUTE = id("shincolle_example", "sonar_precision");
     private static final ResourceLocation GLOWING = id("minecraft", "glowing");
 
@@ -64,8 +64,35 @@ public final class EquipmentPublicationGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void bundledAndExampleDefinitionsDeclareCurrentSchema(GameTestHelper helper) {
+        int checked = 0;
+        try (var paths = Files.list(EQUIPMENT_DATA)) {
+            for (Path path : paths.filter(file -> file.toString().endsWith(".json")).toList()) {
+                assertDeclaresCurrentSchema(path);
+                checked++;
+            }
+        } catch (IOException exception) {
+            throw new AssertionError("Failed to enumerate bundled equipment definitions", exception);
+        }
+        if (checked == 0) {
+            throw new AssertionError("No bundled equipment definitions were found");
+        }
+        assertDeclaresCurrentSchema(DATAPACK_EXAMPLE);
+        assertDeclaresCurrentSchema(ADDON_EXAMPLE);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void publishedSchemaMatchesRuntimeVocabulary(GameTestHelper helper) {
         JsonObject schema = readJson(SCHEMA);
+        String expectedId = "urn:shincolle-kai:schema:equipment:" + EquipmentJsonFormat.SCHEMA;
+        if (!expectedId.equals(schema.get("$id").getAsString())) {
+            throw new AssertionError("$id: expected " + expectedId + " but was " + schema.get("$id"));
+        }
+        if (schema.getAsJsonObject("properties").getAsJsonObject(EquipmentJsonFormat.SCHEMA_FIELD)
+                .get("const").getAsInt() != EquipmentJsonFormat.SCHEMA) {
+            throw new AssertionError("schema const does not match the runtime schema version");
+        }
         assertSetEquals(EquipmentJsonFormat.REQUIRED_FIELDS,
                 strings(schema.getAsJsonArray("required")), "required fields");
 
@@ -198,6 +225,7 @@ public final class EquipmentPublicationGameTests {
 
     private static JsonObject minimalDefinition() {
         JsonObject json = new JsonObject();
+        json.addProperty(EquipmentJsonFormat.SCHEMA_FIELD, EquipmentJsonFormat.SCHEMA);
         json.addProperty("item", "minecraft:stick");
         json.addProperty("variant", 0);
         json.addProperty("equip_type", "radar_lo");
@@ -210,6 +238,14 @@ public final class EquipmentPublicationGameTests {
             throw new AssertionError("Expected loader to reject " + name);
         } catch (IllegalArgumentException expected) {
             // Expected validation failure.
+        }
+    }
+
+    private static void assertDeclaresCurrentSchema(Path path) {
+        JsonObject definition = readJson(path);
+        if (!definition.has(EquipmentJsonFormat.SCHEMA_FIELD)
+                || definition.get(EquipmentJsonFormat.SCHEMA_FIELD).getAsInt() != EquipmentJsonFormat.SCHEMA) {
+            throw new AssertionError(path.getFileName() + " must declare schema " + EquipmentJsonFormat.SCHEMA);
         }
     }
 

@@ -43,7 +43,7 @@ public final class GameTestEntities implements AutoCloseable {
         return entities;
     }
 
-    private static void onCompletion(GameTestHelper helper, Runnable action, String what) {
+    static void onCompletion(GameTestHelper helper, Runnable action, String what) {
         try {
             Field field = GameTestHelper.class.getDeclaredField("testInfo");
             field.setAccessible(true);

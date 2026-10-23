@@ -80,6 +80,7 @@ public final class CombatDecision {
         EnumSet<AttackHoldReason> why = EnumSet.noneOf(AttackHoldReason.class);
         if (!r.cannonsEnabled() || !use) why.add(AttackHoldReason.NOT_ENABLED);
         if (!ammo) why.add(AttackHoldReason.NO_AMMO);
+        if (channel == WeaponChannel.HEAVY && r.heavyBusy()) why.add(AttackHoldReason.BUSY);
         if (r.crane()) why.add(AttackHoldReason.CRANE);
         if (!ctx.onSight()) why.add(AttackHoldReason.NO_LINE_OF_SIGHT);
         if (!inRange) why.add(AttackHoldReason.OUT_OF_RANGE);

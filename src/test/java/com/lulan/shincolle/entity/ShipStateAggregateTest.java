@@ -35,7 +35,7 @@ class ShipStateAggregateTest {
                 true, false, true, true, true,
                 true, true, true, true, false,
                 false, false, true, true, false,
-                true, false
+                true, false, false
         }, first.copyFlags());
         assertArrayEquals(new boolean[ShipStateAggregate.UPDATE_FLAG_COUNT], first.copyUpdateFlags());
 

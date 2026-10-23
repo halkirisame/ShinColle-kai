@@ -1,0 +1,30 @@
+{
+  "conditions": [
+    {
+      "type": "forge:not",
+      "value": {
+        "type": "forge:tag_empty",
+        "tag": "shincolle_kai:cooked_rice"
+      }
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:cooked_rabbit"
+    },
+    {
+      "item": "minecraft:golden_carrot"
+    },
+    {
+      "item": "shincolle_kai:grudge"
+    },
+    {
+      "tag": "shincolle_kai:cooked_rice"
+    }
+  ],
+  "result": {
+    "item": "shincolle_kai:combat_ration_2",
+    "count": 1
+  }
+}

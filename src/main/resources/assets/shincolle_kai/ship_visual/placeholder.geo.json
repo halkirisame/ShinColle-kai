@@ -1,0 +1,25 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [{
+    "description": {"identifier": "geometry.ship_placeholder", "texture_width": 16, "texture_height": 16,
+      "visible_bounds_width": 2, "visible_bounds_height": 3, "visible_bounds_offset": [0, 1, 0]},
+    "bones": [
+      {"name": "root", "pivot": [0, 0, 0]},
+      {"name": "body", "parent": "root", "pivot": [0, 12, 0],
+        "cubes": [{"origin": [-4, 0, -3], "size": [8, 16, 6], "uv": [0, 0]}]},
+      {"name": "head", "parent": "body", "pivot": [0, 20, 0],
+        "cubes": [{"origin": [-4, 16, -4], "size": [8, 8, 8], "uv": [0, 0]}]},
+      {"name": "arm_left", "parent": "body", "pivot": [4, 16, 0]},
+      {"name": "arm_right", "parent": "body", "pivot": [-4, 16, 0]},
+      {"name": "leg_left", "parent": "root", "pivot": [2, 0, 0]},
+      {"name": "leg_right", "parent": "root", "pivot": [-2, 0, 0]},
+      {"name": "equipment", "parent": "body", "pivot": [0, 12, 0]},
+      {"name": "held_item", "parent": "arm_right", "pivot": [-4, 8, 0]},
+      {"name": "muzzle_light", "parent": "equipment", "pivot": [0, 12, 0]},
+      {"name": "muzzle_heavy", "parent": "equipment", "pivot": [0, 12, 0]},
+      {"name": "face", "parent": "head", "pivot": [0, 20, 0]},
+      {"name": "mouth", "parent": "face", "pivot": [0, 18, 0]},
+      {"name": "flush", "parent": "face", "pivot": [0, 19, 0]}
+    ]
+  }]
+}

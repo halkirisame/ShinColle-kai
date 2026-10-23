@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "display_name": "鹿島",
+  "ship_type": "shincolle_kai:light_cruiser",
+  "visual": "shincolle_kai:kashima",
+  "base_stats": {"hp": 42, "atk": 13, "def": 0.16, "spd": 1, "mov": 0.42, "hit": 8},
+  "growth": {"hp": 0.4, "atk": 0.4, "def": 0.2, "spd": 0.6, "mov": 0.9, "hit": 0.4},
+  "construction": {"enabled": false},
+  "spawn": {"enabled": false}
+}

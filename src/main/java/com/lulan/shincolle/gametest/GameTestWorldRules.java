@@ -7,6 +7,8 @@ import net.minecraft.gametest.framework.GameTestServer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.GameRules;
 import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -32,12 +34,28 @@ public final class GameTestWorldRules {
     public static void onServerStarting(ServerStartingEvent event) {
         MinecraftServer server = event.getServer();
         if (server instanceof GameTestServer) {
+            // Fixtures also override cached settings across ticks. Keep watcher syncs out of the suite.
+            ConfigHandler.CONFIG_RELOAD_TEST_BARRIER.begin();
             server.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, server);
             String requested = System.getProperty("shincolle.gametest.authority", "NEW");
             ConfigHandler.setShipAiTargetAuthorityForTest(
                     ConfigHandler.ShipAiTargetAuthority.valueOf(requested));
             com.lulan.shincolle.utility.LogHelper.info("GameTest ship AI authority: requested " + requested
                     + ", effective " + ConfigHandler.shipAiTargetAuthority());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        if (event.getServer() instanceof GameTestServer) {
+            ConfigHandler.CONFIG_RELOAD_TEST_BARRIER.end();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        if (event.getServer() instanceof GameTestServer) {
+            ConfigHandler.CONFIG_RELOAD_TEST_BARRIER.end();
         }
     }
 }

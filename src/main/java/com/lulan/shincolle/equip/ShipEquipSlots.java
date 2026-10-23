@@ -1,6 +1,5 @@
 package com.lulan.shincolle.equip;
 
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
 import com.lulan.shincolle.client.gui.inventory.ContainerShipInventory;
 import com.lulan.shincolle.handler.ConfigHandler;
 

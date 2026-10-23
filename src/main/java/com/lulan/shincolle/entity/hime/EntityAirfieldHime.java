@@ -8,6 +8,7 @@ import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.ShipSupportAbilities;
 import com.lulan.shincolle.entity.mounts.EntityMountAfH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.entity.EntityType;
@@ -27,8 +28,8 @@ public class EntityAirfieldHime extends BasicEntityShipCV implements IShipRiderT
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.AirfieldHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.AVIATION);
         this.setStateMinor(ID.M.NumState, 4);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BBV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BBV]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
 
         // hybrid attacker: cannon + aircraft

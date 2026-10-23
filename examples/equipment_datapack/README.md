@@ -5,6 +5,8 @@
 最小datapackです。例ではvanillaの望遠鏡を`shincolle_example:observation_spyglass`として
 定義します。
 
+定義は`data/shincolle_example/shincolle_kai/equipment/`に置きます。JSONの先頭の`"schema": 4`は必須です。
+
 ## 試し方
 
 1. `equipment_datapack`フォルダごとworldの`datapacks`へコピーする。

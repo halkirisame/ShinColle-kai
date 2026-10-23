@@ -1,21 +1,26 @@
 {
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [
-    {
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "WWW",
+    "BGC",
+    "WWW"
+  ],
+  "key": {
+    "W": {
+      "item": "minecraft:wheat"
+    },
+    "B": {
       "item": "minecraft:cooked_beef"
     },
-    {
-      "item": "minecraft:golden_carrot"
-    },
-    {
+    "G": {
       "item": "shincolle_kai:grudge"
     },
-    {
-      "item": "minecraft:wheat"
+    "C": {
+      "item": "minecraft:golden_carrot"
     }
-  ],
+  },
   "result": {
-    "item": "shincolle_kai:combat_ration",
+    "item": "shincolle_kai:combat_ration_2",
     "count": 1
   }
 }

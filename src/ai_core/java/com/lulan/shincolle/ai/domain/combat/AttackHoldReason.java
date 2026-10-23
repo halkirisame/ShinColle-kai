@@ -6,6 +6,8 @@ public enum AttackHoldReason {
     /** The weapon's type or use flag is off, or the melee flag is off. */
     NOT_ENABLED,
     NO_AMMO,
+    /** An existing prepaid heavy burst owns this channel. */
+    BUSY,
     /** Loading with the crane; cannons and aircraft only. */
     CRANE,
     NOT_READY,

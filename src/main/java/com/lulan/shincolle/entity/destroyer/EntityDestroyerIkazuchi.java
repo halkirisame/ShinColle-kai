@@ -87,7 +87,7 @@ public class EntityDestroyerIkazuchi extends BasicEntityShipSmall implements ISh
                 if (player != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
                         getStateMinor(ID.M.NumGrudge) > 0 &&
                         this.distanceToSqr(player) < 256.0D) {
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
+                    int level = getStateMinor(ID.M.ShipLevel) / 50;
                     player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                             net.minecraft.world.effect.MobEffects.DAMAGE_BOOST,
                             80 + getStateMinor(ID.M.ShipLevel), level, false, false));

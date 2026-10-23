@@ -1,7 +1,9 @@
 package com.lulan.shincolle.capability;
 
 import com.lulan.shincolle.ai.domain.AiDataVersion;
+import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.entity.ShipConsumptionDefaults;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.NBTHelper;
@@ -145,6 +147,9 @@ public class CapaShipSavedValues {
 
         // set exp next value
         ship.setExpNext();
+        ShipConsumptionDefaults.restore(ship);
+        ShipClassAttackGate.restoreCapabilities(ship);
+        com.lulan.shincolle.ai.RuBurstAttackGate.loaded(ship);
     }
 
     /**

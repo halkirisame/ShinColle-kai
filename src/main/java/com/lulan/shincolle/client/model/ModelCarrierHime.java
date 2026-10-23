@@ -164,6 +164,10 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         this.EquipSR03 = this.EquipSR02.getChild("EquipSR03");
         this.EquipSR04 = this.EquipSR01.getChild("EquipSR04");
         this.EquipSR05 = this.EquipSR04.getChild("EquipSR05");
+        this.offsetItem = new float[] {0.06F, 0.98F, -0.06F};
+        this.offsetBlock = new float[] {0.06F, 0.98F, -0.06F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

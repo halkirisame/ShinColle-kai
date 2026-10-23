@@ -1,19 +1,19 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "OGO",
-    "GMG",
-    "OGO"
+    "OMO",
+    "MGM",
+    "OMO"
   ],
   "key": {
     "O": {
       "item": "minecraft:obsidian"
     },
-    "G": {
-      "item": "shincolle_kai:grudge_block"
-    },
     "M": {
       "item": "minecraft:magma_block"
+    },
+    "G": {
+      "item": "shincolle_kai:grudge_block"
     }
   },
   "result": {

@@ -122,6 +122,10 @@ public class ModelSubmKa extends ShipModelBaseAdv<Entity> {
         this.EquipT01a = this.GlowArmLeft02.getChild("EquipT01a");
         this.EquipT01b = this.EquipT01a.getChild("EquipT01b");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.08F, 0.96F, -0.08F};
+        this.offsetBlock = new float[] {0.08F, 0.96F, -0.08F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02};
     }
 
     public static LayerDefinition createBodyLayer() {

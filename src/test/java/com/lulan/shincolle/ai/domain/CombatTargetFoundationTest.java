@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai.domain;
 
-import com.lulan.shincolle.api.target.TargetTrait;
 
 import org.junit.jupiter.api.Test;
 
@@ -25,8 +24,8 @@ class CombatTargetFoundationTest {
         TargetTraitClassification missile = TargetTraitClassifier.classify(facts(false, true, false));
         TargetTraitClassification airplane = TargetTraitClassifier.classify(facts(true, false, false));
 
-        assertEquals(Set.of(TargetTrait.ANTI_AIR_ELIGIBLE, TargetTrait.SPECIAL), missile.traits());
-        assertEquals(Set.of(TargetTrait.AIRBORNE, TargetTrait.ANTI_AIR_ELIGIBLE, TargetTrait.SUMMONED),
+        assertEquals(Set.of(TargetTraitKind.ANTI_AIR_ELIGIBLE, TargetTraitKind.SPECIAL), missile.traits());
+        assertEquals(Set.of(TargetTraitKind.AIRBORNE, TargetTraitKind.ANTI_AIR_ELIGIBLE, TargetTraitKind.SUMMONED),
                 airplane.traits());
         assertTrue(missile.abyssMissile());
         assertTrue(airplane.airplane());
@@ -37,17 +36,17 @@ class CombatTargetFoundationTest {
         TargetTraitClassification classification = TargetTraitClassifier.classify(
                 facts(false, false, true, true, false));
 
-        assertTrue(classification.hasTrait(TargetTrait.SUBMARINE));
-        assertTrue(classification.hasTrait(TargetTrait.ANTI_SUBMARINE_ELIGIBLE));
-        assertTrue(classification.hasTrait(TargetTrait.SHIP));
+        assertTrue(classification.hasTrait(TargetTraitKind.SUBMARINE));
+        assertTrue(classification.hasTrait(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE));
+        assertTrue(classification.hasTrait(TargetTraitKind.SHIP));
     }
 
     @Test
     void registeredTraitsAreUnionedWithoutChangingCapturedFacts() {
         TargetTraitClassification classification = TargetTraitClassifier.classify(
-                facts(false, false, false), Set.of(TargetTrait.SPECIAL, TargetTrait.ANTI_AIR_ELIGIBLE));
+                facts(false, false, false), Set.of(TargetTraitKind.SPECIAL, TargetTraitKind.ANTI_AIR_ELIGIBLE));
 
-        assertEquals(Set.of(TargetTrait.SPECIAL, TargetTrait.ANTI_AIR_ELIGIBLE),
+        assertEquals(Set.of(TargetTraitKind.SPECIAL, TargetTraitKind.ANTI_AIR_ELIGIBLE),
                 classification.traits());
         assertFalse(classification.airplane());
         assertFalse(classification.abyssMissile());

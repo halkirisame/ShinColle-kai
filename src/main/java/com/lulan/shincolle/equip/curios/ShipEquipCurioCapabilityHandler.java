@@ -1,6 +1,6 @@
 package com.lulan.shincolle.equip.curios;
 
-import com.lulan.shincolle.api.equipment.ShipEquipmentResolver;
+import com.lulan.shincolle.equip.ShipEquipmentResolver;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraft.core.Direction;

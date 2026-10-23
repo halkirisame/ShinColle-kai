@@ -3,17 +3,17 @@ package com.lulan.shincolle.entity.hime;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.IShipRiderType;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 /**
  * CA (Heavy Cruiser) Hime entity - cruiser type with night combat bonuses.
- * Provides MOVEMENT_SPEED and JUMP to nearby player at night.
+ * Grants itself MOVEMENT_SPEED and JUMP at night.
  * Gains CRI and THIT bonuses at night.
  */
 public class EntityCAHime extends BasicEntityShipSmall implements IShipRiderType {
@@ -26,8 +26,8 @@ public class EntityCAHime extends BasicEntityShipSmall implements IShipRiderType
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.CAHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.CRUISER);
         this.setStateMinor(ID.M.NumState, 5);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.CA]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.CA]);
         this.ModelPos = new float[]{0F, 10F, 0F, 45F};
 
         // cannon only
@@ -76,18 +76,11 @@ public class EntityCAHime extends BasicEntityShipSmall implements IShipRiderType
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // Ring effect: MOVEMENT_SPEED + JUMP at night to nearby player
-                if (this.level().isNight()) {
-                    java.util.UUID ownerUUID = this.getOwnerUUID();
-                    Player player = ownerUUID != null ? this.level().getPlayerByUUID(ownerUUID) : null;
-                    if (player != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                            getStateMinor(ID.M.NumGrudge) > 0 &&
-                            this.distanceToSqr(player) < 256.0D) {
-                        int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
-                        int duration = 80 + getStateMinor(ID.M.ShipLevel);
-                        player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, level, false, false));
-                        player.addEffect(new MobEffectInstance(MobEffects.JUMP, duration, level, false, false));
-                    }
+                // Ring effect: MOVEMENT_SPEED + JUMP on self whenever it is not daytime
+                if (getStateFlag(ID.F.UseRingEffect) && !this.level().isDay()) {
+                    int level = getStateMinor(ID.M.ShipLevel);
+                    this.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 150, level / 50, false, false));
+                    this.addEffect(new MobEffectInstance(MobEffects.JUMP, 150, level / 40, false, false));
                 }
             }
         }

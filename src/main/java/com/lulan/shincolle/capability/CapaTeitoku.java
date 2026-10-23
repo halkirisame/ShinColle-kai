@@ -68,6 +68,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
             // Runtime entity IDs are deliberately not persisted. Minecraft
             // may reuse them after reload or a dimension transition.
             team.putInt("Format", persistent.getFormatID(i));
+            team.putBoolean("RetaliatePlayer", persistent.getRetaliatePlayer(i));
             team.putString("Name", persistent.getUnitName(i));
             teamTag.add(team);
         }
@@ -119,6 +120,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
                 }
 
                 persistent.setFormatID(i, team.getInt("Format"));
+                persistent.setRetaliatePlayer(i, team.getBoolean("RetaliatePlayer"));
                 persistent.setUnitName(i, team.getString("Name"));
             }
         }
@@ -357,6 +359,21 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
     }
 
     /**
+     * Whether a persistent ship UID occupies any slot of the given team.
+     */
+    public boolean isShipInTeam(int team, int shipUID) {
+        if (shipUID <= 0 || team < 0 || team >= TEAM_NUM) {
+            return false;
+        }
+        for (int slot = 0; slot < SLOT_NUM; slot++) {
+            if (getTeamMember(team, slot) == shipUID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Return the lowest current buffed MOV among the resolved ships in a team.
      */
     public float getMinMOVInTeam(ServerLevel level, int team) {
@@ -454,6 +471,14 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
     public int getFormatID(int team) {
         return persistent.getFormatID(team);
+    }
+
+    public boolean getRetaliatePlayer(int team) {
+        return persistent.getRetaliatePlayer(team);
+    }
+
+    public void setRetaliatePlayer(int team, boolean permitted) {
+        persistent.setRetaliatePlayer(team, permitted);
     }
 
     public void setFormatID(int team, int format) {

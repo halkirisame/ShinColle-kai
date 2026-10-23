@@ -16,10 +16,18 @@ package com.lulan.shincolle.ai.domain.combat;
  * @param crane            the crane is loading
  * @param meleeEnabled     the melee flag
  * @param passenger        the host rides anything
+ * @param heavyBusy        a prepaid heavy burst is already in progress; other weapons stay independent
  */
 public record WeaponReadiness(boolean cannonsEnabled, boolean useLight, boolean hasAmmoLight,
                               boolean useHeavy, boolean hasAmmoHeavy,
                               boolean aircraftEnabled, boolean useAirLight, boolean useAirHeavy,
                               boolean airLightStocked, boolean airHeavyStocked,
-                              boolean crane, boolean meleeEnabled, boolean passenger) {
+                              boolean crane, boolean meleeEnabled, boolean passenger, boolean heavyBusy) {
+    public WeaponReadiness(boolean cannonsEnabled, boolean useLight, boolean hasAmmoLight,
+                           boolean useHeavy, boolean hasAmmoHeavy, boolean aircraftEnabled,
+                           boolean useAirLight, boolean useAirHeavy, boolean airLightStocked, boolean airHeavyStocked,
+                           boolean crane, boolean meleeEnabled, boolean passenger) {
+        this(cannonsEnabled, useLight, hasAmmoLight, useHeavy, hasAmmoHeavy, aircraftEnabled,
+                useAirLight, useAirHeavy, airLightStocked, airHeavyStocked, crane, meleeEnabled, passenger, false);
+    }
 }

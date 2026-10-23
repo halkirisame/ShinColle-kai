@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.destroyer;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.entity.EntityType;
@@ -21,8 +22,8 @@ public class EntityDestroyerRo extends BasicEntityShipSmall {
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.DDRO);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.DESTROYER);
         this.setStateMinor(ID.M.NumState, 1);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.DD]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.DD]);
         this.ModelPos = new float[]{0F, 0F, 0F, 25F};
 
         // set attack type
@@ -63,7 +64,7 @@ public class EntityDestroyerRo extends BasicEntityShipSmall {
                 if (player != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
                         getStateMinor(ID.M.NumGrudge) > 0 &&
                         this.distanceToSqr(player) < 256.0D) {
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
+                    int level = getStateMinor(ID.M.ShipLevel) / 30;
                     player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                             net.minecraft.world.effect.MobEffects.DIG_SPEED,
                             80 + getStateMinor(ID.M.ShipLevel), level, false, false));

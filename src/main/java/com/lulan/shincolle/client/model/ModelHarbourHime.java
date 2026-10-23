@@ -117,6 +117,12 @@ public class ModelHarbourHime extends ShipModelBaseAdv<Entity> {
         this.HeadH2 = this.HeadH.getChild("HeadH2");
         this.HeadH3 = this.HeadH2.getChild("HeadH3");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0F, 0.74F, -0.07F};
+        this.offsetBlock = new float[] {0F, 0.74F, -0.07F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02,
+                this.ArmRight03, this.ArmRight04, this.ArmRight05, this.ArmRight06};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02,
+                this.ArmLeft03, this.ArmLeft04, this.ArmLeft05, this.ArmLeft06};
     }
 
     public static LayerDefinition createBodyLayer() {

@@ -19,6 +19,7 @@ import net.minecraftforge.server.ServerLifecycleHooks;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Server-side data manager for ShinColle.
@@ -62,6 +63,11 @@ public class ServerDataManager {
      */
     private static HashMap<Integer, CacheDataPlayer> mapPlayerID = null;
     /**
+     * Last known player UID by player UUID (runtime only, not saved). Lets owner lookups keep
+     * working while a player's admiral capability is unavailable: <player UUID, player UID>
+     */
+    private static HashMap<UUID, Integer> mapPlayerUUID = null;
+    /**
      * Ship UID cache (saved): <ship UID, CacheDataShip>
      */
     private static HashMap<Integer, CacheDataShip> mapShipID = null;
@@ -93,6 +99,7 @@ public class ServerDataManager {
         customTargetClass = new HashMap<>();
         unattackableTargetClass = new HashMap<>();
         mapPlayerID = new HashMap<>();
+        mapPlayerUUID = new HashMap<>();
         mapShipID = new HashMap<>();
         mapTeamID = new HashMap<>();
         nextPlayerID = -1;
@@ -125,6 +132,7 @@ public class ServerDataManager {
         unattackableTargetClass = null;
         mapTeamID = null;
         mapPlayerID = null;
+        mapPlayerUUID = null;
         mapShipID = null;
         nextPlayerID = -1;
         nextShipID = -1;
@@ -397,6 +405,16 @@ public class ServerDataManager {
     }
 
     /**
+     * Last player UID recorded for this player UUID, or 0 if none (never registered since the server started).
+     */
+    public static int getKnownPlayerUID(UUID uuid) {
+        if (uuid == null || mapPlayerUUID == null)
+            return 0;
+        Integer uid = mapPlayerUUID.get(uuid);
+        return uid == null ? 0 : uid;
+    }
+
+    /**
      * Update or assign player UID on login
      */
     public static void updatePlayerID(Player player) {
@@ -404,6 +422,8 @@ public class ServerDataManager {
                 + " uuid=" + player.getUUID() + " eid=" + player.getId());
 
         CapaTeitoku capa = getTeitokuCapability(player);
+        if (capa == null)
+            return;
 
         int pid = capa.getPlayerUID();
 
@@ -420,6 +440,7 @@ public class ServerDataManager {
                 LogHelper.info("update player: next player UID too low, shifting +100000");
                 setNextPlayerID(pid + 100000);
             }
+            rememberPlayerUID(player, pid);
         } else {
             // New player — assign UID
             pid = getNextPlayerID();
@@ -433,7 +454,13 @@ public class ServerDataManager {
                     capa.hasTeam(), player.getX(), player.getY(), player.getZ(),
                     capa.serializeNBT()));
             setNextPlayerID(pid + 1);
+            rememberPlayerUID(player, pid);
         }
+    }
+
+    private static void rememberPlayerUID(Player player, int uid) {
+        if (uid > 0 && mapPlayerUUID != null)
+            mapPlayerUUID.put(player.getUUID(), uid);
     }
 
     // ========== Ship data ==========

@@ -88,25 +88,25 @@ public final class ShipAttributeSyncV2GameTests {
             buf.writeByte(0);
         }), "schema");
         expectDecodeFailure(payload(buf -> {
-            buf.writeVarInt(ShipAttributeSyncV2Codec.SCHEMA_VERSION);
+            buf.writeVarInt(ShipAttributeSyncV2Codec.WIRE_VERSION);
             buf.writeVarLong(0L);
             buf.writeByte(0x80);
         }), "reserved mask");
         expectDecodeFailure(payload(buf -> {
-            buf.writeVarInt(ShipAttributeSyncV2Codec.SCHEMA_VERSION);
+            buf.writeVarInt(ShipAttributeSyncV2Codec.WIRE_VERSION);
             buf.writeVarLong(0L);
             buf.writeByte(ShipAttributeSyncV2Codec.BONUS_MASK);
             buf.writeVarInt(5);
             buf.writeBytes(new byte[5]);
         }), "bonus length");
         expectDecodeFailure(payload(buf -> {
-            buf.writeVarInt(ShipAttributeSyncV2Codec.SCHEMA_VERSION);
+            buf.writeVarInt(ShipAttributeSyncV2Codec.WIRE_VERSION);
             buf.writeVarLong(0L);
             buf.writeByte(ShipAttributeSyncV2Codec.RAW_MASK);
             buf.writeVarInt(ShipAttributeLayout.current().size() - 1);
         }), "canonical count mismatch");
         expectDecodeFailure(payload(buf -> {
-            buf.writeVarInt(ShipAttributeSyncV2Codec.SCHEMA_VERSION);
+            buf.writeVarInt(ShipAttributeSyncV2Codec.WIRE_VERSION);
             buf.writeVarLong(0L);
             buf.writeByte(ShipAttributeSyncV2Codec.RAW_MASK);
             buf.writeVarInt(ShipAttributeSyncV2Codec.MAX_ATTRIBUTES_PER_LAYER + 1);
@@ -152,7 +152,7 @@ public final class ShipAttributeSyncV2GameTests {
                                        boolean replaceFirst) {
         ShipAttributeLayout layout = ShipAttributeLayout.current();
         return payload(buf -> {
-            buf.writeVarInt(ShipAttributeSyncV2Codec.SCHEMA_VERSION);
+            buf.writeVarInt(ShipAttributeSyncV2Codec.WIRE_VERSION);
             buf.writeVarLong(0L);
             buf.writeByte(ShipAttributeSyncV2Codec.RAW_MASK);
             buf.writeVarInt(layout.size());

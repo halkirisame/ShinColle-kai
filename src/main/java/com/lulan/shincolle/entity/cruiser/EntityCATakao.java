@@ -67,6 +67,9 @@ public class EntityCATakao extends BasicEntityShipSmall {
     // apply slowness to attacker
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (com.lulan.shincolle.handler.AllySpellDamageGuard.shouldBlock(source, this)) {
+            return false;
+        }
         boolean result = super.hurt(source, amount);
 
         if (!this.level().isClientSide() && source.getEntity() instanceof LivingEntity attacker) {

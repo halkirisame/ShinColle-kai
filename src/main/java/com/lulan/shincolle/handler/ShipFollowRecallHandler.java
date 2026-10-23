@@ -101,8 +101,13 @@ public final class ShipFollowRecallHandler {
                 from.x() + radius, level.getMaxBuildHeight(), from.z() + radius);
         for (BasicEntityShip ship : level.getEntitiesOfClass(BasicEntityShip.class, source)) {
             if (!ShipMovementGate.recallEligible(ship, player)) continue;
-            level.getChunkSource().addRegionTicket(FOLLOW_RECALL, ship.chunkPosition(), ENTITY_TICKING_RADIUS, player.getUUID());
-            ship.shipMovementExecutor().requestFollowRecall(new FollowRecallRequest(ShipCommandStateAdapter.handle(player), now));
+            // A follower still waiting on an earlier departure keeps that wait and its ticket: holding it again
+            // would start the wait over and keep extending the ticket while the owner keeps moving fast.
+            boolean waiting = ship.shipMovementExecutor().followRecallRemaining(ShipCommandStateAdapter.handle(player), now).isPresent();
+            if (!waiting) {
+                level.getChunkSource().addRegionTicket(FOLLOW_RECALL, ship.chunkPosition(), ENTITY_TICKING_RADIUS, player.getUUID());
+                ship.shipMovementExecutor().requestFollowRecall(new FollowRecallRequest(ShipCommandStateAdapter.handle(player), now));
+            }
             ChunkPos chunk = ship.chunkPosition();
             ROSTER.compute(player.getUUID(), (id, old) -> DepartureRoster.record(old == null ? List.of() : old,
                     DepartureRoster.Entry.departed(ship.getUUID(), ship.getShipUID(), dimension, chunk.x, chunk.z, now)));
@@ -181,10 +186,7 @@ public final class ShipFollowRecallHandler {
     /** Whether a held request is the owner's own departure or one the roster issued, not a stale one. */
     public static boolean isCurrent(UUID player, long detectedAt) {
         var history = HISTORY.get(player);
-        if (history != null && history.cooldownUntil().isPresent()
-                && history.cooldownUntil().getAsLong() == detectedAt + OwnerJumpDetector.HOLD_TICKS) {
-            return true;
-        }
+        if (history != null && history.detectedAt(detectedAt)) return true;
         var issued = ISSUED.get(player);
         return issued != null && issued.contains(detectedAt);
     }

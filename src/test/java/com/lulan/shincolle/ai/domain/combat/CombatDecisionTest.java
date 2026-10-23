@@ -69,6 +69,19 @@ class CombatDecisionTest {
     }
 
     @Test
+    void heavyBusyHoldsOnlyHeavyAndDoesNotMoveItsClock() {
+        Ctx c = ctx();
+        c.readiness = new WeaponReadiness(true, true, true, true, true, true, true, true, true, true, false, true, false, true);
+        CombatTimingState before = c.timing;
+        AttackPlan plan = c.decide();
+        assertEquals(Set.of(WeaponChannel.LIGHT, WeaponChannel.AIR, WeaponChannel.MELEE), plan.fire());
+        assertEquals(Set.of(AttackHoldReason.BUSY), plan.holds().get(WeaponChannel.HEAVY));
+        assertEquals(before, c.timing);
+        assertEquals(ctx().decide().cannon(), plan.cannon());
+        assertEquals(ctx().decide().carrier(), plan.carrier());
+    }
+
+    @Test
     void holdingFireFiresNothingAndMovesNowhere() {
         Ctx c = ctx();
         c.intent = new CombatIntent.HoldFire(Set.of(HoldFireReason.SITTING));

@@ -100,6 +100,10 @@ public class ModelSubmU511 extends ShipModelBaseAdv<Entity> {
         this.GlowNeck = this.GlowBodyMain.getChild("GlowNeck");
         this.GlowHead = this.GlowNeck.getChild("GlowHead");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0F, 1.1F, -0.05F};
+        this.offsetBlock = new float[] {0F, 1.1F, -0.05F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02, this.ArmRight03};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02, this.ArmLeft03};
     }
 
     public static LayerDefinition createBodyLayer() {

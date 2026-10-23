@@ -36,6 +36,13 @@ ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.${ mod_id }]]
+modId = "geckolib"
+mandatory = true
+versionRange = "[4.8.3,4.8.5)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.${ mod_id }]]
 modId = "tconstruct"
 mandatory = false
 versionRange = "[3.7.0,)"

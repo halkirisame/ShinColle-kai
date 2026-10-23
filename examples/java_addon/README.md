@@ -12,6 +12,7 @@ ShinColle-kai本体を`compileOnly fg.deobf(...)`と実行環境へ追加して�
 配布開始時に確定するため、この例では架空の座標を記載しません。
 
 起動時registryをclient/server双方で一致させます。属性やItem登録の変更には再起動が必要です。
+equipment JSONは`data/shincolle_example/shincolle_kai/equipment/`に置き、`"schema": 4`が必須です。
 equipment JSONの値だけを変更した場合はserverの`/reload`で反映され、clientへ同期されます。
 
 JSONの`shincolle_example:sonar_precision`は登録済みcustom属性なので受理されます。JSONの

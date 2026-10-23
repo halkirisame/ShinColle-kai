@@ -32,7 +32,8 @@ import java.util.Set;
  */
 public final class EquipmentSyncV2Codec {
 
-    public static final int SCHEMA_VERSION = 4;
+    /** Network payload version. Unrelated to the {@code "schema"} of published JSON data; it is raised independently. */
+    public static final int WIRE_VERSION = 4;
     public static final int MAX_DEFINITIONS = 4096;
     public static final int MAX_STATS_PER_DEFINITION = 256;
     public static final int MAX_DISTINCT_ATTRIBUTE_IDS = 4096;
@@ -72,7 +73,7 @@ public final class EquipmentSyncV2Codec {
         }
 
         int schemaVersion = source.readVarInt();
-        if (schemaVersion != SCHEMA_VERSION) {
+        if (schemaVersion != WIRE_VERSION) {
             throw new IllegalArgumentException("unsupported schema version " + schemaVersion);
         }
 
@@ -251,7 +252,7 @@ public final class EquipmentSyncV2Codec {
     }
 
     private static void writeSnapshot(FriendlyByteBuf buf, EquipDataSnapshot snapshot) {
-        buf.writeVarInt(SCHEMA_VERSION);
+        buf.writeVarInt(WIRE_VERSION);
         List<EquipDefinition> definitions = new ArrayList<>(snapshot.byId().values());
         definitions.sort(Comparator.comparing(definition -> definition.id().toString()));
         buf.writeVarInt(definitions.size());

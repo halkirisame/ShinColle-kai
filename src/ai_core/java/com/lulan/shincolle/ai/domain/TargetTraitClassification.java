@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai.domain;
 
-import com.lulan.shincolle.api.target.TargetTrait;
 
 import java.util.Objects;
 import java.util.Set;
@@ -16,7 +15,7 @@ public record TargetTraitClassification(
         boolean shipOwner,
         boolean playerOwned,
         boolean customAttackClassListed,
-        Set<TargetTrait> traits) {
+        Set<TargetTraitKind> traits) {
 
     public TargetTraitClassification {
         traits = Set.copyOf(Objects.requireNonNull(traits, "traits"));
@@ -26,7 +25,7 @@ public record TargetTraitClassification(
         return friendlyShip || mount;
     }
 
-    public boolean hasTrait(TargetTrait trait) {
+    public boolean hasTrait(TargetTraitKind trait) {
         return traits.contains(Objects.requireNonNull(trait, "trait"));
     }
 }

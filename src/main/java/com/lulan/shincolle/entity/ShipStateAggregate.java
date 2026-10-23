@@ -15,7 +15,7 @@ final class ShipStateAggregate {
     static final int MINOR_COUNT = 45;
     static final int TIMER_COUNT = 21;
     static final int EMOTION_COUNT = 8;
-    static final int FLAG_COUNT = 27;
+    static final int FLAG_COUNT = 28;
     static final int UPDATE_FLAG_COUNT = 8;
 
     private static final int[] DEFAULT_MINOR = {
@@ -36,7 +36,7 @@ final class ShipStateAggregate {
             true, false, true, true, true,
             true, true, true, true, false,
             false, false, true, true, false,
-            true, false
+            true, false, false
     };
 
     private final int[] minor = DEFAULT_MINOR.clone();

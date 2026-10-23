@@ -16,14 +16,14 @@ import com.lulan.shincolle.ai.domain.TargetPredicateEvaluator;
 import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
 import com.lulan.shincolle.ai.domain.TargetPredicateKind;
 import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
+import com.lulan.shincolle.ai.domain.TargetTraitKind;
 import com.lulan.shincolle.ai.observation.MinecraftEntityObservationAdapter;
 import com.lulan.shincolle.ai.observation.MinecraftTargetClassificationAdapter;
 import com.lulan.shincolle.ai.observation.MinecraftTargetPerceptionProducer;
+import com.lulan.shincolle.ai.observation.TargetTraitAssignment;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
-import com.lulan.shincolle.api.target.TargetTrait;
-import com.lulan.shincolle.api.target.TargetTraits;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -45,8 +45,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 import java.util.EnumSet;
-import java.util.Map;
-import java.lang.reflect.Field;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -227,10 +226,10 @@ public final class TargetPerceptionGameTests {
             source.setPlayerUID(75075);
             source.moveTo(origin);
             target.moveTo(origin.add(2D, 0D, 0D));
-            for (EnumSet<TargetTrait> registered : List.of(
-                    EnumSet.of(TargetTrait.ANTI_AIR_ELIGIBLE),
-                    EnumSet.of(TargetTrait.ANTI_SUBMARINE_ELIGIBLE),
-                    EnumSet.of(TargetTrait.ANTI_AIR_ELIGIBLE, TargetTrait.ANTI_SUBMARINE_ELIGIBLE))) {
+            for (EnumSet<TargetTraitKind> registered : List.of(
+                    EnumSet.of(TargetTraitKind.ANTI_AIR_ELIGIBLE),
+                    EnumSet.of(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE),
+                    EnumSet.of(TargetTraitKind.ANTI_AIR_ELIGIBLE, TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE))) {
                 traits.replace(registered);
                 for (int uid : new int[]{75075, 75076, -2}) {
                     target.setPlayerUID(uid);
@@ -249,7 +248,7 @@ public final class TargetPerceptionGameTests {
                         source.setStateFlag(ID.F.PVPFirst, pvp);
                         TargetPredicatePolicy policy = new TargetPredicatePolicy(
                                 pvp, antiAir, antiSubmarine, 0, false);
-                        boolean stageTwoEnabled = registered.contains(TargetTrait.ANTI_AIR_ELIGIBLE)
+                        boolean stageTwoEnabled = registered.contains(TargetTraitKind.ANTI_AIR_ELIGIBLE)
                                 ? antiAir : antiSubmarine;
                         CountingProfiler profiler = new CountingProfiler();
                         var classified = classify(source, target, policy, profiler).classification().value();
@@ -293,38 +292,31 @@ public final class TargetPerceptionGameTests {
                 "Hostile revenge predicate changed its friendly-ship/owner branches");
     }
 
-    /** Emulates a construction-time addon registration in one isolated, synchronous test. */
+    /** Emulates a tag assignment of the registered traits for one entity type in one synchronous test. */
     private static final class RegisteredTraitsFixture implements AutoCloseable {
-        private final Map<EntityType<?>, EnumSet<TargetTrait>> entries;
         private final EntityType<?> type;
-        private final EnumSet<TargetTrait> previous;
+        private AutoCloseable override;
 
-        @SuppressWarnings("unchecked")
         private RegisteredTraitsFixture(EntityType<?> type) {
-            try {
-                Field global = TargetTraits.class.getDeclaredField("GLOBAL");
-                global.setAccessible(true);
-                Object registry = global.get(null);
-                Field byType = registry.getClass().getDeclaredField("traitsByType");
-                byType.setAccessible(true);
-                this.entries = (Map<EntityType<?>, EnumSet<TargetTrait>>) byType.get(registry);
-                this.type = type;
-                this.previous = this.entries.get(type);
-            } catch (ReflectiveOperationException failure) {
-                throw new IllegalStateException("Cannot isolate the addon target-trait fixture", failure);
-            }
+            this.type = type;
         }
 
-        private void replace(EnumSet<TargetTrait> traits) {
-            this.entries.put(this.type, EnumSet.copyOf(traits));
+        private void replace(EnumSet<TargetTraitKind> kinds) {
+            this.close();
+            Set<TargetTraitKind> assigned = Set.copyOf(kinds);
+            this.override = TargetTraitAssignment.overrideForTest(
+                    candidate -> candidate == this.type ? assigned : Set.of());
         }
 
         @Override
         public void close() {
-            if (this.previous == null) {
-                this.entries.remove(this.type);
-            } else {
-                this.entries.put(this.type, this.previous);
+            if (this.override != null) {
+                try {
+                    this.override.close();
+                } catch (Exception failure) {
+                    throw new IllegalStateException(failure);
+                }
+                this.override = null;
             }
         }
     }

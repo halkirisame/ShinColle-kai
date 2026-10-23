@@ -17,8 +17,13 @@ import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 
 public class ModelNorthernHime extends ShipModelBaseAdv<Entity> {
+    private final float[] offsetItem2 = new float[] {0.05F, 1F, -0.14F};
+    private final float[] offsetBlock2 = new float[] {0.1F, 1.13F, 0.1F};
+    private final float[] rotateItem2 = new float[] {-30F, 30F, -60F};
+
 
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             new ResourceLocation(Reference.MOD_ID, "northern_hime"), "main");
@@ -234,6 +239,10 @@ public class ModelNorthernHime extends ShipModelBaseAdv<Entity> {
         this.EquipLHead02 = this.EquipLHead01.getChild("EquipLHead02");
         this.EquipLHead03 = this.EquipLHead02.getChild("EquipLHead03");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {0.07F, 1.02F, -0.05F};
+        this.offsetBlock = new float[] {0.1F, 1.03F, 0F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight01, this.ArmRight02, this.ArmRight03, this.ArmRight04, this.ArmRight05};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft01, this.ArmLeft02, this.ArmLeft03, this.ArmLeft04, this.ArmLeft05};
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -1130,5 +1139,28 @@ public class ModelNorthernHime extends ShipModelBaseAdv<Entity> {
         // leg motion
         this.LegLeft01.xRot = addk1;
         this.LegRight01.xRot = addk2;
+    }
+
+    @Override
+    public float[] getHeldItemOffset(IShipEmotion ent, HumanoidArm side, int type) {
+        if (side == HumanoidArm.RIGHT && (ent.getIsSprinting() || ent.getIsRiding())) {
+            if (ent.getIsSprinting()) {
+                this.offsetItem2[1] = 0.9F;
+                this.offsetItem2[2] = -0.3F;
+            } else if (ent.getIsRiding()) {
+                this.offsetItem2[1] = 1.1F;
+                this.offsetItem2[2] = -0.2F;
+            }
+            return type == 0 ? this.offsetItem2 : this.offsetBlock2;
+        }
+        return type == 0 ? this.offsetItem : this.offsetBlock;
+    }
+
+    @Override
+    public float[] getHeldItemRotate(IShipEmotion ent, HumanoidArm side, int type) {
+        if (side == HumanoidArm.RIGHT && (ent.getIsSprinting() || ent.getIsRiding())) {
+            return type == 0 ? this.rotateItem2 : this.rotateBlock;
+        }
+        return type == 0 ? this.rotateItem : this.rotateBlock;
     }
 }

@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.cruiser;
 
 import com.lulan.shincolle.ai.ShipPickItemGoal;
+import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
 import com.lulan.shincolle.entity.ShipInnateAttackEffects;
@@ -46,6 +47,12 @@ public class EntityCAAtago extends BasicEntityShipSmall {
     }
 
     @Override
+    public void calcShipAttributesAddEquip() {
+        super.calcShipAttributesAddEquip();
+        ShipClassAttackGate.finalizeEquipment(this);
+    }
+
+    @Override
     public void calcShipAttributesAddEffect() {
         super.calcShipAttributesAddEffect();
         int level = this.getLevel();
@@ -67,6 +74,9 @@ public class EntityCAAtago extends BasicEntityShipSmall {
     // apply slowness to attacker
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (com.lulan.shincolle.handler.AllySpellDamageGuard.shouldBlock(source, this)) {
+            return false;
+        }
         boolean result = super.hurt(source, amount);
 
         if (!this.level().isClientSide() && source.getEntity() instanceof LivingEntity attacker) {

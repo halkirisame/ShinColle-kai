@@ -5,6 +5,7 @@ import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipRangeAttackGoal;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.ShipInnateAttackEffects;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -26,8 +27,8 @@ public class EntityBattleshipRe extends BasicEntityShipCV {
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.BBRE);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.AVIATION);
         this.setStateMinor(ID.M.NumState, 3);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BBV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BBV]);
         this.ModelPos = new float[]{-6F, 25F, 0F, 40F};
 
         // set attack type: can use air attacks
@@ -90,7 +91,7 @@ public class EntityBattleshipRe extends BasicEntityShipCV {
                         getStateMinor(ID.M.NumGrudge) > 0 &&
                         this.distanceToSqr(player) < 256.0D) {
                     int shipLevel = getStateMinor(ID.M.ShipLevel);
-                    int amp = shipLevel / 100;
+                    int amp = shipLevel / 50;
                     int dur = 50 + shipLevel;
                     player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, dur, amp, false, false));
                 }

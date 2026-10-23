@@ -7,6 +7,7 @@ import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.IShipRiderType;
 import com.lulan.shincolle.entity.mounts.EntityMountMiH;
 import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 
 import net.minecraft.world.effect.MobEffectInstance;
@@ -29,8 +30,8 @@ public class EntityMidwayHime extends BasicEntityShipCV implements IShipRiderTyp
         this.setStateMinor(ID.M.ShipClass, ID.ShipClass.MidwayHime);
         this.setStateMinor(ID.M.DamageType, ID.ShipDmgType.AVIATION);
         this.setStateMinor(ID.M.NumState, 2);
-        this.setGrudgeConsumption(1);
-        this.setAmmoConsumption(1);
+        this.setGrudgeConsumption(ConfigHandler.consumeGrudgeShip[ID.ShipConsume.BBV]);
+        this.setAmmoConsumption(ConfigHandler.consumeAmmoShip[ID.ShipConsume.BBV]);
         this.ModelPos = new float[]{0F, 25F, 0F, 45F};
 
         // hybrid attacker: cannon + aircraft
@@ -84,40 +85,24 @@ public class EntityMidwayHime extends BasicEntityShipCV implements IShipRiderTyp
     public void aiStep() {
         super.aiStep();
 
-        if (!this.level().isClientSide()) {
-            if (this.tickCount % 128 == 0) {
-                // Self-heal: 9% max HP (highest self-heal)
-                if (this.getHealth() < this.getMaxHealth()) {
-                    this.heal(this.getMaxHealth() * 0.09F);
-                }
+        if (!this.level().isClientSide() && this.tickCount % 128 == 0) {
+            // Self-heal: 9% max HP + 1, whenever any grudge is left
+            if (getStateMinor(ID.M.NumGrudge) > 0 && this.getHealth() < this.getMaxHealth()) {
+                this.heal(this.getMaxHealth() * 0.09F + 1F);
+            }
 
-                // Ring effect: ABSORPTION to nearby ships AND player
-                if (getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-                    int level = getStateMinor(ID.M.ShipLevel) / 35 + 1;
-                    int duration = 80 + getStateMinor(ID.M.ShipLevel);
+            // Ring effect: ABSORPTION to the fleet around and to the owner player
+            int shipLevel = getStateMinor(ID.M.ShipLevel);
+            int amplifier = shipLevel / 50;
+            int duration = 50 + shipLevel;
+            this.applyMarriageFleetAura(amplifier, duration, MobEffects.ABSORPTION);
 
-                    // Buff nearby ships
-                    java.util.UUID ownerUUID = this.getOwnerUUID();
-                    java.util.List<net.minecraft.world.entity.LivingEntity> nearby = this.level().getEntitiesOfClass(
-                            net.minecraft.world.entity.LivingEntity.class,
-                            this.getBoundingBox().inflate(12D),
-                            e -> e != this && e instanceof com.lulan.shincolle.entity.BasicEntityShip ship
-                                    && ownerUUID != null && ownerUUID.equals(ship.getOwnerUUID()));
-                    int maxTargets = getStateMinor(ID.M.ShipLevel) / 50 + 1;
-                    int count = 0;
-                    for (net.minecraft.world.entity.LivingEntity target : nearby) {
-                        if (count >= maxTargets)
-                            break;
-                        target.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, level, false, false));
-                        count++;
-                    }
-
-                    // Buff owner player
-                    Player player = ownerUUID != null ? this.level().getPlayerByUUID(ownerUUID) : null;
-                    if (player != null && this.distanceToSqr(player) < 256.0D) {
-                        player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, level, false, false));
-                    }
+            java.util.UUID ownerUUID = this.getOwnerUUID();
+            if (ownerUUID != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
+                    getStateMinor(ID.M.NumGrudge) > 0) {
+                Player player = this.level().getPlayerByUUID(ownerUUID);
+                if (player != null && this.distanceToSqr(player) < 256.0D) {
+                    player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, amplifier, false, false));
                 }
             }
         }

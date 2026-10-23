@@ -1,6 +1,5 @@
 package com.lulan.shincolle.ai.domain;
 
-import com.lulan.shincolle.api.target.TargetTrait;
 
 import java.util.Objects;
 
@@ -20,10 +19,10 @@ public final class TargetPriorityClassifier {
             return TargetPriorityTier.NORMAL;
         }
         TargetTraitClassification traits = target.traits();
-        if (traits.hasTrait(TargetTrait.ANTI_AIR_ELIGIBLE)) {
+        if (traits.hasTrait(TargetTraitKind.ANTI_AIR_ELIGIBLE)) {
             return TargetPriorityTier.ANTI_AIR;
         }
-        if (traits.hasTrait(TargetTrait.ANTI_SUBMARINE_ELIGIBLE)) {
+        if (traits.hasTrait(TargetTraitKind.ANTI_SUBMARINE_ELIGIBLE)) {
             return TargetPriorityTier.ANTI_SUBMARINE;
         }
         if (policy.pvpFirst() && traits.friendlyShipOrMount() && target.relation().banned()) {

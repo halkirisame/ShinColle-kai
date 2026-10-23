@@ -12,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
@@ -49,6 +50,13 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
      * Currently selected team (0-8)
      */
     private int teamClicked = 0;
+    /**
+     * Fleet-wide "retaliate against players" toggle, in GUI-relative pixels
+     */
+    private static final int RETALIATE_X = 6;
+    private static final int RETALIATE_Y = 4;
+    private static final int RETALIATE_W = 132;
+    private static final int RETALIATE_H = 12;
     /**
      * Currently selected ship slot (0-5)
      */
@@ -165,6 +173,13 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
             graphics.fill(btnX, btnY, btnX + 9, btnY + 11, btnColor);
         }
 
+        // Fleet-wide permission to retaliate against players
+        CapaTeitoku retaliateCapa = getCapaTeitoku();
+        boolean retaliate = retaliateCapa != null && retaliateCapa.getRetaliatePlayer(teamClicked);
+        graphics.fill(this.leftPos + RETALIATE_X, this.topPos + RETALIATE_Y,
+                this.leftPos + RETALIATE_X + RETALIATE_W, this.topPos + RETALIATE_Y + RETALIATE_H,
+                retaliate ? 0xCC22AA22 : 0x88555555);
+
         // Draw formation type buttons (above team buttons, 6 formation types)
         for (int i = 0; i < 6; i++) {
             int btnX = this.leftPos + 18 + i * 18;
@@ -215,6 +230,12 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
                 : "Unknown";
         graphics.drawString(this.font, formatName,
                 80 - this.font.width(formatName) / 2, 140, 0x00CCFF, true);
+
+        CapaTeitoku retaliateCapa = getCapaTeitoku();
+        boolean retaliate = retaliateCapa != null && retaliateCapa.getRetaliatePlayer(teamClicked);
+        graphics.drawString(this.font,
+                I18n.get("gui.shincolle_kai.formation.retaliateplayer"),
+                RETALIATE_X + 3, RETALIATE_Y + 2, retaliate ? 0xFFFFFF : 0xAAAAAA, true);
 
         // Draw ship slot list (6 slots on the right)
         for (int i = 0; i < 6; i++) {
@@ -283,6 +304,20 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
 
         if (this.renamingTeamName && this.unitNameField != null
                 && this.unitNameField.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+
+        if (mx >= RETALIATE_X && mx < RETALIATE_X + RETALIATE_W
+                && my >= RETALIATE_Y && my < RETALIATE_Y + RETALIATE_H) {
+            CapaTeitoku capa = getCapaTeitoku();
+            if (capa != null) {
+                boolean permitted = !capa.getRetaliatePlayer(teamClicked);
+                Player player = Minecraft.getInstance().player;
+                ModNetworking.sendToServer(new C2SGUIInputPacket(
+                        C2SGUIInputPacket.SetRetaliate,
+                        new int[]{player != null ? player.getId() : 0, teamClicked, permitted ? 1 : 0}));
+                capa.setRetaliatePlayer(teamClicked, permitted);
+            }
             return true;
         }
 

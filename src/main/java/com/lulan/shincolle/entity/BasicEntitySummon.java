@@ -122,6 +122,12 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
         return false;
     }
 
+    /** Whether the host's owner is gone or dead, which ends the summon. */
+    protected boolean isOwnerLost() {
+        Entity hostEnt = this.host.getHostEntity();
+        return hostEnt == null || (hostEnt instanceof LivingEntity le && !le.isAlive());
+    }
+
     // ========== Tick / Update ==========
 
     @Override
@@ -141,12 +147,9 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             if (this.host == null) {
                 shouldDie = true;
                 despawnReason = "hostMissing";
-            } else {
-                Entity hostEnt = this.host.getHostEntity();
-                if (hostEnt == null || (hostEnt instanceof LivingEntity le && !le.isAlive())) {
-                    shouldDie = true;
-                    despawnReason = "hostDead";
-                }
+            } else if (this.isOwnerLost()) {
+                shouldDie = true;
+                despawnReason = "hostDead";
             }
 
             // lifetime check

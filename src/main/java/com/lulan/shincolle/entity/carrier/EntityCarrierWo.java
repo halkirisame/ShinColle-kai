@@ -1,17 +1,13 @@
 package com.lulan.shincolle.entity.carrier;
 
 import com.lulan.shincolle.ai.ShipCarrierAttackGoal;
-import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 
-import java.util.List;
 
 /**
  * Carrier Wo-class entity.
@@ -72,23 +68,9 @@ public class EntityCarrierWo extends BasicEntityShipCV {
 
         if (!this.level().isClientSide()) {
             if (this.tickCount % 128 == 0) {
-                // ring effect: DAMAGE_BOOST to nearby same-owner ships
-                java.util.UUID ownerUUID = this.getOwnerUUID();
-                if (ownerUUID != null && getStateFlag(ID.F.IsMarried) && getStateFlag(ID.F.UseRingEffect) &&
-                        getStateMinor(ID.M.NumGrudge) > 0) {
-
-                    int level = getStateMinor(ID.M.ShipLevel);
-                    int amp = level / 80;
-                    int duration = 30 + level;
-
-                    AABB area = this.getBoundingBox().inflate(16.0D);
-                    List<BasicEntityShip> nearby = this.level().getEntitiesOfClass(BasicEntityShip.class, area,
-                            e -> e != this && e.isAlive() && ownerUUID.equals(e.getOwnerUUID()));
-
-                    for (BasicEntityShip ship : nearby) {
-                        ship.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, duration, amp, false, false));
-                    }
-                }
+                // marriage ring aura: damage boost to the same-owner ships around, this one included
+                int shipLevel = getStateMinor(ID.M.ShipLevel);
+                this.applyMarriageFleetAura(shipLevel / 80, 30 + shipLevel, MobEffects.DAMAGE_BOOST);
             }
         }
     }

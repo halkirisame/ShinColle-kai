@@ -7,7 +7,7 @@
   ],
   "key": {
     "I": {
-      "item": "minecraft:copper_ingot"
+      "tag": "forge:ingots/copper"
     },
     "G": {
       "item": "shincolle_kai:grudge"

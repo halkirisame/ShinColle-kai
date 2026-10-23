@@ -1,0 +1,9 @@
+package com.lulan.shincolle.ai.domain.combat;
+
+/** Built-in hull identities; unrelated ships do not receive a class override. */
+public enum ShipClassAttackKind {
+    KIRISHIMA, IKAZUCHI, BATTLESHIP_HIME, CARRIER_HIME, CARRIER_WATER_DEMON, RU,
+    NORTHERN_HIME, HARBOUR_HIME, ISOLATED_HIME, AIRFIELD_HIME, DESTROYER_HIME, MIDWAY_HIME, ATAGO,
+    SUBMARINE_YO, SUBMARINE_RO500, SUBMARINE_U511, SUBMARINE_HIME, SSNH,
+    HOSTILE_SUBMARINE_U511, HOSTILE_SUBMARINE_RO500
+}

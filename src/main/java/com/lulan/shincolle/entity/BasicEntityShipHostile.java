@@ -571,6 +571,9 @@ public abstract class BasicEntityShipHostile extends Mob
             ShipSkillAttackGate.observe(this);
         }
         super.tick();
+        if (!this.level().isClientSide() && (this.tickCount & 15) == 0) {
+            this.refreshBuffMap();
+        }
 
         // Boss bar display must remain live even when ship AI is globally paused.
         if (!this.level().isClientSide() && this.bossEvent != null) {
@@ -670,7 +673,7 @@ public abstract class BasicEntityShipHostile extends Mob
         if (!this.level().isClientSide()) {
             // recalc raw attrs from level-based stat tables
             if ((flag & 1) == 1) {
-                BuffHelper.updateAttrsRawHostile(this.shipAttrs, this.getScaleLevel(), this.getShipClass());
+                this.updateRawAttributes();
                 this.calcShipAttributesAddRaw();
             }
             if ((flag & 2) == 2) {
@@ -703,6 +706,10 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public void calcShipAttributesAdd() {
+    }
+
+    protected void updateRawAttributes() {
+        BuffHelper.updateAttrsRawHostile(this.shipAttrs, this.getScaleLevel(), this.getShipClass());
     }
 
     public void calcShipAttributesAddRaw() {
@@ -753,6 +760,10 @@ public abstract class BasicEntityShipHostile extends Mob
         ProfilerFiller profiler = DebugProfiler.push(this.level(), "shincolle.hostile.attack.light");
         try {
             setCombatTick(this.tickCount);
+            if (com.lulan.shincolle.ai.ShipClassAttackGate.lightMissile(this, target)) {
+                applyEmotesReaction(3);
+                return true;
+            }
             float atk = getAttackBaseDamage(1, target);
 
             // calc distance for miss rate
@@ -905,6 +916,9 @@ public abstract class BasicEntityShipHostile extends Mob
             return 1F;
         java.util.Optional<Float> skillDamage = ShipSkillAttackGate.baseDamage(this, type);
         if (skillDamage.isPresent()) return skillDamage.get();
+
+        java.util.Optional<Float> classDamage = com.lulan.shincolle.ai.ShipClassAttackGate.baseDamage(this, type);
+        if (classDamage.isPresent()) return classDamage.get();
 
         return switch (type) {
             case 1 -> // light cannon: apply AA/ASM bonus
@@ -1438,7 +1452,19 @@ public abstract class BasicEntityShipHostile extends Mob
     }
 
     public HashMap<Integer, Integer> getBuffMap() {
+        if (!this.level().isClientSide()) {
+            this.refreshBuffMap();
+        }
         return this.BuffMap;
+    }
+
+    /** Replace the server map with the current effects; a dead or removed ship has none. */
+    private void refreshBuffMap() {
+        HashMap<Integer, Integer> current = this.isAlive()
+                ? BuffHelper.snapshotLegacyBuffMap(this) : new HashMap<>();
+        if (!current.equals(this.BuffMap)) {
+            this.BuffMap = current;
+        }
     }
 
     public void setBuffMap(HashMap<Integer, Integer> map) {

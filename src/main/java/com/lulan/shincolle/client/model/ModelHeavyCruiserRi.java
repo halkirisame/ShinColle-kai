@@ -122,6 +122,10 @@ public class ModelHeavyCruiserRi extends ShipModelBaseAdv<Entity> {
         this.EquipRightTooth1 = this.GlowEquipRightBase2.getChild("EquipRightTooth1");
         this.EquipRightTooth2 = this.GlowEquipRightBase3.getChild("EquipRightTooth2");
         this.loadFaceParts(this.GlowHead);
+        this.offsetItem = new float[] {-0.14F, 1.29F, 0F};
+        this.offsetBlock = new float[] {-0.14F, 1.29F, 0F};
+        this.armMain = new ModelPart[] {this.BodyMain, this.ArmRight};
+        this.armOff = new ModelPart[] {this.BodyMain, this.ArmLeft};
     }
 
     public static LayerDefinition createBodyLayer() {
