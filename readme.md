@@ -230,7 +230,7 @@ ShinColle-kai についての質問、感想、動作報告、開発の相談は
 
 ## ライセンス
 
-サファリネットのテクスチャ（作: しらたき）は、他のMOD・フォークへの取り込みだけを禁止しています。実況・動画・スクリーンショット・二次創作、深これ改向けのアドオンやリソースパックは自由です（[利用条件](src/main/resources/assets/shincolle_kai/textures/item/safari_net/LICENSE)）。
+サファリネットのテクスチャ（作: しらたき）は、他のMOD・フォークなどへの取り込みと、画像単体での配布（素材集など）を禁止しています。実況・動画・スクリーンショット・二次創作、深これ改向けのアドオンやリソースパックは自由です（[利用条件](src/main/resources/assets/shincolle_kai/textures/item/safari_net/LICENSE)）。
 
 本MODはMITライセンスで公開しています。ただし、艦AIの判断部分（`src/ai_core`）は [PolyForm Shield License 1.0.0](src/ai_core/LICENSE) です。詳細は [LICENSE](LICENSE) をご覧ください。
 
@@ -479,7 +479,7 @@ fork.** It is maintained independently of both.
 
 ## License
 
-Safari Net textures by しらたき are All Rights Reserved; only including them in other mods or forks is prohibited. Videos, streams, screenshots, fan works, and addons and resource packs for ShinColle-kai are welcome ([terms](src/main/resources/assets/shincolle_kai/textures/item/safari_net/LICENSE)).
+Safari Net textures by しらたき are All Rights Reserved; including them in other mods, forks or other software, and distributing them on their own (for example as asset collections), are prohibited. Videos, streams, screenshots, fan works, and addons and resource packs for ShinColle-kai are welcome ([terms](src/main/resources/assets/shincolle_kai/textures/item/safari_net/LICENSE)).
 
 ShinColle-kai is released under the MIT License, except for the ship AI core in `src/ai_core`, which is under the [PolyForm Shield License 1.0.0](src/ai_core/LICENSE). See [LICENSE](LICENSE) for details.
 
