@@ -2,6 +2,8 @@ package com.lulan.shincolle.entity.other;
 
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.item.SafariNetItem;
+import com.lulan.shincolle.item.SoulTalismanItem;
 import com.lulan.shincolle.server.ServerDataManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -160,8 +162,17 @@ public class BasicEntityItem extends Entity {
             if (itemstack.isEmpty())
                 return;
 
+            if (SafariNetItem.isFilled(itemstack)) {
+                if (!SafariNetItem.isStoredOwner(itemstack, player)
+                        || !SafariNetItem.tryStoreFilledNet(player, itemstack)) return;
+            }
+            else if (SoulTalismanItem.isFilled(itemstack)) {
+                if (!SoulTalismanItem.isStoredOwner(itemstack, player)
+                        || !SoulTalismanItem.tryStoreFilledTalisman(player, itemstack)) return;
+            }
+
             // is OP
-            if (ServerDataManager.checkOP(player)) {
+            else if (ServerDataManager.checkOP(player)) {
                 player.getInventory().add(itemstack);
             }
             // not OP

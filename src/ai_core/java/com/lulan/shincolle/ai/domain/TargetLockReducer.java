@@ -3,7 +3,7 @@ package com.lulan.shincolle.ai.domain;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Pure MANUAL, REVENGE, AUTO target authority transition. */
+/** Pure MANUAL, OWNER_ASSIST, REVENGE, AUTO target authority transition. */
 public final class TargetLockReducer {
     private static final int AUTO_SCAN_INTERVAL = 8;
 
@@ -24,8 +24,18 @@ public final class TargetLockReducer {
                     previous.lastConsumedRevengeTick(), false, false);
         }
 
+        OwnerAssistObservation assist = input.ownerAssist().orElse(null);
+        if (assist != null && assist.valid() && !gate.sitting() && !gate.craneActive() && !gate.noFuel()) {
+            TargetHandle target = assist.attack().target();
+            TargetLock lock = keepAcquisitionTick(previous.lock(), target, TargetSource.OWNER_ASSIST)
+                    .orElseGet(() -> new TargetLock(target, TargetSource.OWNER_ASSIST, input.tickExisted()));
+            return decision(previous, Optional.of(lock), previous.autoScan(),
+                    previous.lastConsumedRevengeTick(), false, false);
+        }
+
         Optional<TargetLock> remaining = previous.lock();
-        if (remaining.map(TargetLock::source).orElse(null) == TargetSource.MANUAL) {
+        if (remaining.map(TargetLock::source).orElse(null) == TargetSource.MANUAL
+                || remaining.map(TargetLock::source).orElse(null) == TargetSource.OWNER_ASSIST) {
             remaining = Optional.empty();
         }
 
@@ -77,6 +87,14 @@ public final class TargetLockReducer {
         return state.lock().isEmpty()
                 && autoGateOpen(gate)
                 && state.autoScan().isDue(tickExisted);
+    }
+
+    /** A scheduled reducer tick must not lend expired or superseded assist priority to a consumer. */
+    public static Optional<TargetLock> projectCurrent(
+            Optional<TargetLock> lock, Optional<OwnerAssistObservation> assist) {
+        return lock.filter(target -> target.source() != TargetSource.OWNER_ASSIST
+                || assist.filter(OwnerAssistObservation::valid)
+                        .filter(observation -> observation.attack().target().equals(target.target())).isPresent());
     }
 
     private static boolean autoGateOpen(SourceGate gate) {

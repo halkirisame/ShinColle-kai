@@ -67,7 +67,7 @@ public class BlockSmallShipyard extends BasicBlockFacingContainer {
                                  InteractionHand hand, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof TileEntitySmallShipyard tile) {
+            if (be instanceof TileEntitySmallShipyard tile && tile.canUse(player)) {
                 NetworkHooks.openScreen(serverPlayer, tile, pos);
             }
         }
@@ -130,6 +130,7 @@ public class BlockSmallShipyard extends BasicBlockFacingContainer {
 
         BlockEntity be = level.getBlockEntity(pos);
         if (be instanceof TileEntitySmallShipyard tile) {
+            if (!level.isClientSide() && placer instanceof Player player) tile.setOwner(player);
             CompoundTag tag = stack.getTag();
             if (tag != null) {
                 if (tag.contains("Mats")) {

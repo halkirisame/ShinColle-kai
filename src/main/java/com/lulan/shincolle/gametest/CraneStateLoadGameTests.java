@@ -13,9 +13,8 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 /**
- * Regression coverage: nothing in this port raises the crane state, and every goal
- * stands down while it is above zero. A saved value must not be restored on load,
- * or the ship stays frozen with no way to clear it.
+ * A saved ship must not resume a crane session without its live crane capturing it again.
+ * Both the waiting state and elapsed work time are cleared when loading either save format.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -36,11 +35,14 @@ public final class CraneStateLoadGameTests {
             int[] minors = ship.getStateMinorArray().clone();
             minors[ID.M.CraneState] = 2;
             nbt.putIntArray("StateMinor", minors);
+            ship.setStateTimer(ID.T.CraneTime, 60000);
 
             CapaShipSavedValues.loadNBTData(nbt, ship);
 
             helper.assertTrue(ship.getStateMinor(ID.M.CraneState) == 0,
                     "Saved crane state must not survive load, got " + ship.getStateMinor(ID.M.CraneState));
+            helper.assertTrue(ship.getStateTimer(ID.T.CraneTime) == 0,
+                    "Loading current data must also reset transient crane time.");
             helper.succeed();
         }
     }
@@ -57,6 +59,9 @@ public final class CraneStateLoadGameTests {
             minor.putInt("Crane", 1);
             CompoundTag shipExtProps = new CompoundTag();
             shipExtProps.put("Minor", minor);
+            CompoundTag timer = new CompoundTag();
+            timer.putInt("Crane", 60000);
+            shipExtProps.put("Timer", timer);
             CompoundTag nbt = new CompoundTag();
             nbt.put("ShipExtProps", shipExtProps);
 
@@ -64,6 +69,8 @@ public final class CraneStateLoadGameTests {
 
             helper.assertTrue(ship.getStateMinor(ID.M.CraneState) == 0,
                     "Legacy crane state must not survive load, got " + ship.getStateMinor(ID.M.CraneState));
+            helper.assertTrue(ship.getStateTimer(ID.T.CraneTime) == 0,
+                    "Migrating legacy data must not restore its old crane time.");
             helper.succeed();
         }
     }

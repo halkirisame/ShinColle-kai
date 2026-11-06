@@ -14,6 +14,8 @@ public final class FollowMovePlanner {
     static final int FIRST_REPATH = 10;
     static final int REPATH = 32;
     static final int OWNER_RESOLVE = 32;
+    static final int OWNER_RESOLVE_MOVING = 8;
+    static final double DESTINATION_MOVED_SQ = 4D;
     static final double FORMATION_STALE_SQ = 7D;
     static final double TELEPORT_Y_OFFSET = 0.75D;
 
@@ -57,13 +59,13 @@ public final class FollowMovePlanner {
         FollowDestination kind = flagshipSlot(slot) ? FollowDestination.FLAGSHIP_PLACE
                 : FollowDestination.FORMATION_PLACE;
         return new MovementState.Follow(state.repathIn(), state.timeTimer(), state.farTimer(),
-                state.ownerResolveAt(), place, owner, kind);
+                state.ownerResolveAt(), place, owner, kind, state.pathedDestination());
     }
 
     /** Outside a formation the ship walks to the owner itself. */
     public static MovementState.Follow toOwner(MovementState.Follow state, MovementPoint owner) {
         return new MovementState.Follow(state.repathIn(), state.timeTimer(), state.farTimer(),
-                state.ownerResolveAt(), owner, state.anchorMemory(), FollowDestination.OWNER);
+                state.ownerResolveAt(), owner, state.anchorMemory(), FollowDestination.OWNER, state.pathedDestination());
     }
 
     /**
@@ -73,7 +75,7 @@ public final class FollowMovePlanner {
     public static MovementState.Follow count(MovementState.Follow state, boolean stuck) {
         return new MovementState.Follow(state.repathIn() - 1, stuck ? state.timeTimer() + 1 : 0, state.farTimer(),
                 state.ownerResolveAt(), state.destination(), state.anchorMemory(),
-                state.destinationKind());
+                state.destinationKind(), state.pathedDestination());
     }
 
     /** A recalled follower still uses the ordinary far condition and the executor's safety checks. */
@@ -82,16 +84,19 @@ public final class FollowMovePlanner {
         if (!rule.enabled() || remainingEntityTicks > 0 || distanceSq <= rule.distanceSq()
                 || ownerDistanceSq <= rule.distanceSq()) return state;
         return new MovementState.Follow(state.repathIn(), state.timeTimer(), Math.max(state.farTimer(), rule.cooldown()),
-                state.ownerResolveAt(), state.destination(), state.anchorMemory(), state.destinationKind());
+                state.ownerResolveAt(), state.destination(), state.anchorMemory(), state.destinationKind(),
+                state.pathedDestination());
     }
 
     public static boolean ownerResolveDue(MovementState.Follow state, int now) {
         return now >= state.ownerResolveAt();
     }
 
-    public static MovementState.Follow ownerResolved(MovementState.Follow state, int now) {
-        return new MovementState.Follow(state.repathIn(), state.timeTimer(), state.farTimer(), now + OWNER_RESOLVE,
-                state.destination(), state.anchorMemory(), state.destinationKind());
+    public static MovementState.Follow ownerResolved(MovementState.Follow state, int now, double distanceSq,
+                                                     FollowRange range) {
+        int interval = travelling(distanceSq, range) ? OWNER_RESOLVE_MOVING : OWNER_RESOLVE;
+        return new MovementState.Follow(state.repathIn(), state.timeTimer(), state.farTimer(), now + interval,
+                state.destination(), state.anchorMemory(), state.destinationKind(), state.pathedDestination());
     }
 
     /** On its way while outside the inner distance. */
@@ -175,13 +180,16 @@ public final class FollowMovePlanner {
             steps.add(new MovementStep.Stop(MovementBody.SELF, MovementReason.FOLLOW_ARRIVED));
         }
         int repathIn = state.repathIn();
+        MovementPoint pathedDestination = state.pathedDestination();
         Optional<MovementStep.PathTo> recovery = StuckDetector.recovery(facts.stuck(), MovementBody.SELF,
                 new MovementTarget.Point(state.destination()), state.destination(), 1D, Optional.empty());
         if (recovery.isPresent()) {
             repathIn = REPATH;
+            pathedDestination = state.destination();
             steps.add(recovery.get());
-        } else if (repathIn <= 0) {
+        } else if (repathIn <= 0 || state.destination().distanceSq(pathedDestination) >= DESTINATION_MOVED_SQ) {
             repathIn = REPATH;
+            pathedDestination = state.destination();
             steps.add(new MovementStep.PathTo(MovementBody.SELF, new MovementTarget.Point(state.destination()), 1D,
                     MovementReason.FOLLOW_OWNER));
         }
@@ -210,7 +218,7 @@ public final class FollowMovePlanner {
             }
         }
         return new PlannedMove<>(new MovementState.Follow(repathIn, timeTimer, farTimer, state.ownerResolveAt(),
-                state.destination(), state.anchorMemory(), state.destinationKind()),
+                state.destination(), state.anchorMemory(), state.destinationKind(), pathedDestination),
                 new MovementPlan(steps));
     }
 }

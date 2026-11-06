@@ -9,17 +9,22 @@ import com.google.gson.JsonPrimitive;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+import net.minecraft.SharedConstants;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.Bootstrap;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.profiling.InactiveProfiler;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -41,11 +46,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShipDefinitionTest {
     private static final ShipDefinitionId ID = ShipDefinitionId.parse("addon:ship");
-    private static final ResourceLocation AI = new ResourceLocation("shincolle_kai", "test_ai");
-    private static final ResourceLocation ATTACK = new ResourceLocation("shincolle_kai", "test_attack");
+    private static final ResourceLocation AI = new ResourceLocation("shincolle_kai", "standard");
+    private static final ResourceLocation ATTACK = new ResourceLocation("shincolle_kai", "light_cannon");
     private static final ResourceLocation EQUIP = new ResourceLocation("addon", "equipment");
     private static final ShipDefinitionValidator VALIDATOR = new ShipDefinitionValidator(
             AI::equals, ATTACK::equals, EQUIP::equals);
+
+    @BeforeAll
+    static void bootstrapMinecraft() throws ReflectiveOperationException {
+        SharedConstants.tryDetectVersion();
+        Field bootstrapped = Bootstrap.class.getDeclaredField("isBootstrapped");
+        bootstrapped.setAccessible(true);
+        if (bootstrapped.getBoolean(null)) return;
+        bootstrapped.setBoolean(null, true);
+        BuiltInRegistries.bootStrap();
+    }
 
     static JsonObject minimum() {
         return JsonParser.parseString("""
@@ -67,7 +82,9 @@ class ShipDefinitionTest {
         assertTrue(definition.baseStats().values().stream().allMatch(value -> value == 0));
         assertTrue(definition.growth().values().stream().allMatch(value -> value == 0));
         assertEquals(new ShipDefinition.Equipment(0, List.of()), definition.equipment());
-        assertEquals(new ShipDefinition.Acquisition(false, 0), definition.construction());
+        assertFalse(definition.construction().enabled());
+        assertEquals(100, definition.construction().weight());
+        assertEquals(ShipDefinition.ConstructionMode.MATERIAL, definition.construction().mode());
         assertEquals(new ShipDefinition.Acquisition(false, 0), definition.spawn());
         assertTrue(definition.behavior().ai().isEmpty());
         assertTrue(definition.behavior().attacks().isEmpty());
@@ -87,10 +104,10 @@ class ShipDefinitionTest {
         JsonObject json = minimum();
         json.add("growth", JsonParser.parseString("{\"hp\":1,\"atk\":0.5}"));
         json.add("equipment", JsonParser.parseString("{\"slots\":2,\"initial\":[\"addon:equipment\",\"addon:equipment\"]}"));
-        json.add("construction", JsonParser.parseString("{\"enabled\":true,\"weight\":10}"));
+        json.add("construction", JsonParser.parseString("{\"enabled\":true,\"weight\":10,\"tier\":\"small\",\"material_mean\":80}"));
         json.add("spawn", JsonParser.parseString("{\"enabled\":false,\"weight\":2}"));
         json.add("behavior", JsonParser.parseString("""
-                {"ai":"shincolle_kai:test_ai","attacks":["shincolle_kai:test_attack"]}
+                {"ai":"shincolle_kai:standard","attacks":["shincolle_kai:light_cannon"]}
                 """));
         ShipDefinition definition = validate(json);
         assertEquals(AI, definition.behavior().ai().orElseThrow());
@@ -100,6 +117,104 @@ class ShipDefinitionTest {
         assertEquals(10, definition.construction().weight());
         json.getAsJsonObject("equipment").getAsJsonArray("initial").set(0, new JsonPrimitive("addon:missing"));
         assertThrows(IllegalArgumentException.class, () -> validate(json));
+    }
+
+    @Test
+    void constructionModesDefaultsAndStrictOptionalKeys() {
+        JsonObject json = minimum();
+        json.add("construction", JsonParser.parseString("{\"enabled\":true,\"tier\":\"small\",\"material_mean\":100}"));
+        ShipDefinition.Construction material = validate(json).construction();
+        assertEquals(100, material.weight());
+        assertEquals(ShipDefinition.ConstructionMode.MATERIAL, material.mode());
+        assertTrue(material.matches(0));
+        assertFalse(material.matches(1));
+        assertEquals(100, material.materialMean().orElseThrow());
+        assertTrue(material.materialBias().isEmpty());
+        for (String bias : List.of("grudge", "abyssium", "ammo", "polymetal")) {
+            json.getAsJsonObject("construction").addProperty("material_bias", bias);
+            assertEquals(bias, validate(json).construction().materialBias().orElseThrow().name().toLowerCase(java.util.Locale.ROOT));
+        }
+        json.add("construction", JsonParser.parseString("{\"enabled\":true,\"mode\":\"weighted\"}"));
+        ShipDefinition.Construction weighted = validate(json).construction();
+        assertEquals(0, weighted.weight());
+        assertTrue(weighted.matches(0) && weighted.matches(1));
+        assertTrue(weighted.tier().isEmpty());
+        for (String settings : List.of("{\"enabled\":true}", "{\"enabled\":true,\"tier\":\"small\"}",
+                "{\"enabled\":true,\"material_mean\":100}", "{\"mode\":\"other\"}", "{\"mode\":\"MATERIAL\"}",
+                "{\"tier\":\"both\"}", "{\"material_mean\":1.5}", "{\"material_mean\":-1}",
+                "{\"material_mean\":2147483648}", "{\"material_mean\":\"100\"}", "{\"material_bias\":\"fuel\"}",
+                "{\"material_bias\":null}", "{\"tier\":1}", "{\"enabled\":\"true\"}", "{\"weight\":-1}")) {
+            json.add("construction", JsonParser.parseString(settings));
+            assertThrows(IllegalArgumentException.class, () -> validate(json), settings);
+        }
+        json.add("construction", JsonParser.parseString("{\"enabled\":false,\"weight\":2147483647}"));
+        assertFalse(validate(json).construction().enabled());
+    }
+
+    @Test
+    void publishedConstructionSchemaAgreesWithValidator() throws IOException {
+        JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(
+                Files.readString(Path.of("docs/schemas/shincolle_kai-ship_definition.schema.json")));
+        ObjectMapper mapper = new ObjectMapper();
+        for (String settings : List.of("{}", "{\"enabled\":false}", "{\"enabled\":true,\"mode\":\"weighted\"}",
+                "{\"enabled\":true,\"tier\":\"large\",\"material_mean\":2147483647,\"material_bias\":\"ammo\"}",
+                "{\"enabled\":true,\"mode\":\"weighted\",\"tier\":\"small\",\"weight\":0}",
+                "{\"enabled\":true,\"mode\":\"material\",\"tier\":\"small\",\"material_mean\":0}")) {
+            JsonObject json = minimum();
+            json.add("construction", JsonParser.parseString(settings));
+            assertTrue(schema.validate(mapper.readTree(json.toString())).isEmpty(), settings);
+            validate(json);
+        }
+        for (String settings : List.of("{\"enabled\":true}", "{\"enabled\":true,\"mode\":\"material\"}",
+                "{\"enabled\":true,\"tier\":\"small\"}", "{\"enabled\":true,\"material_mean\":100}",
+                "{\"mode\":null}", "{\"mode\":\"MATERIAL\"}", "{\"tier\":\"both\"}", "{\"material_mean\":-1}",
+                "{\"material_mean\":1.5}", "{\"material_mean\":2147483648}", "{\"material_bias\":\"fuel\"}")) {
+            JsonObject json = minimum();
+            json.add("construction", JsonParser.parseString(settings));
+            assertFalse(schema.validate(mapper.readTree(json.toString())).isEmpty(), settings);
+            assertThrows(IllegalArgumentException.class, () -> validate(json), settings);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void positiveMaterialWeightRemainsReachableBelowLegacyFloatGuard() throws ReflectiveOperationException {
+        JsonObject json = minimum();
+        json.add("construction", JsonParser.parseString(
+                "{\"enabled\":true,\"tier\":\"small\",\"material_mean\":106,\"weight\":1}"));
+        ShipDefinition ship = validate(json);
+        int[] mats = {16, 20, 30, 40};
+        var method = com.lulan.shincolle.crafting.ShipCalc.class.getDeclaredMethod(
+                "materialTable", int.class, int[].class, List.class);
+        method.setAccessible(true);
+        Map<ShipChoice, Float> table = (Map<ShipChoice, Float>) method.invoke(null, 0, mats, List.of(ship));
+        ShipChoice choice = new ShipChoice.Defined(ID);
+        float total = 0;
+        float before = 0;
+        boolean found = false;
+        for (var entry : table.entrySet()) {
+            total += entry.getValue();
+            if (entry.getKey().equals(choice)) found = true;
+            else if (!found) before += entry.getValue();
+        }
+        float probability = table.get(choice);
+        assertTrue(probability > 0 && probability < 0.0125F, "fixture must be below the inherited float guard");
+        float roll = (before + 0.0125F + probability / 2) / total;
+        assertTrue(roll >= 0 && roll < 1, "positive material candidate has no reachable random interval");
+        ShipDefinitionRegistry registry = ShipDefinitionRegistry.server();
+        Map<ShipDefinitionId, ShipDefinition> previous = registry.all();
+        registry.reload(() -> Map.of(ID, ship));
+        try {
+            var random = new net.minecraft.world.level.levelgen.LegacyRandomSource(731) {
+                @Override
+                public float nextFloat() {
+                    return roll;
+                }
+            };
+            assertEquals(choice, com.lulan.shincolle.crafting.ShipCalc.rollShipType(0, mats, random));
+        } finally {
+            registry.reload(() -> previous);
+        }
     }
 
     @Test
@@ -229,7 +344,7 @@ class ShipDefinitionTest {
     @Test
     void duplicateAttackAndArrayBoundsAreRejected() {
         JsonObject json = minimum();
-        json.add("behavior", JsonParser.parseString("{\"attacks\":[\"shincolle_kai:test_attack\",\"shincolle_kai:test_attack\"]}"));
+        json.add("behavior", JsonParser.parseString("{\"attacks\":[\"shincolle_kai:light_cannon\",\"shincolle_kai:light_cannon\"]}"));
         assertThrows(IllegalArgumentException.class, () -> validate(json));
         json.remove("behavior");
         json.add("equipment", JsonParser.parseString("{\"slots\":17}"));
@@ -453,11 +568,11 @@ class ShipDefinitionTest {
         assertTrue(schema.validate(mapper.readTree(sample.toString())).isEmpty());
         validate(sample);
         JsonObject all = minimum();
-        all.add("behavior", JsonParser.parseString("{\"ai\":\"shincolle_kai:test_ai\",\"attacks\":[\"shincolle_kai:test_attack\"]}"));
+        all.add("behavior", JsonParser.parseString("{\"ai\":\"shincolle_kai:standard\",\"attacks\":[\"shincolle_kai:light_cannon\"]}"));
         all.add("equipment", JsonParser.parseString("{\"slots\":1,\"initial\":[\"addon:equipment\"]}"));
         all.addProperty("unknown", "ignored");
         all.addProperty("recruitment", 123);
-        all.add("construction", JsonParser.parseString("{\"enabled\":true,\"weight\":2147483647}"));
+        all.add("construction", JsonParser.parseString("{\"enabled\":true,\"weight\":2147483647,\"mode\":\"weighted\"}"));
         all.add("spawn", JsonParser.parseString("{\"enabled\":false,\"weight\":0}"));
         all.add("dimensions", JsonParser.parseString("{\"width\":1.6,\"height\":4.4}"));
         all.addProperty("mount_offset", 4.4);
@@ -518,7 +633,10 @@ class ShipDefinitionTest {
                 "\"equipment\":{\"slots\":0,\"initial\":[\"addon:equipment\"]}",
                 "\"equipment\":{\"initial\":[\"addon:equipment\"]}",
                 "\"behavior\":{\"ai\":\"addon:test_ai\"}",
-                "\"behavior\":{\"attacks\":[\"shincolle_kai:test_attack\",\"shincolle_kai:test_attack\"]}",
+                "\"behavior\":{\"attacks\":[\"shincolle_kai:light_cannon\",\"shincolle_kai:light_cannon\"]}",
+                "\"behavior\":{\"attacks\":[]}",
+                "\"behavior\":{\"attacks\":[\"shincolle_kai:nagato_skill\"]}",
+                "\"behavior\":{\"ai\":\"shincolle_kai:unknown\"}",
                 "\"spawn\":{\"enabled\":\"true\"}", "\"construction\":{\"weight\":-1}",
                 "\"display_name\":\"" + "x".repeat(65) + "\"")) {
             JsonObject json = minimum();

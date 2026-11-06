@@ -3,6 +3,9 @@ package com.lulan.shincolle;
 import com.lulan.shincolle.ai.registry.ShipBehaviorRegistries;
 import com.lulan.shincolle.capability.CapabilityHandler;
 import com.lulan.shincolle.command.CommandHandler;
+import com.lulan.shincolle.client.ShipInteractionClientConfig;
+import com.lulan.shincolle.compat.curios.CuriosOreExperienceHandler;
+import com.lulan.shincolle.compat.mekanism.MekanismIntegration;
 import com.lulan.shincolle.config.ConfigMining;
 import com.lulan.shincolle.equip.ShipEquipmentOptionalIntegrations;
 import com.lulan.shincolle.equip.ShipEquipmentProviderIndex;
@@ -21,6 +24,9 @@ import com.lulan.shincolle.init.*;
 import com.lulan.shincolle.loot.ShinColleLootModifiers;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.tileentity.TileEntitySmallShipyard;
+import com.lulan.shincolle.tileentity.TileEntityVolCore;
+import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
 import com.lulan.shincolle.worldgen.ModWorldGen;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddReloadListenerEvent;
@@ -61,6 +67,7 @@ public class ShinColle {
         ModTargetTraits.register(modEventBus);
         ModShipBehaviors.register(modEventBus);
         ShinColleLootModifiers.register(modEventBus);
+        ModWorldGen.register(modEventBus);
 
         // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ConfigHandler.COMMON_SPEC,
@@ -71,6 +78,8 @@ public class ShinColle {
                 Reference.MOD_ID + "-sound-client.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, BookClientConfig.CLIENT_SPEC,
                 Reference.MOD_ID + "-book-client.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ShipInteractionClientConfig.CLIENT_SPEC,
+                Reference.MOD_ID + "-interaction-client.toml");
 
         // Register lifecycle event listeners
         modEventBus.addListener(this::commonSetup);
@@ -90,6 +99,7 @@ public class ShinColle {
         // handler, and thus only touch Curios' event classes, when it's
         // actually loaded.
         if (ModList.get().isLoaded("curios")) {
+            MinecraftForge.EVENT_BUS.register(new CuriosOreExperienceHandler());
             MinecraftForge.EVENT_BUS.register(new ShipCuriosRecalcHandler());
             MinecraftForge.EVENT_BUS.register(new ShipEquipCurioCapabilityHandler());
             ShipEquipmentOptionalIntegrations.registerStackSource(
@@ -102,6 +112,11 @@ public class ShinColle {
             ShipTinkersIntegration.register(ModEquipmentProviders.PROVIDERS);
         }
 
+        // Mekanism ore processing (slurries) - optional, same guard pattern.
+        if (ModList.get().isLoaded("mekanism")) {
+            MekanismIntegration.register(modEventBus);
+        }
+
         LOGGER.info("ShinColle: Mod loading initialized.");
     }
 
@@ -112,6 +127,8 @@ public class ShinColle {
         ModNetworking.register();
         ModWorldGen.init();
         event.enqueueWork(() -> {
+            net.minecraftforge.common.world.ForgeChunkManager.setForcedChunkLoadingCallback(Reference.MOD_ID,
+                    (level, tickets) -> tickets.getEntityTickets().keySet().forEach(tickets::removeAllTickets));
             ModShipAttributes.initializeLayout();
             ShipEquipmentProviderIndex.sealGlobal();
             ConfigHandler.onShipAttributeLayoutReady();
@@ -148,7 +165,11 @@ public class ShinColle {
     private void onConfigReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == ConfigHandler.COMMON_SPEC) {
             ConfigHandler.syncConfig();
+            TileEntitySmallShipyard.reloadConfig();
+            TileMultiGrudgeHeavy.reloadConfig();
+            TileEntityVolCore.reloadConfig();
             ServerEventHandler.broadcastCurrentShipLevelCaps();
+            com.lulan.shincolle.handler.ShipFollowRecallHandler.onConfigReload();
             LOGGER.info("ShinColle: Config reloaded.");
         }
     }

@@ -11,6 +11,8 @@ import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
 import com.lulan.shincolle.server.ServerDataManager;
+import com.lulan.shincolle.shipdata.GenericShipSpawner;
+import com.lulan.shincolle.shipdata.ShipChoice;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -69,7 +71,7 @@ public class ShipSpawnEgg extends BasicItem {
     private static Map<Integer, RegistryObject<? extends EntityType<?>>> ENTITY_MAP;
 
     public ShipSpawnEgg() {
-        super(new Properties().stacksTo(1));
+        super(new Properties().stacksTo(16));
     }
 
     /**
@@ -153,6 +155,10 @@ public class ShipSpawnEgg extends BasicItem {
 
     // ===== Right Click on Block: Spawn Entity =====
 
+    static int savedEggXpCost(int[] stateMinor) {
+        return stateMinor[0] / 3; // StateMinor[0] = ShipLevel (raw level)
+    }
+
     static boolean consumeSavedEggXpCost(Player player, CompoundTag nbt) {
         if (player == null || nbt == null) {
             return true;
@@ -167,13 +173,13 @@ public class ShipSpawnEgg extends BasicItem {
             return true;
         }
 
-        int shipLevel = attrs[0] / 3; // StateMinor[0] = ShipLevel (raw level)
-        if (player.experienceLevel < shipLevel) {
+        int xpCost = savedEggXpCost(attrs);
+        if (player.experienceLevel < xpCost) {
             player.sendSystemMessage(Component.translatable(CHAT_LEVEL_FAIL_KEY));
             return false;
         }
 
-        player.giveExperienceLevels(-shipLevel);
+        player.giveExperienceLevels(-xpCost);
         return true;
     }
 
@@ -595,9 +601,9 @@ public class ShipSpawnEgg extends BasicItem {
 
         CompoundTag nbt = stack.getTag();
 
-        int shipClass;
+        ShipChoice choice;
         if (hasSpecificShipClassTag(nbt)) {
-            shipClass = getShipClass(stack);
+            choice = new ShipChoice.BuiltIn(getShipClass(stack));
         } else {
             // [PORT] 1.10.2 -> 1.20.1: Random ship rolls happen dynamically if no ship class is present.
             int buildType = (nbt != null && nbt.contains("BuildType")) ? nbt.getByte("BuildType") : 0;
@@ -608,7 +614,7 @@ public class ShipSpawnEgg extends BasicItem {
                 mats[2] = nbt.getInt("Ammo");
                 mats[3] = nbt.getInt("Polymetal");
             }
-            shipClass = com.lulan.shincolle.crafting.ShipCalc.rollShipType(buildType, mats, level.random);
+            choice = com.lulan.shincolle.crafting.ShipCalc.rollShipType(buildType, mats, level.random);
         }
 
         // XP cost for saved eggs (eggs with stored ship data)
@@ -618,10 +624,12 @@ public class ShipSpawnEgg extends BasicItem {
 
         // spawn entity
         ServerLevel serverLevel = (ServerLevel) level;
-        Entity entity = createShipFromClass(serverLevel, shipClass);
+        Entity entity = choice instanceof ShipChoice.Defined defined
+                ? GenericShipSpawner.create(serverLevel, defined.id(), false, player)
+                : createShipFromClass(serverLevel, ((ShipChoice.BuiltIn) choice).shipClass());
 
         if (entity == null) {
-            LogHelper.warn("Failed to create ship entity for class: " + shipClass);
+            LogHelper.warn("Failed to create ship entity for choice: " + choice);
             return InteractionResult.FAIL;
         }
 
@@ -646,6 +654,9 @@ public class ShipSpawnEgg extends BasicItem {
 
             // recalc attributes
             ship.calcShipAttributes(31, true);
+            if (nbt != null && nbt.contains("StateMinor")) {
+                ship.setHealth(ship.getMaxHealth());
+            }
         } else if (entity instanceof BasicEntityShipHostile hostile) {
             // [PORT] 1.10.2 -> 1.20.1: keep hostile spawn silhouette larger than
             // regular ships by biasing hostile scale level away from 0.
@@ -811,10 +822,10 @@ public class ShipSpawnEgg extends BasicItem {
                 // Saved ship egg: show level, name, owner
                 int[] stateMinor = nbt.getIntArray("StateMinor");
                 if (stateMinor.length > 0) {
-                    int shipLevel = stateMinor[0]; // StateMinor[0] = ShipLevel (raw level)
+                    int xpCost = savedEggXpCost(stateMinor);
                     tooltip.add(Component
                             .literal(ChatFormatting.AQUA + Component.translatable("gui.shincolle_kai.eggText").getString()
-                                    + " " + shipLevel));
+                                    + " " + xpCost));
                 }
                 Component customName = resolveEggCustomName(nbt);
                 if (customName != null && !customName.getString().isEmpty()) {

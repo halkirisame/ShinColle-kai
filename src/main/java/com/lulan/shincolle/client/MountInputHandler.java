@@ -56,6 +56,8 @@ public class MountInputHandler {
         boolean guiKeyPressedThisTick = GUI_KEY.sample(guiKeyDown, onMount && mc.isWindowActive(),
                 mc.options.keyInventory.isDown());
 
+        MountSkillClient.sample(guiKeyPressedThisTick);
+
         if (!onMount) {
             actionCooldown = 0;
             return;

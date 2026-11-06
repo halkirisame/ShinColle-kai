@@ -31,6 +31,7 @@ import net.minecraftforge.items.ItemStackHandler;
  * 8: redSignalMode (0-2)
  * 9: liquidMode (0-2)
  * 10: energyMode (0-2)
+ * 11-12: NOT mask, low 16 bits then high 2 bits
  */
 public class ContainerCrane extends AbstractContainerMenu {
 
@@ -51,7 +52,14 @@ public class ContainerCrane extends AbstractContainerMenu {
     public static final int DATA_RED_MODE = 8;
     public static final int DATA_LIQUID_MODE = 9;
     public static final int DATA_ENERGY_MODE = 10;
-    public static final int DATA_COUNT = 11;
+    public static final int DATA_NOT_LOW = 11;
+    public static final int DATA_NOT_HIGH = 12;
+    public static final int DATA_SHIP_ID = 13;
+    public static final int DATA_FLUID_AMOUNT = 15;
+    public static final int DATA_FLUID_CAPACITY = 17;
+    public static final int DATA_ENERGY_AMOUNT = 19;
+    public static final int DATA_ENERGY_CAPACITY = 21;
+    public static final int DATA_COUNT = 23;
 
     private final TileEntityCrane tile;
     private final ContainerData data;
@@ -111,7 +119,20 @@ public class ContainerCrane extends AbstractContainerMenu {
                     case DATA_RED_MODE -> tile.getRedSignalMode();
                     case DATA_LIQUID_MODE -> tile.getLiquidMode();
                     case DATA_ENERGY_MODE -> tile.getEnergyMode();
-                    default -> 0;
+                    case DATA_NOT_LOW -> tile.getItemModeMask() & 0xffff;
+                    case DATA_NOT_HIGH -> tile.getItemModeMask() >>> 16;
+                    default -> {
+                        int base = index - ((index - DATA_SHIP_ID) & 1);
+                        int value = switch (base) {
+                            case DATA_SHIP_ID -> tile.getDockedShip() == null ? -1 : tile.getDockedShip().getId();
+                            case DATA_FLUID_AMOUNT -> tile.getFluidAmount();
+                            case DATA_FLUID_CAPACITY -> tile.getFluidCapacity();
+                            case DATA_ENERGY_AMOUNT -> tile.getEnergyAmount();
+                            case DATA_ENERGY_CAPACITY -> tile.getEnergyCapacity();
+                            default -> 0;
+                        };
+                        yield (value >>> ((index - base) * 16)) & 0xffff;
+                    }
                 };
             }
 
@@ -154,15 +175,18 @@ public class ContainerCrane extends AbstractContainerMenu {
             return;
         }
         if (slotId >= 0 && slotId < GHOST_SLOT_COUNT) {
+            if (clickType != ClickType.PICKUP || (button != 0 && button != 1)) return;
             Slot slot = this.slots.get(slotId);
             ItemStack carried = getCarried();
 
             if (carried.isEmpty()) {
                 slot.set(ItemStack.EMPTY);
+                tile.setItemMode(slotId, false);
             } else {
                 ItemStack filterItem = carried.copy();
                 filterItem.setCount(1);
                 slot.set(filterItem);
+                tile.setItemMode(slotId, button == 1);
             }
             return;
         }
@@ -230,4 +254,19 @@ public class ContainerCrane extends AbstractContainerMenu {
     public int getEnergyMode() {
         return data.get(DATA_ENERGY_MODE);
     }
+
+    public boolean getItemMode(int slot) {
+        int mask = (data.get(DATA_NOT_LOW) & 0xffff) | ((data.get(DATA_NOT_HIGH) & 3) << 16);
+        return slot >= 0 && slot < GHOST_SLOT_COUNT && (mask & (1 << slot)) != 0;
+    }
+
+    private int fullInt(int index) {
+        return (data.get(index) & 0xffff) | ((data.get(index + 1) & 0xffff) << 16);
+    }
+
+    public int getDockedShipId() { return fullInt(DATA_SHIP_ID); }
+    public int getFluidAmount() { return fullInt(DATA_FLUID_AMOUNT); }
+    public int getFluidCapacity() { return fullInt(DATA_FLUID_CAPACITY); }
+    public int getEnergyAmount() { return fullInt(DATA_ENERGY_AMOUNT); }
+    public int getEnergyCapacity() { return fullInt(DATA_ENERGY_CAPACITY); }
 }

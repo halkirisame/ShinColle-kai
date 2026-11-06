@@ -289,6 +289,9 @@ public final class ShipMoraleTravelGameTests {
                 ItemStack egg = drop.getEntityItem().copy();
                 drop.discard();
                 helper.assertTrue(egg.hasTag(), "Death egg missing saved data");
+                helper.assertTrue(egg.getTag().getIntArray("StateMinor")[ID.M.ShipLevel] == 37
+                                && source.getLevel() == 37,
+                        "Death egg and source must retain the saved level");
                 FakePlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(OWNER, "morale_admiral"));
                 boolean creative = player.getAbilities().instabuild;
                 Vec3 hatchPosition = helper.absoluteVec(hatchRelative);
@@ -309,7 +312,7 @@ public final class ShipMoraleTravelGameTests {
                 BasicEntityShip loaded = ships.get(0);
                 helper.assertTrue(loaded != source && loaded.getY() == 0D, "Death egg must create new transport at Y=0");
                 GameTestEntities.assertRegistered(helper, loaded);
-                assertSavedShip(helper, loaded, saved);
+                assertSavedShip(helper, loaded, saved, 37);
                 loaded.tickCount = 256;
                 consumeAndAssert(helper, loaded, 0, 5);
                 loaded.moveTo(loaded.position().add(20, 0, 0));
@@ -585,8 +588,15 @@ public final class ShipMoraleTravelGameTests {
     }
 
     private static void assertSavedShip(GameTestHelper helper, BasicEntityShip ship, CompoundTag saved) {
+        assertSavedShip(helper, ship, saved, saved.getIntArray("StateMinor")[ID.M.ShipLevel]);
+    }
+
+    private static void assertSavedShip(GameTestHelper helper, BasicEntityShip ship, CompoundTag saved,
+                                        int expectedLevel) {
         int[] minor = saved.getIntArray("StateMinor");
-        for (int id : new int[]{ID.M.ShipLevel, ID.M.ExpCurrent, ID.M.NumGrudge, ID.M.NumAmmoLight,
+        helper.assertTrue(ship.getLevel() == expectedLevel, "Expected saved level " + expectedLevel
+                + ", got " + ship.getLevel());
+        for (int id : new int[]{ID.M.ExpCurrent, ID.M.NumGrudge, ID.M.NumAmmoLight,
                 ID.M.NumAmmoHeavy, ID.M.Morale, ID.M.ShipUID, ID.M.PlayerUID}) {
             helper.assertTrue(ship.getStateMinor(id) == minor[id], "Saved value changed at index " + id);
         }

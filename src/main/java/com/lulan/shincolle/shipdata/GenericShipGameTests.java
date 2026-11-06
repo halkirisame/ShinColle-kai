@@ -89,7 +89,7 @@ public final class GenericShipGameTests {
                 helper.assertTrue(ship.getAttrs().getAttrsRaw(ID.Attrs.ATK_H) == (float) tier[1] * modifiers[1] * 3,
                         "heavy attack multiplier changed");
             }
-            helper.assertTrue(ship.getShipClass() == 0 && ship.getDropEgg().isEmpty(), "numeric class/drop path leaked");
+            helper.assertTrue(ship.getShipClass() == 0, "numeric class path leaked");
         });
     }
 
@@ -288,6 +288,41 @@ public final class GenericShipGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void savedGenericEggStillHealsAfterFinalAttributes(GameTestHelper helper) {
+        fixture(helper, entities -> {
+            GenericShipEntity source = friendly(helper, entities, SAMPLE);
+            source.setShipLevel(37, false);
+            source.getAttrs().setAttrsBonus(ID.AttrsBase.HP, 3);
+            source.calcShipAttributes(31, false);
+            source.setHealth(3F);
+            ItemStack egg = GenericShipSpawnEgg.create(SAMPLE, false);
+            com.lulan.shincolle.capability.CapaShipSavedValues.saveNBTData(egg.getOrCreateTag(), source);
+            float maximum = source.getMaxHealth();
+            helper.assertTrue(maximum > 3F && source.getHealth() == 3F
+                            && egg.getTag().contains("StateMinor"), "generic control must really be wounded and saved");
+            source.discard();
+            var player = net.minecraftforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                    new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "GenericSavedHealth"));
+            player.experienceLevel = 100;
+            player.getAbilities().instabuild = false;
+            BlockPos floor = helper.absolutePos(new BlockPos(1, 1, 1));
+            var result = egg.getItem().useOn(new net.minecraft.world.item.context.UseOnContext(helper.getLevel(),
+                    player, net.minecraft.world.InteractionHand.MAIN_HAND, egg,
+                    new net.minecraft.world.phys.BlockHitResult(Vec3.atCenterOf(floor),
+                            net.minecraft.core.Direction.UP, floor, false)));
+            var ships = helper.getLevel().getEntitiesOfClass(GenericShipEntity.class,
+                    new net.minecraft.world.phys.AABB(floor.above()));
+            ships.forEach(entities::add);
+            helper.assertTrue(result.consumesAction() && egg.isEmpty() && player.experienceLevel == 100 - 37 / 3
+                            && ships.size() == 1, "generic saved egg must keep the spawn, XP and consumption contracts");
+            GenericShipEntity restored = ships.get(0);
+            helper.assertTrue(restored.getLevel() == 37 && restored.getHealth() == restored.getMaxHealth()
+                            && Math.abs(restored.getMaxHealth() - maximum) < 0.001F,
+                    "generic saved egg must retain its existing final-attribute full heal");
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void shipIdentityPacketCarriesIdGenerationAndDormancy(GameTestHelper helper) {
         fixture(helper, entities -> {
             GenericShipEntity ship = friendly(helper, entities, SAMPLE);
@@ -305,7 +340,11 @@ public final class GenericShipGameTests {
                 try {
                     helper.assertTrue(data.readUtf(64).equals(SAMPLE.toString()), "ShipId missing");
                     helper.assertTrue(data.readVarLong() == ShipDefinitionRegistry.server().generation(), "generation missing");
-                    helper.assertTrue(!data.readBoolean() && !data.isReadable(), "dormancy/wire mismatch");
+                    helper.assertTrue(!data.readBoolean(), "dormancy mismatch");
+                    helper.assertTrue(data.readUtf(128).isEmpty()
+                            && data.readEnum(HostileVariants.Rarity.class) == HostileVariants.Rarity.COMMON
+                            && data.readUtf(128).isEmpty() && !data.readBoolean() && !data.isReadable(),
+                            "friendly individual presentation/wire mismatch");
                 } finally {
                     data.release();
                 }
@@ -324,8 +363,8 @@ public final class GenericShipGameTests {
             for (String methodName : new String[]{"tryClientVersionOnServer", "tryServerVersionOnClient"}) {
                 Method method = instance.getClass().getDeclaredMethod(methodName, String.class);
                 method.setAccessible(true);
-                helper.assertTrue((Boolean) method.invoke(instance, "17"), "current protocol rejected");
-                for (String old : new String[]{"14", "15", "16", "ABSENT", "ACCEPTVANILLA"}) {
+                helper.assertTrue((Boolean) method.invoke(instance, "20"), "current protocol rejected");
+                for (String old : new String[]{"14", "15", "16", "17", "18", "19", "ABSENT", "ACCEPTVANILLA"}) {
                     helper.assertTrue(!(Boolean) method.invoke(instance, old), "mismatched protocol accepted: " + old);
                 }
             }
@@ -340,7 +379,8 @@ public final class GenericShipGameTests {
         if (hp != null) stats.put("hp", hp);
         return new ShipDefinition(id, source.schema(), source.displayName(), source.shipType(), source.visual(),
                 stats, source.growth(), source.equipment(), source.construction(), source.spawn(), source.behavior(),
-                source.dimensions(), source.mountOffset(), source.equipType(), source.attackProfile(), source.hostileModifiers());
+                source.dimensions(), source.mountOffset(), source.equipType(), source.attackProfile(), source.hostileModifiers(),
+                source.hostileVariants());
     }
 
     private static GenericShipEntity friendly(GameTestHelper helper, GameTestEntities entities, ShipDefinitionId id) {

@@ -110,6 +110,10 @@ public final class ShipCommandStateAdapter {
         boolean movementChanged = !Objects.equals(before.movement(), state.movement());
         if (movementChanged) endKnownLostGuard();
         project(op, movementChanged);
+        if (com.lulan.shincolle.ai.domain.movement.RecallCancellation.commandCancels(state)) {
+            com.lulan.shincolle.handler.ShipFollowRecallHandler.cancelShip(ship,
+                    com.lulan.shincolle.ai.domain.movement.RecallCancellation.COMMAND_CHANGED);
+        }
         if (movementChanged) ship.sendSyncPacketGuard();
         assertProjection();
     }

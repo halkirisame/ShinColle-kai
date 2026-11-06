@@ -654,6 +654,44 @@ public class BlockHelper {
         return null;
     }
 
+    /** Pump-only scan: never treats waterlogged solids or general tanks as world liquid sources. */
+    public static ShipFluidTransfer.Observation findPumpSource(Entity host) {
+        BlockPos origin = new BlockPos(Mth.floor(host.getX()), (int) host.getY(), Mth.floor(host.getZ()));
+        for (int y = 1; y >= -2; y--) {
+            for (int x = -3; x <= 3; x++) {
+                for (int z = -3; z <= 3; z++) {
+                    if (x == 0 && z == 0) continue;
+                    var observation = ShipFluidTransfer.observe(host.level(), origin.offset(x, y, z));
+                    if (observation.violation() || observation.source().isPresent()) return observation;
+                }
+            }
+        }
+        for (int y = 1; y >= -1; y--) {
+            var observation = ShipFluidTransfer.observe(host.level(), origin.above(y));
+            if (observation.violation() || observation.source().isPresent()) return observation;
+        }
+        return ShipFluidTransfer.Observation.absent(origin);
+    }
+
+    /** Observes the same three sampled columns again without drawing new random offsets. */
+    public static java.util.List<Boolean> observePumpColumns(Level level, java.util.List<BlockPos> columns,
+                                                            net.minecraft.world.level.material.Fluid fluid, int depth) {
+        java.util.List<Boolean> observed = new java.util.ArrayList<>();
+        for (BlockPos top : columns) {
+            boolean matches = true;
+            for (int y = 0; y < depth; y++) {
+                BlockPos position = top.below(y);
+                if (!level.hasChunkAt(position)
+                        || ShipFluidTransfer.columnFluid(level.getBlockState(position)).filter(fluid::isSame).isEmpty()) {
+                    matches = false;
+                    break;
+                }
+            }
+            observed.add(matches);
+        }
+        return java.util.List.copyOf(observed);
+    }
+
     /**
      * Place searchlight (light air block) at position if the position is air.
      * Used by ship entities to illuminate nearby area at night.

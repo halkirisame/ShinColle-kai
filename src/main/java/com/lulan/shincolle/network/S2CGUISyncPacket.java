@@ -2,6 +2,7 @@ package com.lulan.shincolle.network;
 
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
+import com.lulan.shincolle.client.gui.GuiDesk;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.team.TeamData;
@@ -571,6 +572,9 @@ public class S2CGUISyncPacket {
         if (capa == null)
             return;
         capa.setTargetClassNames(PacketHelper.readStringList(buf));
+        if (Minecraft.getInstance().screen instanceof GuiDesk desk) {
+            desk.updateTargetClassList();
+        }
     }
 
     @OnlyIn(Dist.CLIENT)

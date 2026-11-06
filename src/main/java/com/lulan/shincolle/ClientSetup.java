@@ -502,6 +502,9 @@ public class ClientSetup {
             ItemProperties.register(ModItems.SHIP_SPAWN_EGG.get(),
                     new ResourceLocation(Reference.MOD_ID, "egg_icon"),
                     (stack, level, entity, seed) -> (float) ShipSpawnEgg.getEggIcon(stack));
+            ItemProperties.register(ModItems.SAFARI_NET.get(),
+                    new ResourceLocation(Reference.MOD_ID, "net_icon"),
+                    (stack, level, entity, seed) -> (float) com.lulan.shincolle.item.SafariNetItem.getIcon(stack));
         });
     }
 

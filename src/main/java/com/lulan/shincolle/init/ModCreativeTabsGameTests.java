@@ -7,6 +7,9 @@ import com.lulan.shincolle.equipdata.EquipDataSnapshot;
 import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.shipdata.ShipDefinition;
+import com.lulan.shincolle.shipdata.ShipPresentation;
+import com.lulan.shincolle.shipdata.ShipPresentationSnapshot;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +26,34 @@ import java.util.stream.Collectors;
 public final class ModCreativeTabsGameTests {
 
     private ModCreativeTabsGameTests() {
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void genericCreativeEggsMatchEverySyncedIdInLexicalOrder(GameTestHelper helper) {
+        var view = new ShipPresentation("Sample", ResourceLocation.parse("addon:visual"),
+                new ShipDefinition.Dimensions(1, 2), ResourceLocation.parse("shincolle_kai:destroyer"), 0, 0);
+        var snapshot = new ShipPresentationSnapshot(4, Map.of(
+                "z_addon:alpha", view, "a_addon:zulu", view, "a_addon:alpha", view));
+        var eggs = ModCreativeTabs.genericShipEggStacks(snapshot);
+        var expected = List.of("a_addon:alpha", "a_addon:zulu", "z_addon:alpha");
+        helper.assertTrue(eggs.size() == snapshot.definitions().size(), "One egg per valid definition");
+        for (int i = 0; i < eggs.size(); i++) {
+            var egg = eggs.get(i);
+            helper.assertTrue(egg.is(ModItems.GENERIC_SHIP_SPAWN_EGG.get()) && egg.getCount() == 1,
+                    "Each entry must be one generic egg");
+            helper.assertTrue(egg.hasTag() && expected.get(i).equals(egg.getTag().getString("ShipId")),
+                    "Every egg must have its definition ID, sorted lexically");
+            helper.assertTrue(egg.getTag().contains("Hostile") && !egg.getTag().getBoolean("Hostile"),
+                    "No hostile eggs may appear");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void genericCreativeEggsAreEmptyBeforeDefinitionsArrive(GameTestHelper helper) {
+        helper.assertTrue(ModCreativeTabs.genericShipEggStacks(new ShipPresentationSnapshot(-1, Map.of())).isEmpty(),
+                "An empty client snapshot must not expose a plain egg");
+        helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")

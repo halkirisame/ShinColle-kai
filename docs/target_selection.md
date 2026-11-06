@@ -319,19 +319,17 @@ return false; // デフォルトでは攻撃対象外
 - 実際のソース上の正確な行番号を付加してドキュメントを更新する（必要なら行番号を抽出して追記します）
 ---
 
-### 現バージョン（リポジトリ内ソースの解析結果）
+### ソース参照（過去の解析メモを含む）
 
-以下はワークスペース内の現行ソース（1.20.1 ブランチ）の主要 AI クラスと、本解析で抽出した要点です。
+この節には過去の実装を解析したメモが含まれています。
+すべての説明が現在の実装と一致することを保証するものではありません。
+現在の自動索敵と反撃観測の参照入口は、以下のとおりです。
 
-- **射程ターゲット取得**: [src/main/java/com/lulan/shincolle/ai/ShipRangeTargetGoal.java](src/main/java/com/lulan/shincolle/ai/ShipRangeTargetGoal.java#L1)
-  - 8 tick ごとに検索を行う (`tick % 8 == 0`)。
-  - 範囲 AABB は X/Z に range、Y に range * 0.75 を拡張している。
-  - 優先順: `AntiAir` → `AntiSS` → `PVPFirst` → 通常検索。各ステップはインターフェース／クラスによる絞り込みを行う。
-  - フィルタに `TargetHelper.Selector`（友軍／無敵プレイヤー除外等）を使用。候補を距離でソートし、上位3からランダム選択する挙動を保持。
+- **自動索敵の参照入口**: [ShipTargetAuthorityGoal.scan](../src/main/java/com/lulan/shincolle/ai/ShipTargetAuthorityGoal.java#L206)
+  - 周辺の候補を観測し、候補選択の処理へ渡します。
 
-- **リベンジターゲット反撃**: [src/main/java/com/lulan/shincolle/ai/ShipRevengeTargetGoal.java](src/main/java/com/lulan/shincolle/ai/ShipRevengeTargetGoal.java#L1)
-  - `host.getEntityRevengeTime()` の更新をトリガーに、`getEntityRevengeTarget()` を現在の攻撃ターゲットに設定する。
-  - Hostile 系は `SelectorForHostile` を用いる（フィルタ基準が簡略化される）。
+- **反撃観測の参照入口**: [ShipTargetAuthorityGoal.observeRevenge](../src/main/java/com/lulan/shincolle/ai/ShipTargetAuthorityGoal.java#L179)
+  - 反撃対象とその観測時刻・判定結果を、目標権限の判断へ渡します。
 
 - **射撃（砲撃）挙動**: [src/main/java/com/lulan/shincolle/ai/ShipRangeAttackGoal.java](src/main/java/com/lulan/shincolle/ai/ShipRangeAttackGoal.java#L1)
   - `host.getEntityTarget()` が有効かつ弾薬を持っていることを前提に開始。
@@ -346,14 +344,14 @@ return false; // デフォルトでは攻撃対象外
   - フォーメーション時は `FormationHelper` で位置を決定、移動パスはカスタムナビゲータ `ShipPathNavigate` を使用。
   - テレポート条件: 距離閾値超過 or スタック時間超過（ConfigHandler の設定に基づく）。
 
-上記により、現行実装は旧実装の設計方針（優先フラグによる段階検索、Selector による詳細フィルタ、距離ソートとランダム性、視界/弾薬/技能フェーズによる起動制御）を踏襲していることが確認できました。
+過去の解析時点では、当時の実装が旧実装の設計方針（優先フラグによる段階検索、Selector による詳細フィルタ、距離ソートとランダム性、視界/弾薬/技能フェーズによる起動制御）を踏襲していることが確認できました。
 
 ---
 
 今後の推奨作業:
 
 - `TargetHelper.Selector` と `SelectorForHostile` の完全な逐次分解（行番号付き）とそのテストケース化。
-- `ShipRangeTargetGoal` の周期性（8tick）や AABB の比率等、微調整パラメータのドキュメント化。
+- 自動索敵の周期・検索範囲等、微調整パラメータのドキュメント化（上記の現行参照入口から確認する）。
 - 1.20.1 側で移植上問題になりそうな外部参照（`IShipFlyable` 等のインターフェース）を抽出し、代替案（タグ/Capability/instanceof の保持）を提案します。
 
 どれを優先しますか？

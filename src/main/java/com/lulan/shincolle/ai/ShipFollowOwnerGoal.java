@@ -173,9 +173,9 @@ public class ShipFollowOwnerGoal extends Goal {
                 ShipMovementGate.point(this.hostEntity), now);
         this.move = FollowMovePlanner.count(this.move, this.stuck.stuck());
 
-        // update follow range every 32 ticks
+        // the planner chooses the interval from the last measured distance
         if (FollowMovePlanner.ownerResolveDue(this.move, now)) {
-            this.move = FollowMovePlanner.ownerResolved(this.move, now);
+            this.move = FollowMovePlanner.ownerResolved(this.move, now, this.distSq, range);
             LivingEntity ownerEntity = resolveOwner();
             if (ownerEntity != null) {
                 this.owner = ownerEntity;

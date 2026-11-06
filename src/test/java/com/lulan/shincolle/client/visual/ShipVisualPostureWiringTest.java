@@ -16,6 +16,46 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Runs the real animate handler of a real animatable on real entity input and records the clip it plays. */
 class ShipVisualPostureWiringTest {
+    @Test
+    void movementJitterDoesNotRestartIdleAndStoppingUsesTicksRatherThanFrames() throws IOException {
+        reload(resources(files()));
+        var visual = ShipVisuals.resolve(id("kashima"));
+        var ship = (PostureTestShip) PostureTestShips.create(false, false, false, false);
+        var animatable = new ShipVisualAnimatable();
+        animatable.bind(ship, visual);
+        assertClip(animatable, visual, false, ShipVisualEvent.IDLE);
+        for (int tick = 1; tick <= 20; tick++) {
+            ship.tickCount = tick;
+            for (int frame = 0; frame < 5; frame++) {
+                assertClip(animatable, visual, tick % 2 == 1, ShipVisualEvent.MOVE);
+            }
+            ship.emotion3 = com.lulan.shincolle.reference.ID.Emotion3.CARESS;
+            assertClip(animatable, visual, tick % 2 == 1, ShipVisualEvent.CARESS);
+            ship.emotion3 = 0;
+        }
+        ship.tickCount = 21;
+        assertClip(animatable, visual, false, ShipVisualEvent.MOVE);
+        ship.tickCount = 22;
+        assertClip(animatable, visual, false, ShipVisualEvent.IDLE);
+        ship.tickCount = 23;
+        assertClip(animatable, visual, true, ShipVisualEvent.MOVE);
+        ship.tickCount = 0;
+        assertClip(animatable, visual, false, ShipVisualEvent.IDLE);
+    }
+
+    private static void assertClip(ShipVisualAnimatable animatable, ShipVisuals.Loaded visual,
+                                   boolean moving, ShipVisualEvent expected) {
+        var state = new AnimationState<ShipVisualAnimatable>(animatable, 0, 0, 0, moving) {
+            @Override
+            public software.bernie.geckolib.core.object.PlayState setAndContinue(
+                    software.bernie.geckolib.core.animation.RawAnimation animation) {
+                assertSame(visual.clips().get(expected), animation);
+                return software.bernie.geckolib.core.object.PlayState.CONTINUE;
+            }
+        };
+        assertEquals(software.bernie.geckolib.core.object.PlayState.CONTINUE, animatable.animate(state));
+    }
+
     private static ShipVisualEvent selected(boolean noFuel, boolean sitting, boolean riding, boolean sprinting,
                                             boolean moving) throws IOException {
         reload(resources(files()));

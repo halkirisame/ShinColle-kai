@@ -4,6 +4,9 @@ import com.lulan.shincolle.shipdata.GenericShipSpawner;
 import com.lulan.shincolle.shipdata.ShipDefinitionId;
 import com.lulan.shincolle.shipdata.ShipDefinitionRegistry;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -27,7 +30,26 @@ public final class ShipCmdSpawnDefinition {
                                 .executes(context -> spawn(context.getSource(), new ShipDefinitionId(
                                         ResourceLocationArgument.getId(context, "ship_id")), false))
                                 .then(Commands.literal("hostile").executes(context -> spawn(context.getSource(),
-                                        new ShipDefinitionId(ResourceLocationArgument.getId(context, "ship_id")), true)))))));
+                                        new ShipDefinitionId(ResourceLocationArgument.getId(context, "ship_id")), true))
+                                        .then(Commands.argument("variant", StringArgumentType.word())
+                                                .executes(context -> spawnVariant(context.getSource(),
+                                                        new ShipDefinitionId(ResourceLocationArgument.getId(context, "ship_id")),
+                                                        StringArgumentType.getString(context, "variant")))))))));
+    }
+
+    private static int spawnVariant(CommandSourceStack source, ShipDefinitionId id, String variantId)
+            throws CommandSyntaxException {
+        var definition = ShipDefinitionRegistry.server().get(id);
+        var variant = definition == null ? null : definition.hostileVariants().get(variantId);
+        if (variant == null) {
+            throw new DynamicCommandExceptionType(value -> Component.literal("Unknown hostile variant: " + value))
+                    .create(id + "/" + variantId);
+        }
+        var ship = (com.lulan.shincolle.entity.GenericHostileShipEntity)
+                GenericShipSpawner.create(source.getLevel(), id, true, null);
+        if (ship == null) return 0;
+        ship.selectVariant(variant);
+        return add(source, id, ship);
     }
 
     private static int spawn(CommandSourceStack source, ShipDefinitionId id, boolean hostile) {
@@ -37,6 +59,10 @@ public final class ShipCmdSpawnDefinition {
             source.sendFailure(Component.translatable("command.shincolle_kai.ship.missing", id.toString()));
             return 0;
         }
+        return add(source, id, ship);
+    }
+
+    private static int add(CommandSourceStack source, ShipDefinitionId id, Mob ship) {
         Vec3 position = source.getPosition();
         ship.moveTo(position.x, position.y, position.z, source.getRotation().y, 0);
         if (!source.getLevel().addFreshEntity(ship)) return 0;

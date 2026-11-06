@@ -2,8 +2,8 @@
   "feature": "shincolle_kai:polymetal_gravel",
   "placement": [
     {
-      "type": "minecraft:count",
-      "count": 4
+      "type": "shincolle_kai:config_count",
+      "gravel": true
     },
     {
       "type": "minecraft:in_square"

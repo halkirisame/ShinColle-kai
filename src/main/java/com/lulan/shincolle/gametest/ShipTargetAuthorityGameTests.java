@@ -2,7 +2,10 @@ package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.AiRandomSource;
 import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
+import com.lulan.shincolle.ai.ShipWanderGoal;
 import com.lulan.shincolle.ai.domain.AiRandomStream;
+import com.lulan.shincolle.ai.domain.TargetSource;
+import com.lulan.shincolle.ai.domain.movement.MovementConstraints;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
@@ -25,12 +28,14 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.FakePlayerFactory;
@@ -47,6 +52,94 @@ import java.util.UUID;
 @PrefixGameTestTemplate(false)
 public final class ShipTargetAuthorityGameTests {
     private ShipTargetAuthorityGameTests() {
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 110,
+            batch = "isolated_target_authority_manual_chases_beyond_attack_range")
+    public static void manualOrderLocksAndApproachesBeyondAttackRange(GameTestHelper helper) {
+        waitForFixtureChunks(helper, () -> {
+            GameTestEntities entities = GameTestEntities.open(helper);
+            for (int x = 0; x <= 12; x++) {
+                for (int z = -2; z <= 4; z++) {
+                    helper.setBlock(new BlockPos(x, 3, z), Blocks.STONE);
+                }
+            }
+            BasicEntityShip ship = entities.add(ModEntities.CL_TENRYUU.get().create(helper.getLevel()));
+            helper.assertTrue(ship != null, "Failed to create the short-range ship");
+            GameTestEntities.removeGoalsEachTick(helper, ship, goal -> goal instanceof ShipWanderGoal);
+            ship.setInvulnerable(true);
+            ship.setStateMinor(ID.M.NumGrudge, 100_000);
+            ship.setStateFlag(ID.F.NoFuel, false);
+            ship.setStateFlag(ID.F.PassiveAI, true);
+            ship.setStateFlag(ID.F.PickItem, false);
+            ship.setStateFlag(ID.F.UseMelee, false);
+            ship.setStateFlag(ID.F.AtkType_Light, true);
+            ship.setStateFlag(ID.F.UseAmmoLight, true);
+            ship.setStateFlag(ID.F.AtkType_Heavy, false);
+            ship.setAmmoLight(1_000);
+            ship.setStateMinor(ID.M.FollowMax, 12);
+            ship.setStateMinor(ID.M.FormatType, 0);
+            ship.calcShipAttributes(31, false);
+            ship.setHealth(ship.getMaxHealth());
+            add(helper, ship, 1D);
+
+            Mob[] target = {null};
+            double[] initialDistanceSquared = {0D};
+            helper.runAfterDelay(25, () -> {
+                helper.assertTrue(ship.tickCount >= 24, "Command must follow goal re-registration");
+                ServerPlayer owner = player(helper, entities, 1D, 7120);
+                GameTestEntities.onCompletion(helper, () -> helper.getLevel().removePlayerImmediately(
+                        owner, Entity.RemovalReason.DISCARDED), "manual chase owner cleanup");
+                owner.moveTo(ship.position());
+                ship.setOwnerUUID(owner.getUUID());
+                helper.assertTrue(ship.getOwner() == owner, "Fixture owner must resolve");
+                target[0] = entities.add(EntityType.ZOMBIE.create(helper.getLevel()));
+                helper.assertTrue(target[0] != null, "Failed to create the stationary target");
+                target[0].setNoAi(true);
+                target[0].setInvulnerable(true);
+                target[0].moveTo(ship.position().add(8D, 0D, 0D));
+                helper.assertTrue(helper.getLevel().addFreshEntity(target[0]), "Failed to add target");
+                GameTestEntities.assertRegistered(helper, target[0]);
+                helper.assertTrue(ship.getStateMinor(ID.M.FollowMax) == 12, "FollowMax was not applied");
+                double radius = MovementConstraints.followRadius(12, ship.getBbWidth(), false);
+                helper.assertTrue(owner.distanceToSqr(target[0]) < radius * radius,
+                        "Target must be inside the follow combat region");
+                double range = ship.getAttrs().getAttackRange();
+                helper.assertTrue(range >= 2D && range < 8D, "Fixture needs a short attack range: " + range);
+                helper.assertTrue(ship.getStateMinor(ID.M.NumGrudge) > 0
+                        && !ship.getStateFlag(ID.F.NoFuel), "Fixture must have fuel");
+                initialDistanceSquared[0] = ship.distanceToSqr(target[0]);
+                helper.assertTrue(Math.abs(initialDistanceSquared[0] - 64D) < 0.001D,
+                        "Target must start eight blocks from the ship");
+                ship.setManualTarget(target[0]);
+            });
+            helper.runAfterDelay(40, () -> helper.assertTrue(
+                    ship.currentTargetLock().filter(lock -> lock.source() == TargetSource.MANUAL).isPresent()
+                            && ship.getEntityTarget() == target[0],
+                    "Out-of-attack-range manual order did not acquire a MANUAL lock"));
+            helper.runAfterDelay(60, () -> {
+                helper.assertTrue(ship.getAttrs().getAttackRange() < 8D,
+                        "Fixture attack range changed during the chase");
+                helper.assertTrue(ship.distanceToSqr(target[0]) < initialDistanceSquared[0] - 1D,
+                        "Ship did not approach its out-of-attack-range manual target");
+                target[0].moveTo(ship.position().add(64D, 0D, 0D));
+                authorityGoal(ship).tick();
+                helper.assertTrue(ship.currentTargetLock().filter(lock -> lock.source() == TargetSource.MANUAL)
+                        .isPresent(), "Manual lock must include the sixty-four-block boundary");
+                target[0].moveTo(ship.position().add(65D, 0D, 0D));
+                authorityGoal(ship).tick();
+                helper.assertTrue(ship.currentTargetLock().isEmpty() && ship.getManualTarget() == target[0],
+                        "Beyond sixty-four blocks must release only the lock, not the command");
+                target[0].moveTo(ship.position().add(8D, 0D, 0D));
+                authorityGoal(ship).tick();
+                helper.assertTrue(ship.currentTargetLock().filter(lock -> lock.source() == TargetSource.MANUAL)
+                        .isPresent(), "Returning target must regain its manual lock");
+                ship.setManualTarget(null);
+                authorityGoal(ship).tick();
+                helper.assertTrue(ship.currentTargetLock().isEmpty(), "Cancelled order must release its lock");
+                helper.succeed();
+            });
+        });
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft",
@@ -583,7 +676,8 @@ public final class ShipTargetAuthorityGameTests {
 
     private static void prepareFriendly(GameTestHelper helper, BasicEntityShip ship, double x, int ownerUid) {
         check(ship != null, "Friendly ship creation failed");
-        ship.setNoAi(true);
+        // its target goals stay; wandering would move it out of where the test put it
+        GameTestEntities.removeGoalsEachTick(helper, ship, goal -> goal instanceof ShipWanderGoal);
         ship.setPlayerUID(ownerUid);
         ship.setStateFlag(ID.F.NoFuel, false);
         ship.setStateFlag(ID.F.PassiveAI, false);

@@ -3,6 +3,7 @@ package com.lulan.shincolle.gametest;
 import com.lulan.shincolle.ai.ShipFollowOwnerGoal;
 import com.lulan.shincolle.ai.ShipGuardingGoal;
 import com.lulan.shincolle.ai.ShipMovementExecutor;
+import com.lulan.shincolle.ai.ShipMovementGate;
 import com.lulan.shincolle.ai.ShipPickItemGoal;
 import com.lulan.shincolle.ai.ShipWanderGoal;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
@@ -33,6 +34,7 @@ import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -284,7 +286,8 @@ public final class MovementStuckRecoveryGameTests {
     }
 
     private static void ownerCameCloseAfterLastLook(GameTestHelper helper, CloseOwner mode) {
-        int[] stepped = {-1, 0, Integer.MAX_VALUE};
+        int[] stepped = {-1, 0, Integer.MAX_VALUE, -1};
+        boolean[] resetBeforeLook = {false};
         Vec3[] spot = {null};
         List<String> timeTeleports = new ArrayList<>();
         List<String> fixture = new ArrayList<>();
@@ -298,8 +301,16 @@ public final class MovementStuckRecoveryGameTests {
                     "fixture must hold the formation type " + mode.formatType);
             helper.assertTrue(ship.getStateMinor(ID.M.FormatPos) == mode.formatPos,
                     "fixture must hold the formation slot " + mode.formatPos);
-            scene.release = () -> scene.owner(ground(helper, NEAR), ship);
+            scene.release = () -> {
+                scene.owner(ground(helper, NEAR), ship);
+                scene.owner.setOnGround(true);
+                assertGroundedFollowOwner(helper, scene.owner);
+            };
             scene.everyTick = () -> {
+                if (stepped[0] >= 0 && ship.tickCount <= stepped[3]) {
+                    // Read the result of the natural server-tick observation before changing the fixture again.
+                    assertGroundedFollowOwner(helper, scene.owner);
+                }
                 var running = MovementPlanParityGameTests.selector(ship).getRunningGoals()
                         .filter(wrapped -> wrapped.getGoal() instanceof ShipFollowOwnerGoal).findFirst();
                 if (running.isEmpty()) return;
@@ -308,11 +319,12 @@ public final class MovementStuckRecoveryGameTests {
                 int untilLook = move.ownerResolveAt() - ship.tickCount;
                 if (stepped[0] < 0) {
                     // stuck for a few goal ticks, and the ship has only just looked at its owner
-                    if (move.timeTimer() >= 4 && untilLook >= 28 && untilLook <= 32) {
+                    if (move.timeTimer() >= 4 && untilLook >= 6 && untilLook <= 8) {
                         stepped[0] = ship.tickCount;
                         stepped[1] = move.timeTimer();
-                        // three more goal ticks of being stuck and it would teleport, well before the next look
-                        ConfigHandler.shipTeleport[0] = move.timeTimer() + 3;
+                        stepped[3] = move.ownerResolveAt();
+                        // two more goal ticks of being stuck reach the check before the next look
+                        ConfigHandler.shipTeleport[0] = move.timeTimer() + 1;
                         MovementPoint self = new MovementPoint(ship.getX(), ship.getY(), ship.getZ());
                         double placeSq = move.destination().distanceSq(self);
                         double minSq = minDistSq(goal);
@@ -327,6 +339,8 @@ public final class MovementStuckRecoveryGameTests {
                             spot[0] = new Vec3(ship.getX() + 1D, ship.getY(), ship.getZ());
                         }
                         scene.owner.moveTo(spot[0].x, spot[0].y, spot[0].z, 0F, 0F);
+                        scene.owner.setOnGround(true);
+                        assertGroundedFollowOwner(helper, scene.owner);
                         if (scene.owner.distanceToSqr(ship) > minSq) {
                             fixtureProblems.add("the owner is not inside the minimum range now");
                         }
@@ -358,12 +372,17 @@ public final class MovementStuckRecoveryGameTests {
                 }
                 Vec3 keep = mode.rounded ? spot[0] : new Vec3(ship.getX() + 1D, ship.getY(), ship.getZ());
                 scene.owner.moveTo(keep.x, keep.y, keep.z, 0F, 0F);
+                scene.owner.setOnGround(true);
+                assertGroundedFollowOwner(helper, scene.owner);
                 if (ship.tickCount - stepped[0] > 24) return;
                 stepped[2] = Math.min(stepped[2], move.timeTimer());
+                if (ship.tickCount < stepped[3] && move.timeTimer() < stepped[1]) {
+                    resetBeforeLook[0] = true;
+                }
                 ship.shipMovementExecutor().last().ifPresent(request -> {
                     if (request.step() instanceof MovementStep.Teleport teleport
                             && teleport.reason() == MovementReason.TELEPORT_TIME
-                            && request.tick() >= stepped[0]) {
+                            && request.tick() >= stepped[0] && request.tick() < stepped[3]) {
                         timeTeleports.add(request.tick() + ":" + teleport.reason());
                     }
                 });
@@ -383,6 +402,9 @@ public final class MovementStuckRecoveryGameTests {
             if (stepped[0] >= 0 && stepped[2] >= stepped[1]) {
                 problems.add("the stuck time was never reached and started over: at step-in " + stepped[1]
                         + ", lowest after " + stepped[2]);
+            }
+            if (stepped[0] >= 0 && !resetBeforeLook[0]) {
+                problems.add("the stuck time was not checked and reset before the next owner look");
             }
             return problems;
         }, ShipFollowOwnerGoal.class);
@@ -427,6 +449,19 @@ public final class MovementStuckRecoveryGameTests {
             return field.getDouble(goal);
         } catch (ReflectiveOperationException error) {
             throw new GameTestAssertException("Failed to read the follow minimum range: " + error);
+        }
+    }
+
+    /** These owners stand on the ground; FakePlayer does not run the physics that would set its grounded flag. */
+    private static void assertGroundedFollowOwner(GameTestHelper helper, FakePlayer owner) {
+        helper.assertTrue(owner.onGround(), "fixture owner must remain grounded");
+        try {
+            Method method = ShipMovementGate.class.getDeclaredMethod("ownerAirborne", LivingEntity.class);
+            method.setAccessible(true);
+            helper.assertTrue(!(boolean) method.invoke(null, owner),
+                    "fixture owner must not be airborne at the follow teleport check");
+        } catch (ReflectiveOperationException error) {
+            throw new GameTestAssertException("Failed to read the follow owner's airborne state: " + error);
         }
     }
 
@@ -538,7 +573,7 @@ public final class MovementStuckRecoveryGameTests {
                 }
                 int untilLook = move.ownerResolveAt() - ship.tickCount;
                 // stuck for a few goal ticks, and the ship has only just looked at its owner
-                if (move.timeTimer() < 4 || untilLook < 28 || untilLook > 32) return;
+                if (move.timeTimer() < 4 || untilLook < 6 || untilLook > 8) return;
                 stepped[0] = ship.tickCount;
                 if (move.destinationKind() != FollowDestination.FLAGSHIP_PLACE) {
                     fixtureProblems.add("the stored place is not the flagship slot: " + move.destinationKind());

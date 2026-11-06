@@ -36,15 +36,24 @@ class DepartureRosterTest {
     }
 
     @Test
-    void anUnloadedFollowerIsLoadedOnceThenWaitedOnThenDropped() {
+    void anUnloadedFollowerWaitsForAnObservationRatherThanAnElapsedTime() {
         var entry = entry(0);
         assertEquals(DepartureRoster.Step.START_LOAD,
                 DepartureRoster.decide(entry, DepartureRoster.Found.NOT_LOADED, 100, OVERWORLD));
         var loading = entry.loadStarted(100);
         assertEquals(DepartureRoster.Step.WAIT,
                 DepartureRoster.decide(loading, DepartureRoster.Found.NOT_LOADED, 299, OVERWORLD));
-        assertEquals(DepartureRoster.Step.DROP,
+        assertEquals(DepartureRoster.Step.WAIT,
                 DepartureRoster.decide(loading, DepartureRoster.Found.NOT_LOADED, 300, OVERWORLD));
+    }
+
+    @Test
+    void pendingRegistrationPastTwoHundredTicksStillWaitsAndThenRequests() {
+        var loading = entry(0).loadStarted(100);
+        assertEquals(DepartureRoster.Step.WAIT,
+                DepartureRoster.decide(loading, DepartureRoster.Found.NOT_LOADED, 320, OVERWORLD));
+        assertEquals(DepartureRoster.Step.REQUEST,
+                DepartureRoster.decide(loading, DepartureRoster.Found.FAR, 360, OVERWORLD));
     }
 
     @Test

@@ -4,6 +4,8 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.GuiHelper;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.WalkAnimationState;
@@ -48,6 +50,71 @@ class GuiDeskTest {
         assertEquals(expected.x, actual.x, 0.0001F);
         assertEquals(expected.y, actual.y, 0.0001F);
         assertEquals(expected.z, actual.z, 0.0001F);
+    }
+
+    @Test
+    void galleryPitchKeepsRaisedPivotFixedAtEveryZoom() {
+        for (int scale : new int[]{10, 30, 80}) {
+            Vector3f expected = new Vector3f(64, 140 - scale * 0.7F, 0);
+            for (float yaw : new float[]{-30, 0, 90}) {
+                for (float pitch : new float[]{0, 60, -45, 180}) {
+                    Matrix4f transform = GuiDesk.galleryModelTransform(scale, yaw, pitch);
+                    assertVector(expected, transform.transformPosition(new Vector3f(0, 0.7F, 0)));
+                }
+            }
+        }
+    }
+
+    @Test
+    void galleryNeutralFootPositionStaysAtItsExistingAnchor() {
+        for (int scale : new int[]{10, 30, 80}) {
+            for (float yaw : new float[]{-30, 0, 90}) {
+                assertVector(new Vector3f(64, 140, 0),
+                        GuiDesk.galleryModelTransform(scale, yaw, 0).transformPosition(new Vector3f()));
+            }
+        }
+    }
+
+    @Test
+    void galleryAppliedTranslationMatchesTheInventoryTransform() {
+        Matrix4f expected = GuiDesk.galleryModelTransform(30, -30, 60);
+        Matrix4f applied = new Matrix4f().translation(expected.m30(), expected.m31(), expected.m32())
+                .scale(30, 30, -30).rotate(GuiDesk.galleryModelRotation(-30, 60));
+        for (Vector3f point : List.of(new Vector3f(), new Vector3f(0, 0.7F, 0), new Vector3f(1, 2, 3)))
+            assertVector(expected.transformPosition(new Vector3f(point)), applied.transformPosition(new Vector3f(point)));
+    }
+
+    @Test
+    void chapterHighlightStaysInsideTheExistingTabHitbox() {
+        for (int chapter = 0; chapter < 7; chapter++) {
+            Rect2i area = GuiDesk.selectedChapterTabArea(chapter);
+            for (int x = area.getX(); x < area.getX() + area.getWidth(); x++) {
+                for (int y = area.getY(); y < area.getY() + area.getHeight(); y++)
+                    assertEquals(chapter + 2, GuiHelper.getButton(ID.Gui.ADMIRALDESK, 2, x, y));
+            }
+        }
+    }
+
+    @Test
+    void backLinkIsRightAlignedAndUsesTheSameScaledHitbox() {
+        Font font = new Font(ignored -> null, false) {
+            @Override
+            public int width(String text) {
+                return 100;
+            }
+        };
+        GuiBook.BookLink link = GuiBook.backLink(font, 0, 3);
+        assertTrue(link.text().startsWith("« "));
+        assertEquals(155, link.x());
+        assertEquals(32, link.y());
+        assertEquals(0, link.targetChap());
+        assertEquals(3, link.targetPage());
+        assertTrue(link.contains(font, 155, 32));
+        assertTrue(link.contains(font, 234, 39));
+        assertFalse(link.contains(font, 154, 32));
+        assertFalse(link.contains(font, 235, 32));
+        assertFalse(link.contains(font, 155, 31));
+        assertFalse(link.contains(font, 155, 40));
     }
 
     @Test

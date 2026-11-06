@@ -337,6 +337,11 @@ public final class FollowRecallGameTests {
                 return;
             }
             long elapsed = level.getServer().getTickCount() - this.jumpedAt;
+            if (elapsed == 90) {
+                this.helper.assertTrue(level.isPositionEntityTicking(BlockPos.containing(this.sourcePoint)),
+                        "Source stopped ticking before the original recall wait completed");
+                this.helper.assertTrue(this.sourceProbe.tickCount >= 120, "Source probe stopped during recall wait");
+            }
             if (elapsed < 95 && this.followers.stream().anyMatch(ship -> !ship.chunkPosition().equals(this.source))) {
                 this.crossedSourceBoundary = true;
             }
@@ -367,9 +372,8 @@ public final class FollowRecallGameTests {
             if (!this.measured && elapsed >= 390) {
                 this.measured = true;
                 boolean ticking = level.isPositionEntityTicking(BlockPos.containing(this.sourcePoint));
-                this.helper.assertTrue(ticking, "Source ticking was not controlled by the recall hold");
+                this.helper.assertTrue(!ticking, "Completed recalls did not explicitly release the source hold");
                 this.helper.assertTrue(this.returned, "Six followers never returned before hold expiry");
-                this.helper.assertTrue(this.sourceProbe.tickCount >= 410, "Source probe stopped during recall hold");
                 for (BasicEntityShip ship : this.excluded) {
                     this.helper.assertTrue(ship.distanceToSqr(this.owner) > 256D, "Excluded ship was recalled");
                 }

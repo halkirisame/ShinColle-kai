@@ -22,7 +22,7 @@ import java.lang.reflect.Field;
 import java.util.UUID;
 
 /**
- * Under NEW a following ship measures its distance to the owner every 32 ticks, not every tick: it
+ * Under NEW a travelling follower measures its distance to the owner every eight ticks, not every tick: it
  * keeps walking to where the owner was when it last looked, even if the owner has since come close.
  */
 @GameTestHolder(Reference.MOD_ID)
@@ -30,11 +30,13 @@ import java.util.UUID;
 public final class FollowDistanceRefreshGameTests {
     private static final int LIMIT = 400;
     /** The ship looks at its owner again this many ticks after the last look. */
-    private static final int LOOK_INTERVAL = 32;
+    private static final int LOOK_INTERVAL = 8;
     /** The owner steps in this soon after a look, so the next look is at least this far off. */
-    private static final int LOOK_MARGIN = 28;
+    private static final int LOOK_MARGIN = 6;
     /** Ticks after the owner steps in during which the ship must not have looked again. */
-    private static final int STALE_WINDOW = 12;
+    private static final int STALE_WINDOW = 4;
+    /** The original progress window, after the owner returns to the far point before the next look. */
+    private static final int PROGRESS_WINDOW = 12;
     private static final Vec3 SHIP = new Vec3(2.5D, 0D, 2.5D);
     private static final Vec3 OWNER = new Vec3(22.5D, 0D, 2.5D);
     private static final Vec3[] ROUTE = {new Vec3(2.5D, 2D, 2.5D), new Vec3(8.5D, 2D, 2.5D),
@@ -158,9 +160,13 @@ public final class FollowDistanceRefreshGameTests {
                         "the ship stopped walking before the next look: " + this.state());
             }
             if (since > STALE_WINDOW) {
-                this.helper.assertTrue(this.ship.getX() - this.walkedFrom > 1D,
-                        "the ship did not keep walking: " + this.state());
-                this.finish();
+                Vec3 at = MovementPlanParityGameTests.ground(this.helper, OWNER);
+                this.owner.moveTo(at.x, at.y, at.z, 0F, 0F);
+                if (since > PROGRESS_WINDOW) {
+                    this.helper.assertTrue(this.ship.getX() - this.walkedFrom > 1D,
+                            "the ship did not keep walking: " + this.state());
+                    this.finish();
+                }
             }
         }
 

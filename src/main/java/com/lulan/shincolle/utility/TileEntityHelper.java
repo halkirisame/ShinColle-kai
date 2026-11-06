@@ -2,6 +2,8 @@ package com.lulan.shincolle.utility;
 
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.tileentity.ITileWaypoint;
+import com.lulan.shincolle.tileentity.TileEntityCrane;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 
 import net.minecraft.core.BlockPos;
@@ -45,8 +47,8 @@ public class TileEntityHelper {
         BlockEntity beFrom = level.getBlockEntity(posFrom);
         BlockEntity beTo = level.getBlockEntity(posTo);
 
-        if (!(beFrom instanceof TileEntityWaypoint wpFrom) ||
-                !(beTo instanceof TileEntityWaypoint wpTo)) {
+        if (!(beFrom instanceof ITileWaypoint wpFrom) ||
+                !(beTo instanceof ITileWaypoint wpTo)) {
             player.sendSystemMessage(Component.literal("[ShinColle] Waypoint pairing failed: invalid blocks"));
             return;
         }
@@ -92,7 +94,7 @@ public class TileEntityHelper {
         BlockEntity beWp = level.getBlockEntity(posWp);
         BlockEntity beChest = level.getBlockEntity(posChest);
 
-        if (!(beWp instanceof TileEntityWaypoint wp)) {
+        if (!(beWp instanceof ITileWaypoint wp)) {
             player.sendSystemMessage(Component.literal("[ShinColle] Chest pairing failed: invalid waypoint"));
             return;
         }
@@ -104,7 +106,7 @@ public class TileEntityHelper {
         }
 
         // Check target is a container
-        if (!(beChest instanceof Container)) {
+        if (!(beChest instanceof Container) || beChest instanceof ITileWaypoint) {
             player.sendSystemMessage(Component.literal("[ShinColle] Chest pairing failed: target is not a container"));
             return;
         }
@@ -117,10 +119,12 @@ public class TileEntityHelper {
                         posChest.getX() + "," + posChest.getY() + "," + posChest.getZ() + ")"));
     }
 
-    private static boolean isOwnedBy(ServerPlayer player, int playerUID, TileEntityWaypoint waypoint) {
+    private static boolean isOwnedBy(ServerPlayer player, int playerUID, ITileWaypoint waypoint) {
+        java.util.UUID owner = waypoint instanceof TileEntityWaypoint tile ? tile.getOwnerUUID()
+                : waypoint instanceof TileEntityCrane crane ? crane.getOwnerUUID() : null;
         return playerUID > 0
                 && waypoint.getPlayerUID() == playerUID
-                && player.getUUID().equals(waypoint.getOwnerUUID());
+                && player.getUUID().equals(owner);
     }
 
     private static boolean validatePairingRequest(ServerPlayer player, Level level,

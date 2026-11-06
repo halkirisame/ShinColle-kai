@@ -40,6 +40,7 @@ public final class EggDismantleNbtAdapter {
     public static EggSnapshot read(ItemStack egg) {
         boolean extraPayload = hasSerializedCapabilities(egg);
         boolean schemaValid = true;
+        boolean hasMaterials = false;
         BuildTypeField buildType = BuildTypeField.MISSING;
         ShipClassField shipClass = ShipClassField.ABSENT;
 
@@ -52,6 +53,7 @@ public final class EggDismantleNbtAdapter {
                 } else if (SHIP_CLASS.equals(key)) {
                     shipClass = readShipClass(value);
                 } else if (MATERIAL_KEYS.contains(key)) {
+                    hasMaterials = true;
                     if (!(value instanceof IntTag materialTag) || materialTag.getAsInt() < 0) {
                         schemaValid = false;
                     }
@@ -63,6 +65,9 @@ public final class EggDismantleNbtAdapter {
                     extraPayload = true;
                 }
             }
+        }
+        if (buildType == BuildTypeField.MISSING && hasMaterials) {
+            schemaValid = false;
         }
         return new EggSnapshot(buildType, shipClass, schemaValid, extraPayload);
     }
@@ -81,9 +86,9 @@ public final class EggDismantleNbtAdapter {
     private static ShipClassField readShipClass(Tag value) {
         if (value instanceof IntTag intTag) {
             int shipClass = intTag.getAsInt();
-            if (shipClass >= 0 && shipClass < ShipSpawnEgg.MOB_OFFSET
-                    && ShipSpawnEgg.getEntityTypeForClass(shipClass) != null) {
-                return ShipClassField.VALID_FRIENDLY;
+            if (shipClass >= 0 && ShipSpawnEgg.getEntityTypeForClass(shipClass) != null) {
+                return shipClass < ShipSpawnEgg.MOB_OFFSET
+                        ? ShipClassField.VALID_FRIENDLY : ShipClassField.VALID_HOSTILE;
             }
         }
         return ShipClassField.INVALID;

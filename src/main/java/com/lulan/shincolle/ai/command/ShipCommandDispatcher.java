@@ -155,7 +155,8 @@ public final class ShipCommandDispatcher {
         }
         if (recipients.isEmpty() && selectionRejected.isEmpty()) {
             CommandDispatchResult result = new CommandDispatchResult(List.of(), List.of());
-            notifyPlayer(player, result, shipRecords);
+            notifyPlayer(player, result, shipRecords, mode == CommandMode.FORMATION
+                    && capa.getFormatID(team) > 0 && position != null);
             return result;
         }
 
@@ -196,10 +197,7 @@ public final class ShipCommandDispatcher {
                             .map(a -> a.pattern().legacyId() != formatId).orElse(true));
             if (!FormationGate.move(active, new ArrayList<>(failures.values()), mismatch)) {
                 for (CommandRecipient recipient : recipients) {
-                    CommandRejectReason reason = failures.get(recipient);
-                    if (reason != CommandRejectReason.SUNK) {
-                        failures.put(recipient, FormationGate.rejection(reason));
-                    }
+                    failures.put(recipient, FormationGate.rejection(failures.get(recipient)));
                 }
             }
         } else if (formationGuard && !FormationGate.guardEntity(capa.getNumberOfShip(level, team))) {
@@ -241,7 +239,7 @@ public final class ShipCommandDispatcher {
             double z = target != null ? target.getZ() : position.z() + 0.5D;
             fuelMarker.mark(player, noFuel, x, y, z);
         }
-        notifyPlayer(player, result, shipRecords);
+        notifyPlayer(player, result, shipRecords, formationMove);
         return result;
     }
 
@@ -384,7 +382,7 @@ public final class ShipCommandDispatcher {
     }
 
     private static void notifyPlayer(ServerPlayer player, CommandDispatchResult result,
-                                     Map<Integer, CacheDataShip> shipRecords) {
+                                     Map<Integer, CacheDataShip> shipRecords, boolean formationMove) {
         List<CommandNotification.SunkLocation> sunkLocations = result.rejected().stream()
                 .filter(entry -> entry.reason() == CommandRejectReason.SUNK)
                 .map(entry -> {
@@ -393,7 +391,7 @@ public final class ShipCommandDispatcher {
                             entry.recipient().slot(), entry.recipient().shipUid(),
                             record.sunkX, record.sunkY, record.sunkZ);
                 }).filter(java.util.Objects::nonNull).toList();
-        CommandNotification.Summary summary = CommandNotification.summarize(result, sunkLocations);
+        CommandNotification.Summary summary = CommandNotification.summarize(result, sunkLocations, formationMove);
         Component sunkNotice = sunkComponent(summary.sunk(), shipRecords);
         boolean japanese = player.getLanguage().toLowerCase(java.util.Locale.ROOT).startsWith("ja");
         Component message = notificationMessage(summary, sunkNotice, japanese);
@@ -404,6 +402,21 @@ public final class ShipCommandDispatcher {
                                                  Component sunkNotice, boolean japanese) {
         if (summary.noRecipient()) return Component.translatable(PREFIX + "no_recipient");
         List<Component> lines = new ArrayList<>();
+        boolean hasSlots = summary.reasons().stream().anyMatch(reason -> !reason.slots().isEmpty());
+        if (hasSlots) {
+            if (summary.formationUnsatisfied()) lines.add(Component.translatable(PREFIX + "formation_unsatisfied"));
+            for (CommandNotification.ReasonCount reason : summary.reasons()) {
+                if (reason.slots().isEmpty()) continue;
+                String slots = reason.slots().stream().map(String::valueOf)
+                        .collect(java.util.stream.Collectors.joining(japanese ? "・" : ", "));
+                lines.add(Component.translatable(PREFIX + "formation_excluded."
+                        + reason.reason().name().toLowerCase(java.util.Locale.ROOT), slots));
+            }
+            if (sunkNotice != null) lines.add(sunkNotice);
+            var message = lines.get(0).copy();
+            for (int i = 1; i < lines.size(); i++) message.append("\n").append(lines.get(i));
+            return message;
+        }
         if (summary.formationUnsatisfied()) {
             lines.add(Component.translatable(PREFIX + "formation_unsatisfied"));
             if (sunkNotice != null) lines.add(sunkNotice);

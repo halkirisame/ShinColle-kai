@@ -1,6 +1,9 @@
 package com.lulan.shincolle.ai.path;
 
 import com.lulan.shincolle.ai.ShipMovementGate;
+import com.lulan.shincolle.ai.domain.movement.ShoreLandingAttempt;
+import com.lulan.shincolle.ai.domain.movement.ShoreLandingDecision;
+import com.lulan.shincolle.ai.domain.movement.ShoreLandingRules;
 import com.lulan.shincolle.api.attribute.CoreShipAttributes;
 import com.lulan.shincolle.api.attribute.ShipAttributeLayer;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -18,6 +21,8 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.MoveControl;
 
+import java.util.EnumSet;
+
 /**
  * Custom move helper for ship/airplane entities.
  * Provides Y-axis movement for water/air navigation
@@ -31,6 +36,10 @@ public class ShipMoveControl extends MoveControl {
     private final IShipNavigator entityN;
     private final float rotateLimit;
     private final float baseSpeedMultiplier;
+    private ShoreLandingAttempt shoreAttempt = ShoreLandingAttempt.start(0);
+    private ShoreLandingDecision shoreDecision = new ShoreLandingDecision(ShoreLandingDecision.Action.NONE,
+            EnumSet.of(ShoreLandingDecision.Reason.NOT_MOVING), this.shoreAttempt);
+    private int shoreDecisionTick;
 
     public ShipMoveControl(Mob entity, float rotLimit, float baseSpeedMultiplier) {
         super(entity);
@@ -54,14 +63,21 @@ public class ShipMoveControl extends MoveControl {
         float limit = (float) ConfigHandler.shipAttributeMaximum(CoreShipAttributes.MOV);
         if (limit >= 0F && mov > limit) {
             mov = limit;
-        } else if (mov < 0F) {
-            mov = 0F;
         }
-        return mov;
+        // Same floor as the non-formation speed in BasicEntityShip, so a negative fleet minimum cannot stop the ship.
+        return Math.max(mov, attrs.getMoveSpeed(true) * BasicEntityShip.MIN_MOV_RATIO);
     }
 
     public boolean isUpdating() {
         return this.operation == Operation.MOVE_TO;
+    }
+
+    public boolean liftRequested(int tickCount) {
+        return this.shoreDecisionTick == tickCount && this.shoreDecision.action() == ShoreLandingDecision.Action.LIFT;
+    }
+
+    public ShoreLandingDecision shoreLandingDecision() {
+        return this.shoreDecision;
     }
 
     /**
@@ -69,6 +85,24 @@ public class ShipMoveControl extends MoveControl {
      */
     public void tick() {
         mob.setZza(0.0F);
+
+        var previous = this.shoreDecision;
+        var facts = ShoreLandingAdapter.observe(this.entity, this.entityN, this.operation == Operation.MOVE_TO,
+                this.wantedX, this.wantedY, this.wantedZ);
+        this.shoreDecision = ShoreLandingRules.decide(facts, this.shoreAttempt);
+        this.shoreAttempt = this.shoreDecision.next();
+        this.shoreDecisionTick = this.entity.tickCount;
+        boolean lift = this.liftRequested(this.entity.tickCount);
+        if ((lift && previous.action() != ShoreLandingDecision.Action.LIFT)
+                || (this.shoreDecision.reasons().contains(ShoreLandingDecision.Reason.ATTEMPT_LIMIT)
+                && !previous.reasons().contains(ShoreLandingDecision.Reason.ATTEMPT_LIMIT))) {
+            LogHelper.diag("DIAG: shore action=" + this.shoreDecision.action() + " reasons="
+                    + this.shoreDecision.reasons() + " liftTicks=" + this.shoreAttempt.liftTicks() + " body=" + this.entity);
+        }
+        if (lift) {
+            var motion = this.entity.getDeltaMovement();
+            this.entity.setDeltaMovement(motion.x, Math.max(motion.y, EntityHelper.COLLISION_BUMP_UP_VELOCITY), motion.z);
+        }
 
         if (this.operation == Operation.MOVE_TO) {
             this.operation = Operation.WAIT;

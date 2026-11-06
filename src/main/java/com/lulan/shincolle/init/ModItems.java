@@ -24,6 +24,18 @@ public class ModItems {
     public static final RegistryObject<Item> ABYSS_NUGGET_1 = ITEMS.register("abyss_nugget_1", AbyssNugget::new);
     public static final RegistryObject<Item> POLYMETAL_NODULE = ITEMS.register("polymetal_nodule",
             PolymetalNodule::new);
+    // Ore-processing intermediates for Mekanism. Registered unconditionally so
+    // saves keep them when Mekanism is removed; only Mekanism recipes produce them.
+    public static final RegistryObject<Item> POLYMETAL_DUST = ITEMS.register("polymetal_dust",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> DIRTY_POLYMETAL_DUST = ITEMS.register("dirty_polymetal_dust",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> POLYMETAL_CLUMP = ITEMS.register("polymetal_clump",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> POLYMETAL_SHARD = ITEMS.register("polymetal_shard",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> POLYMETAL_CRYSTAL = ITEMS.register("polymetal_crystal",
+            () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> AMMO = ITEMS.register("ammo", Ammo::new);
     public static final RegistryObject<Item> AMMO_1 = ITEMS.register("ammo_1", () -> new Ammo(1));
     public static final RegistryObject<Item> AMMO_2 = ITEMS.register("ammo_2", () -> new Ammo(2));
@@ -49,6 +61,8 @@ public class ModItems {
 
     // ========== Special Items ==========
     public static final RegistryObject<Item> SHIP_SPAWN_EGG = ITEMS.register("ship_spawn_egg", ShipSpawnEgg::new);
+    public static final RegistryObject<Item> SAFARI_NET = ITEMS.register("safari_net", SafariNetItem::new);
+    public static final RegistryObject<Item> SOUL_TALISMAN = ITEMS.register("soul_talisman", SoulTalismanItem::new);
     public static final RegistryObject<Item> GENERIC_SHIP_SPAWN_EGG = ITEMS.register("generic_ship_spawn_egg", GenericShipSpawnEgg::new);
     public static final RegistryObject<Item> OWNER_PAPER = ITEMS.register("owner_paper", OwnerPaper::new);
     public static final RegistryObject<Item> MARRIAGE_RING = ITEMS.register("marriage_ring", MarriageRing::new);

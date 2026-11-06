@@ -2,8 +2,8 @@
   "feature": "shincolle_kai:polymetal_ore",
   "placement": [
     {
-      "type": "minecraft:count",
-      "count": 20
+      "type": "shincolle_kai:config_count",
+      "gravel": false
     },
     {
       "type": "minecraft:in_square"

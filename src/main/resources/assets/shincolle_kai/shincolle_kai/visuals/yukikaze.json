@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "model": "shincolle_kai:geo/yukikaze.geo.json",
+  "texture": "shincolle_kai:textures/entity/yukikaze.png",
+  "animation": "shincolle_kai:animations/yukikaze.animation.json",
+  "scale": 0.41,
+  "shadow_radius": 0.5,
+  "lod": {
+    "distance": 48,
+    "hide_bones": ["HeadOptics", "Binoculars", "Holster"]
+  },
+  "rig": {
+    "root": "root",
+    "body": "BodyMain",
+    "head": "Head",
+    "arm_left": "ArmLeft01",
+    "arm_right": "ArmRight01",
+    "leg_left": "LegLeft01",
+    "leg_right": "LegRight01",
+    "equipment": "EquipBase",
+    "face": "Face0",
+    "mouth": "Mouth0",
+    "flush": "Flush0",
+    "held_item": "held_item",
+    "held_item_left": "held_item_left",
+    "muzzle_light": "muzzle_light",
+    "muzzle_heavy": "muzzle_heavy"
+  },
+  "expressions": {
+    "face": [
+      "Face0",
+      "Face1",
+      "Face2",
+      "Face3",
+      "Face4"
+    ],
+    "mouth": [
+      "Mouth0",
+      "Mouth1",
+      "Mouth2"
+    ],
+    "flush": [
+      "Flush0",
+      "Flush1"
+    ]
+  },
+  "glow_bones": [
+    "Face0",
+    "Face1",
+    "Face2",
+    "Face3",
+    "Face4",
+    "Mouth0",
+    "Mouth1",
+    "Mouth2",
+    "Flush0",
+    "Flush1"
+  ],
+  "animations": {
+    "idle": "animation.yukikaze.idle",
+    "move": "animation.yukikaze.move",
+    "sprint": "animation.yukikaze.sprint",
+    "sit": "animation.yukikaze.sit",
+    "ride": "animation.yukikaze.ride",
+    "caress": "animation.yukikaze.caress",
+    "no_fuel": "animation.yukikaze.no_fuel",
+    "light_attack": "animation.yukikaze.light_attack",
+    "heavy_attack": "animation.yukikaze.heavy_attack"
+  }
+}

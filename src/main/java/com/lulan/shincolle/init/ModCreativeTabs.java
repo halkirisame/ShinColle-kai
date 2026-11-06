@@ -5,14 +5,19 @@ import com.lulan.shincolle.equipdata.EquipDefinition;
 import com.lulan.shincolle.equipdata.EquipDataSnapshot;
 import com.lulan.shincolle.equipdata.EquipmentAvailabilityStacks;
 import com.lulan.shincolle.item.BasicEquip;
+import com.lulan.shincolle.item.GenericShipSpawnEgg;
 import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.shipdata.ShipDefinitionId;
+import com.lulan.shincolle.shipdata.ShipPresentationClientAccess;
+import com.lulan.shincolle.shipdata.ShipPresentationSnapshot;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -57,6 +62,8 @@ public class ModCreativeTabs {
                     .displayItems((parameters, output) -> {
                         // 1. Spawn Eggs - all ship type variants
                         addSpawnEggVariants(output);
+                        genericShipEggStacks(ShipPresentationClientAccess.snapshot()).forEach(output::accept);
+                        output.accept(ModItems.SAFARI_NET.get());
 
                         // 2. AbyssMetal
                         output.accept(ModItems.ABYSS_METAL.get());
@@ -151,6 +158,7 @@ public class ModCreativeTabs {
 
                         // 21. TargetWrench
                         output.accept(ModItems.TARGET_WRENCH.get());
+                        output.accept(ModItems.SOUL_TALISMAN.get());
 
                         // 22. TrainingBook
                         output.accept(ModItems.TRAINING_BOOK.get());
@@ -160,6 +168,13 @@ public class ModCreativeTabs {
 
                         // Other material items not in original ordering
                         output.accept(ModItems.POLYMETAL_NODULE.get());
+                        if (ModList.get().isLoaded("mekanism")) {
+                            output.accept(ModItems.POLYMETAL_DUST.get());
+                            output.accept(ModItems.DIRTY_POLYMETAL_DUST.get());
+                            output.accept(ModItems.POLYMETAL_CLUMP.get());
+                            output.accept(ModItems.POLYMETAL_SHARD.get());
+                            output.accept(ModItems.POLYMETAL_CRYSTAL.get());
+                        }
 
                         // Block Items
                         output.accept(ModItems.ABYSSIUM_BLOCK_ITEM.get());
@@ -241,6 +256,11 @@ public class ModCreativeTabs {
         ItemStack icon = new ItemStack(ModItems.EQUIP_TURBINE.get());
         BasicEquip.setEquipMeta(icon, 5);
         return icon;
+    }
+
+    static java.util.List<ItemStack> genericShipEggStacks(ShipPresentationSnapshot snapshot) {
+        return snapshot.definitions().keySet().stream().sorted()
+                .map(id -> GenericShipSpawnEgg.create(ShipDefinitionId.parse(id), false)).toList();
     }
 
     /**

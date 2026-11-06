@@ -1,5 +1,7 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.ai.GoalSelectorHelper;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
@@ -8,8 +10,12 @@ import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.living.LivingEvent;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -18,6 +24,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /** Tracks entities created by a synchronous GameTest and removes them on exit. */
 public final class GameTestEntities implements AutoCloseable {
@@ -41,6 +49,42 @@ public final class GameTestEntities implements AutoCloseable {
         GameTestEntities entities = new GameTestEntities();
         onCompletion(helper, entities::close, "entity cleanup");
         return entities;
+    }
+
+    /**
+     * Ships and mounts set noAi back from the global stop flag every tick, so {@code setNoAi(true)} leaves their
+     * goals running. This removes the goals {@code which} matches, both goals and target goals, at the start of
+     * each of the mob's ticks until the test ends; a ship registers its goals again at tick 16. It listens to the
+     * mob's own tick, because a test's scheduled actions cannot be added while the test runs one of them.
+     */
+    public static void removeGoalsEachTick(GameTestHelper helper, Mob mob, Predicate<Goal> which) {
+        GoalSelector goals = selector(mob, "goalSelector");
+        GoalSelector targets = selector(mob, "targetSelector");
+        Runnable remove = () -> {
+            GoalSelectorHelper.stopAndRemove(goals, which);
+            GoalSelectorHelper.stopAndRemove(targets, which);
+        };
+        Consumer<LivingEvent.LivingTickEvent> listener = event -> {
+            if (event.getEntity() == mob) remove.run();
+        };
+        remove.run();
+        MinecraftForge.EVENT_BUS.addListener(listener);
+        onCompletion(helper, () -> MinecraftForge.EVENT_BUS.unregister(listener), "goal removal listener");
+    }
+
+    /** As {@link #removeGoalsEachTick} for every goal: a mob that only stands where the test put it. */
+    public static void removeAllGoalsEachTick(GameTestHelper helper, Mob mob) {
+        removeGoalsEachTick(helper, mob, goal -> true);
+    }
+
+    private static GoalSelector selector(Mob mob, String name) {
+        try {
+            Field field = Mob.class.getDeclaredField(name);
+            field.setAccessible(true);
+            return (GoalSelector) field.get(mob);
+        } catch (ReflectiveOperationException error) {
+            throw new GameTestAssertException("Failed to inspect " + name + ": " + error);
+        }
     }
 
     static void onCompletion(GameTestHelper helper, Runnable action, String what) {
@@ -111,7 +155,7 @@ public final class GameTestEntities implements AutoCloseable {
                 helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(position)),
                         "Waiting for fixture entity section at " + position);
             }
-        }).thenExecute(verification);
+        }).thenExecute(GameTestVerification.namedFailure(verification));
     }
 
     public static void assertRegistered(GameTestHelper helper, Entity entity) {

@@ -6,13 +6,28 @@ import com.lulan.shincolle.entity.GenericShipEntity;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Values;
+import com.lulan.shincolle.reference.Reference;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 /** Creates, but does not add, administrator/egg ships through one initialization path. */
+@Mod.EventBusSubscriber(modid = Reference.MOD_ID)
 public final class GenericShipSpawner {
     private GenericShipSpawner() {
+    }
+
+    @SubscribeEvent
+    public static void rejectEmptyIdentity(EntityJoinLevelEvent event) {
+        // Client identities arrive after spawn packets; named missing definitions must remain recoverable.
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof DefinitionBackedShip ship
+                && ship.getShipId().isEmpty()) {
+            event.setCanceled(true);
+            event.getEntity().discard();
+        }
     }
 
     public static Mob create(ServerLevel level, ShipDefinitionId id, boolean hostile, Player owner) {

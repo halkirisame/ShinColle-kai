@@ -17,7 +17,7 @@ public final class ShipVisualValidator {
     public static final String DIRECTORY = "shincolle_kai/visuals";
     public static final int MAX_NAME_LENGTH = 128;
     public static final Set<String> FIELDS = Set.of("$schema", "schema", "model", "texture", "animation", "scale",
-            "shadow_radius", "rig", "animations", "expressions", "glow_bones", "held_item", "lod");
+            "shadow_radius", "rig", "animations", "expressions", "glow_bones", "held_item", "lod", "head_follow");
 
     public ShipVisualDefinition validate(JsonElement element, Consumer<String> warning) {
         JsonObject json = object(element, "visual");
@@ -72,7 +72,49 @@ public final class ShipVisualValidator {
                 number(json, "scale", 1, BigDecimal.valueOf((double) Float.MIN_VALUE), 16),
                 number(json, "shadow_radius", 0.35F, BigDecimal.ZERO, 16), rig, clips, expressions,
                 boneList(json, "glow_bones"), heldItem,
-                new ShipVisualDefinition.Lod(number(lod, "distance", 48, BigDecimal.ONE, 256), boneList(lod, "hide_bones")));
+                new ShipVisualDefinition.Lod(number(lod, "distance", 48, BigDecimal.ONE, 256), boneList(lod, "hide_bones")),
+                headFollow(json));
+    }
+
+    private static ShipVisualDefinition.HeadFollow headFollow(JsonObject json) {
+        if (!json.has("head_follow")) return ShipVisualDefinition.HeadFollow.DEFAULT;
+        JsonObject follow = object(json.get("head_follow"), "head_follow");
+        strictKeys(follow, Set.of("bones", "coefficient", "overrides"));
+        float coefficient = coefficient(follow, "coefficient", 0.5F);
+        Map<String, ShipVisualDefinition.FollowAxes> overrides = new HashMap<>();
+        if (follow.has("overrides")) {
+            JsonObject values = object(follow.get("overrides"), "head_follow.overrides");
+            if (values.size() > 128) throw new IllegalArgumentException("Too many head_follow overrides");
+            for (String bone : values.keySet()) {
+                name(new com.google.gson.JsonPrimitive(bone), "head_follow.overrides");
+                JsonObject axes = object(values.get(bone), "head_follow.overrides." + bone);
+                strictKeys(axes, Set.of("x", "z"));
+                overrides.put(bone, new ShipVisualDefinition.FollowAxes(
+                        coefficient(axes, "x", coefficient), coefficient(axes, "z", coefficient)));
+            }
+        }
+        List<String> bones = boneList(follow, "bones");
+        if (follow.has("bones") && bones.isEmpty()) {
+            throw new IllegalArgumentException("head_follow.bones must not be empty when specified");
+        }
+        return new ShipVisualDefinition.HeadFollow(bones, coefficient, overrides);
+    }
+
+    private static float coefficient(JsonObject json, String key, float fallback) {
+        if (!json.has(key)) return fallback;
+        JsonElement value = json.get(key);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber() || !Double.isFinite(value.getAsDouble())
+                || value.getAsBigDecimal().signum() < 0
+                || value.getAsBigDecimal().compareTo(BigDecimal.valueOf((double) Float.MAX_VALUE)) > 0) {
+            throw new IllegalArgumentException("head_follow coefficient must be a finite nonnegative float");
+        }
+        return value.getAsFloat();
+    }
+
+    private static void strictKeys(JsonObject json, Set<String> keys) {
+        for (String key : json.keySet()) {
+            if (!keys.contains(key)) throw new IllegalArgumentException("Unknown head_follow key " + key);
+        }
     }
 
     private static List<String> boneList(JsonObject json, String key) {

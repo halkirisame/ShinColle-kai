@@ -10,11 +10,19 @@ import net.minecraft.world.entity.WalkAnimationState;
 import java.lang.reflect.Field;
 
 /** A real Mob that reports only the posture inputs; built without a world so no server or client is needed. */
-final class PostureTestShip extends Mob implements IShipEmotion {
+final class PostureTestShip extends Mob implements IShipEmotion, com.lulan.shincolle.shipdata.DefinitionBackedShip {
+    private com.lulan.shincolle.shipdata.GenericShipState definitionState;
     private boolean noFuel;
     private boolean sitting;
     private boolean riding;
     private boolean sprinting;
+    int emotion;
+    int emotion3;
+    int emotion4;
+    int shipUid;
+    int morale;
+    int attackTick;
+    net.minecraft.world.level.Level world;
 
     private PostureTestShip() {
         super(null, null);
@@ -40,25 +48,32 @@ final class PostureTestShip extends Mob implements IShipEmotion {
     }
 
     @Override public boolean getStateFlag(int flag) { return flag == ID.F.NoFuel && noFuel; }
+    @Override public com.lulan.shincolle.shipdata.GenericShipState definitionState() {
+        if (definitionState == null) definitionState = new com.lulan.shincolle.shipdata.GenericShipState();
+        return definitionState;
+    }
     @Override public boolean getIsSitting() { return sitting; }
     @Override public boolean getIsRiding() { return riding; }
     @Override public boolean getIsSprinting() { return sprinting; }
-    @Override public int getAttackTick() { return 0; }
-    @Override public int getStateEmotion(int id) { return 0; }
-    @Override public int getStateMinor(int id) { return 0; }
+    @Override public int getAttackTick() { return attackTick; }
+    @Override public int getStateEmotion(int id) {
+        return id == ID.S.Emotion ? emotion : id == ID.S.Emotion3 ? emotion3 : id == ID.S.Emotion4 ? emotion4 : 0;
+    }
+    @Override public int getStateMinor(int id) { return id == ID.M.ShipUID ? shipUid : id == ID.M.Morale ? morale : 0; }
+    @Override public net.minecraft.world.level.Level level() { return world; }
     @Override public int getScaleLevel() { return 0; }
 
     @Override public void setStateMinor(int state, int par1) { }
-    @Override public void setStateFlag(int id, boolean flag) { }
+    @Override public void setStateFlag(int id, boolean flag) { throw new AssertionError("Renderer wrote a state flag"); }
     @Override public void setUpdateFlag(int id, boolean value) { }
     @Override public boolean getUpdateFlag(int id) { return false; }
-    @Override public void setStateEmotion(int id, int value, boolean sync) { }
+    @Override public void setStateEmotion(int id, int value, boolean sync) { throw new AssertionError("Renderer wrote emotion"); }
     @Override public int getStateTimer(int id) { return 0; }
     @Override public void setStateTimer(int id, int value) { }
     @Override public int getFaceTick() { return 0; }
-    @Override public void setFaceTick(int par1) { }
+    @Override public void setFaceTick(int par1) { throw new AssertionError("Renderer wrote face tick"); }
     @Override public int getHeadTiltTick() { return 0; }
-    @Override public void setHeadTiltTick(int par1) { }
+    @Override public void setHeadTiltTick(int par1) { throw new AssertionError("Renderer wrote head tilt tick"); }
     @Override public void setAttackTick(int par1) { }
     @Override public int getAttackTick2() { return 0; }
     @Override public void setAttackTick2(int par1) { }
@@ -66,7 +81,7 @@ final class PostureTestShip extends Mob implements IShipEmotion {
     @Override public void setDeathTick(int par1) { }
     @Override public float getModelRotate(int par1) { return 0; }
     @Override public void setModelRotate(int par1, float par2) { }
-    @Override public int getTickExisted() { return 0; }
+    @Override public int getTickExisted() { return tickCount; }
     @Override public float getSwingTime(float partialTick) { return 0; }
     @Override public boolean getIsSneaking() { return false; }
     @Override public boolean getIsLeashed() { return false; }
@@ -74,6 +89,6 @@ final class PostureTestShip extends Mob implements IShipEmotion {
     @Override public int getRidingState() { return 0; }
     @Override public void setRidingState(int state) { }
     @Override public void setScaleLevel(int par1) { }
-    @Override public RandomSource getRand() { return null; }
+    @Override public RandomSource getRand() { throw new AssertionError("Renderer consumed entity random"); }
     @Override public double getShipDepth(int type) { return 0; }
 }

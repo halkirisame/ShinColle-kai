@@ -41,6 +41,9 @@ public enum MovementReason {
     COMMAND_APPLIED,
     /** The way on to the next waypoint of a route. */
     WAYPOINT_ADVANCED,
+    CRANE_APPROACH,
+    CRANE_DOCK,
+    CRANE_ARRIVED,
     /** Back to the waypoint a cooking or crafting ship works at. */
     TASK_RETURN,
     /** Toward the spot a fishing ship casts from. */

@@ -27,6 +27,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -105,11 +106,37 @@ public final class CombatIntentParityGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_hold",
-            timeoutTicks = PHASE + 20)
+            timeoutTicks = PHASE + 120)
     public static void holdFireConditionsKeepTheRecordedBehavior(GameTestHelper helper) {
-        verify(helper, CombatIntentParityGameTests::holdFire,
-                "{sitting=[], crane=[], noFuel=[], free=[28:light, 57:heavy, 181:light]}",
-                "{sitting=[], crane=[], noFuel=[], free=[0:start]}", false);
+        GameTestEntities.whenPositionsTicking(helper, () -> {
+            Phase phase = Phase.open(helper, CombatIntentParityGameTests::holdFire);
+            GameTestEntities.onCompletion(helper, phase::close, "hold fire phase");
+            BasicEntityShip free = (BasicEntityShip) phase.fixture.watched().get(3).mob();
+            helper.onEachTick(() -> phase.guard(phase::poll));
+            helper.startSequence().thenWaitUntil(() -> helper.assertTrue(phase.acquired("free") != null,
+                    "Waiting for hold fire acquisition: " + CombatFixturePreparation.probe(helper, free, null)))
+                    .thenExecute(GameTestVerification.namedFailure(() -> {
+                helper.assertTrue(free.tickCount >= 24 && free.currentTargetLock().isPresent(),
+                        "Combat started before fixture readiness: " + CombatFixturePreparation.probe(helper, free, free.getEntityTarget()));
+            })).thenWaitUntil(() -> helper.assertTrue(free.tickCount - phase.acquired("free") >= PHASE,
+                    "Hold fire observation did not advance: acquired=" + phase.acquired("free") + " "
+                            + CombatFixturePreparation.probe(helper, free, free.getEntityTarget())))
+                    .thenExecute(GameTestVerification.namedFailure(() -> phase.guard(() -> {
+                helper.assertTrue(free.tickCount - phase.acquired("free") == PHASE, "Skipped the fixed entity-tick endpoint");
+                Outcome now = new Outcome();
+                phase.finish(now);
+                String report = "\n NOW " + now;
+                helper.assertTrue(now.problems.isEmpty(), "Fixture problems:" + report);
+                helper.assertTrue(now.calls.toString().equals(
+                                "{sitting=[], crane=[], noFuel=[], free=[28:light, 57:heavy, 181:light]}"),
+                        "Attack calls differ from the recorded ones:" + report);
+                helper.assertTrue(now.goals.toString().equals("{sitting=[], crane=[], noFuel=[], free=[0:start]}"),
+                        "Attack goals differ from the recorded ones:" + report);
+                LogHelper.info("Combat intent: acquired=" + now.acquired + " calls=" + now.calls + " goals=" + now.goals);
+                helper.succeed();
+            })));
+        }, new Vec3(0.5D, 2D, 1.5D), new Vec3(3.5D, 2D, 1.5D), new Vec3(6.5D, 2D, 1.5D),
+                new Vec3(21.5D, 2D, 1.5D), new Vec3(21.5D, 2D, 7.5D), new Vec3(3.5D, 2D, 7.5D));
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_combat_intent_mount",
@@ -205,7 +232,7 @@ public final class CombatIntentParityGameTests {
         add(helper, ship, new Vec3(1.5D, 2D, 1.5D));
         BasicEntityShip target = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
         helper.assertTrue(target != null, "failed to create target ship");
-        target.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, target);
         target.setInvulnerable(true);
         target.setPlayerUID(OWNER_UID);
         add(helper, target, new Vec3(7.5D, 2D, 1.5D));
@@ -219,30 +246,86 @@ public final class CombatIntentParityGameTests {
      */
     private static Fixture holdFire(GameTestHelper helper, GameTestEntities entities) {
         List<Watched> watched = new ArrayList<>();
+        List<Goal> initialAuthorities = new ArrayList<>();
+        List<String> diagnostics = new ArrayList<>();
+        List<BasicEntityShipHostile> targets = new ArrayList<>();
         String[] names = {"sitting", "crane", "noFuel", "free"};
         double[] xs = {0.5D, 3.5D, 6.5D, 21.5D};
         for (int i = 0; i < names.length; i++) {
             RecordingKongou ship = friendly(helper, entities, new RecordingKongou(ModEntities.BB_KONGOU.get(),
-                    helper.getLevel()), new Vec3(xs[i], 2D, 1.5D));
+                    helper.getLevel()), new Vec3(xs[i], 2D, 1.5D), false);
+            CombatFixturePreparation.pin(helper, ship);
             cannonFlags(ship);
+            initialAuthorities.add(CombatFixturePreparation.authority(ship));
             switch (names[i]) {
                 case "sitting" -> ship.setEntitySit(true);
                 case "crane" -> {
-                    ship.setStateTimer(ID.T.CrandDelay, 0);
-                    ship.setStateMinor(ID.M.CraneState, 1);
+                    CombatFixturePreparation.holdAtCrane(helper, ship);
                 }
                 case "noFuel" -> {
                     ship.setStateMinor(ID.M.NumGrudge, 0);
                     ship.decrGrudgeNum(0);
                 }
-                case "free" -> hostileTarget(helper, entities, new Vec3(xs[i], 2D, 7.5D));
                 default -> { }
             }
             watched.add(new Watched(names[i], ship, ShipRangeAttackGoal.class));
         }
-        hostileTarget(helper, entities, new Vec3(3.5D, 2D, 7.5D));
+        BasicEntityShip free = (BasicEntityShip) watched.get(3).mob();
+        int[] acquired = {-1};
+        int[] lastSample = {-1};
+        Runnable prepare = () -> {
+            if (targets.isEmpty()) {
+                if (watched.stream().anyMatch(w -> w.mob().tickCount < 24)) return;
+                for (int i = 0; i < watched.size(); i++) {
+                    BasicEntityShip ship = (BasicEntityShip) watched.get(i).mob();
+                    CombatFixturePreparation.assertReady(helper, ship, initialAuthorities.get(i));
+                    helper.assertTrue(ship.getEntityTarget() == null && ((Recording) ship).calls().isEmpty(),
+                            "Combat started before target placement: " + CombatFixturePreparation.probe(helper, ship, null));
+                }
+                helper.assertTrue(((BasicEntityShip) watched.get(0).mob()).getIsSitting(), "Sitting fixture did not apply");
+                helper.assertTrue(((BasicEntityShip) watched.get(1).mob()).getStateMinor(ID.M.CraneState) == 1,
+                        "Crane fixture did not apply");
+                helper.assertTrue(((BasicEntityShip) watched.get(2).mob()).getStateFlag(ID.F.NoFuel),
+                        "No-fuel fixture did not apply");
+                helper.assertTrue(free.getStateMinor(ID.M.NumGrudge) > 0 && !free.getStateFlag(ID.F.NoFuel),
+                        "Free fixture needs fuel: " + CombatFixturePreparation.probe(helper, free, null));
+                for (Vec3 position : List.of(new Vec3(21.5D, 2D, 7.5D), new Vec3(3.5D, 2D, 7.5D))) {
+                    BasicEntityShipHostile target = hostileTarget(helper, entities, position);
+                    CombatFixturePreparation.pin(helper, target);
+                    GameTestEntities.assertRegistered(helper, target);
+                    targets.add(target);
+                }
+                diagnostics.add("ready " + CombatFixturePreparation.probe(helper, free, targets.get(0)));
+            }
+            for (BasicEntityShipHostile target : targets) {
+                // Initialization registers goals after the tick listener; the next entity tick removes them.
+                if (target.tickCount >= 24) {
+                    helper.assertTrue(CombatFixturePreparation.selector(target, "goalSelector").getAvailableGoals().isEmpty()
+                                && CombatFixturePreparation.selector(target, "targetSelector").getAvailableGoals().isEmpty(),
+                        "Stationary target regained goals: tick=" + target.tickCount + " pos=" + target.position());
+                }
+                GameTestEntities.assertRegistered(helper, target);
+            }
+            if (free.getEntityTarget() != null && acquired[0] < 0) {
+                helper.assertTrue(free.getEntityTarget() == targets.get(0) && free.currentTargetLock().isPresent(),
+                        "Free fixture acquired the wrong target: " + CombatFixturePreparation.probe(helper, free, targets.get(0)));
+                acquired[0] = free.tickCount;
+                diagnostics.add("acquired " + CombatFixturePreparation.probe(helper, free, targets.get(0)));
+            }
+            int relative = free.tickCount - acquired[0];
+            if (acquired[0] >= 0 && relative >= 175 && relative <= 195 && lastSample[0] != free.tickCount) {
+                diagnostics.add("r=" + relative + " " + CombatFixturePreparation.probe(helper, free, targets.get(0)));
+                lastSample[0] = free.tickCount;
+            }
+        };
         return new Fixture(watched, outcome -> {
+            outcome.diagnostics.addAll(diagnostics);
+            outcome.diagnostics.add("end acquired=" + acquired[0] + " relative=" + (free.tickCount - acquired[0])
+                    + " " + CombatFixturePreparation.probe(helper, free, targets.isEmpty() ? null : targets.get(0)));
             List<String> problems = new ArrayList<>(fired(outcome, "free", ":light"));
+            if (targets.size() != 2 || targets.stream().anyMatch(target -> target.tickCount < 24)) {
+                problems.add("stationary targets did not tick past AI re-registration");
+            }
             for (String name : List.of("sitting", "crane", "noFuel")) {
                 if (!outcome.calls.getOrDefault(name, List.of()).isEmpty()) problems.add(name + " ship fired");
                 if (!outcome.goals.getOrDefault(name, List.of()).isEmpty()) problems.add(name + " ship's goal ran");
@@ -255,7 +338,7 @@ public final class CombatIntentParityGameTests {
                 problems.add("the dry ship was refuelled");
             }
             return problems;
-        });
+        }, prepare);
     }
 
     /**
@@ -321,6 +404,11 @@ public final class CombatIntentParityGameTests {
 
     private static <T extends BasicEntityShip> T friendly(GameTestHelper helper, GameTestEntities entities, T ship,
                                                           Vec3 position) {
+        return friendly(helper, entities, ship, position, true);
+    }
+
+    private static <T extends BasicEntityShip> T friendly(GameTestHelper helper, GameTestEntities entities, T ship,
+                                                          Vec3 position, boolean zeroMovement) {
         entities.add(ship);
         ship.setPlayerUID(OWNER_UID);
         // A fresh ship has only a few HP; stray damage kills it or stands it up
@@ -339,7 +427,7 @@ public final class CombatIntentParityGameTests {
         ship.setStateFlag(ID.F.UseAmmoHeavy, false);
         ship.setStateMinor(ID.M.FormatType, 0);
         ship.calcShipAttributes(31, false);
-        ship.getAttrs().setAttrsBuffed(ID.Attrs.MOV, 0F);
+        if (zeroMovement) ship.getAttrs().setAttrsBuffed(ID.Attrs.MOV, 0F);
         add(helper, ship, position);
         return ship;
     }
@@ -353,13 +441,14 @@ public final class CombatIntentParityGameTests {
         ship.setAmmoHeavy(1_000);
     }
 
-    private static void hostileTarget(GameTestHelper helper, GameTestEntities entities, Vec3 position) {
+    private static BasicEntityShipHostile hostileTarget(GameTestHelper helper, GameTestEntities entities, Vec3 position) {
         BasicEntityShipHostile target = entities.add(ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
         helper.assertTrue(target != null, "failed to create target");
-        target.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, target);
         target.setInvulnerable(true);
         target.setPersistenceRequired();
         add(helper, target, position);
+        return target;
     }
 
     private static void add(GameTestHelper helper, Entity entity, Vec3 relative) {
@@ -504,12 +593,13 @@ public final class CombatIntentParityGameTests {
         private final Map<String, List<String>> goals = new LinkedHashMap<>();
         private final List<String> problems = new ArrayList<>();
         private final Map<String, Integer> acquired = new LinkedHashMap<>();
+        private final List<String> diagnostics = new ArrayList<>();
         private String gateChecks = "-";
 
         @Override
         public String toString() {
             return "acquired=" + this.acquired + " calls=" + this.calls + " goals=" + this.goals
-                    + " gate=" + this.gateChecks + " problems=" + this.problems;
+                    + " gate=" + this.gateChecks + " problems=" + this.problems + " diagnostics=" + this.diagnostics;
         }
     }
 

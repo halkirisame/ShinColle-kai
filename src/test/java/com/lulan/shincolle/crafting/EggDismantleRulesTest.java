@@ -19,7 +19,7 @@ class EggDismantleRulesTest {
         assertEquals(EggDismantleKind.SMALL, EggDismantleRules.classify(clean(BuildTypeField.SMALL, ShipClassField.ABSENT)));
         assertEquals(8, EggDismantleKind.SMALL.yield());
         assertEquals(EggDismantleKind.LARGE, EggDismantleRules.classify(clean(BuildTypeField.LARGE, ShipClassField.ABSENT)));
-        assertEquals(64, EggDismantleKind.LARGE.yield());
+        assertEquals(8, EggDismantleKind.LARGE.yield());
         assertEquals(EggDismantleKind.REJECTED, EggDismantleRules.classify(clean(BuildTypeField.MISSING, ShipClassField.ABSENT)));
         assertEquals(EggDismantleKind.REJECTED, EggDismantleRules.classify(clean(BuildTypeField.INVALID, ShipClassField.ABSENT)));
         assertEquals(0, EggDismantleKind.REJECTED.yield());
@@ -35,8 +35,26 @@ class EggDismantleRulesTest {
                 EggDismantleRules.classify(clean(BuildTypeField.SMALL, ShipClassField.INVALID)));
         assertEquals(EggDismantleKind.REJECTED,
                 EggDismantleRules.classify(clean(BuildTypeField.LARGE, ShipClassField.INVALID)));
-        assertEquals(EggDismantleKind.REJECTED,
+    }
+
+    @Test
+    void acceptsPlainFriendlyEggWithoutBuildType() {
+        assertEquals(EggDismantleKind.PLAIN,
                 EggDismantleRules.classify(clean(BuildTypeField.MISSING, ShipClassField.VALID_FRIENDLY)));
+        assertEquals(8, EggDismantleKind.PLAIN.yield());
+    }
+
+    @Test
+    void acceptsRegisteredHostileClassOnlyWithoutBuildType() {
+        assertEquals(EggDismantleKind.PLAIN,
+                EggDismantleRules.classify(clean(BuildTypeField.MISSING, ShipClassField.VALID_HOSTILE)));
+        for (BuildTypeField buildType : new BuildTypeField[]{BuildTypeField.SMALL, BuildTypeField.LARGE,
+                BuildTypeField.INVALID}) {
+            assertEquals(EggDismantleKind.REJECTED,
+                    EggDismantleRules.classify(clean(buildType, ShipClassField.VALID_HOSTILE)));
+        }
+        assertEquals(EggDismantleKind.REJECTED,
+                EggDismantleRules.classify(clean(BuildTypeField.MISSING, ShipClassField.INVALID)));
     }
 
     @Test

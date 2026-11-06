@@ -7,6 +7,7 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.ShipLevelCapSummary;
+import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.MarriageRing;
 import com.lulan.shincolle.network.ModNetworking;
@@ -302,7 +303,8 @@ public class ServerEventHandler {
         }
 
         Entity killerEntity = event.getSource().getDirectEntity();
-        if (killerEntity == null) {
+        // A missile is the direct damage source, but its causing attacker receives the kill reward.
+        if (killerEntity == null || killerEntity instanceof EntityAbyssMissile) {
             killerEntity = event.getSource().getEntity();
         }
 

@@ -53,9 +53,9 @@ public class TileEntityVolCore extends BasicTileInventory implements MenuProvide
     private static final float MORALE_CAP_RATE = 1.8F;
     private static final int MORALE_GAIN = 80;
     // Config values loaded from ConfigHandler
-    private static int POWER_MAX;
-    private static int CONSUMED_SPEED;
-    private static int FUEL_VALUE;
+    private static volatile int POWER_MAX;
+    private static volatile int CONSUMED_SPEED;
+    private static volatile int FUEL_VALUE;
 
     static {
         reloadConfig();

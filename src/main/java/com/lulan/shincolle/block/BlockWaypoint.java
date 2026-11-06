@@ -35,6 +35,15 @@ public class BlockWaypoint extends BasicBlockContainer {
         return new TileEntityWaypoint(pos, state);
     }
 
+    @Override
+    public boolean onDestroyedByPlayer(BlockState state, Level level, BlockPos pos, Player player,
+                                       boolean willHarvest, net.minecraft.world.level.material.FluidState fluid) {
+        if (level.getBlockEntity(pos) instanceof TileEntityWaypoint waypoint
+                && waypoint.getOwnerUUID() != null && !waypoint.getOwnerUUID().equals(player.getUUID())
+                && !com.lulan.shincolle.server.ServerDataManager.checkOP(player)) return false;
+        return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
+    }
+
     @Nullable
     @Override
     public <T extends BlockEntity> net.minecraft.world.level.block.entity.BlockEntityTicker<T> getTicker(

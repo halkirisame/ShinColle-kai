@@ -36,7 +36,7 @@ import java.util.List;
 public class MarriageRing extends BasicItem {
 
     public MarriageRing() {
-        super(new Properties().stacksTo(1));
+        super(new Properties().stacksTo(64));
     }
 
     /**

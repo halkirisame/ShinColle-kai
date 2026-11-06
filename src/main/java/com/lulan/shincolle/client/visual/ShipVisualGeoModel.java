@@ -29,7 +29,7 @@ public final class ShipVisualGeoModel extends GeoModel<ShipVisualAnimatable> {
 
     @Override
     public ResourceLocation getTextureResource(ShipVisualAnimatable entity) {
-        return visual.definition().texture();
+        return entity.texture() == null ? visual.definition().texture() : entity.texture();
     }
 
     @Override
@@ -53,15 +53,34 @@ public final class ShipVisualGeoModel extends GeoModel<ShipVisualAnimatable> {
 
     @Override
     public void setCustomAnimations(ShipVisualAnimatable entity, long instanceId, AnimationState<ShipVisualAnimatable> state) {
-        applyPresentation(entity.expression(), entity.equipmentVisible());
+        applyPresentation(entity.expression(state.getPartialTick()), entity.equipmentVisible());
         var data = state.getData(DataTickets.ENTITY_MODEL_DATA);
         String headRole = visual.rig().get("head");
-        if (data != null && headRole != null) {
+        if (headRole != null) {
             getBone(headRole).ifPresent(head -> {
                 var rest = head.getInitialSnapshot();
                 boolean driven = clipRotates(state, head.getName());
-                head.setRotX(ShipHeadLook.compose(head.getRotX(), rest.getRotX(), data.headPitch() * Mth.DEG_TO_RAD, driven));
-                head.setRotY(ShipHeadLook.compose(head.getRotY(), rest.getRotY(), data.netHeadYaw() * Mth.DEG_TO_RAD, driven));
+                head.setRotX(ShipHeadLook.compose(head.getRotX(), rest.getRotX(),
+                        data == null ? 0 : data.headPitch() * Mth.DEG_TO_RAD, driven));
+                head.setRotY(ShipHeadLook.compose(head.getRotY(), rest.getRotY(),
+                        data == null ? 0 : data.netHeadYaw() * Mth.DEG_TO_RAD, driven));
+                head.setRotZ(ShipHeadLook.compose(head.getRotZ(), rest.getRotZ(), entity.headTilt(state.getPartialTick()), driven));
+                applyHeadFollow(head.getRotX(), head.getRotZ(), state);
+            });
+        }
+    }
+
+    private void applyHeadFollow(float headX, float headZ, AnimationState<ShipVisualAnimatable> state) {
+        var follow = visual.definition().headFollow();
+        for (String name : follow.bones()) {
+            getBone(name).ifPresent(bone -> {
+                var rest = bone.getInitialSnapshot();
+                var axes = follow.overrides().get(name);
+                float x = axes == null ? follow.coefficient() : axes.x();
+                float z = axes == null ? follow.coefficient() : axes.z();
+                boolean driven = clipRotates(state, name);
+                bone.setRotX(ShipHeadLook.compose(bone.getRotX(), rest.getRotX(), -x * headX, driven));
+                bone.setRotZ(ShipHeadLook.compose(bone.getRotZ(), rest.getRotZ(), -z * headZ, driven));
             });
         }
     }

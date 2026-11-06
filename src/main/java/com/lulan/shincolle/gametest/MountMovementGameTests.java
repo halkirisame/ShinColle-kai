@@ -160,7 +160,7 @@ public final class MountMovementGameTests {
         try {
             BasicEntityShip ship = ship(helper, context, new Vec3(1.5D, 1D, 2.5D));
             BasicEntityMount mount = mount(helper, context, ship);
-            mount.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(helper, mount);
             helper.runAtTickTime(10, () -> {
                 mount.setYRot(90F);
                 mount.setYBodyRot(90F);

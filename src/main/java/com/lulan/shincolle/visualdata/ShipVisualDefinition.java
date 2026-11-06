@@ -10,7 +10,7 @@ import java.util.Set;
 public record ShipVisualDefinition(ResourceLocation model, ResourceLocation texture, ResourceLocation animation,
                                    float scale, float shadowRadius, Map<String, String> rig,
                                     Map<ShipVisualEvent, String> animations, Map<String, List<String>> expressions,
-                                    List<String> glowBones, HeldItem heldItem, Lod lod) {
+                                     List<String> glowBones, HeldItem heldItem, Lod lod, HeadFollow headFollow) {
     public static final Set<String> ROLES = Set.of("root", "body", "head", "arm_left", "arm_right",
             "leg_left", "leg_right", "equipment", "held_item", "held_item_left", "muzzle_light", "muzzle_heavy", "face", "mouth", "flush");
 
@@ -28,6 +28,29 @@ public record ShipVisualDefinition(ResourceLocation model, ResourceLocation text
         public Lod {
             hideBones = List.copyOf(hideBones);
         }
+    }
+
+    public record FollowAxes(float x, float z) { }
+
+    public record HeadFollow(List<String> bones, float coefficient, Map<String, FollowAxes> overrides) {
+        public static final HeadFollow DEFAULT = new HeadFollow(List.of(), 0.5F, Map.of());
+
+        public HeadFollow {
+            bones = List.copyOf(bones);
+            overrides = Map.copyOf(overrides);
+        }
+
+        public FollowAxes axes(String bone) {
+            return overrides.getOrDefault(bone, new FollowAxes(coefficient, coefficient));
+        }
+    }
+
+    public ShipVisualDefinition(ResourceLocation model, ResourceLocation texture, ResourceLocation animation,
+                                float scale, float shadowRadius, Map<String, String> rig,
+                                Map<ShipVisualEvent, String> animations, Map<String, List<String>> expressions,
+                                List<String> glowBones, HeldItem heldItem, Lod lod) {
+        this(model, texture, animation, scale, shadowRadius, rig, animations, expressions,
+                glowBones, heldItem, lod, HeadFollow.DEFAULT);
     }
 
     public ShipVisualDefinition(ResourceLocation model, ResourceLocation texture, ResourceLocation animation,

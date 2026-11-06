@@ -7,8 +7,11 @@ import com.lulan.shincolle.visualdata.ShipVisualPresentation;
 import com.lulan.shincolle.visualdata.ShipVisualClock;
 import com.lulan.shincolle.visualdata.ShipVisualEvent;
 import com.lulan.shincolle.visualdata.ShipVisualPosture;
+import com.lulan.shincolle.visualdata.ShipVisualExpression;
+import com.lulan.shincolle.visualdata.ShipHeadTilt;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.core.animatable.GeoAnimatable;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animatable.instance.InstancedAnimatableInstanceCache;
@@ -19,21 +22,43 @@ import software.bernie.geckolib.core.object.PlayState;
 
 /** One client-only animation instance per entity; it never retains the entity between render calls. */
 public final class ShipVisualAnimatable implements GeoAnimatable {
+    private static final int MOVEMENT_STOP_GRACE_TICKS = 3;
     private final AnimatableInstanceCache cache = new InstancedAnimatableInstanceCache(this);
     private Mob entity;
     private ShipVisuals.Loaded visual;
+    private ResourceLocation texture;
+    private boolean redAura;
     private int lastAttackTick;
     private long lastSequence;
     private double attackEnds;
     private ShipVisualEvent attackEvent;
+    private boolean attackActive;
+    private boolean moving;
+    private int lastMovingTick;
+    private int lastEmotion = Integer.MIN_VALUE;
+    private int emotionStarted;
+    private int lastExpressionTick = -1;
 
     public void bind(Mob entity, ShipVisuals.Loaded visual) {
         this.entity = entity;
         this.visual = visual;
+        this.texture = visual.definition().texture();
+        this.redAura = false;
     }
+
+    public void bind(Mob entity, ShipVisuals.Loaded visual, ResourceLocation texture, boolean redAura) {
+        bind(entity, visual);
+        this.texture = texture;
+        this.redAura = redAura;
+    }
+
+    public ResourceLocation texture() { return texture; }
+    public boolean redAura() { return redAura; }
 
     public void unbind() {
         entity = null;
+        texture = null;
+        redAura = false;
     }
 
     public ShipVisuals.Loaded visual() {
@@ -41,9 +66,34 @@ public final class ShipVisualAnimatable implements GeoAnimatable {
     }
 
     public ShipVisualPresentation.Expression expression() {
-        return entity instanceof IShipEmotion emotion ? ShipVisualPresentation.emotion(
-                emotion.getStateEmotion(ID.S.Emotion), emotion.getStateMinor(ID.M.Morale) > ID.Morale.L_Happy)
-                : ShipVisualPresentation.emotion(0, false);
+        return expression(0);
+    }
+
+    public ShipVisualPresentation.Expression expression(float partialTick) {
+        if (!(entity instanceof IShipEmotion emotion)) return ShipVisualPresentation.emotion(0, false);
+        int current = emotion.getStateEmotion(ID.S.Emotion);
+        if (current != lastEmotion || entity.tickCount < lastExpressionTick) {
+            lastEmotion = current;
+            emotionStarted = entity.tickCount;
+        }
+        lastExpressionTick = entity.tickCount;
+        return ShipVisualExpression.select(new ShipVisualExpression.Input(entity.tickCount,
+                emotion.getStateMinor(ID.M.ShipUID), current, entity.tickCount - emotionStarted,
+                emotion.getStateMinor(ID.M.Morale) > ID.Morale.L_Happy,
+                emotion.getStateEmotion(ID.S.Emotion4) == ID.Emotion.BORED, selectedPosture(), attackActive, partialTick));
+    }
+
+    public float headTilt(float partialTick) {
+        if (!(entity instanceof IShipEmotion emotion)) return 0;
+        var posture = selectedPosture();
+        if (posture == ShipVisualEvent.NO_FUEL || posture == ShipVisualEvent.CARESS || emotion.getRidingState() > 0
+                || (posture == ShipVisualEvent.SIT || posture == ShipVisualEvent.RIDE)
+                && emotion.getStateEmotion(ID.S.Emotion) == ID.Emotion.BORED) return 0;
+        return ShipHeadTilt.angle(entity.tickCount, emotion.getStateMinor(ID.M.ShipUID), partialTick);
+    }
+
+    private ShipVisualEvent selectedPosture() {
+        return ShipVisualPosture.select(posture(moving), visual.clips().keySet()).orElse(null);
     }
 
     public boolean equipmentVisible() {
@@ -76,6 +126,13 @@ public final class ShipVisualAnimatable implements GeoAnimatable {
 
     PlayState animate(AnimationState<ShipVisualAnimatable> state) {
         if (entity == null) return PlayState.STOP;
+        if (state.isMoving()) {
+            moving = true;
+            lastMovingTick = entity.tickCount;
+        } else if (entity.tickCount < lastMovingTick
+                || (long) entity.tickCount - lastMovingTick >= MOVEMENT_STOP_GRACE_TICKS) {
+            moving = false;
+        }
         var attack = ShipVisualClient.attacks(entity);
         int attackTick = entity instanceof IShipEmotion emotion ? emotion.getAttackTick() : 0;
         boolean newAttack = false;
@@ -102,8 +159,8 @@ public final class ShipVisualAnimatable implements GeoAnimatable {
                 attackEvent = null;
             }
         }
-        ShipVisualEvent event = attackEvent != null && entity.level().getGameTime() < attackEnds ? attackEvent :
-                ShipVisualPosture.select(posture(state.isMoving()), visual.clips().keySet()).orElse(null);
+        attackActive = attackEvent != null && entity.level().getGameTime() < attackEnds;
+        ShipVisualEvent event = attackActive ? attackEvent : selectedPosture();
         if (event == null) return PlayState.STOP;
         var clip = visual.clips().get(event);
         if (clip == null) return PlayState.STOP;

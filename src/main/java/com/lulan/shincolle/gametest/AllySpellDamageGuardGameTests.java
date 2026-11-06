@@ -195,17 +195,32 @@ public final class AllySpellDamageGuardGameTests {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             ServerPlayer owner = player(helper, entities, "spell_guard_missile_owner", 6561,
                     "00000000-0000-0000-0000-000000006561");
+            ServerPlayer stranger = player(helper, entities, "spell_guard_missile_stranger", 6562,
+                    "00000000-0000-0000-0000-000000006562");
             BasicEntityShip host = ship(helper, entities, owner, 6561, new Vec3(1D, 4D, 1D));
             EntityAbyssMissile shielded = missile(helper, entities, host, new Vec3(3D, 4D, 1D));
             EntityAbyssMissile control = missile(helper, entities, host, new Vec3(5D, 4D, 1D));
+            EntityAbyssMissile magicControl = missile(helper, entities, host, new Vec3(7D, 4D, 1D));
+            DamageSource ownerSpell = spellSource(owner, "fire_magic");
+            DamageSource strangerSpell = spellSource(stranger, "fire_magic");
+            helper.assertTrue(host.getPlayerUID() == 6561,
+                    "Fixture: the host must belong to the positive-UID owner");
+            helper.assertFalse(shielded.isInvulnerableTo(ownerSpell) || control.isInvulnerableTo(strangerSpell),
+                    "Fixture: invulnerability must not hide a spell hit");
 
-            helper.assertFalse(shielded.hurt(spellSource(owner, "fire_magic"), 10F),
+            helper.assertFalse(shielded.hurt(ownerSpell, 10F),
                     "The owner's spell damage entered the missile's damage pipeline");
             helper.assertFalse(shielded.isRemoved(), "The owner's spell detonated the owner's missile");
 
-            helper.assertTrue(control.hurt(owner.damageSources().magic(), 10F),
-                    "Fixture: magic damage must still detonate the missile");
+            helper.assertTrue(control.hurt(strangerSpell, 10F),
+                    "Fixture: a stranger's spell must still detonate the missile without dodge");
             helper.assertTrue(control.isRemoved(),
+                    "Fixture: a stranger's spell must remove the detonated missile");
+            helper.assertFalse(shielded.isRemoved(), "The control explosion removed the protected missile");
+
+            helper.assertTrue(magicControl.hurt(owner.damageSources().magic(), 10F),
+                    "Fixture: magic damage must still detonate the missile");
+            helper.assertTrue(magicControl.isRemoved(),
                     "Fixture: a detonated missile must be removed, or the assertion above proves nothing");
             helper.succeed();
         }
@@ -220,6 +235,15 @@ public final class AllySpellDamageGuardGameTests {
         if (!helper.getLevel().addFreshEntity(missile)) {
             throw new AssertionError("Failed to add missile");
         }
+        missile.getAttrs().setAttrsBuffed(ID.Attrs.DODGE, 0F);
+        helper.assertTrue(missile.getAttrs().getAttrsBuffed(ID.Attrs.DODGE) == 0F,
+                "Fixture: missile dodge must be zero so damage cannot be randomly avoided");
+        helper.assertTrue(missile.getHostEntity() == host && host.isAlive() && !host.isRemoved(),
+                "Fixture: the missile must have a live host");
+        helper.assertTrue(missile.getPlayerUID() > 0 && missile.getPlayerUID() == host.getPlayerUID(),
+                "Fixture: the missile must copy its host's positive owner UID");
+        helper.assertTrue(missile.isAlive() && !missile.isRemoved() && !missile.isInvulnerable(),
+                "Fixture: the missile must be alive, present and vulnerable before the hit");
         return missile;
     }
 

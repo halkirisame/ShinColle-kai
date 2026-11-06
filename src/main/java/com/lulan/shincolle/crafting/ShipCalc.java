@@ -1,7 +1,11 @@
 package com.lulan.shincolle.crafting;
 
 import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.item.GenericShipSpawnEgg;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.shipdata.ShipChoice;
+import com.lulan.shincolle.shipdata.ShipDefinition;
+import com.lulan.shincolle.shipdata.ShipDefinitionRegistry;
 import com.lulan.shincolle.utility.CalcHelper;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -11,8 +15,10 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Ship roll calculator for shipyard construction.
@@ -28,6 +34,7 @@ public class ShipCalc {
      */
     private static final List<int[]> SHIP_SMALL = new ArrayList<>();
     private static final List<int[]> SHIP_LARGE = new ArrayList<>();
+    private static final AtomicBoolean REPORTED_WEIGHT_CAP = new AtomicBoolean();
 
     static {
         // [PORT] 1.10.2 -> 1.20.1: keep legacy build tables (abyss-first construction)
@@ -67,9 +74,41 @@ public class ShipCalc {
      *
      * @param buildType 0=small, 1=large
      * @param matAmount material amounts {grudge, abyssium, ammo, polymetal}
-     * @return ship class ID
+     * @return built-in class or data-defined identity
      */
-    public static int rollShipType(int buildType, int[] matAmount, RandomSource random) {
+    public static ShipChoice rollShipType(int buildType, int[] matAmount, RandomSource random) {
+        List<ShipDefinition> definitions = ShipDefinitionRegistry.server().all().values().stream()
+                .filter(d -> d.construction().enabled() && d.construction().weight() > 0 && d.construction().matches(buildType))
+                .sorted(java.util.Comparator.comparing(d -> d.id().toString())).toList();
+        List<ShipDefinition> weighted = definitions.stream()
+                .filter(d -> d.construction().mode() == ShipDefinition.ConstructionMode.WEIGHTED).toList();
+        double weight = weighted.stream().mapToDouble(d -> d.construction().weight()).sum();
+        if (weight > 5000 && REPORTED_WEIGHT_CAP.compareAndSet(false, true)) {
+            LogHelper.warn("Weighted ship construction exceeds 50%; scaling the weighted pool proportionally to 50%.");
+        }
+        if (weight > 0 && random.nextDouble() < Math.min(weight / 10000, 0.5)) {
+            double roll = random.nextDouble() * weight;
+            for (ShipDefinition definition : weighted) {
+                roll -= definition.construction().weight();
+                if (roll < 0) return new ShipChoice.Defined(definition.id());
+            }
+            return new ShipChoice.Defined(weighted.get(weighted.size() - 1).id());
+        }
+        Map<ShipChoice, Float> probList = materialTable(buildType, matAmount, definitions);
+        float totalProb = 0F;
+        for (float p : probList.values()) totalProb += p;
+        if (totalProb <= 0F) return new ShipChoice.BuiltIn(ID.ShipClass.DDI);
+
+        float roll = random.nextFloat() * totalProb;
+        float sumProb = 0.0125F;
+        for (Map.Entry<ShipChoice, Float> entry : probList.entrySet()) {
+            sumProb += entry.getValue();
+            if (sumProb > roll) return entry.getKey();
+        }
+        return new ShipChoice.BuiltIn(ID.ShipClass.DDI);
+    }
+
+    private static Map<ShipChoice, Float> materialTable(int buildType, int[] matAmount, List<ShipDefinition> definitions) {
         List<int[]> shipList = buildType == 0 ? SHIP_SMALL : SHIP_LARGE;
         int totalMats = matAmount[0] + matAmount[1] + matAmount[2] + matAmount[3];
 
@@ -97,25 +136,26 @@ public class ShipCalc {
                     " MD " + meanDist + " PR " + prob);
         }
 
-        // Weighted roll
-        float totalProb = 0F;
-        for (float p : probList.values())
-            totalProb += p;
-        if (totalProb <= 0F)
-            return ID.ShipClass.DDI;
-
-        float roll = random.nextFloat() * totalProb;
-        float sumProb = 0.0125F;
-
-        for (Map.Entry<Integer, Float> entry : probList.entrySet()) {
-            sumProb += entry.getValue();
-            if (sumProb > roll) {
-                LogHelper.debug("DEBUG: roll ship type: result=" + entry.getKey());
-                return entry.getKey();
-            }
+        // Keep the inherited float guard within the built-in pool, not on a low-weight addon tail.
+        Map<ShipChoice, Float> result = new LinkedHashMap<>();
+        List<Map.Entry<Integer, Float>> builtIns = new ArrayList<>(probList.entrySet());
+        for (int i = 0; i < builtIns.size() - 1; i++) {
+            Map.Entry<Integer, Float> entry = builtIns.get(i);
+            result.put(new ShipChoice.BuiltIn(entry.getKey()), entry.getValue());
         }
-
-        return ID.ShipClass.DDI;
+        for (ShipDefinition definition : definitions) {
+            ShipDefinition.Construction settings = definition.construction();
+            if (settings.mode() != ShipDefinition.ConstructionMode.MATERIAL) continue;
+            long mean = settings.materialMean().orElseThrow();
+            if (settings.materialBias().isPresent()) mean -= matAmount[settings.materialBias().get().index()];
+            long distance = Math.abs((long) totalMats - mean);
+            if (buildType == 0) distance = (long) (distance * 15.625F);
+            float probability = CalcHelper.getNormDist((int) Math.min(distance, Integer.MAX_VALUE));
+            result.put(new ShipChoice.Defined(definition.id()), probability * (settings.weight() / 100F));
+        }
+        Map.Entry<Integer, Float> last = builtIns.get(builtIns.size() - 1);
+        result.put(new ShipChoice.BuiltIn(last.getKey()), last.getValue());
+        return result;
     }
 
     /**
@@ -127,11 +167,16 @@ public class ShipCalc {
      * @return spawn egg with rolled ship class in NBT
      */
     public static ItemStack rollShip(int[] matAmount, int buildType, RandomSource random) {
-        int shipClass = rollShipType(buildType, matAmount, random);
+        ShipChoice choice = rollShipType(buildType, matAmount, random);
 
-        ItemStack egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("ShipClass", shipClass);
+        ItemStack egg;
+        if (choice instanceof ShipChoice.Defined defined) {
+            egg = GenericShipSpawnEgg.create(defined.id(), false);
+        } else {
+            egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
+            egg.getOrCreateTag().putInt("ShipClass", ((ShipChoice.BuiltIn) choice).shipClass());
+        }
+        CompoundTag tag = egg.getOrCreateTag();
         tag.putByte("BuildType", (byte) buildType);
         tag.putInt("Grudge", matAmount[0]);
         tag.putInt("Abyssium", matAmount[1]);

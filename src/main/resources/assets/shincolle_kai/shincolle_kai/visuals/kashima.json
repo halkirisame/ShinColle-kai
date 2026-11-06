@@ -5,6 +5,12 @@
   "animation": "shincolle_kai:animations/kashima.animation.json",
   "scale": 0.46,
   "shadow_radius": 0.35,
+  "head_follow": {
+    "bones": ["Hair01", "Hair02a1", "Hair02bL1", "Hair02bR1", "HairL01", "HairL02", "HairR01", "HairR02",
+              "TailL01", "TailR01", "TailL02", "TailR02"],
+    "coefficient": 0.5,
+    "overrides": {"HairR02": {"z": 1.0}}
+  },
   "glow_bones": ["Face0", "Face1", "Face2", "Face3", "Face4", "Mouth0", "Mouth1", "Mouth2", "Flush0", "Flush1"],
   "held_item": {
     "offset": [0.0625, -0.625, 0.125],

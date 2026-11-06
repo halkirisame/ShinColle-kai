@@ -53,6 +53,26 @@ public final class ShipVisuals extends SimplePreparableReloadListener<ShipVisual
     private static final ResourceLocation PLACEHOLDER_ID = new ResourceLocation("shincolle_kai", "placeholder");
     private static final Set<String> WARNED = ConcurrentHashMap.newKeySet();
     private static volatile Snapshot snapshot;
+    private static ResourceManager textureResources;
+    private static final Map<ResourceLocation, Boolean> TEXTURES = new HashMap<>();
+
+    public record Resolved(Loaded visual, ResourceLocation texture) { }
+
+    public static Resolved resolve(ResourceLocation id, String individualTexture) {
+        Loaded base = resolve(id);
+        if (base == null) return null;
+        if (base == snapshot.placeholder() || individualTexture.isEmpty()) return new Resolved(base, base.definition().texture());
+        ResourceLocation texture = new ResourceLocation(individualTexture);
+        boolean exists = TEXTURES.computeIfAbsent(texture, key -> textureResources.getResource(key).isPresent());
+        if (exists) return new Resolved(base, texture);
+        warnOnce("texture:" + texture, "Missing individual ship texture " + texture + "; using placeholder");
+        Loaded placeholder = snapshot.placeholder();
+        return new Resolved(placeholder, placeholder.definition().texture());
+    }
+
+    static void clearTextureCache() {
+        TEXTURES.clear();
+    }
 
     private ShipVisuals() { }
 
@@ -62,9 +82,11 @@ public final class ShipVisuals extends SimplePreparableReloadListener<ShipVisual
         return snapshot;
     }
 
+    /** Null only before the first resource generation is ready; callers must defer rendering. */
+    @javax.annotation.Nullable
     public static Loaded resolve(ResourceLocation id) {
         Snapshot current = snapshot;
-        if (current == null) throw new IllegalStateException("Ship visuals have not loaded");
+        if (current == null) return null;
         return ShipVisualPolicy.select(current.visuals(), id, current.placeholder(), missing ->
                 warnOnce("visual:" + missing, "Missing/rejected ship visual " + missing + "; using placeholder"));
     }
@@ -140,6 +162,10 @@ public final class ShipVisuals extends SimplePreparableReloadListener<ShipVisual
         for (String slot : ShipVisualPresentation.SLOT_SIZES.keySet()) {
             expressions.put(slot, ShipVisualPresentation.expressionBones(definition, slot, bones));
         }
+        var follow = definition.headFollow();
+        if (!bones.containsAll(follow.bones()) || !follow.bones().containsAll(follow.overrides().keySet())) {
+            throw new IllegalArgumentException("Missing or unselected head_follow bone");
+        }
         Set<String> glowRoots = ShipVisualPolicy.boneRoots(definition.glowBones(), bones, missing ->
                 warnOnce("glow:" + id, "Ship visual " + id + " lacks Glow bone " + missing + "; Glow disabled"));
         Set<String> lodRoots = ShipVisualPolicy.boneRoots(definition.lod().hideBones(), bones, missing ->
@@ -170,6 +196,9 @@ public final class ShipVisuals extends SimplePreparableReloadListener<ShipVisual
     protected void apply(Snapshot candidate, ResourceManager resources, ProfilerFiller profiler) {
         if (candidate != null) {
             snapshot = candidate;
+            textureResources = resources;
+            clearTextureCache();
+            ShipAuraClient.reset();
             LogUtils.getLogger().info("Loaded {} ship visuals", candidate.visuals().size());
         }
     }

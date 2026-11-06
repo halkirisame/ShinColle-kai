@@ -2,6 +2,7 @@ package com.lulan.shincolle.compat.jei;
 
 import com.lulan.shincolle.client.gui.GuiDesk;
 import com.lulan.shincolle.client.gui.GuiShipInventory;
+import com.lulan.shincolle.crafting.RecipeEggDismantle;
 import com.lulan.shincolle.equip.ShipEquipSlots;
 import com.lulan.shincolle.equipdata.ClientEquipData;
 import com.lulan.shincolle.equipdata.EquipmentAvailabilityStacks;
@@ -20,6 +21,7 @@ import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.ISubtypeRegistration;
+import mezz.jei.api.registration.IVanillaCategoryExtensionRegistration;
 import mezz.jei.api.runtime.IClickableIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
@@ -59,6 +61,12 @@ public class ShinColleJeiPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
         return PLUGIN_ID;
+    }
+
+    @Override
+    public void registerVanillaCategoryExtensions(IVanillaCategoryExtensionRegistration registration) {
+        registration.getCraftingCategory().addCategoryExtension(RecipeEggDismantle.class,
+                EggDismantleCraftingExtension::new);
     }
 
     @Override

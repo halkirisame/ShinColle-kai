@@ -134,14 +134,38 @@ class CommandPipelineTest {
             assertTrue(FormationGate.move(size, List.of(), false));
         }
         assertFalse(FormationGate.move(4, List.of(), false));
-        assertFalse(FormationGate.move(5, List.of(CommandRejectReason.OUT_OF_RANGE), false));
-        assertFalse(FormationGate.move(5, List.of(CommandRejectReason.OTHER_DIMENSION), false));
+        for (CommandRejectReason reason : CommandRejectReason.values()) {
+            assertTrue(FormationGate.move(5, List.of(reason), false), reason.name());
+        }
         assertFalse(FormationGate.move(5, List.of(), true));
         assertTrue(FormationGate.move(5, List.of(CommandRejectReason.NO_FUEL), false));
         assertFalse(FormationGate.move(4, List.of(CommandRejectReason.NO_FUEL), false));
         assertEquals(CommandRejectReason.NO_FUEL, FormationGate.rejection(CommandRejectReason.NO_FUEL));
-        assertEquals(CommandRejectReason.FORMATION_UNSATISFIED,
-                FormationGate.rejection(CommandRejectReason.OUT_OF_RANGE));
+        for (CommandRejectReason reason : CommandRejectReason.values()) {
+            assertEquals(reason, FormationGate.rejection(reason));
+        }
+        assertEquals(CommandRejectReason.FORMATION_UNSATISFIED, FormationGate.rejection(null));
+    }
+
+    @Test
+    void formationNotificationGroupsSortedVisibleSlotsAndKeepsFailureReasons() {
+        var result = new CommandDispatchResult(List.of(), List.of(
+                new RejectedEntry(new CommandRecipient(5, 15), CommandRejectReason.OUT_OF_RANGE),
+                new RejectedEntry(new CommandRecipient(1, 11), CommandRejectReason.OUT_OF_RANGE),
+                new RejectedEntry(new CommandRecipient(2, 12), CommandRejectReason.NOT_FOUND),
+                new RejectedEntry(new CommandRecipient(3, 13), CommandRejectReason.NO_FUEL),
+                new RejectedEntry(new CommandRecipient(0, 10), CommandRejectReason.FORMATION_UNSATISFIED)));
+        var formation = CommandNotification.summarize(result, List.of(), true);
+        assertTrue(formation.formationUnsatisfied());
+        assertEquals(List.of(new CommandNotification.ReasonCount(CommandRejectReason.OUT_OF_RANGE, 2, List.of(2, 6)),
+                new CommandNotification.ReasonCount(CommandRejectReason.NOT_FOUND, 1, List.of(3)),
+                new CommandNotification.ReasonCount(CommandRejectReason.NO_FUEL, 1, List.of(4))), formation.reasons());
+        var group = CommandNotification.summarize(result, List.of());
+        assertEquals(List.of(new CommandNotification.ReasonCount(CommandRejectReason.OUT_OF_RANGE, 2),
+                new CommandNotification.ReasonCount(CommandRejectReason.NOT_FOUND, 1)), group.reasons());
+        var outside = new CommandDispatchResult(List.of(), List.of(
+                new RejectedEntry(new CommandRecipient(-1, 20), CommandRejectReason.NOT_OWNED)));
+        assertTrue(CommandNotification.summarize(outside, List.of(), true).reasons().get(0).slots().isEmpty());
     }
 
     @Test

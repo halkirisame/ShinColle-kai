@@ -60,7 +60,7 @@ public class AddItemModifier extends LootModifier {
      * and never a damage source, and it carries the destroying entity as {@code THIS_ENTITY} - which
      * is why an unguarded modifier adds grudge to every block a creeper blows up.
      */
-    private static boolean isMobDeathLoot(LootContext context) {
+    static boolean isMobDeathLoot(LootContext context) {
         return context.hasParam(LootContextParams.DAMAGE_SOURCE)
                 && !context.hasParam(LootContextParams.BLOCK_STATE);
     }

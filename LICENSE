@@ -3,6 +3,10 @@ core in src/ai_core (the com.lulan.shincolle.ai.domain package), which is licens
 under the PolyForm Shield License 1.0.0 as described in src/ai_core/LICENSE.
 Portions of src/ai_core derived from ShinColle and ShinColle-Reforge, and code
 published in ShinColle-kai 1.20.1-0.11.0 or earlier, remain under the MIT License.
+Safari Net textures in src/main/resources/assets/shincolle_kai/textures/item/safari_net
+are All Rights Reserved except for the uses listed in the LICENSE in that
+directory (play, modpacks, videos, fan works, and addons and resource packs
+for ShinColle-kai); including them in other mods or forks is not permitted.
 
 ----------------------------------------------------------------------------------------
 

@@ -892,29 +892,51 @@ public class Values {
                     new int[]{0, 1, 0, 0}));
             // page 1
             put(1, Arrays.asList(new int[]{0, 0, 0, 0},
-                    new int[]{0, 1, 0, 0}));
+                    new int[]{0, 1, 0, 0},
+                    new int[]{4, 1, 0, 119, 3, 11, 0}));
             // page 2
             put(2, Arrays.asList(new int[]{0, 0, 0, 0},
-                    new int[]{0, 1, 0, 0}));
+                    new int[]{0, 1, 0, 0},
+                    new int[]{4, 1, 0, 86, 1, 0, 0},
+                    new int[]{4, 1, 0, 97, 1, 1, 1},
+                    new int[]{4, 1, 0, 108, 1, 3, 2},
+                    new int[]{4, 1, 0, 119, 1, 2, 3}));
             // page 3
             put(3, Arrays.asList(new int[]{0, 0, 0, 0},
-                    new int[]{0, 1, 0, 0}));
+                    new int[]{0, 1, 0, 0},
+                    new int[]{1, 0, 0, -6, 0, 100, 72, 100, 62},
+                    new int[]{2, 0, 3, -3, ID.Icon.Grudge},
+                    new int[]{2, 0, 23, -3, ID.Icon.LaBucket},
+                    new int[]{2, 0, 43, -3, ID.Icon.Grudge},
+                    new int[]{2, 0, 3, 17, ID.Icon.LaBucket},
+                    new int[]{2, 0, 23, 17, ID.Icon.ObsidianB},
+                    new int[]{2, 0, 43, 17, ID.Icon.LaBucket},
+                    new int[]{2, 0, 3, 37, ID.Icon.ObsidianB},
+                    new int[]{2, 0, 23, 37, ID.Icon.ObsidianB},
+                    new int[]{2, 0, 43, 37, ID.Icon.ObsidianB},
+                    new int[]{2, 0, 81, 17, ID.Icon.SmallSY},
+                    new int[]{4, 1, 0, 119, 2, 0, 0}));
             // page 4
             put(4, Arrays.asList(new int[]{0, 0, 0, 0},
-                    new int[]{0, 1, 0, 0}));
+                    new int[]{0, 1, 0, 0},
+                    new int[]{4, 1, 0, 108, 2, 1, 0},
+                    new int[]{4, 1, 0, 119, 2, 5, 1}));
             // page 5: large shipyard (owner instruction 2026-09-14: the finished-structure
             // picture from chap 2 page 3 (put(2003, ...)), stacked as two 1:1 pictures on
             // the right page; no layer pictures, no chap0.text5d1 key)
             put(5, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0},
                     new int[]{1, 1, 29, 6, 0, 100, 188, 49, 49},
-                    new int[]{1, 1, 29, 63, 0, 150, 180, 50, 65}));
+                    new int[]{1, 1, 29, 63, 0, 150, 180, 50, 65},
+                    new int[]{4, 0, 0, 119, 2, 3, 0}));
             // page 6
             put(6, Arrays.asList(new int[]{0, 0, 0, 0},
-                    new int[]{0, 1, 0, 0}));
+                    new int[]{0, 1, 0, 0},
+                    new int[]{4, 0, 0, 119, 1, 4, 0}));
             // page 7
             put(7, Arrays.asList(new int[]{0, 0, 0, 0},
-                    new int[]{0, 1, 0, 0}));
+                    new int[]{0, 1, 0, 0},
+                    new int[]{4, 0, 0, 119, 1, 11, 0}));
             // page 8
             put(8, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0}));
@@ -933,6 +955,15 @@ public class Values {
             // page 13
             put(13, Arrays.asList(new int[]{0, 0, 0, 0},
                     new int[]{0, 1, 0, 0}));
+            // page 14
+            put(14, Arrays.asList(new int[]{0, 0, 0, 0},
+                    new int[]{0, 1, 0, 0},
+                    new int[]{4, 1, 0, 4, 1, 0, 0},
+                    new int[]{4, 1, 0, 20, 2, 0, 1},
+                    new int[]{4, 1, 0, 36, 3, 0, 2},
+                    new int[]{4, 1, 0, 52, 4, 0, 3},
+                    new int[]{4, 1, 0, 68, 5, 0, 4},
+                    new int[]{4, 1, 0, 84, 6, 0, 5}));
 
             // chap 1: resources
             // page 0: grudge

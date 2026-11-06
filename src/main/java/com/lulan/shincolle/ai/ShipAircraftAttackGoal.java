@@ -1,6 +1,7 @@
 package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.entity.BasicEntityAirplane;
+import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.utility.BlockHelper;
 import net.minecraft.world.entity.Entity;
@@ -30,6 +31,8 @@ public class ShipAircraftAttackGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (this.host.getHost() instanceof BasicEntityShip ship && ship.hasTargetAuthority()
+                && !this.host.activeForOwnerAssist()) return false;
         if (!this.host.canFindTarget())
             return false;
 
@@ -62,6 +65,7 @@ public class ShipAircraftAttackGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        if (this.host.getHost() instanceof BasicEntityShip ship && ship.hasTargetAuthority()) return this.canUse();
         if (!this.host.canFindTarget())
             return false;
         return this.canUse() || (this.target != null && this.target.isAlive());
@@ -87,6 +91,10 @@ public class ShipAircraftAttackGoal extends Goal {
 
     @Override
     public void tick() {
+        if (this.host.getHost() instanceof BasicEntityShip ship && ship.hasTargetAuthority()) {
+            // Follow the authority projection without restarting the goal or its attack interval.
+            this.target = this.host.activeForOwnerAssist() ? this.host.getEntityTarget() : null;
+        }
         if (this.target == null)
             return;
 

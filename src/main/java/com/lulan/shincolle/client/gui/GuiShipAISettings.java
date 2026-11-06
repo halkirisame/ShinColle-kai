@@ -1,6 +1,7 @@
 package com.lulan.shincolle.client.gui;
 
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.client.ShipInteractionClientConfig;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.WaypointStayTime;
@@ -55,7 +56,7 @@ public class GuiShipAISettings extends Screen {
 
     // ========== Row model ==========
 
-    private sealed interface Row permits Section, Toggle, Slider, TaskPick, MaskBit, SideGrid {
+    private sealed interface Row permits Section, Toggle, ClickSwapToggle, Slider, TaskPick, MaskBit, SideGrid {
         int height(BasicEntityShip ship);
     }
 
@@ -84,6 +85,13 @@ public class GuiShipAISettings extends Screen {
 
         boolean available(BasicEntityShip ship) {
             return condFlag < 0 || ship.getStateFlag(condFlag);
+        }
+    }
+
+    /** Player-local preference, not a ship flag. */
+    private record ClickSwapToggle() implements Row {
+        public int height(BasicEntityShip ship) {
+            return ROW_H;
         }
     }
 
@@ -124,6 +132,7 @@ public class GuiShipAISettings extends Screen {
     private static final String[] SIDE_NAMES = {"Down", "Up", "North", "South", "West", "East"};
 
     private static final List<Row> ROWS = List.of(
+            new ClickSwapToggle(),
             new Section("gui.shincolle_kai.aisec.attack", "Attack"),
             new Toggle(ID.F.UseMelee, ID.B.ShipInv_Melee, -1,
                     "gui.shincolle_kai.canmelee", "Melee Attack",
@@ -360,6 +369,10 @@ public class GuiShipAISettings extends Screen {
         if (row instanceof Section s) {
             graphics.drawString(this.font, tr(s.key(), s.fallback()), x, y + 5, 0xFFD24A, false);
             graphics.fill(x, y + SECTION_H - 2, x + w, y + SECTION_H - 1, 0x40FFFFFF);
+        } else if (row instanceof ClickSwapToggle) {
+            graphics.drawString(this.font, tr("gui.shincolle_kai.aisettings.swapclick",
+                    "Swap right-click actions"), x + 2, y + 3, 0xE0E0E0, false);
+            drawToggleSprite(graphics, x + w - CELL - 2, y + 1, ShipInteractionClientConfig.swapClicks());
         } else if (row instanceof Toggle t) {
             boolean available = t.available(ship);
             boolean on = ship.getStateFlag(t.flagId());
@@ -438,7 +451,12 @@ public class GuiShipAISettings extends Screen {
             }
             return out;
         }
-        if (row instanceof Slider s) {
+        if (row instanceof ClickSwapToggle) {
+            title = tr("gui.shincolle_kai.aisettings.swapclick", "Swap right-click actions");
+            desc = tr("gui.shincolle_kai.aisettings.swapclick.desc",
+                    "On: right-click opens the ship inventory; sneak-right-click toggles sitting. "
+                    + "Applies to all your ships on this client. Item-specific actions are unchanged.");
+        } else if (row instanceof Slider s) {
             title = tr(s.key(), s.fallback());
             desc = tr(s.descKey(), s.descFallback());
         } else if (row instanceof MaskBit m) {
@@ -506,6 +524,10 @@ public class GuiShipAISettings extends Screen {
     private boolean handleRowClick(Row row, int mouseX, int mouseY, int rowY) {
         int x = rowLeft();
 
+        if (row instanceof ClickSwapToggle) {
+            ShipInteractionClientConfig.setSwapClicks(!ShipInteractionClientConfig.swapClicks());
+            return true;
+        }
         if (row instanceof Toggle t) {
             if (!t.available(ship)) {
                 return true; // consume, but a gated setting can't be changed

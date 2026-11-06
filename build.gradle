@@ -37,6 +37,7 @@ def includeKubeJSRuntime = providers.gradleProperty('shincolleKubeJSRuntime')
 //   -PshincolleMinimalRuntime=true   drop every optional mod at once
 //   -PshincolleCuriosRuntime=false   drop just Curios
 //   -PshincolleTinkersRuntime=false  drop just Tinkers' Construct (+ Mantle)
+//   -PshincolleMekanismRuntime=false drop just Mekanism
 def minimalRuntime = providers.gradleProperty('shincolleMinimalRuntime')
         .map { Boolean.parseBoolean(it) }
         .getOrElse(false)
@@ -49,6 +50,7 @@ def optionalRuntime = { String property ->
 def includeJEIRuntime = optionalRuntime('shincolleJEIRuntime')
 def includeCuriosRuntime = optionalRuntime('shincolleCuriosRuntime')
 def includeTinkersRuntime = optionalRuntime('shincolleTinkersRuntime')
+def includeMekanismRuntime = optionalRuntime('shincolleMekanismRuntime')
 def includeFTBQuestsRuntime = !minimalRuntime && providers.gradleProperty('shincolleFTBQuestsRuntime')
         .map { Boolean.parseBoolean(it) }.getOrElse(false)
 
@@ -62,6 +64,7 @@ sourceSets {
 
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
     copyIdeResources = true
 
@@ -141,6 +144,10 @@ sourceSets {
         resources.srcDir 'examples/java_addon/src/main/resources'
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
     }
+}
+
+if (providers.gradleProperty('shincolleShipPreview').getOrElse('false').toBoolean()) {
+    apply from: 'tools/ship-preview/preview.gradle'
 }
 
 // Machine-local build additions, applied only when the file exists outside this repository.
@@ -319,6 +326,7 @@ tasks.matching { it.name == 'runKubeJSGameTestServer' }.configureEach {
 
 // Expand gradle.properties into mods.toml
 tasks.named('processResources', ProcessResources).configure {
+    filteringCharset = 'UTF-8'
     var replaceProperties = [
         minecraft_version   : minecraft_version,
         minecraft_version_range: minecraft_version_range,
@@ -383,6 +391,11 @@ repositories {
         url = 'https://maven.latvian.dev/releases/'
         content { includeGroup 'dev.latvian.mods' }
     }
+    maven {
+        name = 'ModMaven'
+        url = 'https://modmaven.dev/'
+        content { includeGroup 'mekanism' }
+    }
 }
 
 dependencies {
@@ -421,6 +434,14 @@ dependencies {
     if (includeTinkersRuntime) {
         runtimeOnly fg.deobf("curse.maven:mantle-74924:7414488")
         runtimeOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
+    }
+
+    // Mekanism - optional. Adds polymetal ore to Mekanism's 2x-5x ore processing
+    // (see com.lulan.shincolle.compat.mekanism). Only that package references
+    // the Mekanism API, behind a ModList.isLoaded("mekanism") guard.
+    compileOnly "mekanism:Mekanism:${mekanism_version}:api"
+    if (includeMekanismRuntime) {
+        runtimeOnly fg.deobf("mekanism:Mekanism:${mekanism_version}")
     }
 
     // KubeJS - optional scripting adapter. The integration class is discovered
@@ -480,6 +501,9 @@ dependencies {
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+    inputs.dir('examples/ship_addon')
+    inputs.files('docs/ship_addon_data.md', 'docs/ship_addon_data.en.md',
+            'docs/schemas/shincolle_kai-ship_definition.schema.json', 'docs/schemas/shincolle_kai-ship_visual.schema.json')
     // JUnit has no Forge jar-in-jar loader; use the same nested math library as the game.
     classpath += files(provider {
         def gecko = configurations.runtimeClasspath.find { it.name.startsWith('geckolib-forge-1.20.1-4.8.4') }

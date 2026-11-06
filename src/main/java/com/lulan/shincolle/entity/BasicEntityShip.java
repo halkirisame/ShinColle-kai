@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.ShinColle;
 import com.lulan.shincolle.ai.*;
+import com.lulan.shincolle.ai.diag.TickStallProbe;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.TargetLock;
 import com.lulan.shincolle.ai.domain.action.ActionKind;
@@ -60,6 +61,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
@@ -86,9 +89,11 @@ import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -100,7 +105,9 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -127,6 +134,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     public static final float MIN_MOV_RATIO = 0.1F;
     private static final Set<String> REPORTED_INVALID_EQUIPMENT = ConcurrentHashMap.newKeySet();
     private static final Set<String> REPORTED_INVALID_EQUIPMENT_SCALE = ConcurrentHashMap.newKeySet();
+    private final Set<net.minecraft.world.level.ChunkPos> forcedShipChunks = new java.util.HashSet<>();
 
     // misc flags
     public static boolean stopAI = false;
@@ -188,6 +196,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * ship attributes: hp, def, atk, ...
      */
     protected AttrsAdv shipAttrs;
+    private transient long nextHealSynergyTick;
     /** Domain-owned state storage. Minecraft-facing methods delegate to it. */
     private final ShipStateAggregate shipState;
     /**
@@ -507,6 +516,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.goalSelector.addGoal(1, new ShipSitGoal(this));
         if (ShipSkillAttackGate.supported(this)) this.goalSelector.addGoal(0, new ShipSpecialAttackGoal(this));
         this.goalSelector.addGoal(2, new ShipFleeGoal(this));
+        this.goalSelector.addGoal(3, new com.lulan.shincolle.ai.ShipCranePositionGoal(this));
         this.goalSelector.addGoal(3, new ShipGuardingGoal(this));
         this.goalSelector.addGoal(4, new ShipFollowOwnerGoal(this));
         this.goalSelector.addGoal(5, new ShipOpenDoorGoal(this, true));
@@ -591,6 +601,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void readAdditionalSaveData(CompoundTag nbt) {
+        if (this.targetAuthorityGoal != null) this.targetAuthorityGoal.clearOwnerAssist();
         this.hasPreviousTravelSample = false;
         super.readAdditionalSaveData(nbt);
         this.setManualTarget(null);
@@ -631,6 +642,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected void setLevel(Level level) {
         if (this.level() != null && !this.level().dimension().equals(level.dimension())) {
             this.hasPreviousTravelSample = false;
+            com.lulan.shincolle.ai.ShipCraneStateAdapter.reset(this);
         }
         super.setLevel(level);
     }
@@ -639,6 +651,18 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void tick() {
+        boolean probing = TickStallProbe.isEnabled() && !this.level().isClientSide();
+        long probeStart = probing ? TickStallProbe.entityTickBegin() : 0L;
+        try {
+            this.tickMeasured();
+        } finally {
+            if (probing) {
+                TickStallProbe.entityTickEnd(this, probeStart);
+            }
+        }
+    }
+
+    private void tickMeasured() {
         if (!this.level().isClientSide()) {
             Entity vehicle = this.recentlyDismountedVanillaVehicle;
             this.recentlyDismountedVanillaVehicle = null;
@@ -651,6 +675,9 @@ public abstract class BasicEntityShip extends TamableAnimal
             this.setNoAi(stopAI);
         }
         super.tick();
+        if (!this.level().isClientSide()) {
+            ShipMovementExecutor.continueDetour(this);
+        }
         this.tickBuffMapSync();
         this.syncRotationToMount();
 
@@ -836,6 +863,8 @@ public abstract class BasicEntityShip extends TamableAnimal
             // timer ticking
             updateServerTimer();
             updateBothSideTimer();
+
+            com.lulan.shincolle.ai.ShipResourceGate.tickPump(this);
 
             // register/update ship ID and owner ID in ServerDataManager
             updateShipCacheData(false);
@@ -3689,6 +3718,14 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (hand == InteractionHand.MAIN_HAND && !player.isShiftKeyDown()
+                && player.getItemInHand(hand).getItem() instanceof com.lulan.shincolle.item.SafariNetItem net) {
+            return net.capture(player, this, hand);
+        }
+        if (hand == InteractionHand.MAIN_HAND && !player.isShiftKeyDown()
+                && player.getItemInHand(hand).getItem() instanceof com.lulan.shincolle.item.SoulTalismanItem talisman) {
+            return talisman.capture(player, this, hand);
+        }
         // disable off-hand, dead entities don't respond
         if (hand == InteractionHand.OFF_HAND || !this.isAlive())
             return InteractionResult.FAIL;
@@ -3793,8 +3830,9 @@ public abstract class BasicEntityShip extends TamableAnimal
             // [PORT] 1.10.2 -> 1.20.1: allow UUID ownership fallback when UID capability
             // has not synced yet, so sit toggle does not silently fail.
             if (TeamHelper.checkSameOwner(this, player) || this.isOwnedBy(player)) {
-                // sneak: open GUI
-                if (player.isShiftKeyDown()) {
+                // The owner's client preference swaps only these two fallback actions.
+                if (player.isShiftKeyDown() != com.lulan.shincolle.handler.ShipInteractionPreferences
+                        .swapClicks(player.getUUID())) {
                     if (player instanceof ServerPlayer sp) {
                         this.openGUI(sp);
                     }
@@ -3829,6 +3867,8 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void die(DamageSource source) {
+        this.clearChunkLoader();
+        com.lulan.shincolle.ai.ShipCraneStateAdapter.reset(this);
         RuBurstAttackGate.ended(this, com.lulan.shincolle.ai.domain.combat.RuBurstDecision.Reason.NOT_ALIVE);
         ShipSkillAttackGate.cancel(this);
         boolean wasDead = this.dead;
@@ -3846,6 +3886,8 @@ public abstract class BasicEntityShip extends TamableAnimal
         super.die(source);
         if (!wasDead && this.dead) {
             if (!this.level().isClientSide()) {
+                com.lulan.shincolle.handler.ShipFollowRecallHandler.cancelShip(this,
+                        com.lulan.shincolle.ai.domain.movement.RecallCancellation.SHIP_DIED);
                 this.sendSunkLocationMessage();
                 this.updateSunkLocation(BlockPos.containing(this.getX(), this.getY(), this.getZ()));
             }
@@ -4004,31 +4046,110 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public void heal(float healAmount) {
+        float hpres = this.shipAttrs == null ? 1F : this.shipAttrs.getAttrsBuffed(ID.Attrs.HPRES);
         // server side
         if (!this.level().isClientSide()) {
             // apply heal particle
             ModNetworking.sendToAllTracking(
                     new S2CSpawnParticlePacket((byte) 23, this.getId(), null), this);
+            healAmount = this.addNearbyPotionHeal(healAmount, hpres);
         }
 
         // apply HPRES buff multiplier
-        if (this.shipAttrs != null) {
-            healAmount *= this.shipAttrs.getAttrsBuffed(ID.Attrs.HPRES);
-        }
+        healAmount *= hpres;
 
         super.heal(healAmount);
+    }
+
+    private float addNearbyPotionHeal(float base, float hpres) {
+        float maxHealth = this.getMaxHealth();
+        if (!this.isAlive() || this.isRemoved() || this.getHealth() <= 0F || this.getHealth() >= maxHealth
+                || !Float.isFinite(base) || base <= 0F || !Float.isFinite(maxHealth) || maxHealth <= 0F
+                || !Float.isFinite(hpres) || hpres <= 0F || this.tickCount < this.nextHealSynergyTick) {
+            return base;
+        }
+        this.nextHealSynergyTick = (long) this.tickCount + 20L;
+        float hp1p = Math.max(maxHealth * 0.01F, 1F);
+        float bonus = 0F;
+        Comparator<Entity> order = Comparator.comparingDouble((Entity source) -> this.distanceToSqr(source))
+                .thenComparing(Entity::getUUID);
+        List<AreaEffectCloud> clouds = this.level().getEntitiesOfClass(AreaEffectCloud.class,
+                this.getBoundingBox().inflate(3D), cloud -> !cloud.isRemoved() && cloud.getRadius() > 0F
+                        && cloud.tickCount >= cloud.getWaitTime()
+                        && (long) cloud.tickCount < (long) cloud.getWaitTime() + cloud.getDuration());
+        clouds.sort(order);
+        for (AreaEffectCloud cloud : clouds) {
+            List<MobEffectInstance> effects = new ArrayList<>(cloud.getPotion().getEffects());
+            ListTag custom = cloud.saveWithoutId(new CompoundTag()).getList("Effects", Tag.TAG_COMPOUND);
+            for (int i = 0; i < custom.size(); i++) {
+                MobEffectInstance effect = MobEffectInstance.load(custom.getCompound(i));
+                if (effect != null) effects.add(effect);
+            }
+            int level = healingPotionLevel(effects);
+            if (level > 0) {
+                bonus = (hp1p + 3F) * (1F + level * 0.5F);
+                break;
+            }
+        }
+        if (bonus == 0F) {
+            List<ThrownPotion> potions = this.level().getEntitiesOfClass(ThrownPotion.class,
+                    this.getBoundingBox().inflate(3D), potion -> !potion.isRemoved());
+            potions.sort(order);
+            for (ThrownPotion potion : potions) {
+                int level = healingPotionLevel(PotionUtils.getMobEffects(potion.getItem()));
+                if (level > 0) {
+                    bonus = (hp1p + 6F) * (1F + level * 0.5F);
+                    break;
+                }
+            }
+        }
+        float combined = base + bonus;
+        return Float.isFinite(bonus) && Float.isFinite(combined) && Float.isFinite(combined * hpres) ? combined : base;
+    }
+
+    private static int healingPotionLevel(List<MobEffectInstance> effects) {
+        for (MobEffectInstance effect : effects) {
+            if (effect.getEffect() == MobEffects.HEAL || effect.getEffect() == MobEffects.REGENERATION) {
+                long level = (long) effect.getAmplifier() + 1L;
+                if (level > 0L) return (int) Math.min(level, 5L);
+            }
+        }
+        return 0;
     }
 
     // ========== Remove / Cleanup ==========
 
     @Override
+    public void setOwnerUUID(@javax.annotation.Nullable UUID owner) {
+        UUID previous = this.getOwnerUUID();
+        super.setOwnerUUID(owner);
+        if (!java.util.Objects.equals(previous, owner) && this.targetAuthorityGoal != null) {
+            this.targetAuthorityGoal.clearOwnerAssist();
+        }
+        if (previous != null && !java.util.Objects.equals(previous, owner)) {
+            com.lulan.shincolle.handler.ShipFollowRecallHandler.cancelOwnedShip(this, previous,
+                    com.lulan.shincolle.ai.domain.movement.RecallCancellation.OWNER_CHANGED);
+        }
+    }
+
+    @Override
     protected void removeAfterChangingDimensions() {
+        this.clearChunkLoader();
+        if (this.targetAuthorityGoal != null) this.targetAuthorityGoal.clearOwnerAssist();
+        com.lulan.shincolle.handler.ShipFollowRecallHandler.cancelShip(this,
+                com.lulan.shincolle.ai.domain.movement.RecallCancellation.DIMENSION_CHANGED);
         RuBurstAttackGate.ended(this, com.lulan.shincolle.ai.domain.combat.RuBurstDecision.Reason.DIMENSION_CHANGED);
         super.removeAfterChangingDimensions();
     }
 
     @Override
     public void remove(RemovalReason reason) {
+        if (this.targetAuthorityGoal != null) this.targetAuthorityGoal.clearOwnerAssist();
+        com.lulan.shincolle.ai.ShipCraneStateAdapter.reset(this);
+        if (reason.shouldDestroy()) {
+            com.lulan.shincolle.handler.ShipFollowRecallHandler.cancelShip(this,
+                    com.lulan.shincolle.ai.domain.movement.RecallCancellation.SHIP_REMOVED);
+        }
         RuBurstAttackGate.ended(this, com.lulan.shincolle.ai.domain.combat.RuBurstDecision.Reason.REMOVED);
         this.setManualTarget(null);
         // clear chunk loader
@@ -4255,15 +4376,21 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     // ========== Chunk Loader ==========
 
+    @Override
+    public void onRemovedFromWorld() {
+        clearChunkLoader();
+        super.onRemovedFromWorld();
+    }
+
     /**
      * Clear chunk loader ticket.
      */
     public void clearChunkLoader() {
         if (!this.level().isClientSide() && this.level() instanceof ServerLevel serverLevel) {
-            int chunkX = Mth.floor(this.getX()) >> 4;
-            int chunkZ = Mth.floor(this.getZ()) >> 4;
-            ForgeChunkManager.forceChunk(
-                    serverLevel, Reference.MOD_ID, this.getUUID(), chunkX, chunkZ, false, true);
+            for (net.minecraft.world.level.ChunkPos chunk : forcedShipChunks) {
+                ForgeChunkManager.forceChunk(serverLevel, Reference.MOD_ID, this.getUUID(), chunk.x, chunk.z, false, true);
+            }
+            forcedShipChunks.clear();
         }
     }
 
@@ -4271,12 +4398,11 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Update chunk loader based on config and level.
      */
     public void updateChunkLoader() {
-        if (ConfigHandler.chunkLoaderMode() <= 0)
+        if (ConfigHandler.chunkLoaderMode() == 0 || this.getStateMinor(ID.M.LevelChunkLoader) <= 0
+                || this.getStateFlag(ID.F.NoFuel) || !this.isAlive()) {
+            clearChunkLoader();
             return;
-        if (this.getStateMinor(ID.M.LevelChunkLoader) <= 0)
-            return;
-        if (this.getStateFlag(ID.F.NoFuel) || !this.isAlive())
-            return;
+        }
 
         applyChunkLoader();
     }
@@ -4285,28 +4411,39 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Set chunk loader for this ship.
      */
     public void setChunkLoader(boolean enable) {
-        if (!this.level().isClientSide() && this.level() instanceof ServerLevel serverLevel) {
-            int chunkX = Mth.floor(this.getX()) >> 4;
-            int chunkZ = Mth.floor(this.getZ()) >> 4;
-            ForgeChunkManager.forceChunk(
-                    serverLevel, Reference.MOD_ID, this.getUUID(), chunkX, chunkZ, enable, true);
-        }
+        if (enable) updateChunkLoader();
+        else clearChunkLoader();
     }
 
     /**
-     * Apply chunk loader effect. Loads surrounding chunks based on level.
+     * Apply the configured chunk range, releasing chunks left behind.
      */
     public void applyChunkLoader() {
         if (!this.level().isClientSide() && this.level() instanceof ServerLevel serverLevel) {
             int chunkX = Mth.floor(this.getX()) >> 4;
             int chunkZ = Mth.floor(this.getZ()) >> 4;
-            int radius = Math.min(this.getStateMinor(ID.M.LevelChunkLoader), 3);
-
+            int mode = ConfigHandler.chunkLoaderMode();
+            if (mode == 0) {
+                clearChunkLoader();
+                return;
+            }
+            int radius = mode == 2 ? 1 : 0;
+            Set<net.minecraft.world.level.ChunkPos> desired = new java.util.HashSet<>();
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
-                    ForgeChunkManager.forceChunk(
-                            serverLevel, Reference.MOD_ID, this.getUUID(),
-                            chunkX + dx, chunkZ + dz, true, true);
+                    desired.add(new net.minecraft.world.level.ChunkPos(chunkX + dx, chunkZ + dz));
+                }
+            }
+            for (net.minecraft.world.level.ChunkPos chunk : Set.copyOf(forcedShipChunks)) {
+                if (!desired.contains(chunk)) {
+                    ForgeChunkManager.forceChunk(serverLevel, Reference.MOD_ID, this.getUUID(), chunk.x, chunk.z, false, true);
+                    forcedShipChunks.remove(chunk);
+                }
+            }
+            for (net.minecraft.world.level.ChunkPos chunk : desired) {
+                if (!forcedShipChunks.contains(chunk)
+                        && ForgeChunkManager.forceChunk(serverLevel, Reference.MOD_ID, this.getUUID(), chunk.x, chunk.z, true, true)) {
+                    forcedShipChunks.add(chunk);
                 }
             }
         }

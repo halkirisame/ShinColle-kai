@@ -2,6 +2,7 @@ package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.ai.*;
+import com.lulan.shincolle.ai.diag.TickStallProbe;
 import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.ai.domain.TargetLock;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
@@ -493,7 +494,8 @@ public abstract class BasicEntityShipHostile extends Mob
     public void readAdditionalSaveData(CompoundTag nbt) {
         super.readAdditionalSaveData(nbt);
         if (nbt.contains("ScaleLevel")) {
-            this.scaleLevel = nbt.getInt("ScaleLevel");
+            this.scaleLevel = Mth.clamp(nbt.getInt("ScaleLevel"), 0, 3);
+            this.setMaxUpStep(1.0F + this.scaleLevel);
             setSizeWithScaleLevel();
         }
         if (nbt.contains("StateMinor")) {
@@ -563,6 +565,18 @@ public abstract class BasicEntityShipHostile extends Mob
 
     @Override
     public void tick() {
+        boolean probing = TickStallProbe.isEnabled() && !this.level().isClientSide();
+        long probeStart = probing ? TickStallProbe.entityTickBegin() : 0L;
+        try {
+            this.tickMeasured();
+        } finally {
+            if (probing) {
+                TickStallProbe.entityTickEnd(this, probeStart);
+            }
+        }
+    }
+
+    private void tickMeasured() {
         // Mob.tick() runs the AI step for us. Calling super.aiStep() again from
         // here ran every goal, the look control and the walk animation twice per
         // tick, which showed up as shaking heads and double-speed run cycles.
@@ -571,6 +585,9 @@ public abstract class BasicEntityShipHostile extends Mob
             ShipSkillAttackGate.observe(this);
         }
         super.tick();
+        if (!this.level().isClientSide()) {
+            ShipMovementExecutor.continueDetour(this);
+        }
         if (!this.level().isClientSide() && (this.tickCount & 15) == 0) {
             this.refreshBuffMap();
         }
@@ -1312,6 +1329,7 @@ public abstract class BasicEntityShipHostile extends Mob
 
     public void setScaleLevel(int par1) {
         this.scaleLevel = Mth.clamp(par1, 0, 3);
+        this.setMaxUpStep(1.0F + this.scaleLevel);
         setSizeWithScaleLevel();
 
         if (!this.level().isClientSide()) {

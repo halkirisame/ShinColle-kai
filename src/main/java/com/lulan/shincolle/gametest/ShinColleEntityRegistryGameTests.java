@@ -134,7 +134,7 @@ public final class ShinColleEntityRegistryGameTests {
                 helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(position)),
                         "Waiting for a registry fixture chunk to tick entities at " + position);
             }
-        }).thenExecute(verification).thenSucceed();
+        }).thenExecute(GameTestVerification.namedFailure(verification)).thenSucceed();
     }
 
     // 2026/04/07：GitHub Copilotによって確認済み
@@ -212,14 +212,14 @@ public final class ShinColleEntityRegistryGameTests {
         }
         ModItems.POINTER.get().inventoryTick(pointer, level, fakePlayer, 0, true);
 
-        ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get());
+        ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get(), 64);
         fakePlayer.setItemInHand(InteractionHand.MAIN_HAND, ring);
         ModItems.MARRIAGE_RING.get().use(level, fakePlayer, InteractionHand.MAIN_HAND);
-        if (!ring.getOrCreateTag().getBoolean("isActive")) {
+        if (ring.getMaxStackSize() != 64 || ring.getCount() != 64 || !ring.getOrCreateTag().getBoolean("isActive")) {
             throw new AssertionError("Marriage ring should be active after first use.");
         }
         ModItems.MARRIAGE_RING.get().use(level, fakePlayer, InteractionHand.MAIN_HAND);
-        if (ring.getOrCreateTag().getBoolean("isActive")) {
+        if (ring.getCount() != 64 || ring.getOrCreateTag().getBoolean("isActive")) {
             throw new AssertionError("Marriage ring should be inactive after second use.");
         }
         for (int i = 0; i < 5; i++) {
@@ -1837,7 +1837,7 @@ public final class ShinColleEntityRegistryGameTests {
                     60 + random.nextInt(700),
                     60 + random.nextInt(700)
             };
-            int rolledSmall = ShipCalc.rollShipType(0, matsSmall, random);
+            int rolledSmall = ((com.lulan.shincolle.shipdata.ShipChoice.BuiltIn) ShipCalc.rollShipType(0, matsSmall, random)).shipClass();
             if (forbiddenSmall.contains(rolledSmall)) {
                 throw new AssertionError("Small build roll returned forbidden class: " + rolledSmall);
             }
@@ -1848,7 +1848,7 @@ public final class ShinColleEntityRegistryGameTests {
                     200 + random.nextInt(2400),
                     200 + random.nextInt(2400)
             };
-            int rolledLarge = ShipCalc.rollShipType(1, matsLarge, random);
+            int rolledLarge = ((com.lulan.shincolle.shipdata.ShipChoice.BuiltIn) ShipCalc.rollShipType(1, matsLarge, random)).shipClass();
             if (forbiddenLarge.contains(rolledLarge)) {
                 throw new AssertionError("Large build roll returned forbidden class: " + rolledLarge);
             }
@@ -3216,14 +3216,21 @@ public final class ShinColleEntityRegistryGameTests {
                 new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000015"), "shincolle_ring_scan"));
         player.getInventory().clearContent();
 
-        ItemStack inactive = new ItemStack(ModItems.MARRIAGE_RING.get());
-        ItemStack active = new ItemStack(ModItems.MARRIAGE_RING.get());
+        ItemStack inactive = new ItemStack(ModItems.MARRIAGE_RING.get(), 64);
+        ItemStack active = new ItemStack(ModItems.MARRIAGE_RING.get(), 64);
         active.getOrCreateTag().putBoolean("isActive", true);
+        helper.assertTrue(inactive.getMaxStackSize() == 64 && active.getCount() == 64
+                        && !ItemStack.isSameItemSameTags(inactive, active),
+                "Active and inactive ring bundles incorrectly merged.");
         player.getInventory().setItem(0, inactive);
         player.getInventory().setItem(1, active);
         if (!MarriageRing.hasAnyRing(player) || !MarriageRing.hasActiveRing(player)) {
             throw new AssertionError("Ring state depended on the first matching inventory stack.");
         }
+
+        active.split(1);
+        helper.assertTrue(active.getCount() == 63 && MarriageRing.hasActiveRing(player),
+                "Splitting an active ring bundle lost the remaining active rings.");
 
         active.getOrCreateTag().putBoolean("isActive", false);
         ItemStack activeOffhand = new ItemStack(ModItems.MARRIAGE_RING.get());
@@ -3239,7 +3246,7 @@ public final class ShinColleEntityRegistryGameTests {
 
     @GameTest(template = "arena")
     public static void craneOwnerUuidPersistsAndRejectsAnotherPlayer(GameTestHelper helper) {
-        withEntities(helper, entities -> {
+        GameTestEntities.whenPositionsTicking(helper, () -> withEntities(helper, entities -> {
             ServerLevel level = helper.getLevel();
             FakePlayer owner = FakePlayerFactory.get(level,
                     new GameProfile(UUID.fromString("00000000-0000-0000-0000-000000000016"), "shincolle_crane_owner"));
@@ -3284,11 +3291,25 @@ public final class ShinColleEntityRegistryGameTests {
                 throw new AssertionError("Failed to create ships for crane ownership filter test.");
             }
             otherShip.setOwnerUUID(other.getUUID());
-            otherShip.setPlayerUID(9402);
+            otherShip.setPlayerUID(9401);
             ownerShip.setOwnerUUID(owner.getUUID());
             ownerShip.setPlayerUID(9401);
-            otherShip.moveTo(cranePos.getX() + 0.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
-            ownerShip.moveTo(cranePos.getX() + 1.5D, cranePos.getY() + 1D, cranePos.getZ() + 0.5D, 0F, 0F);
+            for (BasicEntityShip ship : java.util.List.of(otherShip, ownerShip)) {
+                ship.setStateMinor(ID.M.NumGrudge, 100);
+                ship.setStateFlag(ID.F.NoFuel, false);
+                ship.setInvulnerable(true);
+                ship.setGuardedPos(cranePos.getX(), cranePos.getY(), cranePos.getZ(), level.dimension(), 1);
+                ship.setStateFlag(ID.F.CanFollow, false);
+                ship.setStateTimer(ID.T.CrandDelay, 0);
+                ship.setStateMinor(ID.M.CraneState, 1);
+                helper.assertTrue(ship.getStateMinor(ID.M.CraneState) == 1 && ship.hasGuardDestination()
+                                && ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                        "Ownership fixture must satisfy all non-ownership capture conditions.");
+            }
+            otherShip.moveTo(cranePos.getX() + 0.5D, cranePos.getY() - 2D, cranePos.getZ() + 0.5D, 0F, 0F);
+            ownerShip.moveTo(cranePos.getX() + 1.5D, cranePos.getY() - 2D, cranePos.getZ() + 0.5D, 0F, 0F);
+            otherShip.setStateTimer(ID.T.CrandDelay, 0);
+            ownerShip.setStateTimer(ID.T.CrandDelay, 0);
             if (!level.addFreshEntity(otherShip) || !level.addFreshEntity(ownerShip)) {
                 throw new AssertionError("Failed to add ships for crane ownership filter test.");
             }
@@ -3299,7 +3320,7 @@ public final class ShinColleEntityRegistryGameTests {
 
 
             helper.succeed();
-        });
+        }), new Vec3(2.5D, 0D, 2.5D), new Vec3(3.5D, 0D, 2.5D));
     }
 
     @GameTest(template = "arena")

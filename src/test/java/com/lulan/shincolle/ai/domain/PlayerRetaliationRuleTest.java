@@ -18,6 +18,8 @@ class PlayerRetaliationRuleTest {
     @Test
     void nonPlayerTargetIsNeverRestricted() {
         assertTrue(PlayerRetaliationRule.allows(false, false, false));
+        assertTrue(PlayerRetaliationRule.allows(false, true, false));
+        assertTrue(PlayerRetaliationRule.allows(false, false, true));
         assertTrue(PlayerRetaliationRule.allows(false, true, true));
     }
 }

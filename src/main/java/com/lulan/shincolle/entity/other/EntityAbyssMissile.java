@@ -507,7 +507,8 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
                     // they must NOT be applied again here.
                     if (this.hostEntity != null) {
                         boolean isTargetHurt = ent.hurt(
-                                this.damageSources().mobAttack(this.hostEntity), dmg);
+                                new DamageSource(this.damageSources().mobAttack(this.hostEntity).typeHolder(),
+                                        this, this.hostEntity), dmg);
                         com.lulan.shincolle.utility.LogHelper.debug("DEBUG: heavy impact: " + this.hostEntity
                                 + " -> " + ent + " dmg=" + dmg + " hurtAccepted=" + isTargetHurt);
                         if (isTargetHurt && !isSameOwner(ent)) {

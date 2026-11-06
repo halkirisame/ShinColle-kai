@@ -58,13 +58,17 @@ public final class WaypointTraversal {
                     Optional.of(new WaypointStay(facts.current(), elapsed + CHECK_INTERVAL))));
         }
 
-        WaypointProgress done = new WaypointProgress(Optional.of(facts.current()), Optional.empty());
-        Optional<CommandPos> next = facts.links().next();
+        return depart(facts.current(), facts.links(), progress.lastWaypoint());
+    }
+
+    /** Select the linked destination after a waypoint's own work or wait has completed. */
+    public static WaypointStep depart(CommandPos current, WaypointLinks links, Optional<CommandPos> previous) {
+        WaypointProgress done = new WaypointProgress(Optional.of(current), Optional.empty());
+        Optional<CommandPos> next = links.next();
         if (next.isEmpty()) return new WaypointStep.Hold(done);
         Optional<CommandPos> destination = next;
-        if (progress.lastWaypoint().isPresent() && next.get().equals(progress.lastWaypoint().get())
-                && facts.links().last().isPresent()) {
-            destination = facts.links().last();
+        if (previous.isPresent() && next.get().equals(previous.get()) && links.last().isPresent()) {
+            destination = links.last();
         }
         return new WaypointStep.Advance(destination.get(), done);
     }

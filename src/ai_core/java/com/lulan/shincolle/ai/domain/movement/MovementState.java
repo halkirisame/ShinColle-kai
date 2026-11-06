@@ -22,13 +22,21 @@ public sealed interface MovementState {
      * @param destination    where the ship walks: the owner, or its formation place
      * @param anchorMemory   where the owner stood when the formation place was last worked out
      * @param destinationKind what {@code destination} stood for when it was written, kept with it
+     * @param pathedDestination the destination when the last path was planned, even for a detour
      */
     record Follow(int repathIn, int timeTimer, int farTimer, int ownerResolveAt, MovementPoint destination,
-                  MovementPoint anchorMemory, FollowDestination destinationKind) implements MovementState {
+                  MovementPoint anchorMemory, FollowDestination destinationKind,
+                  MovementPoint pathedDestination) implements MovementState {
         public Follow {
             Objects.requireNonNull(destination, "destination");
             Objects.requireNonNull(anchorMemory, "anchorMemory");
             Objects.requireNonNull(destinationKind, "destinationKind");
+            Objects.requireNonNull(pathedDestination, "pathedDestination");
+        }
+
+        public Follow(int repathIn, int timeTimer, int farTimer, int ownerResolveAt, MovementPoint destination,
+                      MovementPoint anchorMemory, FollowDestination destinationKind) {
+            this(repathIn, timeTimer, farTimer, ownerResolveAt, destination, anchorMemory, destinationKind, destination);
         }
 
         /** A destination that is the owner. */
@@ -42,12 +50,19 @@ public sealed interface MovementState {
      * @param stillTimer     goal ticks stuck in a row, for the time teleport
      * @param anchorResolveAt when the guarded point is next looked up
      * @param moving         whether the last path request was accepted
+     * @param pathedDestination the destination when the last path was planned, even for a detour
      */
     record Guard(int repathIn, int stillTimer, int farTimer, int anchorResolveAt, MovementPoint destination,
-                 MovementPoint anchorMemory, boolean moving) implements MovementState {
+                 MovementPoint anchorMemory, boolean moving, MovementPoint pathedDestination) implements MovementState {
         public Guard {
             Objects.requireNonNull(destination, "destination");
             Objects.requireNonNull(anchorMemory, "anchorMemory");
+            Objects.requireNonNull(pathedDestination, "pathedDestination");
+        }
+
+        public Guard(int repathIn, int stillTimer, int farTimer, int anchorResolveAt, MovementPoint destination,
+                     MovementPoint anchorMemory, boolean moving) {
+            this(repathIn, stillTimer, farTimer, anchorResolveAt, destination, anchorMemory, moving, destination);
         }
     }
 

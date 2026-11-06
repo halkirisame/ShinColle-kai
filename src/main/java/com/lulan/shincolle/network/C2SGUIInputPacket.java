@@ -31,6 +31,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkHooks;
@@ -1043,7 +1044,10 @@ public class C2SGUIInputPacket {
                 return;
             }
             Entity target = player.serverLevel().getEntity(values[2]);
-            if (!(target instanceof LivingEntity) || target.isInvisible()
+            if (!(target instanceof LivingEntity) || target instanceof Player
+                    || (target instanceof BasicEntityShip ship
+                            && (TeamHelper.checkSameOwner(player, ship) || ship.isOwnedBy(player)))
+                    || target.isInvisible()
                     || !isWithinPointerRange(player, target)
                     || !player.hasLineOfSight(target)
                     || !stringData.equals(target.getClass().getSimpleName())) {
@@ -1052,9 +1056,14 @@ public class C2SGUIInputPacket {
         }
 
         player.getPersistentData().putLong(TARGET_CLASS_RATE_TAG, now);
-        ServerDataManager.setPlayerTargetClass(pid, stringData);
+        boolean added = ServerDataManager.setPlayerTargetClass(pid, stringData);
         ModNetworking.sendToPlayer(S2CGUISyncPacket.syncTargetClasses(
                 ServerDataManager.getPlayerTargetClass(pid)), player);
+        if (removing || added) {
+            player.displayClientMessage(Component.translatable(
+                    removing ? "chat.shincolle_kai.pointer.targetclass.remove"
+                            : "chat.shincolle_kai.pointer.targetclass.add", stringData), true);
+        }
     }
 
     /**
@@ -1174,6 +1183,11 @@ public class C2SGUIInputPacket {
             pointer = player.getOffhandItem();
         }
         if (pointer.getItem() != ModItems.POINTER.get()) {
+            ItemStack talisman = player.getMainHandItem();
+            if (!(talisman.getItem() instanceof com.lulan.shincolle.item.SoulTalismanItem)) {
+                talisman = player.getOffhandItem();
+            }
+            com.lulan.shincolle.item.SoulTalismanItem.setMode(talisman, values[2]);
             return;
         }
 

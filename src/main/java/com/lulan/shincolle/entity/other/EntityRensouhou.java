@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.other;
 
 import com.lulan.shincolle.utility.CombatHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntitySummon;
@@ -174,7 +175,7 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
         float atk = this.shipAttrs.getAttackDamage();
         atk = CombatHelper.applyDamageReduceOnPlayer(target, atk);
         boolean hurt = false;
-        if (target instanceof LivingEntity livingTarget) {
+        if (target instanceof LivingEntity livingTarget && TeamHelper.doFriendlyFire(this, target)) {
             hurt = livingTarget.hurt(this.damageSources().mobAttack(this), atk);
             Entity hostEntity = this.getHostEntity();
             if (hurt && hostEntity instanceof LivingEntity livingHost) {

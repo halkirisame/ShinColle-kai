@@ -4,6 +4,7 @@ import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.PointerItem;
+import com.lulan.shincolle.item.SoulTalismanItem;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.reference.ID;
@@ -27,6 +28,7 @@ import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import java.util.HashSet;
@@ -94,8 +96,11 @@ public class PointerInputHandler {
 
         Minecraft mc = Minecraft.getInstance();
         ItemStack pointer = getActivePointer(mc);
+        boolean talisman = false;
         if (pointer.isEmpty()) {
-            return;
+            pointer = getActiveTalisman(mc, true);
+            if (pointer.isEmpty()) return;
+            talisman = true;
         }
 
         LocalPlayer player = mc.player;
@@ -107,8 +112,14 @@ public class PointerInputHandler {
         }
 
         int direction = delta > 0D ? -1 : 1;
-        int mode = PointerItem.cycleMode(PointerItem.getMode(pointer), direction);
-        PointerItem.setMode(pointer, mode);
+        int mode;
+        if (talisman) {
+            mode = SoulTalismanItem.cycleMode(SoulTalismanItem.getMode(pointer), direction);
+            SoulTalismanItem.setMode(pointer, mode);
+        } else {
+            mode = PointerItem.cycleMode(PointerItem.getMode(pointer), direction);
+            PointerItem.setMode(pointer, mode);
+        }
 
         ModNetworking.sendToServer(new C2SGUIInputPacket(
                 C2SGUIInputPacket.SyncPlayerItem,
@@ -125,12 +136,55 @@ public class PointerInputHandler {
             return;
         }
 
+        ItemStack talisman = getActiveTalisman(mc, false);
+        if (!talisman.isEmpty() && getPointerInUse(mc.player).isEmpty()) {
+            renderTalismanPanel(event.getGuiGraphics(), mc, talisman);
+            return;
+        }
         ItemStack pointer = getActivePointer(mc);
         if (pointer.isEmpty()) {
             return;
         }
 
         renderModePanel(event.getGuiGraphics(), mc, PointerItem.getMode(pointer));
+    }
+
+    private static ItemStack getActiveTalisman(Minecraft mc, boolean requireModifier) {
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null || mc.screen != null) return ItemStack.EMPTY;
+        if (requireModifier && (!PointerInputModifiers.isDown(Action.CYCLE_MODE, player)
+                || mc.options.keySprint.isDown() || player.isSprinting())) return ItemStack.EMPTY;
+        if (player.getMainHandItem().getItem() instanceof SoulTalismanItem) return player.getMainHandItem();
+        if (player.getOffhandItem().getItem() instanceof SoulTalismanItem) return player.getOffhandItem();
+        return ItemStack.EMPTY;
+    }
+
+    private static void renderTalismanPanel(GuiGraphics graphics, Minecraft mc, ItemStack stack) {
+        int mode = SoulTalismanItem.getMode(stack);
+        Component[] rows = new Component[mode == SoulTalismanItem.MODE_RELEASE_NEXT ? 5 : 4];
+        int widest = 0;
+        for (int i = 0; i < 4; i++) rows[i] = SoulTalismanItem.modeName(i);
+        if (rows.length > 4) {
+            rows[4] = Component.translatable("tooltip.shincolle_kai.soul_talisman.next",
+                    SoulTalismanItem.nextShipName(stack, mc.player));
+        }
+        for (Component row : rows) widest = Math.max(widest, mc.font.width(row));
+        graphics.fill(PanelX - 3, PanelY - 3,
+                PanelX + TextIndent + widest + 3, PanelY + LineHeight * rows.length, ColorBackdrop);
+        for (int i = 0; i < rows.length; i++) {
+            int y = PanelY + i * LineHeight;
+            if (i == mode) graphics.drawString(mc.font, ">", PanelX + 2, y, ColorMarker, false);
+            graphics.drawString(mc.font, rows[i], PanelX + TextIndent, y, i == mode ? ColorCurrent : ColorOther, false);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onItemTooltip(ItemTooltipEvent event) {
+        ItemStack stack = event.getItemStack();
+        if (stack.getItem() instanceof SoulTalismanItem && SoulTalismanItem.getMode(stack) == SoulTalismanItem.MODE_RELEASE_NEXT) {
+            event.getToolTip().add(Component.translatable("tooltip.shincolle_kai.soul_talisman.next",
+                    SoulTalismanItem.nextShipName(stack, event.getEntity())));
+        }
     }
 
     /**
@@ -189,10 +243,6 @@ public class PointerInputHandler {
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
-
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.screen != null) {
@@ -204,12 +254,13 @@ public class PointerInputHandler {
             return;
         }
 
-        renderDestinationMarkers(mc, player, pointerInUse);
-
         boolean sprintDown = mc.options.keySprint.isDown();
-
+        if (event.phase == TickEvent.Phase.START) {
+            if (sprintDown) handleSprintTeamSwitch(player, mc);
+            return;
+        }
+        renderDestinationMarkers(mc, player, pointerInUse);
         if (sprintDown) {
-            handleSprintTeamSwitch(player, mc);
             return;
         }
 
@@ -290,12 +341,8 @@ public class PointerInputHandler {
     }
 
     private static void handleSprintTeamSwitch(LocalPlayer player, Minecraft mc) {
-        int originalSlot = player.getInventory().selected;
-        boolean consumed = false;
-
         for (int i = 0; i < mc.options.keyHotbarSlots.length; i++) {
             while (mc.options.keyHotbarSlots[i].consumeClick()) {
-                consumed = true;
                 if (i < CapaTeitoku.TEAM_NUM) {
                     ModNetworking.sendToServer(new C2SGUIInputPacket(
                             C2SGUIInputPacket.SetSelect,
@@ -304,11 +351,6 @@ public class PointerInputHandler {
             }
         }
 
-        if (consumed) {
-            // [PORT] 1.10.2 -> 1.20.1: keep pointer in hand while using sprint+hotbar team
-            // shortcuts.
-            player.getInventory().selected = originalSlot;
-        }
     }
 
     private static ItemStack getPointerInUse(LocalPlayer player) {

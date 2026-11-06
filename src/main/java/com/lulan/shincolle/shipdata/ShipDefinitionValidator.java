@@ -3,6 +3,7 @@ package com.lulan.shincolle.shipdata;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.lulan.shincolle.ai.registry.ShipBehaviorRegistries;
+import com.lulan.shincolle.ai.registry.ShipTraitRegistries;
 import com.lulan.shincolle.equipdata.EquipDataRegistry;
 import com.lulan.shincolle.reference.Reference;
 import net.minecraft.resources.ResourceLocation;
@@ -12,8 +13,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -23,6 +26,7 @@ public final class ShipDefinitionValidator {
     private final Predicate<ResourceLocation> aiExists;
     private final Predicate<ResourceLocation> attackExists;
     private final Predicate<ResourceLocation> equipmentExists;
+    private final Predicate<ResourceLocation> traitExists;
 
     public ShipDefinitionValidator() {
         this(ShipBehaviorRegistries::isSelectableAi, ShipBehaviorRegistries::isSelectableAttack,
@@ -32,9 +36,15 @@ public final class ShipDefinitionValidator {
     /** Explicit reference views also permit isolated preflight tests without mutating frozen registries. */
     ShipDefinitionValidator(Predicate<ResourceLocation> aiExists, Predicate<ResourceLocation> attackExists,
                             Predicate<ResourceLocation> equipmentExists) {
+        this(aiExists, attackExists, equipmentExists, ShipTraitRegistries::isSelectableTrait);
+    }
+
+    ShipDefinitionValidator(Predicate<ResourceLocation> aiExists, Predicate<ResourceLocation> attackExists,
+                            Predicate<ResourceLocation> equipmentExists, Predicate<ResourceLocation> traitExists) {
         this.aiExists = aiExists;
         this.attackExists = attackExists;
         this.equipmentExists = equipmentExists;
+        this.traitExists = traitExists;
     }
 
     public ShipDefinition validate(ShipDefinitionId id, JsonElement element, Consumer<String> warning) {
@@ -73,8 +83,14 @@ public final class ShipDefinitionValidator {
             throw new IllegalArgumentException("unknown or unselectable AI '" + ai.get() + "'");
         }
         List<ResourceLocation> attacks = ids(behavior, "attacks", ShipDefinitionFormat.MAX_ATTACKS, true);
+        if (behavior.has("attacks") && attacks.isEmpty()) {
+            throw new IllegalArgumentException("behavior.attacks must not be empty; omit it for the default attacks");
+        }
         for (ResourceLocation attack : attacks) {
             if (!ShipBehaviorRegistries.isSelectableNamespace(attack) || !attackExists.test(attack)) {
+                if (ShipBehaviorRegistries.isRegisteredAttack(attack)) {
+                    throw new IllegalArgumentException("attack '" + attack + "' is registered but cannot be selected in 1.0");
+                }
                 throw new IllegalArgumentException("unknown or unselectable attack '" + attack + "'");
             }
         }
@@ -97,6 +113,15 @@ public final class ShipDefinitionValidator {
         if (!profile.equals(ShipDefinitionFormat.DEFAULT_ATTACK_PROFILE)) {
             throw new IllegalArgumentException("unknown attack_profile '" + profile + "'");
         }
+        Map<String, Double> hostile = hostileModifiers(json, warning);
+        return new ShipDefinition(id, ShipDefinitionFormat.SCHEMA, name, type, visual, base, growth,
+                new ShipDefinition.Equipment(slots, initial), construction(json, warning),
+                acquisition(json, "spawn", warning), new ShipDefinition.Behavior(ai, attacks),
+                new ShipDefinition.Dimensions(width, height), mountOffset, equipType, profile, hostile,
+                hostileVariants(json, warning));
+    }
+
+    private static Map<String, Double> hostileModifiers(JsonObject json, Consumer<String> warning) {
         JsonObject modifiers = optionalObject(json, "hostile_modifiers");
         known(modifiers, ShipDefinitionFormat.BASE_MAX.keySet(), "hostile_modifiers", warning);
         Map<String, Double> hostile = new HashMap<>();
@@ -106,10 +131,75 @@ public final class ShipDefinitionValidator {
                 throw new IllegalArgumentException("hostile_modifiers." + stat + " must be at least Float.MIN_VALUE");
             }
         }
-        return new ShipDefinition(id, ShipDefinitionFormat.SCHEMA, name, type, visual, base, growth,
-                new ShipDefinition.Equipment(slots, initial), acquisition(json, "construction", warning),
-                acquisition(json, "spawn", warning), new ShipDefinition.Behavior(ai, attacks),
-                new ShipDefinition.Dimensions(width, height), mountOffset, equipType, profile, hostile);
+        return Map.copyOf(hostile);
+    }
+
+    private HostileVariants hostileVariants(JsonObject json, Consumer<String> warning) {
+        if (!json.has("hostile_variants")) return HostileVariants.NONE;
+        JsonObject settings = optionalObject(json, "hostile_variants");
+        known(settings, Set.of("normal_weight", "variants"), "hostile_variants", warning);
+        int normalWeight = settings.has("normal_weight")
+                ? integer(settings.get("normal_weight"), "normal_weight", ShipDefinitionFormat.MAX_VARIANT_WEIGHT) : 100;
+        List<HostileVariants.Variant> variants = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        if (settings.has("variants")) {
+            JsonElement array = settings.get("variants");
+            if (!array.isJsonArray() || array.getAsJsonArray().size() > ShipDefinitionFormat.MAX_HOSTILE_VARIANTS) {
+                throw new IllegalArgumentException("variants must be an array of at most " + ShipDefinitionFormat.MAX_HOSTILE_VARIANTS);
+            }
+            for (JsonElement element : array.getAsJsonArray()) {
+                JsonObject variant = object(element, "variant");
+                known(variant, Set.of("id", "name", "rarity", "weight", "traits", "hostile_modifiers", "visual_variant", "red_aura"),
+                        "variant", warning);
+                String variantId = string(variant.get("id"), "variant.id");
+                if (!variantId.matches("[a-z0-9_]{1,32}") || !seen.add(variantId)) {
+                    throw new IllegalArgumentException("invalid or duplicate variant ID '" + variantId + "'");
+                }
+                Optional<String> name = Optional.empty();
+                if (variant.has("name")) {
+                    String key = string(variant.get("name"), "variant.name");
+                    int length = key.codePointCount(0, key.length());
+                    if (length < 1 || length > ShipDefinitionFormat.MAX_VARIANT_NAME_LENGTH) {
+                        throw new IllegalArgumentException("variant.name must contain 1..128 characters");
+                    }
+                    name = Optional.of(key);
+                }
+                HostileVariants.Rarity rarity = HostileVariants.Rarity.RARE;
+                if (variant.has("rarity")) {
+                    String value = string(variant.get("rarity"), "variant.rarity");
+                    rarity = java.util.Arrays.stream(HostileVariants.Rarity.values())
+                            .filter(candidate -> candidate.name().toLowerCase(Locale.ROOT).equals(value)).findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("unknown variant.rarity '" + value + "'"));
+                }
+                int weight = integer(variant.get("weight"), "variant.weight", ShipDefinitionFormat.MAX_VARIANT_WEIGHT);
+                List<ResourceLocation> traits = ids(variant, "traits", ShipDefinitionFormat.MAX_VARIANT_TRAITS, true);
+                for (ResourceLocation trait : traits) {
+                    if (!ShipBehaviorRegistries.isSelectableNamespace(trait) || !traitExists.test(trait)) {
+                        throw new IllegalArgumentException("unknown or unselectable trait '" + trait + "'");
+                    }
+                }
+                Optional<ResourceLocation> visual = Optional.empty();
+                if (variant.has("visual_variant")) {
+                    String texture = string(variant.get("visual_variant"), "variant.visual_variant");
+                    if (texture.length() > ShipDefinitionFormat.MAX_VARIANT_TEXTURE_LENGTH
+                            || !texture.matches("[a-z0-9_.-]+:[a-z0-9/._-]+")) {
+                        throw new IllegalArgumentException("variant.visual_variant must be an explicit texture ID of at most 128 characters");
+                    }
+                    visual = Optional.of(new ResourceLocation(texture));
+                }
+                boolean redAura = true;
+                if (variant.has("red_aura")) {
+                    JsonElement value = variant.get("red_aura");
+                    if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) {
+                        throw new IllegalArgumentException("variant.red_aura must be boolean");
+                    }
+                    redAura = value.getAsBoolean();
+                }
+                variants.add(new HostileVariants.Variant(variantId, name, rarity, weight, traits,
+                        hostileModifiers(variant, warning), visual, redAura));
+            }
+        }
+        return new HostileVariants(normalWeight, variants);
     }
 
     private static boolean belowPositiveFloatMinimum(JsonObject json, String field) {
@@ -158,6 +248,41 @@ public final class ShipDefinitionValidator {
     private static ShipDefinition.Acquisition acquisition(JsonObject json, String field, Consumer<String> warning) {
         JsonObject settings = optionalObject(json, field);
         known(settings, Set.of("enabled", "weight"), field, warning);
+        boolean enabled = enabled(settings, field);
+        int weight = settings.has("weight") ? integer(settings.get("weight"), field + ".weight", Integer.MAX_VALUE) : 0;
+        return new ShipDefinition.Acquisition(enabled, weight);
+    }
+
+    private static ShipDefinition.Construction construction(JsonObject json, Consumer<String> warning) {
+        JsonObject settings = optionalObject(json, "construction");
+        known(settings, Set.of("enabled", "weight", "mode", "tier", "material_mean", "material_bias"), "construction", warning);
+        boolean enabled = enabled(settings, "construction");
+        ShipDefinition.ConstructionMode mode = settings.has("mode")
+                ? choice(settings, "mode", ShipDefinition.ConstructionMode.class) : ShipDefinition.ConstructionMode.MATERIAL;
+        Optional<ShipDefinition.ConstructionTier> tier = settings.has("tier")
+                ? Optional.of(choice(settings, "tier", ShipDefinition.ConstructionTier.class)) : Optional.empty();
+        OptionalInt mean = settings.has("material_mean")
+                ? OptionalInt.of(integer(settings.get("material_mean"), "construction.material_mean", Integer.MAX_VALUE))
+                : OptionalInt.empty();
+        Optional<ShipDefinition.MaterialBias> bias = settings.has("material_bias")
+                ? Optional.of(choice(settings, "material_bias", ShipDefinition.MaterialBias.class)) : Optional.empty();
+        if (enabled && mode == ShipDefinition.ConstructionMode.MATERIAL && (tier.isEmpty() || mean.isEmpty())) {
+            throw new IllegalArgumentException("enabled material construction requires tier and material_mean");
+        }
+        int fallback = mode == ShipDefinition.ConstructionMode.MATERIAL ? 100 : 0;
+        int weight = settings.has("weight") ? integer(settings.get("weight"), "construction.weight", Integer.MAX_VALUE) : fallback;
+        return new ShipDefinition.Construction(enabled, weight, mode, tier, mean, bias);
+    }
+
+    private static <E extends Enum<E>> E choice(JsonObject settings, String key, Class<E> type) {
+        String value = string(settings.get(key), "construction." + key);
+        for (E candidate : type.getEnumConstants()) {
+            if (candidate.name().toLowerCase(Locale.ROOT).equals(value)) return candidate;
+        }
+        throw new IllegalArgumentException("unknown construction." + key + " '" + value + "'");
+    }
+
+    private static boolean enabled(JsonObject settings, String field) {
         boolean enabled = false;
         if (settings.has("enabled")) {
             JsonElement value = settings.get("enabled");
@@ -166,8 +291,7 @@ public final class ShipDefinitionValidator {
             }
             enabled = value.getAsBoolean();
         }
-        int weight = settings.has("weight") ? integer(settings.get("weight"), field + ".weight", Integer.MAX_VALUE) : 0;
-        return new ShipDefinition.Acquisition(enabled, weight);
+        return enabled;
     }
 
     private static Map<String, Double> stats(JsonObject json, Map<String, Double> limits, Consumer<String> warning) {

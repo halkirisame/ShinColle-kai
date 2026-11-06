@@ -1,0 +1,22 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "mekanism:injecting",
+  "chemicalInput": {
+    "amount": 1,
+    "gas": "mekanism:hydrogen_chloride"
+  },
+  "itemInput": {
+    "ingredient": {
+      "tag": "forge:ores/polymetal"
+    }
+  },
+  "output": {
+    "count": 4,
+    "item": "shincolle_kai:polymetal_shard"
+  }
+}

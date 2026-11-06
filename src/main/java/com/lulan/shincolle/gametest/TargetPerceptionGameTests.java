@@ -215,7 +215,7 @@ public final class TargetPerceptionGameTests {
                     "Waiting for the relation source chunk to tick entities");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(origin.add(2D, 0D, 0D))),
                     "Waiting for the relation target chunk to tick entities");
-        }).thenExecute(() -> verifyAddonRelations(helper, origin)).thenSucceed();
+        }).thenExecute(GameTestVerification.namedFailure(() -> verifyAddonRelations(helper, origin))).thenSucceed();
     }
 
     private static void verifyAddonRelations(GameTestHelper helper, Vec3 origin) {
