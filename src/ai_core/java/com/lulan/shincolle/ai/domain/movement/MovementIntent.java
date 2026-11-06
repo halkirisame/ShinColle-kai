@@ -13,6 +13,8 @@ public sealed interface MovementIntent {
     record GuardPosition(DimensionKey dimension, CommandPos position) implements MovementIntent { }
     record GuardEntity(TargetHandle target) implements MovementIntent { }
     record FollowOwner() implements MovementIntent { }
+    record CranePosition(DimensionKey dimension, MovementPoint destination, double speed,
+                         MovementReason reason) implements MovementIntent { }
 
     /** The intents the guarding goal walks for. */
     default boolean isGuard() {

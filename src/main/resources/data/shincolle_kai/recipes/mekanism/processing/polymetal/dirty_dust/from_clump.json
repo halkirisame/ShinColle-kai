@@ -1,0 +1,17 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "mekanism:crushing",
+  "input": {
+    "ingredient": {
+      "tag": "mekanism:clumps/polymetal"
+    }
+  },
+  "output": {
+    "item": "shincolle_kai:dirty_polymetal_dust"
+  }
+}

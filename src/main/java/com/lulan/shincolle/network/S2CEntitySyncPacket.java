@@ -168,6 +168,14 @@ public class S2CEntitySyncPacket {
             buf.writeUtf(state.shipId(), 64);
             buf.writeVarLong(state.generation());
             buf.writeBoolean(state.dormant());
+            var individual = entity instanceof com.lulan.shincolle.entity.GenericHostileShipEntity hostile
+                    ? hostile.individualPresentation()
+                    : entity instanceof com.lulan.shincolle.entity.GenericShipEntity friendly
+                    ? friendly.individualPresentation() : com.lulan.shincolle.shipdata.ShipIndividual.Presentation.NORMAL;
+            buf.writeUtf(individual.name(), 128);
+            buf.writeEnum(individual.rarity());
+            buf.writeUtf(individual.visual(), 128);
+            buf.writeBoolean(individual.redAura());
         }));
     }
 
@@ -998,6 +1006,14 @@ public class S2CEntitySyncPacket {
                 case SyncShip_Definition:
                     if (entity instanceof com.lulan.shincolle.shipdata.DefinitionBackedShip ship) {
                         ship.definitionState().receive(buf.readUtf(64), buf.readVarLong(), buf.readBoolean());
+                        var individual = new com.lulan.shincolle.shipdata.ShipIndividual.Presentation(buf.readUtf(128),
+                                buf.readEnum(com.lulan.shincolle.shipdata.HostileVariants.Rarity.class),
+                                buf.readUtf(128), buf.readBoolean());
+                        if (entity instanceof com.lulan.shincolle.entity.GenericHostileShipEntity hostile) {
+                            hostile.receiveIndividualPresentation(individual);
+                        } else if (entity instanceof com.lulan.shincolle.entity.GenericShipEntity friendly) {
+                            friendly.receiveIndividualPresentation(individual);
+                        }
                         entity.refreshDimensions();
                         if (entity instanceof IShipEmotion emotion) {
                             emotion.setStateMinor(ID.M.ShipType, ship.definitionState().shipType(true));

@@ -85,7 +85,23 @@ public final class ShipPlayerRetaliationGameTests {
                 capa.setRetaliatePlayer(2, true);
                 helper.assertTrue(lockedTargetAfterRevenge(ship, attacker) == attacker,
                         "A ship in a permitted fleet did not lock the player who attacked it");
+                helper.assertTrue(!ship.getStateFlag(ID.F.RetaliatePlayer),
+                        "Fleet permission must not overwrite the ship permission");
+
+                capa.setTeamMember(5, 0, FLEET_SHIP_UID);
+                capa.setRetaliatePlayer(2, false);
+                helper.assertTrue(lockedTargetAfterRevenge(ship, attacker) == attacker,
+                        "Any permitted membership must suffice when a ship belongs to multiple fleets");
+                capa.setTeamMember(5, 0, -1);
+                helper.assertTrue(lockedTargetAfterRevenge(ship, attacker) != attacker,
+                        "Removed membership must not grant permission for a new lock");
+                capa.setRetaliatePlayer(2, true);
             }
+            helper.assertTrue(lockedTargetAfterRevenge(ship, attacker) != attacker,
+                    "An unresolved owner must not grant fleet permission");
+            ship.setStateFlag(ID.F.RetaliatePlayer, true);
+            helper.assertTrue(lockedTargetAfterRevenge(ship, attacker) == attacker,
+                    "An unresolved owner must not remove the ship's own permission");
             helper.succeed();
         }
     }

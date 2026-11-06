@@ -197,7 +197,10 @@ public class EntityProjectileBeam extends Entity implements IShipOwner, IShipCus
                     || CombatHelper.isFriendlyFire(this.hostEntity, ent);
             float damage = 0F;
             if (!harmless) {
-                damage = CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
+                // Ships apply their own defense in hurt; other attribute-bearing targets do not.
+                damage = ent instanceof com.lulan.shincolle.entity.BasicEntityShip
+                        || ent instanceof com.lulan.shincolle.entity.BasicEntityShipHostile
+                        ? this.beamDamage : CombatHelper.applyDamageReduceByDEF(this.beamDamage, ent);
                 damage = CombatHelper.applyDamageReduceOnPlayer(ent, damage);
             }
             boolean hurt = livingTarget.hurt(this.damageSources().mobAttack(this.hostEntity), damage);

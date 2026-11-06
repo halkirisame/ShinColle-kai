@@ -153,8 +153,11 @@ public final class TargetGoalLifecycleGameTests {
         host.setStateFlag(ID.F.OnSightChase, true);
         // A passing acquisition must not depend on which foreign fixture happens
         // to win the nearest/random candidate selection in the shared world.
-        int range = ShipAiCompatibilityRules.targetSearchRange(
-                host.getAttrs().getAttackRange(), host.getStateMinor(ID.M.FollowMax));
+        int range = host instanceof BasicEntityShipHostile
+                ? ShipAiCompatibilityRules.hostileTargetSearchRange(
+                        host.getAttrs().getAttackRange(), host.getStateMinor(ID.M.FollowMax))
+                : ShipAiCompatibilityRules.targetSearchRange(
+                        host.getAttrs().getAttackRange(), host.getStateMinor(ID.M.FollowMax));
         var searchBox = ship.getBoundingBox().inflate(
                 range, ShipAiCompatibilityRules.targetSearchVerticalInflation(range), range);
         Predicate<Entity> selectorPredicate = ship instanceof BasicEntityShipHostile

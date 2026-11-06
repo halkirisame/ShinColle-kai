@@ -3,11 +3,12 @@ package com.lulan.shincolle.ai.domain.command;
 import java.util.List;
 
 public final class FormationGate {
+    private static final int MIN_FORMATION_MEMBERS = 5;
+
     private FormationGate() { }
 
     public static boolean move(int activeCount, List<CommandRejectReason> failures, boolean mismatchedFormation) {
-        return activeCount >= 5 && !mismatchedFormation
-                && failures.stream().allMatch(reason -> reason == CommandRejectReason.NO_FUEL);
+        return activeCount >= MIN_FORMATION_MEMBERS && !mismatchedFormation;
     }
 
     public static boolean guardEntity(int loadedShipCount) {
@@ -15,6 +16,6 @@ public final class FormationGate {
     }
 
     public static CommandRejectReason rejection(CommandRejectReason prior) {
-        return prior == CommandRejectReason.NO_FUEL ? prior : CommandRejectReason.FORMATION_UNSATISFIED;
+        return prior != null ? prior : CommandRejectReason.FORMATION_UNSATISFIED;
     }
 }

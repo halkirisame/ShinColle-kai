@@ -29,7 +29,7 @@ import java.util.List;
  */
 public class GuiBook {
 
-    public static final int[] PageLimit = new int[]{13, 28, 6, 19, 26, 19, 4};
+    public static final int[] PageLimit = new int[]{14, 28, 6, 19, 26, 19, 4};
     private static final ResourceLocation BOOK_PIC_01 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/book/bookpic01.png");
     public static int PageLeftCurrent = 0;
@@ -60,9 +60,13 @@ public class GuiBook {
      * @param fontRenderer the font renderer
      * @param chap         chapter number
      * @param page         page number
+     * @param mouseX       mouse X relative to GUI left
+     * @param mouseY       mouse Y relative to GUI top
+     * @param rightOffset  extra space reserved below the return link on the right page
      */
     @SuppressWarnings("rawtypes")
-    public static void drawBookContent(GuiGraphics graphics, Font fontRenderer, int chap, int page) {
+    public static void drawBookContent(GuiGraphics graphics, Font fontRenderer, int chap, int page,
+                                       int mouseX, int mouseY, int rightOffset) {
         int index = getIndexID(chap, page);
         List cont = Values.BookList.get(index);
 
@@ -77,7 +81,7 @@ public class GuiBook {
                     new int[]{0, 1, 0, 0});
         }
 
-        drawBookContent(cont);
+        drawBookContent(cont, mouseX, mouseY, rightOffset);
     }
 
     /**
@@ -96,7 +100,7 @@ public class GuiBook {
     }
 
     @SuppressWarnings("rawtypes")
-    private static void drawBookContent(List cont) {
+    private static void drawBookContent(List cont, int mouseX, int mouseY, int rightOffset) {
         if (cont == null)
             return;
 
@@ -115,7 +119,7 @@ public class GuiBook {
             if (getc != null) {
                 switch (getc[0]) {
                     case 0: // text
-                        drawBookText(getc[1], getc[2], getc[3]);
+                        drawBookText(getc[1], getc[2], getc[3], rightOffset);
                         break;
                     case 1: // picture
                         if (PageLeftCurrent > leftRand)
@@ -124,7 +128,7 @@ public class GuiBook {
                             PageRightCurrent = 1;
 
                         if (getc[1] == PageLeftCurrent || getc[1] == PageRightCurrent)
-                            drawBookPic(getc);
+                            drawBookPic(getc, rightOffset);
                         break;
                     case 2: // icon
                         if (PageLeftCurrent > leftRand)
@@ -133,11 +137,14 @@ public class GuiBook {
                             PageRightCurrent = 1;
 
                         if (getc[1] == PageLeftCurrent || getc[1] == PageRightCurrent)
-                            drawBookIcon(getc[1], getc[2], getc[3], getc[4]);
+                            drawBookIcon(getc[1], getc[2], getc[3] + ((getc[1] & 1) == 1 ? rightOffset : 0), getc[4]);
                         break;
                     case 3: // page setting
                         leftRand = getc[1];
                         rightRand = getc[2];
+                        break;
+                    case 4: // page link
+                        drawLink(currentGraphics, font, bookLink(numChap, numPage, getc, rightOffset), mouseX, mouseY);
                         break;
                 }
             }
@@ -151,9 +158,12 @@ public class GuiBook {
      * @param offX     x offset
      * @param offY     y offset
      */
-    private static void drawBookText(int pageSide, int offX, int offY) {
+    private static void drawBookText(int pageSide, int offX, int offY, int rightOffset) {
         drawTitleText();
+        currentGraphics.pose().pushPose();
+        currentGraphics.pose().translate(0, pageSide > 0 ? rightOffset : 0, 0);
         drawPageText(pageSide, offX, offY);
+        currentGraphics.pose().popPose();
     }
 
     /**
@@ -243,7 +253,7 @@ public class GuiBook {
      * @param parms 0:type, 1:pageSide, 2:posX, 3:posY, 4:picID, 5:picU, 6:picV,
      *              7:sizeX, 8:sizeY
      */
-    private static void drawBookPic(int[] parms) {
+    private static void drawBookPic(int[] parms, int rightOffset) {
         if (parms == null || parms.length != 9)
             return;
 
@@ -256,7 +266,7 @@ public class GuiBook {
         int sizeX = parms[7];
         int sizeY = parms[8];
 
-        int picY = Page0Y + posY;
+        int picY = Page0Y + posY + ((pageSide & 1) == 1 ? rightOffset : 0);
         int picX = Page0LX;
         if ((pageSide & 1) == 1)
             picX = Page0RX;
@@ -300,8 +310,71 @@ public class GuiBook {
     public record BookIcon(ItemStack stack, int x, int y) {
     }
 
+    public record BookLink(int targetChap, int targetPage, String text, int x, int y) {
+        boolean contains(Font fontRenderer, int mouseX, int mouseY) {
+            return mouseX >= x && mouseX < x + fontRenderer.width(text) * 0.8F
+                    && mouseY >= y && mouseY < y + fontRenderer.lineHeight * 0.8F;
+        }
+    }
+
+    private static BookLink bookLink(int chap, int page, int[] entry, int rightOffset) {
+        String key = "gui.shincolle_kai.book.chap" + chap + ".link" + page + "_" + entry[6];
+        String text = "» " + Component.translatable(key).getString();
+        int x = (entry[1] == 0 ? Page0LX : Page0RX) + entry[2];
+        return new BookLink(entry[4], entry[5], text, x, Page0Y + entry[3] + (entry[1] == 1 ? rightOffset : 0));
+    }
+
+    static BookLink backLink(Font fontRenderer, int chapter, int page) {
+        String text = "« " + Component.translatable("gui.shincolle_kai.book.back").getString();
+        int x = 235 - (int) Math.ceil(fontRenderer.width(text) * 0.8F);
+        return new BookLink(chapter, page, text, x, 32);
+    }
+
+    static void drawLink(GuiGraphics graphics, Font fontRenderer, BookLink link, int mouseX, int mouseY) {
+        var pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(link.x(), link.y(), 0);
+        pose.scale(0.8F, 0.8F, 0.8F);
+        int color = link.contains(fontRenderer, mouseX, mouseY) ? Enums.EnumColors.RED_DARK.getValue() : 0x0000AA;
+        graphics.drawString(fontRenderer, ChatFormatting.UNDERLINE + link.text(), 0, 0, color, false);
+        pose.popPose();
+    }
+
     @SuppressWarnings("rawtypes")
-    public static BookIcon getHoveredIcon(int chap, int page, int mouseX, int mouseY) {
+    static int rightPageOffset(int chapter, int page, boolean hasBackLink) {
+        if (!hasBackLink)
+            return 0;
+        List cont = Values.BookList.get(getIndexID(chapter, page));
+        int offset = 0;
+        if (cont != null) {
+            for (Object obj : cont) {
+                int[] entry = (int[]) obj;
+                if ((entry[0] == 1 || entry[0] == 2) && (entry[1] & 1) == 1)
+                    offset = Math.max(offset, 40 - (Page0Y + entry[3]));
+            }
+        }
+        return offset;
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static BookLink getHoveredLink(Font fontRenderer, int chap, int page, int mouseX, int mouseY, int rightOffset) {
+        List cont = Values.BookList.get(getIndexID(chap, page));
+        if (cont == null)
+            return null;
+
+        for (Object obj : cont) {
+            int[] entry = (int[]) obj;
+            if (entry != null && entry[0] == 4) {
+                BookLink link = bookLink(chap, page, entry, rightOffset);
+                if (link.contains(fontRenderer, mouseX, mouseY))
+                    return link;
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static BookIcon getHoveredIcon(int chap, int page, int mouseX, int mouseY, int rightOffset) {
         int index = getIndexID(chap, page);
         List cont = Values.BookList.get(index);
         if (cont == null)
@@ -315,7 +388,7 @@ public class GuiBook {
                 int offY = getc[3];
                 int iconID = getc[4];
 
-                int picY = Page0Y + offY;
+                int picY = Page0Y + offY + ((pageSide & 1) == 1 ? rightOffset : 0);
                 int picX = Page0LX;
                 if ((pageSide & 1) == 1)
                     picX = Page0RX;
@@ -337,10 +410,11 @@ public class GuiBook {
      * @param page   page number
      * @param mouseX mouse X relative to GUI left
      * @param mouseY mouse Y relative to GUI top
+     * @param rightOffset extra space reserved below the return link on the right page
      * @return the hovered ItemStack, or null if not hovering over an icon
      */
-    public static ItemStack getHoveredItem(int chap, int page, int mouseX, int mouseY) {
-        BookIcon icon = getHoveredIcon(chap, page, mouseX, mouseY);
+    public static ItemStack getHoveredItem(int chap, int page, int mouseX, int mouseY, int rightOffset) {
+        BookIcon icon = getHoveredIcon(chap, page, mouseX, mouseY, rightOffset);
         return icon == null ? null : icon.stack();
     }
 

@@ -2,6 +2,7 @@ package com.lulan.shincolle.block;
 
 import com.lulan.shincolle.item.IShipResourceItem;
 import com.lulan.shincolle.reference.unitclass.ResourceAmount;
+import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -21,6 +22,16 @@ public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem
 
     public ItemBlockGrudgeHeavy(Block block, Properties properties) {
         super(block, properties);
+    }
+
+    public static int[] getStoredMaterials(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        int[] mats = tag == null ? new int[0] : tag.getIntArray("Mats").clone();
+        if (mats.length != 4) return new int[4];
+        for (int i = 0; i < mats.length; i++) {
+            mats[i] = Math.max(0, Math.min(mats[i], TileMultiGrudgeHeavy.MAX_STOCK));
+        }
+        return mats;
     }
 
     @Override

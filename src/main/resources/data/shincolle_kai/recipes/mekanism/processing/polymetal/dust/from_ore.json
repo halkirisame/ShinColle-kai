@@ -1,0 +1,18 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "mekanism:enriching",
+  "input": {
+    "ingredient": {
+      "tag": "forge:ores/polymetal"
+    }
+  },
+  "output": {
+    "count": 2,
+    "item": "shincolle_kai:polymetal_dust"
+  }
+}

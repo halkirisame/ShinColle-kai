@@ -109,13 +109,9 @@ public class BlockGrudgeHeavy extends BasicBlockMulti {
             CompoundTag tag = stack.getTag();
             if (tag != null) {
                 // Restore mats to matsStock
-                if (tag.contains("Mats")) {
-                    int[] mats = tag.getIntArray("Mats");
-                    if (mats.length == 4) {
-                        for (int i = 0; i < 4; i++) {
-                            tile.setMatStock(i, mats[i]);
-                        }
-                    }
+                int[] mats = ItemBlockGrudgeHeavy.getStoredMaterials(stack);
+                for (int i = 0; i < 4; i++) {
+                    tile.setMatStock(i, mats[i]);
                 }
                 // Restore fuel
                 if (tag.contains("Fuel")) {

@@ -1,5 +1,7 @@
 # JSON-only装備datapack例
 
+[アドオン制作の入口](../../docs/addon_development.md)
+
 <!-- traceability: datapack.example begin -->
 このフォルダは追加Java MODやKubeJSなしで、登録済みItemをShinColle-kaiの艦装備にする
 最小datapackです。例ではvanillaの望遠鏡を`shincolle_example:observation_spyglass`として

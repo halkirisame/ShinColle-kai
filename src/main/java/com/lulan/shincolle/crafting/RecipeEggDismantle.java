@@ -19,19 +19,21 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
 /**
- * Dismantles a construction egg with a kaitai hammer into instant construction material.
+ * Dismantles a fresh ship egg with a kaitai hammer into instant construction material.
  * <p>
- * Exactly one egg and one hammer, nothing else, anywhere in the grid. The egg must be a plain
- * construction egg of this recipe's size (see {@link EggDismantleRules}); a saved ship egg, an egg for
- * a specific ship or anything malformed never matches. {@link #matches} and {@link #assemble} only read
+ * Exactly one egg slot and one hammer, nothing else, anywhere in the grid. The egg must be a
+ * construction egg of this recipe's size or a plain specific ship egg for the plain recipe
+ * (see {@link EggDismantleRules}); a saved ship egg or anything malformed never matches.
+ * {@link #matches} and {@link #assemble} only read
  * the inputs. The hammer wears down through its own crafting remainder.
  */
 public class RecipeEggDismantle implements CraftingRecipe {
 
-    /** Sizes this recipe type can be declared for. */
+    /** Mutually exclusive egg kinds this recipe type can be declared for. */
     public enum Size {
         SMALL("small", EggDismantleKind.SMALL),
-        LARGE("large", EggDismantleKind.LARGE);
+        LARGE("large", EggDismantleKind.LARGE),
+        PLAIN("plain", EggDismantleKind.PLAIN);
 
         private final String jsonName;
         private final EggDismantleKind kind;
@@ -90,10 +92,10 @@ public class RecipeEggDismantle implements CraftingRecipe {
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.getCount() != 1) {
-                return null;
-            }
             if (stack.getItem() == ModItems.KAITAI_HAMMER.get()) {
+                if (stack.getCount() != 1) {
+                    return null;
+                }
                 hammers++;
             } else if (EggDismantleNbtAdapter.isShipEgg(stack)) {
                 eggs++;
@@ -158,7 +160,7 @@ public class RecipeEggDismantle implements CraftingRecipe {
             String name = GsonHelper.getAsString(json, "build_type");
             Size size = Size.byJsonName(name);
             if (size == null) {
-                throw new JsonSyntaxException("Unknown build_type '" + name + "', expected small or large");
+                throw new JsonSyntaxException("Unknown build_type '" + name + "', expected small, large or plain");
             }
             return new RecipeEggDismantle(id, category, size);
         }

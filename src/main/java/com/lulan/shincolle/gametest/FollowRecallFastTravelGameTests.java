@@ -9,8 +9,10 @@ import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.ShipCommand;
 import com.lulan.shincolle.ai.domain.movement.FollowRecallRequest;
+import com.lulan.shincolle.ai.domain.movement.RecallLoadQueue;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.handler.RecallLoadObservation;
 import com.lulan.shincolle.handler.ShipFollowRecallHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
@@ -28,6 +30,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -54,6 +57,226 @@ public final class FollowRecallFastTravelGameTests {
     private static final long LAND_AT = 480L;
 
     private FollowRecallFastTravelGameTests() { }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_delayed_index", timeoutTicks = 1500)
+    public static void registrationAfterTwoHundredTicksStillIssuesARosterRecall(GameTestHelper helper) {
+        delayedRegistration(helper, 11, DelayEnd.REGISTER);
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_load_expiry", timeoutTicks = 2200)
+    public static void anIncompleteLoadEndsAtItsBudgetAndReleasesItsTicket(GameTestHelper helper) {
+        delayedRegistration(helper, 14, DelayEnd.EXPIRE);
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_cancel_late", timeoutTicks = 1500)
+    public static void logoutWhileLoadingReleasesTheTicketAndRejectsLateRegistration(GameTestHelper helper) {
+        delayedRegistration(helper, 15, DelayEnd.CANCEL);
+    }
+
+    private enum DelayEnd { REGISTER, EXPIRE, CANCEL }
+
+    private static void delayedRegistration(GameTestHelper helper, int lane, DelayEnd ending) {
+        Rig rig = new Rig(helper, lane, 1);
+        rig.jumpAndHover();
+        List<BasicEntityShip> pending = new ArrayList<>();
+        AutoCloseable[] barrier = {null};
+        long[] loadAt = {-1L};
+        boolean[] released = {false};
+        boolean[] issued = {false};
+        com.lulan.shincolle.ai.domain.movement.RecallRequestKey[] original = {null};
+        ChunkPos[] recordedChunk = {null};
+        Consumer<EntityJoinLevelEvent> listener = event -> {
+            if (!released[0] && event.loadedFromDisk() && event.getLevel() == helper.getLevel()
+                    && event.getEntity() instanceof BasicEntityShip ship && rig.identities.contains(ship.getUUID())) {
+                event.setCanceled(true);
+                pending.add(ship);
+            }
+        };
+        MinecraftForge.EVENT_BUS.addListener(listener);
+        FollowRecallGameTests.attachCompletion(helper, () -> {
+            released[0] = true;
+            MinecraftForge.EVENT_BUS.unregister(listener);
+            closeBarrier(barrier);
+            for (BasicEntityShip ship : pending) {
+                if (!ship.isRemoved() && helper.getLevel().getEntity(ship.getUUID()) == null) {
+                    helper.getLevel().addFreshEntity(ship);
+                    ship.discard();
+                }
+            }
+        });
+        helper.onEachTick(() -> rig.poll(elapsed -> {
+            if (elapsed == 2) original[0] = rig.followers.get(0).shipMovementExecutor().followRecallRequest().orElseThrow().key();
+            if (elapsed == UNLOADED_BY) {
+                rig.assertSourceUnloaded();
+                helper.assertTrue(helper.getLevel().getEntity(rig.identities.get(0)) == null, "Source UUID still indexed");
+                var recorded = ShipFollowRecallHandler.rosterSnapshot(rig.owner.getUUID()).get(0);
+                recordedChunk[0] = new ChunkPos(recorded.chunkX(), recorded.chunkZ());
+                barrier[0] = RecallLoadObservation.holdCompletionForTest(helper.getLevel(),
+                        recordedChunk[0]);
+            }
+            var roster = ShipFollowRecallHandler.rosterSnapshot(rig.owner.getUUID());
+            if (loadAt[0] < 0 && !roster.isEmpty() && roster.get(0).loadStartedAt().isPresent()) {
+                loadAt[0] = roster.get(0).loadStartedAt().getAsLong();
+            }
+            if (loadAt[0] < 0) {
+                helper.assertTrue(elapsed < LAND_AT + 100, "Product never started the unloaded roster load");
+                return;
+            }
+            long waited = rig.now() - loadAt[0];
+            if (waited == 220) {
+                helper.assertTrue(!pending.isEmpty(), "Real disk restoration did not reach the registration barrier");
+                helper.assertTrue(helper.getLevel().getEntity(rig.identities.get(0)) == null, "Follower already registered");
+                helper.assertTrue(!roster.isEmpty(), "Pending registration was dropped after 200 ticks");
+                if (ending == DelayEnd.CANCEL) {
+                    ShipFollowRecallHandler.onLogout(new PlayerEvent.PlayerLoggedOutEvent(rig.owner));
+                    helper.assertTrue(!ShipFollowRecallHandler.isCurrent(original[0]), "Logout kept the old key");
+                    helper.assertTrue(ShipFollowRecallHandler.loadTicketCount(rig.owner.getUUID()) == 0, "Logout kept a load ticket");
+                }
+            }
+            if (ending == DelayEnd.EXPIRE) {
+                if (waited < 1200) helper.assertTrue(!roster.isEmpty(), "Incomplete load ended before its budget");
+                else {
+                    // Forge START precedes MinecraftServer's counter increment; consume the exact test clock now.
+                    ShipFollowRecallHandler.observe(rig.owner, rig.now());
+                    helper.assertTrue(ShipFollowRecallHandler.rosterSnapshot(rig.owner.getUUID()).isEmpty(),
+                            "Load budget did not end the roster wait");
+                    helper.assertTrue(!ShipFollowRecallHandler.isCurrent(original[0]), "Expired load kept the old key");
+                    helper.assertTrue(ShipFollowRecallHandler.loadTicketCount(rig.owner.getUUID()) == 0, "Expired load kept a ticket");
+                    helper.succeed();
+                }
+                return;
+            }
+            if (waited >= 260 && !released[0]) {
+                released[0] = true;
+                closeBarrier(barrier);
+                if (ending == DelayEnd.CANCEL) rig.reload(recordedChunk[0]);
+                for (BasicEntityShip ship : pending) {
+                    helper.assertTrue(helper.getLevel().addFreshEntity(ship), "Delayed restored entity was rejected");
+                }
+            }
+            if (ending == DelayEnd.CANCEL && released[0]) {
+                helper.assertTrue(!ShipFollowRecallHandler.isCurrent(original[0]), "Late registration revived a cancelled key");
+                helper.assertTrue(roster.isEmpty(), "Late registration revived the old roster");
+                Entity late = helper.getLevel().getEntity(rig.identities.get(0));
+                if (late instanceof BasicEntityShip ship) {
+                    helper.assertTrue(ship.shipMovementExecutor().followRecallRequest().isEmpty(), "Late registration reissued an old recall");
+                }
+                if (waited == 300) {
+                    helper.assertTrue(late != null, "Cancellation fixture never registered its delayed entity");
+                    rig.assertIdentity();
+                    helper.succeed();
+                }
+                return;
+            }
+            if (released[0]) {
+                issued[0] |= roster.stream().anyMatch(entry -> entry.requestedAt().isPresent()
+                        && entry.requestedAt().getAsLong() >= loadAt[0] + 260);
+                if (rig.allFollowersWithin(NEAR_SQ)) {
+                    helper.assertTrue(issued[0], "Arrival must follow a roster-issued request, not ordinary follow alone");
+                    rig.assertIdentity();
+                    rig.assertRestoredFollowers();
+                    helper.assertTrue(rig.owner.getUUID().equals(((BasicEntityShip) helper.getLevel()
+                            .getEntity(rig.identities.get(0))).getOwnerUUID()), "Owner changed during restoration");
+                    helper.succeed();
+                }
+            }
+            helper.assertTrue(waited < 650, "Delayed follower never recalled: " + rig.describe());
+        }));
+    }
+
+    private static void closeBarrier(AutoCloseable[] barrier) {
+        if (barrier[0] == null) return;
+        try {
+            barrier[0].close();
+            barrier[0] = null;
+        } catch (Exception failure) {
+            throw new IllegalStateException(failure);
+        }
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_cancel_one", timeoutTicks = 400)
+    public static void sittingCancelsOnlyItsShipAndFollowDoesNotReviveTheOldKey(GameTestHelper helper) {
+        Rig rig = new Rig(helper, 12, 2);
+        Vec3 landing = rig.landingPoint(14D);
+        rig.path(elapsed -> landing, elapsed -> true);
+        helper.onEachTick(() -> rig.poll(elapsed -> {
+            if (elapsed != 2) return;
+            BasicEntityShip first = rig.followers.get(0);
+            BasicEntityShip second = rig.followers.get(1);
+            var a = first.shipMovementExecutor().followRecallRequest().orElseThrow();
+            var b = second.shipMovementExecutor().followRecallRequest().orElseThrow();
+            helper.assertTrue(a.detectedAt() == b.detectedAt() && !a.key().equals(b.key()), "Fixture needs same-tick distinct ship requests");
+            first.applyCommandState(new CommandIssuer.Player(rig.owner.getUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.SetSitting(true)));
+            helper.assertTrue(!ShipFollowRecallHandler.isCurrent(a.key()), "Accepted sitting did not invalidate the first key");
+            helper.assertTrue(ShipFollowRecallHandler.isCurrent(b.key()), "First cancellation invalidated another ship");
+            first.applyCommandState(new CommandIssuer.Player(rig.owner.getUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.SetSitting(false)));
+            first.applyCommandState(new CommandIssuer.Player(rig.owner.getUUID()),
+                    new CommandStateOp.Apply(new ShipCommand.Follow()));
+            helper.assertTrue(!ShipFollowRecallHandler.isCurrent(a.key()), "Follow revived the cancelled key");
+            helper.assertTrue(first.shipMovementExecutor().followRecallRemaining(ShipCommandStateAdapter.handle(rig.owner), rig.now()).isEmpty(),
+                    "Cancelled executor request survived");
+            UUID previousOwner = second.getOwnerUUID();
+            second.setOwnerUUID(UUID.randomUUID());
+            second.setOwnerUUID(previousOwner);
+            helper.assertTrue(!ShipFollowRecallHandler.isCurrent(b.key()), "Owner round trip revived the old key");
+            helper.succeed();
+        }));
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_absent", timeoutTicks = 2200)
+    public static void completedEntityLoadWithoutTheRecordedShipEndsAndReleasesTheTicket(GameTestHelper helper) {
+        Rig rig = new Rig(helper, 13, 1);
+        rig.jumpAndHover();
+        List<BasicEntityShip> rejected = new ArrayList<>();
+        ChunkPos[] recorded = {null};
+        RecallLoadObservation.CompletionProbe[] probe = {null};
+        long[] loadObservedAt = {-1L};
+        Consumer<EntityJoinLevelEvent> listener = event -> {
+            if (event.loadedFromDisk() && event.getLevel() == helper.getLevel()
+                    && event.getEntity() instanceof BasicEntityShip ship && rig.identities.contains(ship.getUUID())) {
+                event.setCanceled(true);
+                rejected.add(ship);
+            }
+        };
+        MinecraftForge.EVENT_BUS.addListener(listener);
+        FollowRecallGameTests.attachCompletion(helper, () -> {
+            MinecraftForge.EVENT_BUS.unregister(listener);
+            if (probe[0] != null) probe[0].close();
+            for (BasicEntityShip ship : rejected) {
+                if (!ship.isRemoved() && helper.getLevel().getEntity(ship.getUUID()) == null) {
+                    helper.getLevel().addFreshEntity(ship);
+                    ship.discard();
+                }
+            }
+        });
+        helper.onEachTick(() -> rig.poll(elapsed -> {
+            if (elapsed == UNLOADED_BY) {
+                rig.assertSourceUnloaded();
+                var entry = ShipFollowRecallHandler.rosterSnapshot(rig.owner.getUUID()).get(0);
+                recorded[0] = new ChunkPos(entry.chunkX(), entry.chunkZ());
+                probe[0] = RecallLoadObservation.probeCompletionForTest(helper.getLevel(), recorded[0]);
+            }
+            if (loadObservedAt[0] < 0 && ShipFollowRecallHandler.loadTicketCount(rig.owner.getUUID()) > 0) {
+                loadObservedAt[0] = rig.now();
+            }
+            if (probe[0] != null && probe[0].completed()) {
+                helper.assertTrue(loadObservedAt[0] >= 0 && rig.now() - loadObservedAt[0] < RecallLoadQueue.DEFAULT.ticks(),
+                        "Entity load must complete before its budget, not expire");
+                helper.assertTrue(!rejected.isEmpty(), "Fixture never rejected the restored recorded ship");
+                helper.assertTrue(ShipFollowRecallHandler.rosterSnapshot(rig.owner.getUUID()).isEmpty(),
+                        "Completed entity load without the recorded ship kept the roster entry");
+                helper.assertTrue(helper.getLevel().getEntity(rig.identities.get(0)) == null, "Rejected entity was indexed");
+                helper.assertTrue(ShipFollowRecallHandler.loadTicketCount(rig.owner.getUUID()) == 0, "Absent load kept its ticket");
+                helper.succeed();
+                return;
+            }
+            helper.assertTrue(loadObservedAt[0] < 0 || rig.now() - loadObservedAt[0] < RecallLoadQueue.DEFAULT.ticks(),
+                    "Entity-load fixture did not complete within the product budget: rejected=" + rejected.size()
+                            + ", " + rig.describe());
+        }));
+    }
 
     @GameTest(templateNamespace = "minecraft", template = "empty", batch = "isolated_fast_travel_glide", timeoutTicks = 900)
     public static void glidingOwnerIsRecalledOnlyAfterLandingFromThirteenBlocksPerSecond(GameTestHelper helper) {
@@ -227,7 +450,7 @@ public final class FollowRecallFastTravelGameTests {
             }
             helper.assertTrue(elapsed < secondAt[0] + 400, "Followers never came to the second destination; firstDestinationLoaded="
                     + helper.getLevel().hasChunk(firstChunk.x, firstChunk.z) + ", detected="
-                    + ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), rig.tickAt(secondAt[0])) + ": " + rig.describe()
+                    + ShipFollowRecallHandler.departureDetectedAt(rig.owner.getUUID(), rig.tickAt(secondAt[0])) + ": " + rig.describe()
                     + rig.trace);
         }));
     }
@@ -255,7 +478,8 @@ public final class FollowRecallFastTravelGameTests {
                         ShipCommandStateAdapter.handle(rig.owner), rig.now());
                 helper.assertTrue(remaining.isPresent() && remaining.getAsLong() > 0L, "The first departure started no wait: " + remaining);
                 detectedAt[0] = rig.now() + remaining.getAsLong() - FollowRecallRequest.WAIT_TICKS;
-                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), detectedAt[0]), "The first departure is not current");
+                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.followers.get(0).shipMovementExecutor()
+                        .followRecallRequest().orElseThrow().key()), "The first request is not current");
             }
             if (elapsed >= 2 && elapsed <= FollowRecallRequest.WAIT_TICKS - 2) {
                 for (BasicEntityShip ship : rig.followers) {
@@ -268,9 +492,10 @@ public final class FollowRecallFastTravelGameTests {
                 }
             }
             if (elapsed == secondAt + 1) {
-                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), detectedAt[0]),
+                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.followers.get(0).shipMovementExecutor()
+                                .followRecallRequest().orElseThrow().key()),
                         "The first departure is no longer current after the second");
-                helper.assertTrue(ShipFollowRecallHandler.isCurrent(rig.owner.getUUID(), rig.tickAt(secondAt)),
+                helper.assertTrue(ShipFollowRecallHandler.departureDetectedAt(rig.owner.getUUID(), rig.tickAt(secondAt)),
                         "The second departure was not detected");
             }
             if (elapsed > FollowRecallRequest.WAIT_TICKS && rig.allFollowersWithin(NEAR_SQ)) {

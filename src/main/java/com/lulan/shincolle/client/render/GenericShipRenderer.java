@@ -6,6 +6,9 @@ import com.lulan.shincolle.client.visual.ShipVisualAnimatable;
 import com.lulan.shincolle.client.visual.ShipVisualGeoModel;
 import com.lulan.shincolle.client.visual.ShipVisuals;
 import com.lulan.shincolle.client.visual.ShipVisualHeldItemLayer;
+import com.lulan.shincolle.client.visual.ShipAuraClient;
+import com.lulan.shincolle.client.visual.ShipAuraLayer;
+import com.lulan.shincolle.client.visual.ShipIndividualVisual;
 import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.visualdata.ShipVisualRenderMath;
 import net.minecraft.client.Minecraft;
@@ -33,14 +36,17 @@ public final class GenericShipRenderer<T extends Mob & DefinitionBackedShip> ext
         this.context = context;
     }
 
-    private ShipVisuals.Loaded visual(T entity) {
+    private ShipVisuals.Resolved visual(T entity) {
         var presentation = entity.definitionState().presentation(true);
-        return ShipVisuals.resolve(presentation == null ? MISSING_VISUAL : presentation.visual());
+        return ShipVisuals.resolve(presentation == null ? MISSING_VISUAL : presentation.visual(),
+                ShipIndividualVisual.presentation(entity).visual());
     }
 
     @Override
     public ResourceLocation getTextureLocation(T entity) {
-        return visual(entity).definition().texture();
+        var visual = visual(entity);
+        return visual == null ? new ResourceLocation("minecraft", "textures/block/magenta_concrete.png")
+                : visual.texture();
     }
 
     @Override
@@ -49,7 +55,12 @@ public final class GenericShipRenderer<T extends Mob & DefinitionBackedShip> ext
             shadowRadius = 0;
             renderNameTag(entity, entity.getDisplayName(), poses, buffers, light);
         } else {
-            var visual = visual(entity);
+            var resolved = visual(entity);
+            if (resolved == null) {
+                shadowRadius = 0;
+                return;
+            }
+            var visual = resolved.visual();
             Instance<T> instance = instances.get(entity);
             if (instance == null || instance.source != visual) {
                 instance = new Instance<>(context, visual);
@@ -62,7 +73,7 @@ public final class GenericShipRenderer<T extends Mob & DefinitionBackedShip> ext
             instance.distant = ShipVisualRenderMath.distant(
                     Minecraft.getInstance().gameRenderer.getMainCamera().getPosition().distanceToSqr(entity.position()),
                     visual.definition().lod().distance());
-            instance.animatable.bind(entity, visual);
+            instance.animatable.bind(entity, visual, resolved.texture(), ShipAuraClient.selected(entity));
             try {
                 instance.renderer.render(entity, yaw, partialTick, poses, buffers, light);
             } finally {
@@ -89,7 +100,7 @@ public final class GenericShipRenderer<T extends Mob & DefinitionBackedShip> ext
                                               MultiBufferSource buffers, VertexConsumer buffer, boolean reRender, float partialTick,
                                                int light, int overlay, float red, float green, float blue, float alpha) {
                     if (shipModel.skipBone(bone, distant)) return;
-                    if (bone.getParent() == null) heldItems.modelBasis(poses, scale);
+                    if (!reRender && bone.getParent() == null) heldItems.modelBasis(poses, scale);
                     boolean rootBone = bone.getName().equals(visual.rig().get("root"));
                     if (rootBone) {
                         poses.pushPose();
@@ -117,6 +128,7 @@ public final class GenericShipRenderer<T extends Mob & DefinitionBackedShip> ext
             };
             heldItems = new ShipVisualHeldItemLayer(renderer, visual);
             renderer.addRenderLayer(heldItems);
+            renderer.addRenderLayer(new ShipAuraLayer(renderer));
         }
     }
 }

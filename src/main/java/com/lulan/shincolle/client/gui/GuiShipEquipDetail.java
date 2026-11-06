@@ -13,6 +13,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
@@ -37,16 +38,20 @@ public class GuiShipEquipDetail extends Screen {
     private static final int HEADER_HEIGHT = 20;
     private static final int FOOTER_HEIGHT = 6;
 
-    /** One rendered line. {@code detail} is non-null only for optional detail text shown while Ctrl is held. */
+    /** One logical line. {@code detail} is non-null only for optional detail text shown while Ctrl is held. */
     private record LineEntry(Component text, Component detail) {
         static LineEntry plain(Component text) {
             return new LineEntry(text, null);
         }
     }
 
+    /** One width-constrained display row, retaining its logical line's optional detail. */
+    private record WrappedLine(FormattedCharSequence text, Component detail) {
+    }
+
     private final Screen parent;
     private final BasicEntityShip ship;
-    private List<LineEntry> lines = List.of();
+    private List<WrappedLine> lines = List.of();
     private int scrollOffset = 0;
     private int panelLeft;
     private int panelTop;
@@ -66,7 +71,13 @@ public class GuiShipEquipDetail extends Screen {
         this.listTop = panelTop + HEADER_HEIGHT;
         this.listBottom = panelTop + PANEL_HEIGHT - FOOTER_HEIGHT;
 
-        this.lines = collectLines();
+        List<WrappedLine> wrappedLines = new ArrayList<>();
+        for (LineEntry line : collectLines()) {
+            for (FormattedCharSequence text : this.font.split(line.text(), PANEL_WIDTH - LIST_PADDING * 2)) {
+                wrappedLines.add(new WrappedLine(text, line.detail()));
+            }
+        }
+        this.lines = List.copyOf(wrappedLines);
         this.scrollOffset = 0;
 
         this.addRenderableWidget(Button.builder(Component.literal("X"), b -> onClose())
@@ -139,8 +150,8 @@ public class GuiShipEquipDetail extends Screen {
         graphics.enableScissor(panelLeft + LIST_PADDING, listTop,
                 panelLeft + PANEL_WIDTH - LIST_PADDING, listBottom);
         int y = listTop - scrollOffset;
-        LineEntry hovered = null;
-        for (LineEntry line : lines) {
+        WrappedLine hovered = null;
+        for (WrappedLine line : lines) {
             if (y + LINE_HEIGHT >= listTop && y <= listBottom) {
                 graphics.drawString(this.font, line.text(), panelLeft + LIST_PADDING, y, 0xE0E0E0, false);
                 if (mouseY >= y && mouseY < y + LINE_HEIGHT && line.detail() != null) {

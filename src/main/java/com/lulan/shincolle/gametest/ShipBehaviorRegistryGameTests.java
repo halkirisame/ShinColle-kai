@@ -1,5 +1,7 @@
 package com.lulan.shincolle.gametest;
 
+import com.lulan.shincolle.ai.domain.combat.WeaponChannel;
+import com.lulan.shincolle.ai.registry.ShipAttackType;
 import com.lulan.shincolle.ai.registry.ShipBehaviorRegistries;
 import com.lulan.shincolle.ai.registry.ShipBehaviorRegistryKeys;
 import com.lulan.shincolle.init.ModShipBehaviors;
@@ -14,6 +16,8 @@ import net.minecraftforge.registries.IForgeRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** The internal ship AI and attack registries, through the production objects. */
 @GameTestHolder(Reference.MOD_ID)
@@ -75,12 +79,46 @@ public final class ShipBehaviorRegistryGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void shipBehaviorRegistriesHoldNoBuiltInEntriesYet(GameTestHelper helper) {
-        // When the built-in list is added, replace this with a match against the set of known IDs.
-        helper.assertTrue(ModShipBehaviors.AI_REGISTRY.get().getKeys().isEmpty(),
-                "The AI registry holds entries: " + ModShipBehaviors.AI_REGISTRY.get().getKeys());
-        helper.assertTrue(ModShipBehaviors.ATTACK_REGISTRY.get().getKeys().isEmpty(),
-                "The attack registry holds entries: " + ModShipBehaviors.ATTACK_REGISTRY.get().getKeys());
+    public static void builtinBehaviorIdsAreRegistered(GameTestHelper helper) {
+        ResourceLocation standard = new ResourceLocation(Reference.MOD_ID, "standard");
+        helper.assertTrue(ModShipBehaviors.AI_REGISTRY.get().getKeys().equals(Set.of(standard)),
+                "The AI registry does not contain exactly the built-in IDs");
+        helper.assertTrue(ShipBehaviorRegistries.isSelectableAi(standard), "The standard AI is not selectable");
+        helper.assertTrue(ModShipBehaviors.STANDARD.get() == ModShipBehaviors.AI_REGISTRY.get().getValue(standard),
+                "The standard AI does not resolve to the registered singleton");
+        Map<String, Set<WeaponChannel>> expected = Map.of(
+                "light_cannon", Set.of(WeaponChannel.LIGHT), "heavy_cannon", Set.of(WeaponChannel.HEAVY),
+                "melee", Set.of(WeaponChannel.MELEE), "aircraft", Set.of(WeaponChannel.AIR),
+                "tenryuu_skill", Set.of(), "tatsuta_skill", Set.of(), "nagato_skill", Set.of());
+        Set<String> selectable = Set.of("light_cannon", "heavy_cannon", "melee");
+        IForgeRegistry<ShipAttackType> registry = ModShipBehaviors.ATTACK_REGISTRY.get();
+        helper.assertTrue(registry.getKeys().equals(expected.keySet().stream()
+                        .map(path -> new ResourceLocation(Reference.MOD_ID, path)).collect(java.util.stream.Collectors.toSet())),
+                "The attack registry does not contain exactly the built-in IDs: " + registry.getKeys());
+        expected.forEach((path, channels) -> {
+            ResourceLocation id = new ResourceLocation(Reference.MOD_ID, path);
+            ShipAttackType attack = registry.getValue(id);
+            helper.assertTrue(attack.channels().equals(channels), "Incorrect weapon channels for " + id);
+            helper.assertTrue(attack.selectableByDefinition() == selectable.contains(path),
+                    "Incorrect definition selectability for " + id);
+            helper.assertTrue(ShipBehaviorRegistries.isSelectableAttack(id) == selectable.contains(path),
+                    "Incorrect attack selection query for " + id);
+            helper.assertTrue(ShipBehaviorRegistries.isRegisteredAttack(id), "Registered attack was not found: " + id);
+            helper.assertTrue(!ShipBehaviorRegistries.isSelectableAttack(() -> null, id),
+                    "An unavailable registry selected " + id);
+            helper.assertTrue(ShipBehaviorRegistries.isSelectableAttack(() -> registry, id) == selectable.contains(path),
+                    "The query did not use the supplied registry for " + id);
+            try {
+                attack.channels().add(WeaponChannel.LIGHT);
+                helper.fail("Mutable weapon channels for " + id);
+            } catch (UnsupportedOperationException expectedException) {
+                // Registry entries must not expose shared mutable state.
+            }
+        });
+        ResourceLocation foreign = new ResourceLocation("some_addon", "light_cannon");
+        helper.assertTrue(!ShipBehaviorRegistries.isSelectableAttack(() -> {
+            throw new IllegalStateException("Foreign namespaces must be rejected before looking up a registry");
+        }, foreign), "A foreign attack ID was selectable");
         helper.succeed();
     }
 }

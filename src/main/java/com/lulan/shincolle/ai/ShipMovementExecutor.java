@@ -12,19 +12,24 @@ import com.lulan.shincolle.ai.domain.movement.MovementReason;
 import com.lulan.shincolle.ai.domain.movement.MovementStep;
 import com.lulan.shincolle.ai.domain.movement.MovementTarget;
 import com.lulan.shincolle.ai.domain.movement.PathOutcome;
+import com.lulan.shincolle.ai.domain.movement.RecallRequestKey;
 import com.lulan.shincolle.ai.domain.movement.StuckDetector;
 import com.lulan.shincolle.ai.domain.movement.TeleportDenial;
 import com.lulan.shincolle.ai.domain.movement.TeleportSafety;
+import com.lulan.shincolle.ai.path.ShipPathNavigation;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -51,6 +56,7 @@ public final class ShipMovementExecutor {
     private boolean teleported;
     private int lastTeleportAt;
     private FollowRecallRequest followRecall;
+    private Detour detour;
     Optional<com.lulan.shincolle.ai.domain.movement.VerticalSeparation.State> separation = Optional.empty();
     Optional<com.lulan.shincolle.ai.domain.movement.VoidRescue.State> voidRescue = Optional.empty();
 
@@ -59,18 +65,29 @@ public final class ShipMovementExecutor {
     }
 
     void clearFollowRecall() {
+        FollowRecallRequest previous = this.followRecall;
         this.followRecall = null;
+        if (previous != null) com.lulan.shincolle.handler.ShipFollowRecallHandler.issuedFinished(previous.key());
+    }
+
+    public Optional<FollowRecallRequest> followRecallRequest() {
+        return Optional.ofNullable(this.followRecall);
+    }
+
+    /** An old cancellation must not clear the ship's newer request. */
+    public void cancelFollowRecall(RecallRequestKey expected) {
+        if (this.followRecall != null && this.followRecall.key().equals(expected)) clearFollowRecall();
     }
 
     /** Reads a short wait only while that owner's original jump is still current. */
     public OptionalLong followRecallRemaining(TargetHandle owner, long now) {
         if (this.followRecall == null) return OptionalLong.empty();
-        if (!com.lulan.shincolle.handler.ShipFollowRecallHandler.isCurrent(owner.uuid(), this.followRecall.detectedAt())) {
-            this.followRecall = null;
+        if (!com.lulan.shincolle.handler.ShipFollowRecallHandler.isCurrent(this.followRecall.key())) {
+            clearFollowRecall();
             return OptionalLong.empty();
         }
         OptionalLong remaining = this.followRecall.remaining(owner, now);
-        if (remaining.isEmpty()) this.followRecall = null;
+        if (remaining.isEmpty()) clearFollowRecall();
         return remaining;
     }
 
@@ -128,7 +145,11 @@ public final class ShipMovementExecutor {
     private PathOutcome execute(Mob host, MovementPlan plan, Optional<CombatMove.Reason> combat) {
         PathOutcome outcome = PathOutcome.NONE;
         for (MovementStep step : plan.steps()) {
+            // a later move of the host's, in this plan or a later one, takes the place of a detour still
+            // looking for its point
+            this.detour = null;
             PathOutcome result = this.step(host, step);
+            if (this.detour != null && this.detour.step == step) this.detour.combat = combat;
             if (step instanceof MovementStep.PathTo) outcome = result;
             this.last = new Request(host.tickCount, step, combat, result);
         }
@@ -171,7 +192,11 @@ public final class ShipMovementExecutor {
             MovementPoint at = point.point();
             issued = body.getNavigation().moveTo(at.x(), at.y(), at.z(), path.speed());
         } else if (path.target() instanceof MovementTarget.Around around) {
-            issued = detour(body, around.center(), path.speed());
+            this.detour = new Detour(path, body, around.center());
+            DetourProgress progress = this.advanceDetour(host);
+            // still looking: the request is taken and the path in hand goes on meanwhile
+            if (progress == DetourProgress.SEARCHING) return PathOutcome.ISSUED;
+            issued = progress == DetourProgress.ISSUED;
         } else {
             Entity target = resolve(host, ((MovementTarget.Entity) path.target()).handle());
             // never a path into another dimension or toward what is gone
@@ -183,28 +208,117 @@ public final class ShipMovementExecutor {
         return PathOutcome.FAILED;
     }
 
+    /** How a detour's searches went this tick. */
+    private enum DetourProgress { SEARCHING, ISSUED, FAILED, DROPPED }
+
     /**
-     * To the first point beside {@code center}, in the detector's order, that the body can reach and
-     * is not already standing at; to {@code center} itself when there is none.
+     * A detour still looking for its point: to the first point beside the center, in the detector's order, that
+     * the body can reach and is not already standing at; to the center itself when there is none. Server only,
+     * never saved; any later move of the host's drops it.
      */
-    private static boolean detour(Mob body, MovementPoint center, double speed) {
-        for (MovementPoint point : StuckDetector.detourPoints(center)) {
-            double dx = point.x() - body.getX();
-            double dz = point.z() - body.getZ();
-            if (dx * dx + dz * dz < DETOUR_SKIP_SQ) continue;
-            BlockPos pos = BlockPos.containing(point.x(), point.y(), point.z());
-            if (!body.level().hasChunkAt(pos)) continue;
-            Path path = body.getNavigation().createPath(pos, 0);
-            if (path != null && path.canReach()) {
-                return body.getNavigation().moveTo(point.x(), point.y(), point.z(), speed);
+    private static final class Detour {
+        private final MovementStep.PathTo step;
+        private final Mob body;
+        private final Level level;
+        private final MovementPoint center;
+        private final List<MovementPoint> points = new ArrayList<>();
+        private final List<BlockPos> blocks = new ArrayList<>();
+        private Optional<CombatMove.Reason> combat = Optional.empty();
+        /** The next point to look at. */
+        private int next;
+        /** The tick of the last search made for a point, which allows no other that tick. */
+        private int searchedAt = Integer.MIN_VALUE;
+
+        private Detour(MovementStep.PathTo step, Mob body, MovementPoint center) {
+            this.step = step;
+            this.body = body;
+            this.level = body.level();
+            this.center = center;
+            for (MovementPoint point : StuckDetector.detourPoints(center)) {
+                double dx = point.x() - body.getX();
+                double dz = point.z() - body.getZ();
+                if (dx * dx + dz * dz < DETOUR_SKIP_SQ) continue;
+                BlockPos pos = BlockPos.containing(point.x(), point.y(), point.z());
+                if (!body.level().hasChunkAt(pos)) continue;
+                this.points.add(point);
+                this.blocks.add(pos);
             }
         }
-        return body.getNavigation().moveTo(center.x(), center.y(), center.z(), speed);
+    }
+
+    /**
+     * Looks for the detour's point, one search per point in the detector's order, as far as this tick allows.
+     * A search that reaches nothing runs to the search limit, so a host's detour makes at most one search a
+     * tick and goes on in its next ticks; points no search could reach are passed over without one. A host
+     * without its own executor cannot go on later, so its detour looks at every point at once.
+     */
+    private DetourProgress advanceDetour(Mob host) {
+        Detour detour = this.detour;
+        Mob body = body(host, detour.step.body());
+        if (body != detour.body || !host.isAlive() || !body.isAlive() || body.level() != detour.level) {
+            this.detour = null;
+            return DetourProgress.DROPPED;
+        }
+        boolean oneSearchATick = host instanceof ShipMovementHost;
+        int now = host.tickCount;
+        if (oneSearchATick && detour.searchedAt == now) return DetourProgress.SEARCHING;
+        PathNavigation navigation = body.getNavigation();
+        ShipPathNavigation ship = navigation instanceof ShipPathNavigation shipNavigation ? shipNavigation : null;
+        boolean[] proven = ship == null ? new boolean[detour.blocks.size()] : ship.provenUnreachable(detour.blocks);
+        // a search for where the unfinished path goes is answered with that path; one point at a time only the
+        // first point's search could be, so that point is searched as it always was
+        if (detour.next == 0 && proven.length > 0 && !navigation.isDone()
+                && detour.blocks.get(0).equals(navigation.getTargetPos())) {
+            proven[0] = false;
+        }
+        double speed = detour.step.speed();
+        for (; detour.next < detour.blocks.size(); detour.next++) {
+            int i = detour.next;
+            if (proven[i]) continue;
+            if (oneSearchATick && detour.searchedAt == now) return DetourProgress.SEARCHING;
+            // after the first point the search is the one each point always had, the previous point's search
+            // having moved vanilla's target off this point
+            Path path = i == 0 || ship == null ? navigation.createPath(detour.blocks.get(i), 0)
+                    : ship.createPathAfresh(detour.blocks.get(i), 0);
+            detour.searchedAt = now;
+            if (path != null && path.canReach()) {
+                this.detour = null;
+                MovementPoint point = detour.points.get(i);
+                return navigation.moveTo(point.x(), point.y(), point.z(), speed)
+                        ? DetourProgress.ISSUED : DetourProgress.FAILED;
+            }
+        }
+        if (oneSearchATick && detour.searchedAt == now) return DetourProgress.SEARCHING;
+        this.detour = null;
+        MovementPoint center = detour.center;
+        boolean issued = ship != null && !detour.blocks.isEmpty()
+                ? ship.moveToAfresh(center.x(), center.y(), center.z(), speed)
+                : navigation.moveTo(center.x(), center.y(), center.z(), speed);
+        return issued ? DetourProgress.ISSUED : DetourProgress.FAILED;
+    }
+
+    /**
+     * Goes on with the host's detour if it is still looking for its point. The host calls this at the end of
+     * each of its server ticks, after its goals.
+     */
+    public static void continueDetour(Mob host) {
+        if (!(host instanceof ShipMovementHost movementHost)) return;
+        ShipMovementExecutor executor = movementHost.shipMovementExecutor();
+        Detour detour = executor.detour;
+        if (detour == null) return;
+        DetourProgress progress = executor.advanceDetour(host);
+        if (progress == DetourProgress.SEARCHING || progress == DetourProgress.DROPPED) return;
+        PathOutcome outcome = progress == DetourProgress.ISSUED ? PathOutcome.ISSUED : PathOutcome.FAILED;
+        if (outcome == PathOutcome.FAILED) {
+            detour.step.onFailure().ifPresent(jump -> executor.teleport(host, body(host, jump.body()), jump));
+        }
+        executor.last = new Request(host.tickCount, detour.step, detour.combat, outcome);
     }
 
     /** Carries out a guarded teleport and reports success to the transient recall state. */
     public static boolean tryTeleport(Mob host, MovementStep.Teleport teleport) {
         ShipMovementExecutor executor = of(host);
+        executor.detour = null;
         boolean success = executor.teleport(host, body(host, teleport.body()), teleport);
         executor.last = new Request(host.tickCount, teleport, Optional.empty(), PathOutcome.NONE);
         return success;
@@ -246,7 +360,7 @@ public final class ShipMovementExecutor {
         body.teleportTo(to.x(), to.y(), to.z());
         this.teleported = true;
         this.lastTeleportAt = host.tickCount;
-        this.followRecall = null;
+        clearFollowRecall();
         return true;
     }
 

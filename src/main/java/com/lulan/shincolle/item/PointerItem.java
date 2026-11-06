@@ -38,6 +38,7 @@ import java.util.function.Consumer;
  * <p>
  * Left click:
  * entity(own ship) + sneak: add / select / remove according to team state
+ * entity(other living non-player) + team modifier: toggle attack target class
  * block + sneak: guard position
  * plain left click: reserved (no action)
  * air + sneak+sprint: clear team
@@ -327,6 +328,10 @@ public class PointerItem extends BasicItem {
                 // The server resolves add/select/remove atomically from its current team state.
                 sendPacket.accept(new C2SGUIInputPacket(C2SGUIInputPacket.AddTeam,
                         new int[]{player.getId(), 0, ship.getId(), 1}));
+            } else if (teamModifierDown && entityHit.getEntity() instanceof LivingEntity target
+                    && !(target instanceof Player)) {
+                sendPacket.accept(new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                        new int[]{player.getId(), 0, target.getId()}, target.getClass().getSimpleName()));
             }
             return true;
         }

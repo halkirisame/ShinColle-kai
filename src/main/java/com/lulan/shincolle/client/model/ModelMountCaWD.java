@@ -4,6 +4,7 @@ import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.EmotionHelper;
+import com.lulan.shincolle.utility.EntityHelper;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.geom.ModelLayerLocation;
@@ -540,7 +541,7 @@ public class ModelMountCaWD extends ShipModelBaseAdv<Entity> {
         float angleX = Mth.cos(f2 * 0.08F);
 
         // water floating
-        if (ent.getShipDepth(0) > 0D) {
+        if (EntityHelper.checkEntityIsInLiquid((Entity) ent)) {
             this.offsetY += angleX * 0.025F + 0.025F;
         }
 

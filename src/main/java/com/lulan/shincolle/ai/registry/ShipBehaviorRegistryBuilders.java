@@ -2,7 +2,7 @@ package com.lulan.shincolle.ai.registry;
 
 import net.minecraftforge.registries.RegistryBuilder;
 
-/** The settings both internal registries are built with. */
+/** The settings the internal ship registries are built with. */
 public final class ShipBehaviorRegistryBuilders {
 
     private ShipBehaviorRegistryBuilders() {

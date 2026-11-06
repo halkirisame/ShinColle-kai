@@ -278,7 +278,7 @@ public final class ShipAttackExecutionGameTests {
         EntityBBKirishimaMob hostile = entities.add(
                 ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
         helper.assertTrue(hostile != null, "Could not create hostile ship fixture");
-        hostile.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, hostile);
         add(helper, hostile, x, z);
         return hostile;
     }

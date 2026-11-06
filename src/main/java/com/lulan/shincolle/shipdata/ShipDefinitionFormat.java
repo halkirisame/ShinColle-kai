@@ -14,6 +14,11 @@ public final class ShipDefinitionFormat {
     public static final int MAX_DISPLAY_NAME_LENGTH = 64;
     public static final int MAX_ATTACKS = 16;
     public static final int MAX_SLOTS = 16;
+    public static final int MAX_HOSTILE_VARIANTS = 16;
+    public static final int MAX_VARIANT_TRAITS = 4;
+    public static final int MAX_VARIANT_WEIGHT = 10000;
+    public static final int MAX_VARIANT_NAME_LENGTH = 128;
+    public static final int MAX_VARIANT_TEXTURE_LENGTH = 128;
     public static final int MAX_JSON_BYTES = 64 * 1024;
     public static final int MAX_JSON_DEPTH = 32;
     public static final ShipDefinition.Dimensions DEFAULT_DIMENSIONS = new ShipDefinition.Dimensions(0.5F, 1.5F);
@@ -33,7 +38,7 @@ public final class ShipDefinitionFormat {
             "standard_carrier", "battleship", "transport", "submarine", "demon", "hime");
     public static final Set<String> FIELDS = Set.of("$schema", "schema", "display_name", "ship_type", "visual",
             "base_stats", "growth", "equipment", "construction", "spawn", "behavior", "recruitment",
-            "dimensions", "mount_offset", "equip_type", "attack_profile", "hostile_modifiers");
+            "dimensions", "mount_offset", "equip_type", "attack_profile", "hostile_modifiers", "hostile_variants");
 
     private ShipDefinitionFormat() {
     }

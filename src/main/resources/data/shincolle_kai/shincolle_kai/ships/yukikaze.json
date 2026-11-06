@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "display_name": "雪風",
+  "ship_type": "shincolle_kai:destroyer",
+  "visual": "shincolle_kai:yukikaze",
+  "base_stats": {
+    "hp": 34,
+    "atk": 9,
+    "def": 0.1,
+    "spd": 1.0,
+    "mov": 0.52,
+    "hit": 11
+  },
+  "growth": {
+    "hp": 0.34,
+    "atk": 0.38,
+    "def": 0.14,
+    "spd": 0.5,
+    "mov": 1.0,
+    "hit": 0.5
+  },
+  "hostile_modifiers": {
+    "hp": 0.38,
+    "atk": 0.4,
+    "def": 0.35,
+    "spd": 1.0,
+    "mov": 1.0,
+    "hit": 0.8
+  },
+  "construction": {
+    "enabled": false
+  },
+  "spawn": {
+    "enabled": true,
+    "weight": 15
+  },
+  "dimensions": {
+    "width": 0.5,
+    "height": 1.6
+  }
+}

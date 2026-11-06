@@ -106,9 +106,9 @@ public class CapaShipSavedValues {
                     nbt.contains("CustomName", Tag.TAG_STRING));
         }
 
-        // nothing in this port raises the crane state, so a saved value could only leave the ship
-        // frozen in place
+        // A crane session belongs to the live crane, not to the saved ship or its old elapsed time.
         ship.setStateMinor(ID.M.CraneState, 0);
+        ship.setStateTimer(ID.T.CraneTime, 0);
 
         // clear appearance-state bits that this ship type does not support, so a saved
         // value from before the appearance grid hid them cannot keep applying its effect

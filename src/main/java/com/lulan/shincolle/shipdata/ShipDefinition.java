@@ -6,14 +6,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 /** Immutable, validated server data. Contains neither live entities nor client visual resources. */
 public record ShipDefinition(ShipDefinitionId id, int schema, String displayName,
                              ResourceLocation shipType, ResourceLocation visual,
                              Map<String, Double> baseStats, Map<String, Double> growth,
-                              Equipment equipment, Acquisition construction, Acquisition spawn, Behavior behavior,
+                              Equipment equipment, Construction construction, Acquisition spawn, Behavior behavior,
                               Dimensions dimensions, double mountOffset, int equipType, ResourceLocation attackProfile,
-                              Map<String, Double> hostileModifiers) {
+                               Map<String, Double> hostileModifiers, HostileVariants hostileVariants) {
     public ShipDefinition {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(displayName, "displayName");
@@ -28,6 +29,7 @@ public record ShipDefinition(ShipDefinitionId id, int schema, String displayName
         Objects.requireNonNull(dimensions, "dimensions");
         Objects.requireNonNull(attackProfile, "attackProfile");
         hostileModifiers = Map.copyOf(hostileModifiers);
+        Objects.requireNonNull(hostileVariants, "hostileVariants");
     }
 
     public record Dimensions(float width, float height) {
@@ -41,6 +43,38 @@ public record ShipDefinition(ShipDefinitionId id, int schema, String displayName
 
     /** Eligibility and relative selection weight; consumers are separate from the loader. */
     public record Acquisition(boolean enabled, int weight) {
+    }
+
+    public enum ConstructionMode { MATERIAL, WEIGHTED }
+
+    public enum ConstructionTier { SMALL, LARGE }
+
+    public enum MaterialBias {
+        GRUDGE(0), ABYSSIUM(1), AMMO(2), POLYMETAL(3);
+
+        private final int index;
+
+        MaterialBias(int index) {
+            this.index = index;
+        }
+
+        public int index() {
+            return index;
+        }
+    }
+
+    public record Construction(boolean enabled, int weight, ConstructionMode mode,
+                               Optional<ConstructionTier> tier, OptionalInt materialMean, Optional<MaterialBias> materialBias) {
+        public Construction {
+            Objects.requireNonNull(mode, "mode");
+            Objects.requireNonNull(tier, "tier");
+            Objects.requireNonNull(materialMean, "materialMean");
+            Objects.requireNonNull(materialBias, "materialBias");
+        }
+
+        public boolean matches(int buildType) {
+            return tier.isEmpty() || tier.get() == (buildType == 0 ? ConstructionTier.SMALL : ConstructionTier.LARGE);
+        }
     }
 
     /** Explicit behavior selections; omission does not override an entity's built-in defaults. */

@@ -257,7 +257,7 @@ public final class ShipSpecialAttackGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_skill_manual_range")
-    public static void skillRetainsManualLockButCannotAcquireNewDistantManualTarget(GameTestHelper helper) {
+    public static void skillRetainsAndReacquiresDistantManualTarget(GameTestHelper helper) {
         fixture(helper, ModEntities.CL_TENRYUU.get(), (host, target) -> {
             BasicEntityShip ship = (BasicEntityShip) host;
             ship.setManualTarget(target);
@@ -270,10 +270,12 @@ public final class ShipSpecialAttackGameTests {
             helper.assertTrue(ShipCombatGate.engagement(host).target() == target, "Held manual lock must survive at ten");
             authority(host).clearLock();
             authority(host).tick();
-            helper.assertTrue(ship.currentTargetLock().isEmpty(), "New distant manual lock must remain rejected");
+            helper.assertTrue(ship.currentTargetLock().orElseThrow().source()
+                    == com.lulan.shincolle.ai.domain.TargetSource.MANUAL,
+                    "New manual lock must be acquired beyond ordinary attack range");
             host.tickCount++;
             ShipSkillAttackGate.tick(host);
-            helper.assertTrue(!ShipSkillAttackGate.running(host), "Skill without its lock must stop");
+            helper.assertTrue(ShipSkillAttackGate.running(host), "Skill with its reacquired lock must continue");
         });
     }
 

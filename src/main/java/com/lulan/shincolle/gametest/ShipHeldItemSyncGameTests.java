@@ -140,7 +140,7 @@ public final class ShipHeldItemSyncGameTests {
         GameTestEntities.whenPositionsTicking(helper, () -> {
             GameTestEntities entities = GameTestEntities.open(helper);
             BasicEntityShip ship = entities.add(createShip(helper));
-            ship.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(helper, ship);
             ship.setNoGravity(true);
             ship.setInvulnerable(true);
             ship.setPos(helper.absoluteVec(relative));

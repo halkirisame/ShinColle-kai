@@ -66,7 +66,7 @@ class MovementPlannerTest {
         assertEquals(follow(9, 8, 0), FollowMovePlanner.count(follow(10, 7, 0), true));
         // getting anywhere starts the stuck time over
         assertEquals(follow(9, 0, 0), FollowMovePlanner.count(follow(10, 7, 0), false));
-        MovementState.Follow resolved = FollowMovePlanner.ownerResolved(follow(1, 1, 1), 100);
+        MovementState.Follow resolved = FollowMovePlanner.ownerResolved(follow(1, 1, 1), 100, 4D, RANGE);
         assertFalse(FollowMovePlanner.ownerResolveDue(resolved, 131));
         assertTrue(FollowMovePlanner.ownerResolveDue(resolved, 132));
     }
@@ -133,12 +133,14 @@ class MovementPlannerTest {
     void followDestinationKindSurvivesEveryUpdateThatDoesNotWriteTheDestination() {
         MovementState.Follow placed = FollowMovePlanner.formationPlace(follow(20, 200, 0), HOME, AWAY, slot(4));
         assertEquals(FollowDestination.FORMATION_PLACE, FollowMovePlanner.count(placed, true).destinationKind());
-        assertEquals(FollowDestination.FORMATION_PLACE, FollowMovePlanner.ownerResolved(placed, 9).destinationKind());
+        assertEquals(FollowDestination.FORMATION_PLACE,
+                FollowMovePlanner.ownerResolved(placed, 9, 64D, RANGE).destinationKind());
         assertEquals(FollowDestination.FORMATION_PLACE, FollowMovePlanner.start(placed, 9).destinationKind());
         assertEquals(FollowDestination.FORMATION_PLACE, followMove(placed, 64D, RULE).state().destinationKind());
         MovementState.Follow owner = FollowMovePlanner.toOwner(placed, AWAY);
         assertEquals(FollowDestination.OWNER, FollowMovePlanner.count(owner, true).destinationKind());
-        assertEquals(FollowDestination.OWNER, FollowMovePlanner.ownerResolved(owner, 9).destinationKind());
+        assertEquals(FollowDestination.OWNER,
+                FollowMovePlanner.ownerResolved(owner, 9, 64D, RANGE).destinationKind());
         assertEquals(FollowDestination.OWNER, FollowMovePlanner.start(owner, 9).destinationKind());
         assertEquals(FollowDestination.OWNER, followMove(owner, 64D, RULE).state().destinationKind());
     }
@@ -275,7 +277,7 @@ class MovementPlannerTest {
     void guardPointDestinationChangesRestartFarTicksOnly() {
         MovementState.Guard state = guard(5, 70, 199, true);
         MovementState.Guard changed = GuardMovePlanner.toPoint(state, HOME);
-        assertEquals(new MovementState.Guard(5, 70, 0, 0, HOME, HOME, true), changed);
+        assertEquals(new MovementState.Guard(5, 70, 0, 0, HOME, HOME, true, AWAY), changed);
         PlannedMove<MovementState.Guard> farAgain = guardMove(changed, 257D, false);
         assertEquals(1, farAgain.state().farTimer());
         assertTrue(farAgain.plan().isEmpty());
@@ -291,7 +293,7 @@ class MovementPlannerTest {
     void guardEntityDestinationChangesKeepFarTicks() {
         MovementState.Guard state = guard(5, 70, 199, true);
         MovementState.Guard changed = GuardMovePlanner.toEntity(state, HOME);
-        assertEquals(new MovementState.Guard(5, 70, 199, 0, HOME, HOME, true), changed);
+        assertEquals(new MovementState.Guard(5, 70, 199, 0, HOME, HOME, true, AWAY), changed);
         assertEquals(new MovementState.Guard(5, 70, 0, 0, AWAY, HOME, true),
                 GuardMovePlanner.toPoint(changed, AWAY));
     }
@@ -301,7 +303,7 @@ class MovementPlannerTest {
         MovementState.Guard state = guard(5, 70, 199, true);
         MovementPoint anchor = new MovementPoint(20D, 64D, 0D);
         MovementState.Guard changed = GuardMovePlanner.formationPlace(state, HOME, anchor);
-        assertEquals(new MovementState.Guard(5, 70, 199, 0, HOME, anchor, true), changed);
+        assertEquals(new MovementState.Guard(5, 70, 199, 0, HOME, anchor, true, AWAY), changed);
     }
 
     @Test

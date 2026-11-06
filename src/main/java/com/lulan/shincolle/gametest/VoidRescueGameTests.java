@@ -84,7 +84,7 @@ public final class VoidRescueGameTests {
         VerticalSeparationRecallGameTests.cleanup(helper, () -> level.getChunkSource().removeRegionTicket(FIXTURE, chunk, 3, ticket));
         for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) level.getChunk(chunk.x + x, chunk.z + z);
         helper.startSequence().thenWaitUntil(() -> helper.assertTrue(level.isPositionEntityTicking(column.offset(12, 0, 0)),
-                "Waiting for rescue fixture chunk")).thenExecute(() -> {
+                "Waiting for rescue fixture chunk")).thenExecute(GameTestVerification.namedFailure(() -> {
             GameTestEntities entities = GameTestEntities.open(helper);
             ServerPlayer owner = FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "void_rescue"));
             owner.moveTo(column.getX() + 0.5D, column.getY(), column.getZ() + 0.5D);
@@ -173,6 +173,6 @@ public final class VoidRescueGameTests {
                     helper.succeed();
                 });
             }
-        });
+        }));
     }
 }

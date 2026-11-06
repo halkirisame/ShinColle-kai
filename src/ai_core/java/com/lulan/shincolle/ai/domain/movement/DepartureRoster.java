@@ -15,8 +15,6 @@ public final class DepartureRoster {
     /** Ten minutes at twenty ticks a second. */
     public static final long LIFETIME_TICKS = 12_000L;
     public static final int MAX_ENTRIES = 64;
-    /** How long an unloaded follower's chunk is waited on. */
-    public static final long LOAD_WAIT_TICKS = 200L;
 
     private DepartureRoster() { }
 
@@ -39,6 +37,11 @@ public final class DepartureRoster {
         public Entry seenIn(int chunkX, int chunkZ) {
             return new Entry(this.ship, this.shipUid, this.dimension, chunkX, chunkZ,
                     this.recordedAt, this.loadStartedAt, this.requestedAt);
+        }
+
+        public Entry loadFinished() {
+            return new Entry(this.ship, this.shipUid, this.dimension, this.chunkX, this.chunkZ,
+                    this.recordedAt, OptionalLong.empty(), this.requestedAt);
         }
 
         /** A loaded follower asked to come; its chunk is wherever it stands now. */
@@ -95,8 +98,7 @@ public final class DepartureRoster {
             case FAR -> entry.requestedAt().isEmpty()
                     || now - entry.requestedAt().getAsLong() >= OwnerJumpDetector.HOLD_TICKS
                     ? Step.REQUEST : Step.WAIT;
-            case NOT_LOADED -> entry.loadStartedAt().isEmpty() ? Step.START_LOAD
-                    : now - entry.loadStartedAt().getAsLong() >= LOAD_WAIT_TICKS ? Step.DROP : Step.WAIT;
+            case NOT_LOADED -> entry.loadStartedAt().isEmpty() ? Step.START_LOAD : Step.WAIT;
         };
     }
 }

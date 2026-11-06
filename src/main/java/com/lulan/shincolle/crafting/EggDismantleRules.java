@@ -19,12 +19,12 @@ public final class EggDismantleRules {
 
     /** What the egg says about a specific ship class. */
     public enum ShipClassField {
-        ABSENT, VALID_FRIENDLY, INVALID
+        ABSENT, VALID_FRIENDLY, VALID_HOSTILE, INVALID
     }
 
     /** Result of the decision and the amount of material it yields. */
     public enum EggDismantleKind {
-        REJECTED(0), SMALL(8), LARGE(64);
+        REJECTED(0), SMALL(8), LARGE(8), PLAIN(8);
 
         private final int yield;
 
@@ -67,10 +67,15 @@ public final class EggDismantleRules {
         if (egg.shipClass() == ShipClassField.INVALID) {
             return EggDismantleKind.REJECTED;
         }
+        if (egg.shipClass() == ShipClassField.VALID_HOSTILE && egg.buildType() != BuildTypeField.MISSING) {
+            return EggDismantleKind.REJECTED;
+        }
         return switch (egg.buildType()) {
             case SMALL -> EggDismantleKind.SMALL;
             case LARGE -> EggDismantleKind.LARGE;
-            case MISSING, INVALID -> EggDismantleKind.REJECTED;
+            case MISSING -> egg.shipClass() == ShipClassField.ABSENT
+                    ? EggDismantleKind.REJECTED : EggDismantleKind.PLAIN;
+            case INVALID -> EggDismantleKind.REJECTED;
         };
     }
 }

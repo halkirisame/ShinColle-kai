@@ -58,11 +58,11 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     private static final int LAVA_BUCKET_MB = 1000;
     private static final int LAVA_BUCKET_BURN_TIME = 20000;
     private static final int FLUID_TANK_CAPACITY = 16000;
-    private static final int MAX_STOCK = 1000000;
+    public static final int MAX_STOCK = 1000000;
     // Config values
-    private static int POWER_MAX;
-    private static int BUILD_SPEED;
-    private static float FUEL_MAGN;
+    private static volatile int POWER_MAX;
+    private static volatile int BUILD_SPEED;
+    private static volatile float FUEL_MAGN;
 
     static {
         reloadConfig();
@@ -398,6 +398,10 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                         continue;
                     }
                     int[] addMats = adjusted.toArray();
+                    if (stack.getItem() instanceof com.lulan.shincolle.block.ItemBlockGrudgeHeavy) {
+                        int[] stored = com.lulan.shincolle.block.ItemBlockGrudgeHeavy.getStoredMaterials(stack);
+                        for (int k = 0; k < 4; k++) addMats[k] += stored[k];
+                    }
                     boolean canAdd = true;
                     for (int k = 0; k < 4; k++) {
                         if (addMats[k] < 0 || matsStock[k] > MAX_STOCK - addMats[k]) {

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "display_name": "Example Training Ship",
+  "ship_type": "shincolle_kai:light_cruiser",
+  "visual": "shincolle_example:training_ship",
+  "base_stats": {"hp": 42, "atk": 13, "def": 0.16, "spd": 1, "mov": 0.42, "hit": 8},
+  "growth": {"hp": 0.4, "atk": 0.4, "def": 0.2, "spd": 0.6, "mov": 0.9, "hit": 0.4},
+  "behavior": {
+    "ai": "shincolle_kai:standard",
+    "attacks": ["shincolle_kai:light_cannon", "shincolle_kai:heavy_cannon", "shincolle_kai:melee"]
+  },
+  "construction": {"enabled": true, "mode": "weighted", "weight": 500},
+  "spawn": {"enabled": false}
+}

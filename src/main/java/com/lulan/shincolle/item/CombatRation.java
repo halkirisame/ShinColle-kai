@@ -45,7 +45,7 @@ public class CombatRation extends BasicItem implements IShipCombatRation {
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         // Description per type (may contain newlines)
         String str = Component.translatable("gui.shincolle_kai.combatration" + this.type).getString();
-        String[] lines = str.split("\n");
+        String[] lines = str.split("<BR>|<BR/>|<br>|<br/>|\r\n|\r|\n");
         for (String line : lines) {
             tooltip.add(Component.literal(line));
         }

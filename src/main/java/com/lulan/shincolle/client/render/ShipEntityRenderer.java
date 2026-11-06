@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.render;
 
+import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.model.EntityModel;
@@ -75,7 +76,25 @@ public class ShipEntityRenderer<T extends BasicEntityShip> extends MobRenderer<T
     @Override
     public void render(T entity, float entityYaw, float partialTick, PoseStack poseStack,
                        MultiBufferSource bufferSource, int packedLight) {
-        ModelPoseProbe.trace(entity, poseStack, bufferSource, model, b -> super.render(entity, entityYaw, partialTick, poseStack, b, packedLight));
+        BasicEntityMount mount = entity.getVehicle() instanceof BasicEntityMount vehicle ? vehicle : null;
+        float mountBodyRot = mount == null ? 0F : mount.yBodyRot;
+        float mountBodyRotO = mount == null ? 0F : mount.yBodyRotO;
+        try {
+            if (mount != null) {
+                // LivingEntityRenderer reads the vehicle's body yaw for seated riders.
+                // Supply this rider's lean for both body rotation and relative head yaw.
+                mount.yBodyRot = entity.yBodyRot;
+                mount.yBodyRotO = entity.yBodyRotO;
+            }
+            ModelPoseProbe.trace(entity, poseStack, bufferSource, model,
+                    b -> super.render(entity, entityYaw, partialTick, poseStack, b, packedLight));
+        } finally {
+            if (mount != null) {
+                // The mount and other passengers must keep their own render orientation.
+                mount.yBodyRot = mountBodyRot;
+                mount.yBodyRotO = mountBodyRotO;
+            }
+        }
         if (YamatoChargeOrbRenderer.shouldRender(entity)) {
             YamatoChargeOrbRenderer.render(entity, poseStack, bufferSource, partialTick);
         }

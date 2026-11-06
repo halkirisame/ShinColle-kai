@@ -71,13 +71,14 @@ class ShipVisualDefinitionTest {
         assertEquals(List.of(), validate(json).glowBones());
         assertEquals(ShipVisualDefinition.HeldItem.DEFAULT, validate(json).heldItem());
         assertEquals(ShipVisualDefinition.Lod.DEFAULT, validate(json).lod());
+        assertEquals(ShipVisualDefinition.HeadFollow.DEFAULT, validate(json).headFollow());
     }
 
     private static List<JsonObject> candidates() {
         var all = new ArrayList<JsonObject>();
         all.add(minimum());
         for (String key : List.of("schema", "model", "texture", "animation", "scale", "shadow_radius",
-                "rig", "animations", "expressions", "glow_bones", "held_item", "lod", "$schema")) {
+                "rig", "animations", "expressions", "glow_bones", "held_item", "lod", "head_follow", "$schema")) {
             var bad = minimum();
             bad.add(key, JsonNull.INSTANCE);
             all.add(bad);
@@ -136,7 +137,7 @@ class ShipVisualDefinitionTest {
         }
         boundary.add("scale", JsonParser.parseString("1.401298464324817e-45"));
         all.add(boundary);
-        for (String key : List.of("glow_bones", "lod.hide_bones")) {
+        for (String key : List.of("glow_bones", "lod.hide_bones", "head_follow.bones")) {
             for (String value : List.of("null", "true", "{}", "\"Face0\"", "[]", "[123]", "[\"\"]", "[\"a\\nb\"]",
                     "[\"Face0\",\"Face0\"]", "[\"Face0\"]")) {
                 all.add(extension(key, value));
@@ -164,6 +165,31 @@ class ShipVisualDefinitionTest {
             for (String value : List.of("null", "true", "123", "[]", "{}", "\"\"", "\"a\\nb\"", "\"valid.clip\"")) {
                 all.add(extension("animations." + event.key(), value));
             }
+        }
+        for (String value : List.of("true", "[]", "{}", "{\"future\":null}", "{\"overrides\":null}",
+                "{\"bones\":[\"Hair\"],\"overrides\":{\"Hair\":{\"future\":1}}}",
+                "{\"bones\":[\"Hair\"],\"overrides\":{\"Hair\":null}}", "{\"overrides\":{\"\":{}}}")) {
+            all.add(extension("head_follow", value));
+        }
+        for (String key : List.of("coefficient", "overrides")) {
+            for (String value : List.of("null", "true", "\"0.5\"", "0", "-1e-400", "-1", "0.5", "1", "1e400",
+                    "3.4028234663852886e38", "3.4028234663852887e38")) {
+                String field = key.equals("overrides") ? "\"overrides\":{\"Hair\":{\"z\":" + value + "}}"
+                        : "\"coefficient\":" + value;
+                all.add(extension("head_follow", "{\"bones\":[\"Hair\"]," + field + "}"));
+            }
+        }
+        for (String value : List.of("null", "true", "{}", "[]", "[123]", "[\"\"]", "[\"Hair\",\"Hair\"]",
+                "[\"Hair\"]")) all.add(extension("head_follow.bones", value));
+        var overrides = new JsonObject();
+        for (int i = 0; i < 129; i++) overrides.add("bone_" + i, new JsonObject());
+        all.add(extension("head_follow.overrides", overrides.toString()));
+        overrides.remove("bone_128");
+        all.add(extension("head_follow.overrides", overrides.toString()));
+        for (String name : List.of("a".repeat(129), "😀".repeat(128), "a\nb", "a\u007fb")) {
+            overrides = new JsonObject();
+            overrides.add(name, new JsonObject());
+            all.add(extension("head_follow.overrides", overrides.toString()));
         }
         return all;
     }
@@ -196,6 +222,44 @@ class ShipVisualDefinitionTest {
         assertEquals(Set.of(), ShipVisualPolicy.boneRoots(List.of("Face0", "absent"), Set.of("Face0"), missing::add));
         assertEquals(List.of("absent"), missing);
         assertEquals(Set.of("Face0"), ShipVisualPolicy.boneRoots(List.of("Face0"), Set.of("Face0"), missing::add));
+    }
+
+    @Test
+    void headFollowDefaultsAxisOverridesStrictKeysAndImmutableCollections() {
+        var json = extension("head_follow", "{\"bones\":[\"Hair01\",\"HairR02\"],\"overrides\":{\"HairR02\":{\"z\":1}}}");
+        var follow = validate(json).headFollow();
+        assertEquals(0.5F, follow.coefficient());
+        assertEquals(new ShipVisualDefinition.FollowAxes(0.5F, 0.5F), follow.axes("Hair01"));
+        assertEquals(new ShipVisualDefinition.FollowAxes(0.5F, 1), follow.axes("HairR02"));
+        assertThrows(UnsupportedOperationException.class, () -> follow.bones().clear());
+        assertThrows(UnsupportedOperationException.class, () -> follow.overrides().clear());
+        json.getAsJsonObject("head_follow").addProperty("coefficient", 0.25);
+        assertEquals(new ShipVisualDefinition.FollowAxes(0.25F, 1), validate(json).headFollow().axes("HairR02"));
+        for (double bad : new double[]{Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+            json.getAsJsonObject("head_follow").addProperty("coefficient", bad);
+            assertThrows(IllegalArgumentException.class, () -> validate(json));
+        }
+        var many = new com.google.gson.JsonArray();
+        for (int i = 0; i < 129; i++) many.add("bone_" + i);
+        var tooMany = extension("head_follow.bones", many.toString());
+        assertThrows(IllegalArgumentException.class, () -> validate(tooMany));
+    }
+
+    @Test
+    void explicitEmptyHeadFollowBonesAreRejectedByValidatorAndSchema() throws IOException {
+        var schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(
+                Files.readString(Path.of("docs/schemas/shincolle_kai-ship_visual.schema.json")));
+        var mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+        var empty = extension("head_follow", "{\"bones\":[]}");
+        assertThrows(IllegalArgumentException.class, () -> validate(empty));
+        assertFalse(schema.validate(mapper.readTree(empty.toString())).isEmpty());
+        var accepted = List.of(minimum(), extension("head_follow", "{}"),
+                extension("glow_bones", "[]"), extension("lod.hide_bones", "[]"));
+        for (var json : accepted) {
+            validate(json);
+            assertTrue(schema.validate(mapper.readTree(json.toString())).isEmpty(), json.toString());
+        }
+        assertEquals(List.of(), validate(minimum()).headFollow().bones());
     }
 
     @Test

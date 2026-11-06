@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.GoalSelectorHelper;
+import com.lulan.shincolle.ai.diag.TickStallProbe;
 import com.lulan.shincolle.ai.domain.TargetHandle;
 import com.lulan.shincolle.ai.observation.MinecraftEntityObservationAdapter;
 import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
@@ -128,10 +129,26 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
         return hostEnt == null || (hostEnt instanceof LivingEntity le && !le.isAlive());
     }
 
+    protected boolean canInheritHostTarget() {
+        return true;
+    }
+
     // ========== Tick / Update ==========
 
     @Override
     public void tick() {
+        boolean probing = TickStallProbe.isEnabled() && !this.level().isClientSide();
+        long probeStart = probing ? TickStallProbe.entityTickBegin() : 0L;
+        try {
+            this.tickMeasured();
+        } finally {
+            if (probing) {
+                TickStallProbe.entityTickEnd(this, probeStart);
+            }
+        }
+    }
+
+    private void tickMeasured() {
         super.tick();
 
         // server side only
@@ -162,7 +179,7 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
             Entity target = this.getEntityTarget();
 
             if (!shouldDie && !canFindTarget()
-                    && (target == null || !target.isAlive())) {
+                    && (target == null || !target.isAlive()) && canInheritHostTarget()) {
                 // try host's target
                 if (this.host != null) {
                     Entity hostTarget = this.host.getEntityTarget();

@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipActionGate;
 import com.lulan.shincolle.ai.ShipCombatHost;
 import com.lulan.shincolle.ai.ShipMovementExecutor;
 import com.lulan.shincolle.ai.ShipMovementHost;
+import com.lulan.shincolle.ai.diag.TickStallProbe;
 import com.lulan.shincolle.ai.ShipCombatState;
 import com.lulan.shincolle.ai.ShipFireControlGoal;
 import com.lulan.shincolle.ai.ShipFloatingGoal;
@@ -97,7 +98,6 @@ public abstract class BasicEntityMount extends TamableAnimal
      * This is client-only transient state and must not be persisted.
      */
     private int pendingClientHostId;
-    protected ShipMoveControl shipMoveControl;
     /**
      * mount-specific fields
      */
@@ -111,6 +111,7 @@ public abstract class BasicEntityMount extends TamableAnimal
     protected BasicEntityMount(EntityType<? extends BasicEntityMount> type, Level level) {
         super(type, level);
         this.noCulling = true;
+        this.setMaxUpStep(3.0F);
     }
 
     public static AttributeSupplier.Builder createMountAttributes() {
@@ -339,6 +340,7 @@ public abstract class BasicEntityMount extends TamableAnimal
         });
         // NEW: fires for its rider with every weapon on one timer
         this.goalSelector.addGoal(10, new ShipFireControlGoal(this));
+        this.goalSelector.addGoal(2, new com.lulan.shincolle.ai.ShipCranePositionGoal(this));
         // The mount walks for the ship it carries, as upstream did: the carried ship's own
         // guard and follow goals stop while it rides.
         this.goalSelector.addGoal(2, new ShipGuardingGoal(this));
@@ -508,7 +510,7 @@ public abstract class BasicEntityMount extends TamableAnimal
     // ========== IShipNavigator ==========
 
     public ShipMoveControl getShipMoveHelper() {
-        return this.shipMoveControl;
+        return this.getShipMoveControl();
     }
 
     public boolean canFly() {
@@ -813,6 +815,18 @@ public abstract class BasicEntityMount extends TamableAnimal
 
     @Override
     public void tick() {
+        boolean probing = TickStallProbe.isEnabled() && !this.level().isClientSide();
+        long probeStart = probing ? TickStallProbe.entityTickBegin() : 0L;
+        try {
+            this.tickMeasured();
+        } finally {
+            if (probing) {
+                TickStallProbe.entityTickEnd(this, probeStart);
+            }
+        }
+    }
+
+    private void tickMeasured() {
         if (!this.level().isClientSide()) {
             this.resolveHost();
             // Restore 1.10.2 onUpdate's orphan cleanup before AI or movement.
@@ -833,6 +847,9 @@ public abstract class BasicEntityMount extends TamableAnimal
             this.resolveClientHost();
         }
         super.tick();
+        if (!this.level().isClientSide()) {
+            ShipMovementExecutor.continueDetour(this);
+        }
         if (this.level().isClientSide()) {
             com.lulan.shincolle.client.particle.ShipAmbientVisuals.tick(this);
         }
@@ -902,6 +919,9 @@ public abstract class BasicEntityMount extends TamableAnimal
             Vec3 motion = this.getDeltaMovement().scale(0.8D);
             if (this.horizontalCollision && this.isFree(motion.x, motion.y + 0.6D - this.getY() + startY, motion.z)) {
                 motion = new Vec3(motion.x, 0.3D, motion.z);
+            }
+            if (this.getMoveControl() instanceof ShipMoveControl control && control.liftRequested(this.tickCount)) {
+                motion = new Vec3(motion.x, Math.max(motion.y, EntityHelper.COLLISION_BUMP_UP_VELOCITY), motion.z);
             }
             this.setDeltaMovement(motion);
             this.calculateEntityAnimation(false);

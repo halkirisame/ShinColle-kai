@@ -1,7 +1,9 @@
 package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.ShipPickItemGoal;
-import com.lulan.shincolle.ai.ShipRangeAttackGoal;
+import com.lulan.shincolle.ai.domain.combat.WeaponChannel;
+import com.lulan.shincolle.ai.registry.GenericShipBehaviors;
+import com.lulan.shincolle.ai.registry.GenericShipHost;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
@@ -11,6 +13,7 @@ import com.lulan.shincolle.shipdata.GenericShipState;
 import com.lulan.shincolle.shipdata.ShipDefinition;
 import com.lulan.shincolle.shipdata.ShipDefinitionAttributes;
 import com.lulan.shincolle.shipdata.ShipDefinitionId;
+import com.lulan.shincolle.shipdata.ShipIndividual;
 import com.lulan.shincolle.utility.BuffHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -24,9 +27,12 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-public class GenericShipEntity extends BasicEntityShip implements DefinitionBackedShip {
+public class GenericShipEntity extends BasicEntityShip implements DefinitionBackedShip, GenericShipHost {
     private final GenericShipState definitionState = new GenericShipState();
     private boolean loadingDefinitionData;
+    private ShipIndividual individual = ShipIndividual.normal(true);
+    private ShipIndividual.Presentation individualPresentation = ShipIndividual.Presentation.NORMAL;
+    private boolean saveIndividual;
     private com.lulan.shincolle.shipdata.ShipPresentation clientPresentation;
 
     public GenericShipEntity(EntityType<? extends GenericShipEntity> type, Level level) {
@@ -63,6 +69,27 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
         setHealth(getMaxHealth());
     }
 
+    public ShipIndividual individual() {
+        return individual;
+    }
+
+    public ShipIndividual.Presentation individualPresentation() {
+        return individualPresentation;
+    }
+
+    public void receiveIndividualPresentation(ShipIndividual.Presentation presentation) {
+        if (level().isClientSide()) {
+            individualPresentation = new ShipIndividual.Presentation(presentation.name(), presentation.rarity(),
+                    presentation.visual(), false);
+        }
+    }
+
+    public void readIndividual(CompoundTag nbt) {
+        individual = ShipIndividual.load(nbt, getShipId()).asFriendly();
+        individualPresentation = individual.presentation();
+        saveIndividual = nbt.contains(ShipIndividual.KEY);
+    }
+
     private void refreshDefinition() {
         if (definitionState.refresh(() -> super.saveWithoutId(new CompoundTag()), super::load, () -> {
             setStateMinor(ID.M.ShipClass, 0);
@@ -70,6 +97,11 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
             refreshDimensions();
             calcShipAttributes(31, false);
         })) {
+            if (!level().isClientSide() && !definitionState.dormant() && definitionState.definition() != null
+                    && !goalSelector.getAvailableGoals().isEmpty()) {
+                clearAITasks();
+                setAIList();
+            }
             ModNetworking.sendToAllTracking(S2CEntitySyncPacket.syncShipDefinition(this), this);
         }
     }
@@ -86,9 +118,32 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
 
     @Override
     protected void setAIList() {
+        GenericShipBehaviors.install(this, false);
+    }
+
+    @Override
+    public net.minecraft.world.entity.Mob behaviorEntity() {
+        return this;
+    }
+
+    @Override
+    public net.minecraft.world.entity.ai.goal.GoalSelector behaviorGoals() {
+        return goalSelector;
+    }
+
+    @Override
+    public void installStandardAi() {
         super.setAIList();
-        goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
         goalSelector.addGoal(20, new ShipPickItemGoal(this, 4));
+    }
+
+    @Override
+    public void setStateFlag(int id, boolean value) {
+        super.setStateFlag(id, value);
+        if (id == ID.F.UseMelee && value && !level().isClientSide()
+                && !shipCombatState().loadout().has(WeaponChannel.MELEE)) {
+            GenericShipBehaviors.removeMeleeGoal(this);
+        }
     }
 
     @Override
@@ -96,13 +151,16 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
         ShipDefinition definition = definitionState.definition();
         if (definition != null) {
             shipAttrs.setAttrsType(ShipDefinitionAttributes.columns(definition.growth()));
-            BuffHelper.updateAttrsRaw(shipAttrs, ShipDefinitionAttributes.row(definition), getLevel());
+            BuffHelper.updateAttrsRaw(shipAttrs, ShipDefinitionAttributes.row(definition), getLevel(),
+                    individual.traitMultipliers(getShipId()));
         }
     }
 
     @Override
     protected net.minecraft.world.item.ItemStack createDeathEggStack() {
-        return com.lulan.shincolle.item.GenericShipSpawnEgg.create(ShipDefinitionId.parse(getShipId()), false);
+        var egg = com.lulan.shincolle.item.GenericShipSpawnEgg.create(ShipDefinitionId.parse(getShipId()), false);
+        if (saveIndividual) egg.getOrCreateTag().put(ShipIndividual.KEY, individual.save());
+        return egg;
     }
 
     @Override
@@ -171,18 +229,22 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
     public void addAdditionalSaveData(CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
         nbt.putString("ShipId", getShipId());
+        if (saveIndividual) nbt.put(ShipIndividual.KEY, individual.save());
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag nbt) {
         definitionState.identify(nbt.getString("ShipId"));
+        readIndividual(nbt);
         super.readAdditionalSaveData(nbt);
         setStateMinor(ID.M.ShipClass, 0);
     }
 
     @Override
     protected Component getTypeName() {
-        return definitionState == null ? super.getTypeName() : definitionState.name(level().isClientSide());
+        Component typeName = definitionState == null ? super.getTypeName() : definitionState.name(level().isClientSide());
+        String name = individualPresentation == null ? "" : individualPresentation.name();
+        return name.isEmpty() ? typeName : Component.translatableWithFallback(name, typeName.getString());
     }
 
     @Override
@@ -273,6 +335,14 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
     @Override
     public net.minecraft.world.InteractionResult mobInteract(net.minecraft.world.entity.player.Player player,
                                                             net.minecraft.world.InteractionHand hand) {
+        if (hand == net.minecraft.world.InteractionHand.MAIN_HAND && !player.isShiftKeyDown()
+                && player.getItemInHand(hand).getItem() instanceof com.lulan.shincolle.item.SafariNetItem net) {
+            return net.capture(player, this, hand);
+        }
+        if (hand == net.minecraft.world.InteractionHand.MAIN_HAND && !player.isShiftKeyDown()
+                && player.getItemInHand(hand).getItem() instanceof com.lulan.shincolle.item.SoulTalismanItem talisman) {
+            return talisman.capture(player, this, hand);
+        }
         return definitionState.dormant() ? net.minecraft.world.InteractionResult.PASS : super.mobInteract(player, hand);
     }
 

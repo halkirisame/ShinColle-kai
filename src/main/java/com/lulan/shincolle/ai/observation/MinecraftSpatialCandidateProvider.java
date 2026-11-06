@@ -1,5 +1,6 @@
 package com.lulan.shincolle.ai.observation;
 
+import com.lulan.shincolle.ai.diag.TickStallProbe;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.RawEntityObservation;
 import com.lulan.shincolle.ai.domain.SearchBounds;
@@ -44,11 +45,16 @@ public final class MinecraftSpatialCandidateProvider implements SpatialCandidate
         AABB bounds = new AABB(
                 searched.minX(), searched.minY(), searched.minZ(),
                 searched.maxX(), searched.maxY(), searched.maxZ());
+        boolean probing = TickStallProbe.isEnabled();
+        long probeStart = probing ? TickStallProbe.spatialQueryBegin() : 0L;
         List<Entity> entities = this.level.getEntities((Entity) null, bounds, entity ->
                 !query.source().uuid().equals(entity.getUUID())
                         && !entity.isSpectator()
                         && !entity.isRemoved()
                         && entity.isAlive());
+        if (probing) {
+            TickStallProbe.spatialQueryEnd(query.source().uuid(), probeStart, entities.size());
+        }
         this.profiler.recordQuery(entities.size());
         List<RawEntityObservation> observations = new ArrayList<>(entities.size());
         for (Entity entity : entities) {

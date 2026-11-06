@@ -389,6 +389,36 @@ public final class ShipSaveFormatGameTests {
         }), EGG_SPAWN);
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void existingMarkedLevelNineEggKeepsLevel(GameTestHelper helper) {
+        existingLevelNineEgg(helper, true);
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void existingUnmarkedLevelNineEggKeepsLevel(GameTestHelper helper) {
+        existingLevelNineEgg(helper, false);
+    }
+
+    private static void existingLevelNineEgg(GameTestHelper helper, boolean marked) {
+        GameTestEntities.whenPositionsTicking(helper, () -> {
+            try (GameTestEntities entities = GameTestEntities.open(helper)) {
+                CompoundTag egg = unmarkedEgg(unmarkedState(EGG_SHIP_UID, -1, -1, -1, 0, 0, -1, true));
+                int[] minor = egg.getIntArray("StateMinor");
+                minor[ID.M.ShipLevel] = 9;
+                egg.putIntArray("StateMinor", minor);
+                if (marked) egg.putInt(VERSION_KEY, 1);
+                helper.assertTrue(egg.contains(VERSION_KEY) == marked && minor[ID.M.ShipLevel] == 9,
+                        "Existing egg fixture must independently encode level nine and the requested mark");
+                BasicEntityShip restored = hatch(helper, entities, egg);
+                assertSettings(helper, restored, EGG_SHIP_UID, "existing level nine egg", 9);
+                helper.assertTrue(eggOwnerId().equals(restored.getOwnerUUID()), "Existing egg owner must survive");
+                helper.succeed();
+            } finally {
+                ServerDataManager.removeShipData(EGG_SHIP_UID);
+            }
+        }, EGG_SPAWN);
+    }
+
     // ===== marks this build does not write =====
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
@@ -440,12 +470,12 @@ public final class ShipSaveFormatGameTests {
                 MovementOrder order = new MovementOrder.GuardPosition(NETHER, GUARD_POS, false);
 
                 BasicEntityShip marked = hatch(helper, entities, egg);
-                assertSettings(helper, marked, shipUid, "death egg");
+                assertSettings(helper, marked, shipUid, "death egg", 37);
                 assertUndimensionedCommand(helper, marked, expected, order, Level.NETHER, "death egg");
                 marked.discard();
 
                 BasicEntityShip plain = hatch(helper, entities, unmarked);
-                assertSettings(helper, plain, shipUid, "death egg without the mark");
+                assertSettings(helper, plain, shipUid, "death egg without the mark", 37);
                 assertUndimensionedCommand(helper, plain, expected, order, Level.NETHER,
                         "death egg without the mark");
                 assertSameShip(helper, marked, plain, "death egg without the mark");
@@ -488,6 +518,8 @@ public final class ShipSaveFormatGameTests {
         helper.assertTrue(tag != null && tag.contains("StateMinor", Tag.TAG_INT_ARRAY)
                         && tag.getInt("ShipClass") == ID.ShipClass.DDHibiki,
                 "The death egg does not hold the ship's saved state");
+        helper.assertTrue(tag.getIntArray("StateMinor")[ID.M.ShipLevel] == 37 && ship.getLevel() == 37,
+                "Death saving must retain the level in both the egg and the source");
         CompoundTag copy = tag.copy();
         dropped.discard();
         return copy;
@@ -532,11 +564,16 @@ public final class ShipSaveFormatGameTests {
 
     /** The values {@link #unmarkedState} sets away from a new ship's defaults. */
     private static void assertSettings(GameTestHelper helper, BasicEntityShip ship, int shipUid, String label) {
+        assertSettings(helper, ship, shipUid, label, 37);
+    }
+
+    private static void assertSettings(GameTestHelper helper, BasicEntityShip ship, int shipUid, String label,
+                                       int expectedLevel) {
         helper.assertTrue(ship.getStateMinorArray().length == MINOR_LENGTH
                         && ship.getStateFlagArray().length == FLAG_LENGTH
                         && ship.getStateEmotionArray().length == EMOTION_LENGTH,
                 label + ": the state arrays changed length");
-        helper.assertTrue(ship.getLevel() == 37 && ship.getStateMinor(ID.M.Kills) == 5
+        helper.assertTrue(ship.getLevel() == expectedLevel && ship.getStateMinor(ID.M.Kills) == 5
                         && ship.getStateMinor(ID.M.ExpCurrent) == 120,
                 label + ": level " + ship.getLevel() + ", kills " + ship.getStateMinor(ID.M.Kills)
                         + ", exp " + ship.getStateMinor(ID.M.ExpCurrent));

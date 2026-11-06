@@ -99,32 +99,37 @@ public final class ShipRevengeGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft",
-            batch = "isolated_revenge_range_is_fixed_at_construction")
-    public static void revengeRangeIsFixedAtConstruction(GameTestHelper helper) {
+            batch = "isolated_revenge_range_construction_and_live_floors")
+    public static void revengeRangeKeepsConstructionAndLiveAttackFloors(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            BasicEntityShip wide = friendly(helper, entities, null, 6204, new Vec3(1D, 4D, 1D));
+            BasicEntityShip wide = friendly(helper, entities, null, 6204, new Vec3(1D, 4D, 3D));
             wide.setStateFlag(ID.F.PassiveAI, true);
             Zombie attacker = zombie(helper, entities, new Vec3(7D, 4D, 1D));
             wide.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 20F);
             ShipTargetAuthorityGoal control = new ShipTargetAuthorityGoal(wide);
+            wide.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 4F);
+            helper.assertTrue(wide.getAttrs().getAttackRange() == 4F && wide.distanceToSqr(attacker) == 40D,
+                    "Fixture needs a live range of four and an attacker sqrt(40) blocks away");
             queueRevenge(wide, attacker, 30);
             control.tick();
             wide.tickCount = 32;
             control.tick();
             helper.assertTrue(wide.getTarget() == attacker,
-                    "Fixture: a goal made with a wide attack range must keep an attacker six blocks away");
+                    "The construction range of twenty must remain a retention floor after the live range shrinks to four");
 
             BasicEntityShip ship = friendly(helper, entities, null, 6205, new Vec3(1D, 4D, 3D));
             ship.setStateFlag(ID.F.PassiveAI, true);
             ship.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 4F);
             ShipTargetAuthorityGoal goal = new ShipTargetAuthorityGoal(ship);
             ship.getAttrs().setAttrsBuffed(ID.Attrs.HIT, 20F);
+            helper.assertTrue(ship.getAttrs().getAttackRange() == 20F && ship.distanceToSqr(attacker) == 40D,
+                    "Fixture needs a live range of twenty and an attacker sqrt(40) blocks away");
             queueRevenge(ship, attacker, 30);
             goal.tick();
             ship.tickCount = 32;
             goal.tick();
-            helper.assertTrue(ship.getTarget() == null,
-                    "Changing attack range after construction changed the range the revenge lock is kept within");
+            helper.assertTrue(ship.getTarget() == attacker,
+                    "The live range of twenty must raise the retention floor above the construction range of four");
             helper.succeed();
         }
     }
@@ -300,7 +305,7 @@ public final class ShipRevengeGameTests {
                     "Waiting for the near revenge fixture chunk");
             helper.assertTrue(helper.getLevel().isPositionEntityTicking(BlockPos.containing(second)),
                     "Waiting for the far revenge fixture chunk");
-        }).thenExecute(verification).thenSucceed();
+        }).thenExecute(GameTestVerification.namedFailure(verification)).thenSucceed();
     }
 
     private static Vec3 origin(GameTestHelper helper) {

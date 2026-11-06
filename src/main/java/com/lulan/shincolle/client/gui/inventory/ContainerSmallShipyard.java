@@ -164,7 +164,7 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        if (tile == null)
+        if (tile == null || !tile.canUse(player))
             return false;
         BlockPos pos = tile.getBlockPos();
         return player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;

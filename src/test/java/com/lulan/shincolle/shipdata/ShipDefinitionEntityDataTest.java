@@ -7,6 +7,7 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 
 import java.util.Map;
 
@@ -17,6 +18,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShipDefinitionEntityDataTest {
+    @BeforeAll
+    static void bootstrapMinecraft() throws ReflectiveOperationException {
+        ShipDefinitionTest.bootstrapMinecraft();
+    }
+
     private static ShipDefinition definition() {
         return new ShipDefinitionValidator(id -> false, id -> false, id -> false).validate(
                 ShipDefinitionId.parse("addon:sample"), JsonParser.parseString("""

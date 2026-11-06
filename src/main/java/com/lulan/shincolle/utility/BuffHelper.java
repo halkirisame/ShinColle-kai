@@ -146,6 +146,21 @@ public class BuffHelper {
         raw[ID.Attrs.KB] = lv * 0.005F;
     }
 
+    /** Individual traits multiply rebuilt friendly raw values, before equipment and buffs. */
+    public static void updateAttrsRaw(AttrsAdv attrs, float[] base, int level, float[] traits) {
+        updateAttrsRaw(attrs, base, level);
+        float[] raw = attrs.getAttrsRaw();
+        raw[ID.Attrs.HP] *= traits[ID.AttrsBase.HP];
+        raw[ID.Attrs.ATK_L] *= traits[ID.AttrsBase.ATK];
+        raw[ID.Attrs.ATK_H] *= traits[ID.AttrsBase.ATK];
+        raw[ID.Attrs.ATK_AL] *= traits[ID.AttrsBase.ATK];
+        raw[ID.Attrs.ATK_AH] *= traits[ID.AttrsBase.ATK];
+        raw[ID.Attrs.DEF] *= traits[ID.AttrsBase.DEF];
+        raw[ID.Attrs.SPD] *= traits[ID.AttrsBase.SPD];
+        raw[ID.Attrs.MOV] *= traits[ID.AttrsBase.MOV];
+        raw[ID.Attrs.HIT] *= traits[ID.AttrsBase.HIT];
+    }
+
     /**
      * Update raw attributes for hostile (mob) ships.
      * Uses HostileShipAttrMap (per-class modifiers) and scale config.

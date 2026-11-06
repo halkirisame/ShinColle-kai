@@ -1,9 +1,14 @@
 package com.lulan.shincolle.ai.registry;
 
-/**
- * Element of the internal ship attack registry. Creates the per-ship running instance of one
- * attack; mutable state is never shared between ships. The methods are decided with the
- * behavior specification, so this is a marker for now.
- */
+import com.lulan.shincolle.ai.domain.combat.WeaponChannel;
+
+import java.util.Set;
+
+/** Stateless installer and metadata for an entry of the internal ship attack registry. */
 public interface ShipAttackType {
+    Set<WeaponChannel> channels();
+
+    boolean selectableByDefinition();
+
+    void install(GenericShipHost host);
 }

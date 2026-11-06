@@ -6,6 +6,7 @@ import com.lulan.shincolle.client.gui.ShipEggContentsTooltip;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.ShipEggContents;
 import com.lulan.shincolle.item.ShipSpawnEgg;
+import com.lulan.shincolle.item.SafariNetItem;
 import com.lulan.shincolle.reference.Reference;
 
 import com.mojang.datafixers.util.Either;
@@ -34,11 +35,12 @@ public class ShipEggTooltipHandler {
     @SubscribeEvent
     public static void onGatherComponents(RenderTooltipEvent.GatherComponents event) {
         ItemStack stack = event.getItemStack();
-        if (stack.isEmpty() || stack.getItem() != ModItems.SHIP_SPAWN_EGG.get()) {
+        if (stack.isEmpty() || (stack.getItem() != ModItems.SHIP_SPAWN_EGG.get() && !SafariNetItem.isFilled(stack))) {
             return;
         }
 
-        ShipEggContents contents = ShipSpawnEgg.readStoredInventory(stack);
+        ShipEggContents contents = SafariNetItem.isFilled(stack)
+                ? SafariNetItem.readStoredInventory(stack) : ShipSpawnEgg.readStoredInventory(stack);
         if (contents.isEmpty()) {
             return;
         }

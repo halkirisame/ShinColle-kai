@@ -42,8 +42,23 @@ public final class ShipBehaviorRegistries {
         return isSelectable(ModShipBehaviors.AI_REGISTRY, id);
     }
 
-    /** True when the attack is registered under the built-in namespace. */
+    /** True when the attack is registered under the built-in namespace and permits definition selection. */
     public static boolean isSelectableAttack(ResourceLocation id) {
+        return isSelectableAttack(ModShipBehaviors.ATTACK_REGISTRY, id);
+    }
+
+    /** Shared by production and tests. A registry that does not exist yet selects nothing. */
+    public static boolean isSelectableAttack(Supplier<IForgeRegistry<ShipAttackType>> registrySupplier,
+            ResourceLocation id) {
+        if (!isSelectableNamespace(id)) {
+            return false;
+        }
+        IForgeRegistry<ShipAttackType> registry = registrySupplier.get();
+        return registry != null && registry.containsKey(id) && registry.getValue(id).selectableByDefinition();
+    }
+
+    /** Distinguishes unknown attacks from registered attacks that definitions cannot select. */
+    public static boolean isRegisteredAttack(ResourceLocation id) {
         return isSelectable(ModShipBehaviors.ATTACK_REGISTRY, id);
     }
 
@@ -80,9 +95,12 @@ public final class ShipBehaviorRegistries {
         return foreign.size();
     }
 
-    /** Logs the foreign entries of both registries at ERROR. Does not stop the startup. */
+    /** Logs the foreign entries of internal ship registries at ERROR. Does not stop the startup. */
     public static void logForeignEntries(Logger logger) {
         logForeignEntries(logger, ModShipBehaviors.AI_REGISTRY, ModShipBehaviors.ATTACK_REGISTRY);
+        reportForeign(ModShipBehaviors.TRAIT_REGISTRY, id -> logger.error(
+                "Ship trait '{}' is ignored: only the '{}' namespace can be selected in this version",
+                id, Reference.MOD_ID));
     }
 
     /** Shared by production and tests. */

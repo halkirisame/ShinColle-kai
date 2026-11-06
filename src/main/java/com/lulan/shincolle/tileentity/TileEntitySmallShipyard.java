@@ -51,6 +51,23 @@ import org.jetbrains.annotations.Nullable;
 public class TileEntitySmallShipyard extends BasicTileInventory implements MenuProvider, ITileFurnace {
 
     public static final int SLOT_COUNT = 7;
+    private java.util.UUID ownerUUID;
+    private int ownerPlayerUID;
+
+    public void setOwner(Player owner) {
+        ownerUUID = owner.getUUID();
+        ownerPlayerUID = com.lulan.shincolle.utility.TeamHelper.getPlayerUID(owner);
+        setChanged();
+    }
+
+    public boolean canUse(Player player) {
+        if (ownerUUID == null || ownerUUID.equals(player.getUUID())
+                || com.lulan.shincolle.server.ServerDataManager.checkOP(player)) return true;
+        int ownerUid = com.lulan.shincolle.server.ServerDataManager.getKnownPlayerUID(ownerUUID);
+        if (ownerUid <= 0) ownerUid = ownerPlayerUID;
+        return ownerUid > 0 && com.lulan.shincolle.utility.TeamHelper.checkIsAlly(ownerUid,
+                com.lulan.shincolle.utility.TeamHelper.getPlayerUID(player));
+    }
     public static final int SLOT_INPUT_START = 0;
     public static final int SLOT_INPUT_END = 4;
     public static final int SLOT_OUTPUT = 5;
@@ -64,9 +81,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     private static final int FLUID_TANK_CAPACITY = 16000;
     private static final int MAX_STOCK = 1000000;
     // Config values loaded from ConfigHandler
-    private static int POWER_MAX;
-    private static int BUILD_SPEED;
-    private static float FUEL_MAGN;
+    private static volatile int POWER_MAX;
+    private static volatile int BUILD_SPEED;
+    private static volatile float FUEL_MAGN;
 
     static {
         reloadConfig();
@@ -644,6 +661,10 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     @Override
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
+        if (ownerUUID != null) {
+            tag.putUUID("OwnerUUID", ownerUUID);
+            tag.putInt("OwnerPlayerUID", ownerPlayerUID);
+        }
         tag.putInt("BuildType", buildType);
         tag.putInt("PowerConsumed", powerConsumed);
         tag.putInt("PowerRemained", powerRemained);
@@ -658,6 +679,8 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
+        ownerUUID = tag.hasUUID("OwnerUUID") ? tag.getUUID("OwnerUUID") : null;
+        ownerPlayerUID = ownerUUID == null ? 0 : Math.max(0, tag.getInt("OwnerPlayerUID"));
         buildType = tag.getInt("BuildType");
         powerConsumed = tag.getInt("PowerConsumed");
         powerRemained = tag.getInt("PowerRemained");

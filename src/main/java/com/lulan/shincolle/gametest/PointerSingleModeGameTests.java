@@ -13,6 +13,8 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -23,11 +25,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 @GameTestHolder(Reference.MOD_ID)
@@ -236,7 +242,9 @@ public final class PointerSingleModeGameTests {
     private static void verifyMarriageRingLivingEntityHookPerformsWedding(
             GameTestHelper helper, TestContext context) {
         BasicEntityShip ship = addShip(context, 0, 2700, new Vec3(4.5D, 2D, 1.5D));
-        ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get());
+        ItemStack ring = new ItemStack(ModItems.MARRIAGE_RING.get(), 64);
+        helper.assertTrue(ring.getMaxStackSize() == 64 && ring.getCount() == 64,
+                "Marriage ring stack limit fixture failed.");
         context.player().setItemInHand(InteractionHand.MAIN_HAND, ring);
         context.player().setShiftKeyDown(true);
 
@@ -249,6 +257,10 @@ public final class PointerSingleModeGameTests {
                 "Marriage ring living-entity hook did not marry the owned ship.");
         helper.assertTrue(context.capa().getMarriageNum() == 1,
                 "Marriage ring living-entity hook did not increment the admiral marriage count.");
+        helper.assertTrue(ring.getCount() == 63, "Wedding did not consume exactly one ring from the stack.");
+        ring.interactLivingEntity(context.player(), ship, InteractionHand.MAIN_HAND);
+        helper.assertTrue(ring.getCount() == 63 && context.capa().getMarriageNum() == 1,
+                "A second wedding consumed a ring or changed the marriage count.");
         helper.succeed();
     }
 
@@ -642,15 +654,306 @@ public final class PointerSingleModeGameTests {
         whenFixtureTicking(helper, () -> {
             try (TestContext context = createContext(helper, "left_other", 46)) {
                 Zombie target = addTarget(context, new Vec3(2.5D, 2D, 4.5D));
-                for (boolean shift : new boolean[]{false, true}) {
-                    context.player().setShiftKeyDown(shift);
-                    invokeLeftClick(context, target, packet -> {
-                        throw new AssertionError("Left click on another entity emitted a command");
-                    });
+                context.player().setShiftKeyDown(false);
+                invokeLeftClick(context, target, packet -> {
+                    throw new AssertionError("Plain left click on another entity emitted a command");
+                });
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shiftLeftTogglesLivingTargetClass(GameTestHelper helper) {
+        verifyTargetClassToggle(helper, false, 34401);
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shiftSprintLeftTogglesLivingTargetClass(GameTestHelper helper) {
+        verifyTargetClassToggle(helper, true, 34402);
+    }
+
+    private static void verifyTargetClassToggle(GameTestHelper helper, boolean sprint, int id) {
+        whenFixtureTicking(helper, () -> {
+            TestContext context = createTargetClassContext(helper, id);
+            Zombie target = addTarget(context, new Vec3(2.5D, 2D, 4.5D));
+            target.setNoGravity(true);
+            target.setInvulnerable(true);
+            context.player().setSprinting(sprint);
+            helper.assertTrue(context.player().hasLineOfSight(target), "Toggle fixture needs line of sight");
+            clickTargetClass(context, target);
+            helper.assertTrue(ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie"),
+                    "Modified left click did not add the living target class");
+            assertTargetClassNotice(helper, context, 1, "add", "Zombie");
+            clickTargetClass(context, target);
+            helper.assertTrue(ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie"),
+                    "Target class rate limit allowed an immediate toggle");
+            assertTargetClassNotice(helper, context, 1, "add", "Zombie");
+            helper.runAfterDelay(5, () -> {
+                try (context) {
+                    clickTargetClass(context, target);
+                    helper.assertTrue(!ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie"),
+                            "Modified left click did not remove the registered target class after cooldown");
+                    assertTargetClassNotice(helper, context, 2, "remove", "Zombie");
+                    helper.succeed();
+                }
+            });
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shiftLeftSkipsPlayerAndNonLivingTargetsAndKeepsTeamInput(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34403)) {
+                context.player().setShiftKeyDown(true);
+                var frame = context.entities().add(EntityType.ITEM_FRAME.create(context.level()));
+                helper.assertTrue(frame != null, "Non-living fixture was not created");
+                var rejectPacket = (java.util.function.Consumer<C2SGUIInputPacket>) packet ->
+                        helper.assertTrue(false, "Excluded target emitted a pointer command");
+                invokeLeftClick(context, context.player(), rejectPacket);
+                invokeLeftClick(context, frame, rejectPacket);
+                BasicEntityShip ship = addTargetClassShip(context, 3440300);
+                context.capa().setTeamMember(TEAM_ID, 0, 0);
+                context.capa().setTeamSID(TEAM_ID, 0, 0);
+                clickPointer(context, ship, true);
+                helper.assertTrue(context.capa().getTeamMember(TEAM_ID, 0) == 3440300
+                                && context.capa().isShipSelected(TEAM_ID, 0),
+                        "Owned-ship input no longer adds and selects the ship");
+                helper.assertTrue(ServerDataManager.getPlayerTargetClass(context.capa().getPlayerUID()).isEmpty(),
+                        "Excluded target changed the attack target classes");
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void targetClassAddRetainsObservationAndPointerChecks(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34404)) {
+                Zombie target = addTarget(context, new Vec3(2.5D, 2D, 4.5D));
+                var command = targetClassPacket(context, target);
+                context.player().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                assertTargetClassRejected(helper, context, command, "Missing pointer");
+                context.player().setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+                Vec3 position = target.position();
+                target.moveTo(position.x, position.y + 65D, position.z);
+                helper.assertTrue(context.level().getEntity(target.getId()) == target
+                                && context.player().distanceToSqr(target) > 64D * 64D,
+                        "Out-of-range fixture must be indexed and beyond pointer range");
+                assertTargetClassRejected(helper, context, command, "Out-of-range target");
+                target.moveTo(position.x, position.y, position.z);
+                helper.assertTrue(context.player().hasLineOfSight(target), "Unblocked fixture needs line of sight");
+                List<net.minecraft.world.level.block.state.BlockState> previous = new ArrayList<>();
+                for (int y = 1; y <= 5; y++) {
+                    BlockPos wall = new BlockPos(2, y, 3);
+                    previous.add(context.level().getBlockState(helper.absolutePos(wall)));
+                    helper.setBlock(wall, Blocks.STONE);
+                }
+                try {
+                    helper.assertTrue(!context.player().hasLineOfSight(target), "Wall did not block line of sight");
+                    assertTargetClassRejected(helper, context, command, "Occluded target");
+                } finally {
+                    for (int y = 1; y <= 5; y++) {
+                        helper.setBlock(new BlockPos(2, y, 3), previous.get(y - 1));
+                    }
+                }
+                target.setInvisible(true);
+                helper.assertTrue(target.isInvisible(), "Invisible fixture must be invisible");
+                assertTargetClassRejected(helper, context, command, "Invisible target");
+                target.setInvisible(false);
+                assertTargetClassRejected(helper, context, new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                        new int[]{context.player().getId(), 0, target.getId()}, "Cow"), "Mismatched class name");
+                invokePacketHandler(command, "handleSetTarClass", context.player());
+                helper.assertTrue(ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie"),
+                        "Valid observed target was rejected after the negative checks");
+                assertTargetClassNotice(helper, context, 1, "add", "Zombie");
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void targetClassAddRejectsPlayerPacket(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34405)) {
+                context.level().addNewPlayer(context.player());
+                try {
+                    helper.assertTrue(context.level().getEntity(context.player().getId()) == context.player(),
+                            "Player fixture must be indexed by entity id");
+                    assertTargetClassRejected(helper, context, targetClassPacket(context, context.player()),
+                            "Player target");
+                } finally {
+                    context.level().removePlayerImmediately(context.player(),
+                            net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
                 }
                 helper.succeed();
             }
         });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void targetClassAddRejectsOwnedShipPacket(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34406)) {
+                BasicEntityShip ship = addTargetClassShip(context, 3440600);
+                helper.assertTrue(com.lulan.shincolle.utility.TeamHelper.checkSameOwner(context.player(), ship)
+                                && context.player().hasLineOfSight(ship),
+                        "Owned ship fixture must be owned and visible");
+                assertTargetClassRejected(helper, context, targetClassPacket(context, ship), "Owned ship target");
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void shiftLeftCanRegisterOtherOwnersShipClass(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34407)) {
+                BasicEntityShip ship = addTargetClassShip(context, 3440700);
+                ship.setPlayerUID(context.capa().getPlayerUID() + 1);
+                helper.assertTrue(!com.lulan.shincolle.utility.TeamHelper.checkSameOwner(context.player(), ship)
+                                && context.player().hasLineOfSight(ship),
+                        "Other-owner fixture must be unowned by the caller and visible");
+                clickTargetClass(context, ship);
+                String name = ship.getClass().getSimpleName();
+                helper.assertTrue(ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), name),
+                        "Modified left click rejected another owner's ship class");
+                assertTargetClassNotice(helper, context, 1, "add", name);
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void targetClassDeskRemovalStillWorksWithoutObservationOrPointer(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34408)) {
+                ServerDataManager.setPlayerTargetClass(context.capa().getPlayerUID(), "Zombie");
+                helper.assertTrue(ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie"),
+                        "Desk removal fixture must start with a registered class");
+                context.player().setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                invokePacketHandler(new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass, new int[0], "Zombie"),
+                        "handleSetTarClass", context.player());
+                helper.assertTrue(!ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie"),
+                        "Desk removal started requiring an observed entity or held pointer");
+                assertTargetClassNotice(helper, context, 1, "remove", "Zombie");
+                helper.succeed();
+            }
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void targetClassCapacityRejectionSendsNoNotice(GameTestHelper helper) {
+        whenFixtureTicking(helper, () -> {
+            try (TestContext context = createTargetClassContext(helper, 34409)) {
+                HashMap<Integer, String> full = new HashMap<>();
+                for (int i = 0; i < ServerDataManager.MAX_CUSTOM_TARGET_CLASSES; i++) {
+                    String name = "TargetClass" + i;
+                    full.put(name.hashCode(), name);
+                }
+                ServerDataManager.setPlayerTargetClass(context.capa().getPlayerUID(), full);
+                helper.assertTrue(ServerDataManager.getPlayerTargetClass(context.capa().getPlayerUID()).size()
+                                == ServerDataManager.MAX_CUSTOM_TARGET_CLASSES,
+                        "Capacity fixture must fill the target-class list");
+                Zombie target = addTarget(context, new Vec3(2.5D, 2D, 4.5D));
+                helper.assertTrue(context.player().hasLineOfSight(target), "Capacity fixture needs line of sight");
+                invokePacketHandler(targetClassPacket(context, target), "handleSetTarClass", context.player());
+                helper.assertTrue(!ServerDataManager.hasPlayerTargetClass(context.capa().getPlayerUID(), "Zombie")
+                                && ((TargetClassPlayer) context.player()).notices.isEmpty(),
+                        "Rejected addition changed the list or emitted a success notice");
+                helper.succeed();
+            }
+        });
+    }
+
+    private static TestContext createTargetClassContext(GameTestHelper helper, int id) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = new TargetClassPlayer(level, new GameProfile(
+                UUID.fromString(String.format("6b00b41e-2c24-45a1-9d20-%012d", id)), "target_" + id));
+        Vec3 pos = helper.absoluteVec(new Vec3(2.5D, 2D, 1.5D));
+        player.moveTo(pos.x, pos.y, pos.z, 0F, 0F);
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        helper.assertTrue(capa != null, "Target-class player has no admiral capability");
+        capa.setPlayerUID(200000 + id);
+        capa.setSelectTeam(TEAM_ID);
+        ServerDataManager.setPlayerTargetClass(capa.getPlayerUID(), new HashMap<>());
+        GameTestEntities.onCompletion(helper,
+                () -> ServerDataManager.getAllPlayerTargetClassList().remove(capa.getPlayerUID()),
+                "target-class state cleanup");
+        return new TestContext(helper, level, player, capa, GameTestEntities.open(helper));
+    }
+
+    private static BasicEntityShip addTargetClassShip(TestContext context, int uid) {
+        BasicEntityShip ship = addShip(context, 0, uid, new Vec3(4.5D, 2D, 1.5D));
+        ship.setStateMinor(com.lulan.shincolle.reference.ID.M.NumGrudge, 1000);
+        ship.setStateFlag(com.lulan.shincolle.reference.ID.F.NoFuel, false);
+        context.helper().assertTrue(ship.getStateMinor(com.lulan.shincolle.reference.ID.M.NumGrudge) > 0
+                        && !ship.getStateFlag(com.lulan.shincolle.reference.ID.F.NoFuel),
+                "Target-class ship fixture needs fuel");
+        return ship;
+    }
+
+    private static C2SGUIInputPacket targetClassPacket(TestContext context, net.minecraft.world.entity.Entity target) {
+        return new C2SGUIInputPacket(C2SGUIInputPacket.SetTarClass,
+                new int[]{context.player().getId(), 0, target.getId()}, target.getClass().getSimpleName());
+    }
+
+    private static void clickTargetClass(TestContext context, net.minecraft.world.entity.Entity target) {
+        context.player().setShiftKeyDown(true);
+        int[] sent = {0};
+        int noticesBefore = ((TargetClassPlayer) context.player()).notices.size();
+        invokeLeftClick(context, target, packet -> {
+            sent[0]++;
+            try {
+                var type = C2SGUIInputPacket.class.getDeclaredField("type");
+                type.setAccessible(true);
+                context.helper().assertTrue(type.getByte(packet) == C2SGUIInputPacket.SetTarClass,
+                        "Modified left click sent the wrong packet type");
+            } catch (ReflectiveOperationException e) {
+                throw new net.minecraft.gametest.framework.GameTestAssertException("Cannot inspect pointer packet: " + e);
+            }
+            context.helper().assertTrue(((TargetClassPlayer) context.player()).notices.size() == noticesBefore,
+                    "Client input emitted a notification before server acceptance");
+            invokePacketHandler(packet, "handleSetTarClass", context.player());
+        });
+        context.helper().assertTrue(sent[0] == 1, "Modified left click must send exactly one target-class packet");
+    }
+
+    private static void assertTargetClassRejected(GameTestHelper helper, TestContext context,
+                                                C2SGUIInputPacket command, String reason) {
+        invokePacketHandler(command, "handleSetTarClass", context.player());
+        helper.assertTrue(ServerDataManager.getPlayerTargetClass(context.capa().getPlayerUID()).isEmpty()
+                        && ((TargetClassPlayer) context.player()).notices.isEmpty(),
+                reason + " was accepted or emitted a success notice");
+    }
+
+    private static void assertTargetClassNotice(GameTestHelper helper, TestContext context, int count,
+                                              String action, String name) {
+        TargetClassPlayer player = (TargetClassPlayer) context.player();
+        helper.assertTrue(player.notices.size() == count, "Unexpected target-class notification count");
+        Component notice = player.notices.get(count - 1);
+        helper.assertTrue(notice.getContents() instanceof TranslatableContents, "Notice must be translatable");
+        TranslatableContents contents = (TranslatableContents) notice.getContents();
+        helper.assertTrue(contents.getKey().equals("chat.shincolle_kai.pointer.targetclass." + action)
+                        && contents.getArgs().length == 1 && name.equals(contents.getArgs()[0])
+                        && player.actionBars.stream().allMatch(Boolean::booleanValue),
+                "Target-class notice must use the matching action-bar translation and simple class name");
+    }
+
+    private static final class TargetClassPlayer extends FakePlayer {
+        private final List<Component> notices = new ArrayList<>();
+        private final List<Boolean> actionBars = new ArrayList<>();
+
+        private TargetClassPlayer(ServerLevel level, GameProfile profile) {
+            super(level, profile);
+        }
+
+        @Override
+        public void displayClientMessage(Component message, boolean actionBar) {
+            notices.add(message);
+            actionBars.add(actionBar);
+        }
     }
 
     private static void clickPointer(TestContext context, net.minecraft.world.entity.Entity target,

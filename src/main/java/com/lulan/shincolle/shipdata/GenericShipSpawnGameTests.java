@@ -28,6 +28,49 @@ public final class GenericShipSpawnGameTests {
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_generic_ship_client_spawn")
+    public static void emptyIdentityCannotJoinButMissingNamedDefinitionsRemainDormant(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            for (var type : List.of(ModEntities.GENERIC_SHIP.get(), ModEntities.GENERIC_SHIP_HOSTILE.get())) {
+                Mob empty = entities.add(type.create(helper.getLevel()));
+                helper.assertTrue(empty != null, "Registered entity factory failed");
+                helper.assertTrue(((DefinitionBackedShip) empty).getShipId().isEmpty(), "Expected empty identity");
+                boolean added = helper.getLevel().addFreshEntity(empty);
+                helper.assertTrue(!added && helper.getLevel().getEntity(empty.getUUID()) == null,
+                        "Empty ShipId entity remained in world at " + empty.position());
+                for (boolean explicitEmptyId : new boolean[]{false, true}) {
+                    var summonNbt = new net.minecraft.nbt.CompoundTag();
+                    var uuid = java.util.UUID.randomUUID();
+                    summonNbt.putUUID("UUID", uuid);
+                    if (explicitEmptyId) summonNbt.putString("ShipId", "");
+                    var source = helper.getLevel().getServer().createCommandSourceStack()
+                            .withLevel(helper.getLevel()).withPosition(helper.absoluteVec(new Vec3(2, 2, 2)))
+                            .withPermission(4).withSuppressedOutput();
+                    String name = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
+                    source.getServer().getCommands().performPrefixedCommand(source, "summon " + name + " ~ ~ ~ " + summonNbt);
+                    var remaining = helper.getLevel().getEntity(uuid);
+                    if (remaining != null) entities.add(remaining);
+                    helper.assertTrue(remaining == null, "Summon retained a ship without an identity");
+                }
+                withClientSide(helper, () -> {
+                    Mob client = entities.add(type.create(helper.getLevel()));
+                    var event = new net.minecraftforge.event.entity.EntityJoinLevelEvent(client, helper.getLevel());
+                    net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
+                    helper.assertTrue(!event.isCanceled() && !client.isRemoved(), "Client spawn must wait for identity");
+                });
+                Mob missing = entities.add(type.create(helper.getLevel()));
+                var nbt = new net.minecraft.nbt.CompoundTag();
+                nbt.putString("ShipId", "missing:preserved_ship");
+                missing.load(nbt);
+                helper.assertTrue(helper.getLevel().addFreshEntity(missing), "Named dormant ship was rejected");
+                helper.assertTrue(((DefinitionBackedShip) missing).definitionState().dormant(), "Expected dormancy");
+                helper.assertTrue(missing.saveWithoutId(new net.minecraft.nbt.CompoundTag()).equals(nbt),
+                        "Dormant NBT changed");
+            }
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_generic_ship_client_spawn")
     public static void friendlySpawnPacketPlacesShipBeforeDormantIdentity(GameTestHelper helper) {
         initialPlacement(helper, false);
     }
@@ -71,6 +114,13 @@ public final class GenericShipSpawnGameTests {
                     try {
                         // Apply the definition identity branch without loading the client singleton.
                         state.receive(data.readUtf(64), data.readVarLong(), data.readBoolean());
+                        var individual = new ShipIndividual.Presentation(data.readUtf(128),
+                                data.readEnum(HostileVariants.Rarity.class), data.readUtf(128), data.readBoolean());
+                        helper.assertTrue(individual.equals(ShipIndividual.Presentation.NORMAL),
+                                "Unselected ship must have normal individual presentation");
+                        if (fresh instanceof com.lulan.shincolle.entity.GenericHostileShipEntity enemy) {
+                            enemy.receiveIndividualPresentation(individual);
+                        }
                         fresh.refreshDimensions();
                         ((IShipEmotion) fresh).setStateMinor(ID.M.ShipType, state.shipType(true));
                         helper.assertTrue(!data.isReadable(), "Unexpected identity payload data");

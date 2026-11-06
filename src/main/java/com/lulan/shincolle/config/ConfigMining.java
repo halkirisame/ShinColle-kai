@@ -5,10 +5,17 @@ import com.lulan.shincolle.utility.LogHelper;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Mining loot table configuration loaded from a CSV file (mining.cfg).
@@ -41,6 +48,11 @@ public class ConfigMining {
      */
     private static Map<String, Map<String, List<ItemEntry>>> MINING_MAP = new HashMap<>();
     private static File configFile;
+    private static final Set<String> LEGACY_POLYMETAL_DEFAULTS = Set.of(
+            "overworld,*," + Reference.MOD_ID + ":abyss_metal,350,1,3,1,64,2,100",
+            "overworld,ocean," + Reference.MOD_ID + ":abyss_metal,500,1,3,1,64,2,100",
+            "overworld,deep_ocean," + Reference.MOD_ID + ":abyss_metal,500,1,3,1,64,2,100");
+    private static final Pattern CONFIG_LINE = Pattern.compile("(?m)^[^\\r\\n]+");
 
     /**
      * Initialize and load the mining config from the given file.
@@ -63,6 +75,7 @@ public class ConfigMining {
                 }
             }
 
+            migratePolymetalDefaults(file);
             List<String> lines = readLines(file);
             parse(lines);
             LogHelper.debug("DEBUG: loaded mining config: " + file + " entries parsed");
@@ -113,6 +126,38 @@ public class ConfigMining {
     }
 
     // ========== Internal ==========
+
+    /** Preserve custom rows, comments, whitespace, and each original line ending. */
+    private static void migratePolymetalDefaults(File file) throws IOException {
+        Path path = file.toPath().toAbsolutePath();
+        String content = Files.readString(path, StandardCharsets.UTF_8);
+        Matcher matcher = CONFIG_LINE.matcher(content);
+        StringBuilder migrated = new StringBuilder();
+        int changed = 0;
+        while (matcher.find()) {
+            String line = matcher.group();
+            if (LEGACY_POLYMETAL_DEFAULTS.contains(line)) {
+                line = line.replace(":abyss_metal,", ":polymetal_nodule,");
+                changed++;
+            }
+            matcher.appendReplacement(migrated, Matcher.quoteReplacement(line));
+        }
+        if (changed == 0) return;
+        matcher.appendTail(migrated);
+
+        Path temporary = Files.createTempFile(path.getParent(), "mining-", ".tmp");
+        try {
+            Files.writeString(temporary, migrated, StandardCharsets.UTF_8);
+            try {
+                Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+        LogHelper.info("Migrated " + changed + " unchanged legacy polymetal mining rows in " + file);
+    }
 
     private static void parse(List<String> lines) {
         if (lines == null || lines.isEmpty())
@@ -232,7 +277,7 @@ public class ConfigMining {
         lines.add("overworld,*,minecraft:redstone,500,1,3,20,15,2,150" + nl);
         lines.add("overworld,*,minecraft:raw_iron,350,1,2,1,64,2,100" + nl);
         lines.add("overworld,*,"
-                + Reference.MOD_ID + ":abyss_metal,350,1,3,1,64,2,100" + nl);
+                + Reference.MOD_ID + ":polymetal_nodule,350,1,3,1,64,2,100" + nl);
         lines.add("overworld,*,minecraft:raw_copper,300,1,3,1,96,1,100" + nl);
         lines.add("overworld,*,minecraft:raw_gold,100,1,1,30,32,2,100" + nl);
         lines.add("overworld,*,minecraft:lapis_lazuli,200,1,3,30,30,2,150" + nl);
@@ -245,12 +290,12 @@ public class ConfigMining {
         lines.add("overworld,ocean,minecraft:prismarine_shard,500,1,4,30,128,0,0" + nl);
         lines.add("overworld,ocean,minecraft:prismarine_crystals,200,1,3,60,128,2,100" + nl);
         lines.add("overworld,ocean,"
-                + Reference.MOD_ID + ":abyss_metal,500,1,3,1,64,2,100" + nl);
+                + Reference.MOD_ID + ":polymetal_nodule,500,1,3,1,64,2,100" + nl);
         lines.add("overworld,ocean,minecraft:sponge,200,1,1,80,128,0,100" + nl);
         lines.add("overworld,deep_ocean,minecraft:prismarine_shard,500,1,4,30,128,0,0" + nl);
         lines.add("overworld,deep_ocean,minecraft:prismarine_crystals,200,1,3,60,128,2,100" + nl);
         lines.add("overworld,deep_ocean,"
-                + Reference.MOD_ID + ":abyss_metal,500,1,3,1,64,2,100" + nl);
+                + Reference.MOD_ID + ":polymetal_nodule,500,1,3,1,64,2,100" + nl);
         lines.add("overworld,deep_ocean,minecraft:sponge,200,1,1,80,128,0,100" + nl);
 
         // overworld cold/snowy biomes

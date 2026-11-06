@@ -5,16 +5,32 @@ import com.lulan.shincolle.capability.CapaShipInventory;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.ai.ShipCraneStateAdapter;
+import com.lulan.shincolle.ai.domain.crane.CraneLifecycle;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlockEntities;
+import com.lulan.shincolle.init.ModSounds;
+import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.utility.EntityHelper;
+import com.lulan.shincolle.utility.CraneItemFilter;
+import com.lulan.shincolle.utility.CraneFluidTransfer;
+import com.lulan.shincolle.utility.CraneEnergyTransfer;
+import com.lulan.shincolle.utility.CraneTransferRate;
+import com.lulan.shincolle.utility.EnchantHelper;
+import com.lulan.shincolle.item.BasicEquip;
+import com.lulan.shincolle.item.EquipDrum;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.Container;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -24,8 +40,18 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.energy.EnergyStorage;
+import net.minecraftforge.energy.IEnergyStorage;
+import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 
 /**
@@ -40,7 +66,7 @@ import java.util.UUID;
  * 0: No wait, 1: Until full, 2: Until empty, 3: Excess, 4: Remain
  * 5-24: Timed waits (16-60000 ticks)
  */
-public class TileEntityCrane extends BasicTileInventory implements MenuProvider {
+public class TileEntityCrane extends BasicTileInventory implements MenuProvider, ITileWaypoint {
 
     public static final int SLOT_COUNT = 18;
     public static final String[] MODE_NAMES = {
@@ -86,10 +112,25 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Check ore dictionary / item tags when filtering
      */
     private boolean checkDict = false;
+    /** One exclusion bit per ghost filter slot. */
+    private int modeItem;
     /**
      * Respond to redstone signal mode (0:none, 1:continuous, 2:pulse).
      */
     private int redSignalMode = 0;
+    private int redSignalTicks;
+
+    public int getRedstoneOutput() {
+        return redSignalMode > 0 && redSignalTicks > 0 ? 15 : 0;
+    }
+
+    private void setRedSignalTicks(int remaining) {
+        int before = getRedstoneOutput();
+        redSignalTicks = remaining;
+        if (before != getRedstoneOutput() && level != null) {
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+        }
+    }
     /**
      * Liquid transfer mode (0:none, 1:to ship, 2:to crane).
      */
@@ -110,6 +151,8 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Last waypoint position
      */
     private BlockPos lastPos = BlockPos.ZERO;
+    private boolean nextWaypointSet;
+    private boolean lastWaypointSet;
     /**
      * Currently docked ship
      */
@@ -122,6 +165,36 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     private int playerUID = 0;
     /** Stable owner identity; absent only on legacy saves. */
     private UUID ownerUUID;
+    private final FluidTank fluidTank = new FluidTank(Math.max(1, ConfigHandler.tileCrane[0])) {
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            if (getFluidAmount() >= getCapacity()) return 0;
+            return super.fill(resource, action);
+        }
+
+        @Override
+        protected void onContentsChanged() {
+            setChanged();
+        }
+    };
+    private LazyOptional<IFluidHandler> fluidCapability = LazyOptional.of(() -> fluidTank);
+    private final EnergyStorage energyBuffer = new EnergyStorage(Math.max(1, ConfigHandler.tileCrane[1])) {
+        @Override
+        public int receiveEnergy(int maximum, boolean simulate) {
+            if (getEnergyStored() >= getMaxEnergyStored()) return 0;
+            int received = super.receiveEnergy(maximum, simulate);
+            if (!simulate && received > 0) setChanged();
+            return received;
+        }
+
+        @Override
+        public int extractEnergy(int maximum, boolean simulate) {
+            int extracted = super.extractEnergy(maximum, simulate);
+            if (!simulate && extracted > 0) setChanged();
+            return extracted;
+        }
+    };
+    private LazyOptional<IEnergyStorage> energyCapability = LazyOptional.of(() -> energyBuffer);
 
     public TileEntityCrane(BlockPos pos, BlockState state) {
         this(ModBlockEntities.CRANE.get(), pos, state);
@@ -184,6 +257,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
 
     public void setActive(boolean active) {
         this.isActive = active;
+        if (!active) releaseDockedShip(false);
         setChanged();
     }
 
@@ -236,6 +310,20 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         setChanged();
     }
 
+    public int getItemModeMask() {
+        return modeItem;
+    }
+
+    public boolean getItemMode(int slot) {
+        return slot >= 0 && slot < SLOT_COUNT && (modeItem & (1 << slot)) != 0;
+    }
+
+    public void setItemMode(int slot, boolean excluded) {
+        if (slot < 0 || slot >= SLOT_COUNT) return;
+        modeItem = excluded ? modeItem | (1 << slot) : modeItem & ~(1 << slot);
+        setChanged();
+    }
+
     public boolean isRedSignal() {
         return redSignalMode > 0;
     }
@@ -249,7 +337,11 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     }
 
     public void setRedSignalMode(int mode) {
+        int before = getRedstoneOutput();
         this.redSignalMode = normalizeTriStateMode(mode);
+        if (before != getRedstoneOutput() && level != null) {
+            level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+        }
         setChanged();
     }
 
@@ -292,6 +384,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     }
 
     public void setChestPos(BlockPos pos) {
+        if (pos.equals(BlockPos.ZERO) || !chestPos.equals(pos)) releaseDockedShip(false);
         this.chestPos = pos;
         this.isPaired = !pos.equals(BlockPos.ZERO);
         setChanged();
@@ -302,7 +395,8 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     }
 
     public void setNextPos(BlockPos pos) {
-        this.nextPos = pos;
+        this.nextPos = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.nextWaypointSet = pos != null;
         setChanged();
     }
 
@@ -311,8 +405,72 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     }
 
     public void setLastPos(BlockPos pos) {
-        this.lastPos = pos;
+        this.lastPos = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.lastWaypointSet = pos != null;
         setChanged();
+    }
+
+    @Override
+    public BlockPos getNextWaypoint() {
+        return nextPos;
+    }
+
+    @Override
+    public boolean hasNextWaypoint() {
+        return nextWaypointSet;
+    }
+
+    @Override
+    public void setNextWaypoint(BlockPos pos) {
+        setNextPos(pos);
+    }
+
+    @Override
+    public BlockPos getLastWaypoint() {
+        return lastPos;
+    }
+
+    @Override
+    public boolean hasLastWaypoint() {
+        return lastWaypointSet;
+    }
+
+    @Override
+    public void setLastWaypoint(BlockPos pos) {
+        setLastPos(pos);
+    }
+
+    @Override
+    public int getWpStayTime() {
+        return 0;
+    }
+
+    @Override
+    public void setWpStayTime(int time) {
+        // Crane work conditions, rather than waypoint stay time, control departure.
+    }
+
+    @Override
+    public BlockPos getPairedChest() {
+        return chestPos;
+    }
+
+    @Override
+    public boolean hasPairedChest() {
+        return isPaired;
+    }
+
+    @Override
+    public void setPairedChest(BlockPos pos) {
+        if (pos == null || !chestPos.equals(pos)) releaseDockedShip(false);
+        this.chestPos = pos == null ? BlockPos.ZERO : pos.immutable();
+        this.isPaired = pos != null;
+        setChanged();
+    }
+
+    @Override
+    public Entity getHostEntity() {
+        return null;
     }
 
     public int getPlayerUID() {
@@ -410,22 +568,53 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
     }
 
     /**
+     * The capture volume shared by candidate lookup and ship entry observations.
+     */
+    public AABB getCaptureArea() {
+        return new AABB(worldPosition.getX() - 7D, worldPosition.getY() - 8D, worldPosition.getZ() - 7D,
+                worldPosition.getX() + 7D, worldPosition.getY(), worldPosition.getZ() + 7D);
+    }
+
+    /**
      * Find ship at crane position
      */
     private void checkCraningShip() {
         if (level == null)
             return;
 
-        AABB area = new AABB(worldPosition).inflate(3);
-        List<BasicEntityShip> ships = level.getEntitiesOfClass(BasicEntityShip.class, area);
-
-        dockedShip = null;
-        for (BasicEntityShip ship : ships) {
-            if (ship.isAlive() && isOwnerShip(ship)) {
-                dockedShip = ship;
-                break;
+        List<BasicEntityShip> ships = level.getEntitiesOfClass(BasicEntityShip.class, getCaptureArea());
+        UUID selected = CraneLifecycle.choose(ships.stream().map(ship -> new CraneLifecycle.Candidate(
+                ship.getUUID(), ShipCraneStateAdapter.phase(ship), ship.isAlive(), isOwnerShip(ship),
+                ShipCraneStateAdapter.guards(ship, this))).toList()).orElse(null);
+        BasicEntityShip next = selected == null ? null
+                : ships.stream().filter(ship -> selected.equals(ship.getUUID())).findFirst().orElse(null);
+        if (dockedShip != next) releaseDockedShip(false);
+        if (next != null) {
+            CraneLifecycle.Phase before = ShipCraneStateAdapter.phase(next);
+            if (ShipCraneStateAdapter.apply(next, CraneLifecycle.Phase.WORKING)) {
+                if (before != CraneLifecycle.Phase.WORKING) next.setStateTimer(ID.T.CraneTime, 0);
+                dockedShip = next;
             }
         }
+    }
+
+    private void releaseDockedShip(boolean completed) {
+        BasicEntityShip ship = dockedShip;
+        if (ship == null) return;
+        dockedShip = null;
+        ShipCraneStateAdapter.reset(ship);
+        if (completed && ship.isAlive()) {
+            if (EntityHelper.departCrane(ship, this)) ship.setStateMinor(ID.M.FollowMin, 2);
+            ship.playSound(ModSounds.SHIP_BELL.get(), (float) ConfigHandler.volumeShip() * 1.5F,
+                    ship.getRandom().nextFloat() * 0.3F + 1F);
+        }
+        setChanged();
+    }
+
+    @Override
+    public void setRemoved() {
+        releaseDockedShip(false);
+        super.setRemoved();
     }
 
     /**
@@ -463,6 +652,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
             // Check loading filter
             if (!matchesFilter(stack, true))
                 continue;
+            if (!quantityAllowsTransfer(stack, true, source, shipInv)) continue;
 
             // Try to add one item to ship inventory
             ItemStack toAdd = stack.copy();
@@ -483,6 +673,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         var shipInv = source.getCapaShipInventory();
 
         for (int i = CapaShipInventory.EquipSlots; i < shipInv.getSlots(); i++) {
+            if (!shipInv.isSlotAvailable(i)) continue;
             ItemStack stack = shipInv.getStackInSlot(i);
             if (stack.isEmpty())
                 continue;
@@ -490,6 +681,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
             // Check unloading filter
             if (!matchesFilter(stack, false))
                 continue;
+            if (!quantityAllowsTransfer(stack, false, target, shipInv)) continue;
 
             // Find a slot in the chest that can accept this item
             ItemStack toMove = stack.copy();
@@ -531,24 +723,238 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
      * Check if item matches the filter slots (loading: 0-8, unloading: 9-17)
      */
     private boolean matchesFilter(ItemStack stack, boolean loading) {
-        int startSlot = loading ? 0 : 9;
-        int endSlot = loading ? 9 : 18;
+        int start = loading ? 0 : 9;
+        List<ItemStack> filters = new ArrayList<>();
+        for (int slot = start; slot < start + 9; slot++) filters.add(inventory.getStackInSlot(slot));
+        return CraneItemFilter.allows(stack, filters, modeItem >>> start, checkMetadata, checkNbt, checkDict);
+    }
 
-        boolean hasFilter = false;
-        for (int i = startSlot; i < endSlot; i++) {
-            ItemStack filterStack = inventory.getStackInSlot(i);
-            if (!filterStack.isEmpty()) {
-                hasFilter = true;
-                if (ItemStack.isSameItem(stack, filterStack)) {
-                    if (!checkMetadata || ItemStack.isSameItemSameTags(stack, filterStack)) {
-                        return true;
-                    }
+    private boolean matchesFilterEntry(ItemStack stack, ItemStack filter) {
+        return CraneItemFilter.matches(stack, filter, checkMetadata, checkNbt, checkDict);
+    }
+
+    private boolean quantityAllowsTransfer(ItemStack stack, boolean loading, Container chest, CapaShipInventory cargo) {
+        if (craneMode != 3 && craneMode != 4) return true;
+        boolean countCargo = craneMode == 3 ? loading : !loading;
+        int start = loading ? 0 : 9;
+        for (int slot = start; slot < start + 9; slot++) {
+            ItemStack filter = inventory.getStackInSlot(slot);
+            if (filter.isEmpty() || getItemMode(slot) || !matchesFilterEntry(stack, filter)) continue;
+            int amount = 0;
+            if (countCargo) {
+                for (int i = CapaShipInventory.EquipSlots; i < cargo.getSlots(); i++) {
+                    ItemStack item = cargo.getStackInSlot(i);
+                    if (cargo.isSlotAvailable(i) && matchesFilterEntry(item, filter)) amount += item.getCount();
+                }
+            } else {
+                for (int i = 0; i < chest.getContainerSize(); i++) {
+                    ItemStack item = chest.getItem(i);
+                    if (matchesFilterEntry(item, filter)) amount += item.getCount();
                 }
             }
+            // Transfers are one item, so checking the boundary before moving also caps the resulting quantity.
+            if (craneMode == 3 ? amount >= filter.getCount() : amount <= filter.getCount()) return false;
         }
+        return true;
+    }
 
-        // If no filter is set, allow all items
-        return !hasFilter;
+    private boolean amountSatisfied(List<ItemStack> items, boolean loading, boolean excess) {
+        int start = loading ? 0 : 9;
+        for (int slot = start; slot < start + 9; slot++) {
+            ItemStack filter = inventory.getStackInSlot(slot);
+            if (filter.isEmpty() || getItemMode(slot)) continue;
+            int amount = 0;
+            for (ItemStack item : items) {
+                if (!item.isEmpty() && matchesFilterEntry(item, filter)) amount += item.getCount();
+            }
+            if (excess ? amount < filter.getCount() : amount > filter.getCount()) return false;
+        }
+        return true;
+    }
+
+    private CraneLifecycle.InventoryCompletion itemCompletion() {
+        List<ItemStack> cargo = new ArrayList<>();
+        CapaShipInventory shipInventory = dockedShip.getCapaShipInventory();
+        for (int slot = CapaShipInventory.EquipSlots; slot < shipInventory.getSlots(); slot++) {
+            if (shipInventory.isSlotAvailable(slot)) cargo.add(shipInventory.getStackInSlot(slot));
+        }
+        Container chest = (Container) level.getBlockEntity(chestPos);
+        List<ItemStack> chestItems = new ArrayList<>();
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) chestItems.add(chest.getItem(slot));
+        boolean full = (!enabLoad || cargo.stream().noneMatch(ItemStack::isEmpty))
+                && (!enabUnload || chestItems.stream().noneMatch(ItemStack::isEmpty));
+        boolean empty = (!enabLoad || chestItems.stream().noneMatch(item -> !item.isEmpty() && matchesFilter(item, true)))
+                && (!enabUnload || cargo.stream().noneMatch(item -> !item.isEmpty() && matchesFilter(item, false)));
+        boolean excess = (!enabLoad || amountSatisfied(cargo, true, true))
+                && (!enabUnload || amountSatisfied(chestItems, false, true));
+        boolean remain = (!enabLoad || amountSatisfied(chestItems, true, false))
+                && (!enabUnload || amountSatisfied(cargo, false, false));
+        return new CraneLifecycle.InventoryCompletion(full && fluidComplete(true) && energyComplete(true),
+                empty && fluidComplete(false) && energyComplete(false), excess, remain);
+    }
+
+    private CraneLifecycle.WaitMode waitMode() {
+        return switch (craneMode) {
+            case 0 -> CraneLifecycle.WaitMode.NO_WORK;
+            case 1 -> CraneLifecycle.WaitMode.FULL;
+            case 2 -> CraneLifecycle.WaitMode.EMPTY;
+            case 3 -> CraneLifecycle.WaitMode.EXCESS;
+            case 4 -> CraneLifecycle.WaitMode.REMAIN;
+            default -> CraneLifecycle.WaitMode.TIMED;
+        };
+    }
+
+    private int pumpRate(int[] rates) {
+        int pumps = dockedShip.getShipType() == ID.ShipType.TRANSPORT && dockedShip.getStateFlag(ID.F.IsMarried) ? 1 : 0;
+        int enchantments = 0;
+        CapaShipInventory cargo = dockedShip.getCapaShipInventory();
+        for (int slot = 0; slot < CapaShipInventory.EquipSlots; slot++) {
+            ItemStack stack = cargo.getStackInSlot(slot);
+            if (stack.getItem() instanceof EquipDrum && BasicEquip.getEquipMeta(stack) == 1) {
+                pumps++;
+                enchantments += EnchantHelper.calcEnchantNumber(stack);
+            }
+        }
+        return CraneTransferRate.perCycle(dockedShip.getLevel(), pumps, enchantments, rates[0], rates[1]);
+    }
+
+    private void preFluidTransfer() {
+        if (liquidMode == 0) return;
+        Container chest = (Container) level.getBlockEntity(chestPos);
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            CraneFluidTransfer.Result result = CraneFluidTransfer.move(chest.getItem(slot), fluidTank,
+                    liquidMode == 1, liquidMode == 1 ? 64000 : 16000);
+            if (result.moved() > 0) {
+                chest.setItem(slot, result.container());
+                chest.setChanged();
+                return;
+            }
+        }
+    }
+
+    private boolean transferShipFluid() {
+        if (liquidMode == 0) return false;
+        int remaining = pumpRate(ConfigHandler.drumLiquid);
+        boolean moved = false;
+        CapaShipInventory cargo = dockedShip.getCapaShipInventory();
+        for (int slot = CapaShipInventory.EquipSlots; slot < cargo.getSlots() && remaining > 0; slot++) {
+            if (!cargo.isSlotAvailable(slot)) continue;
+            CraneFluidTransfer.Result result = CraneFluidTransfer.move(cargo.getStackInSlot(slot), fluidTank, liquidMode == 2, remaining);
+            if (result.moved() > 0) {
+                cargo.setStackInSlot(slot, result.container());
+                remaining -= result.moved();
+                moved = true;
+            }
+        }
+        return moved;
+    }
+
+    private boolean fluidComplete(boolean full) {
+        if (liquidMode == 0) return true;
+        boolean shipSide = full ? liquidMode == 1 : liquidMode == 2;
+        if (shipSide) {
+            CapaShipInventory cargo = dockedShip.getCapaShipInventory();
+            for (int slot = CapaShipInventory.EquipSlots; slot < cargo.getSlots(); slot++) {
+                if (cargo.isSlotAvailable(slot) && !CraneFluidTransfer.complete(cargo.getStackInSlot(slot), fluidTank.getFluid(), full)) {
+                    return false;
+                }
+            }
+        } else {
+            Container chest = (Container) level.getBlockEntity(chestPos);
+            for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+                if (!CraneFluidTransfer.complete(chest.getItem(slot), fluidTank.getFluid(), full)) return false;
+            }
+        }
+        return true;
+    }
+
+    private void preEnergyTransfer() {
+        if (energyMode == 0) return;
+        Container chest = (Container) level.getBlockEntity(chestPos);
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            CraneEnergyTransfer.Result result = CraneEnergyTransfer.move(chest.getItem(slot), energyBuffer,
+                    energyMode == 1, energyMode == 1 ? 64000 : 16000);
+            if (result.moved() > 0) {
+                chest.setItem(slot, result.container());
+                chest.setChanged();
+                return;
+            }
+        }
+    }
+
+    private boolean transferShipEnergy() {
+        if (energyMode == 0) return false;
+        int remaining = pumpRate(ConfigHandler.drumEnergy);
+        boolean moved = false;
+        CapaShipInventory cargo = dockedShip.getCapaShipInventory();
+        for (int slot = CapaShipInventory.EquipSlots; slot < cargo.getSlots() && remaining > 0; slot++) {
+            if (!cargo.isSlotAvailable(slot)) continue;
+            CraneEnergyTransfer.Result result = CraneEnergyTransfer.move(cargo.getStackInSlot(slot), energyBuffer, energyMode == 2, remaining);
+            if (result.moved() > 0) {
+                cargo.setStackInSlot(slot, result.container());
+                remaining -= result.moved();
+                moved = true;
+            }
+        }
+        return moved;
+    }
+
+    private boolean energyComplete(boolean full) {
+        if (energyMode == 0) return true;
+        boolean shipSide = full ? energyMode == 1 : energyMode == 2;
+        if (shipSide) {
+            CapaShipInventory cargo = dockedShip.getCapaShipInventory();
+            for (int slot = CapaShipInventory.EquipSlots; slot < cargo.getSlots(); slot++) {
+                if (cargo.isSlotAvailable(slot) && !CraneEnergyTransfer.complete(cargo.getStackInSlot(slot), full)) return false;
+            }
+        } else {
+            Container chest = (Container) level.getBlockEntity(chestPos);
+            for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+                if (!CraneEnergyTransfer.complete(chest.getItem(slot), full)) return false;
+            }
+        }
+        return true;
+    }
+
+    public int getEnergyAmount() {
+        return energyBuffer.getEnergyStored();
+    }
+
+    public int getEnergyCapacity() {
+        return energyBuffer.getMaxEnergyStored();
+    }
+
+    public int getFluidAmount() {
+        return fluidTank.getFluidAmount();
+    }
+
+    public int getFluidCapacity() {
+        return fluidTank.getCapacity();
+    }
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
+        if (capability == ForgeCapabilities.FLUID_HANDLER && (side == null || side.getAxis().isHorizontal())) {
+            return fluidCapability.cast();
+        }
+        if (capability == ForgeCapabilities.ENERGY && (side == null || side.getAxis().isHorizontal())) {
+            return energyCapability.cast();
+        }
+        return super.getCapability(capability, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        fluidCapability.invalidate();
+        energyCapability.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        fluidCapability = LazyOptional.of(() -> fluidTank);
+        energyCapability = LazyOptional.of(() -> energyBuffer);
     }
 
     // ==================== Tick Logic ====================
@@ -584,23 +990,45 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
 
     private void tickServer() {
         tick++;
+        if (redSignalTicks > 0) setRedSignalTicks(redSignalTicks - 1);
+        if (dockedShip != null) {
+            if (!isActive || !isPaired || !dockedShip.isAlive() || !isOwnerShip(dockedShip)
+                    || !ShipCraneStateAdapter.guards(dockedShip, this)
+                    || ShipCraneStateAdapter.phase(dockedShip) != CraneLifecycle.Phase.WORKING) {
+                releaseDockedShip(false);
+            } else {
+                int elapsed = dockedShip.getStateTimer(ID.T.CraneTime);
+                dockedShip.setStateTimer(ID.T.CraneTime, elapsed == Integer.MAX_VALUE ? elapsed : elapsed + 1);
+            }
+        }
 
         // Main work cycle: every 16 ticks
         if (isActive && isPaired && tick > 64 && (tick & 15) == 0) {
             // Validate chest
             if (!checkPairedChest()) {
                 isPaired = false;
+                releaseDockedShip(false);
                 setChanged();
                 return;
             }
+
+            preFluidTransfer();
+            preEnergyTransfer();
 
             // Find ship
             checkCraningShip();
 
             // Perform work
             if (dockedShip != null) {
+                if (redSignalMode == 1) setRedSignalTicks(18);
                 boolean didLoad = applyItemTransfer(true);
                 boolean didUnload = applyItemTransfer(false);
+                boolean didFluid = transferShipFluid();
+                boolean didEnergy = transferShipEnergy();
+                CraneLifecycle.Work work = new CraneLifecycle.Work(didLoad, didUnload, didFluid, didEnergy);
+                if (dockedShip.getShipType() == ID.ShipType.TRANSPORT) {
+                    for (int i = 0; i < work.successes(); i++) dockedShip.addShipExp(ConfigHandler.expGain[6]);
+                }
 
                 if (didLoad || didUnload) {
                     com.lulan.shincolle.network.ModNetworking.sendToAllTracking(
@@ -617,20 +1045,12 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
                                     Math.max(1D, worldPosition.getY() - dockedShip.getY() - 1D), 0D, 0.25D), dockedShip);
                 }
 
-                // Check crane ending condition
-                if (craneMode >= 5) {
-                    // Timed mode
-                    int waitTime = getWaitTime();
-                    if (tick > waitTime) {
-                        // Release ship
-                        dockedShip = null;
-                        tick = 0;
-                    }
-                } else if (craneMode == 0) {
-                    // No wait: stop when no work
-                    if (!didLoad && !didUnload) {
-                        dockedShip = null;
-                    }
+                CraneLifecycle.InventoryCompletion completion = craneMode >= 1 && craneMode <= 4 ? itemCompletion()
+                        : new CraneLifecycle.InventoryCompletion(false, false, false, false);
+                if (CraneLifecycle.complete(waitMode(), work, completion,
+                        dockedShip.getStateTimer(ID.T.CraneTime), getWaitTime())) {
+                    if (redSignalMode == 2) setRedSignalTicks(2);
+                    releaseDockedShip(true);
                 }
             }
         }
@@ -654,6 +1074,9 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         tag.putBoolean("CheckMeta", checkMetadata);
         tag.putBoolean("CheckNbt", checkNbt);
         tag.putBoolean("CheckDict", checkDict);
+        tag.putInt("ModeItem", modeItem);
+        tag.put("FluidTank", fluidTank.writeToNBT(new CompoundTag()));
+        tag.put("EnergyBuffer", energyBuffer.serializeNBT());
         tag.putInt("RedSignal", redSignalMode);
         tag.putInt("LiquidMode", liquidMode);
         tag.putInt("EnergyMode", energyMode);
@@ -664,10 +1087,15 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         tag.putLong("ChestPos", chestPos.asLong());
         tag.putLong("NextPos", nextPos.asLong());
         tag.putLong("LastPos", lastPos.asLong());
+        tag.putBoolean("HasNextWaypoint", nextWaypointSet);
+        tag.putBoolean("HasLastWaypoint", lastWaypointSet);
     }
 
     @Override
     public void load(CompoundTag tag) {
+        setRedSignalTicks(0);
+        if (dockedShip != null) ShipCraneStateAdapter.reset(dockedShip);
+        dockedShip = null;
         super.load(tag);
         craneMode = tag.getInt("CraneMode");
         isActive = tag.getBoolean("Active");
@@ -677,6 +1105,9 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
         checkMetadata = tag.getBoolean("CheckMeta");
         checkNbt = tag.getBoolean("CheckNbt");
         checkDict = tag.getBoolean("CheckDict");
+        fluidTank.readFromNBT(tag.getCompound("FluidTank"));
+        energyBuffer.deserializeNBT(tag.contains("EnergyBuffer", Tag.TAG_INT) ? tag.get("EnergyBuffer") : IntTag.valueOf(0));
+        modeItem = (tag.contains("ModeItem") ? tag.getInt("ModeItem") : tag.getInt("imode")) & ((1 << SLOT_COUNT) - 1);
         if (tag.contains("RedSignal", Tag.TAG_INT)) {
             redSignalMode = normalizeTriStateMode(tag.getInt("RedSignal"));
         } else {
@@ -700,6 +1131,16 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider 
             nextPos = BlockPos.of(tag.getLong("NextPos"));
         if (tag.contains("LastPos"))
             lastPos = BlockPos.of(tag.getLong("LastPos"));
+        nextWaypointSet = tag.contains("HasNextWaypoint")
+                ? tag.getBoolean("HasNextWaypoint") : tag.contains("NextPos") && !nextPos.equals(BlockPos.ZERO);
+        lastWaypointSet = tag.contains("HasLastWaypoint")
+                ? tag.getBoolean("HasLastWaypoint") : tag.contains("LastPos") && !lastPos.equals(BlockPos.ZERO);
+        if (!nextWaypointSet) {
+            nextPos = BlockPos.ZERO;
+        }
+        if (!lastWaypointSet) {
+            lastPos = BlockPos.ZERO;
+        }
     }
 
     // ==================== Client-Server Sync ====================

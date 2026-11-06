@@ -33,6 +33,7 @@ import net.minecraft.world.entity.WalkAnimationState;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
 import javax.annotation.Nullable;
@@ -124,6 +125,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     // Book
     private int bookChapNum;
     private int bookPageNum;
+    private final BookNavigation bookNavigation = new BookNavigation(GuiBook.PageLimit.length);
     // Entity gallery (book chapters 4-5)
     private net.minecraft.world.entity.LivingEntity galleryEntity;
     private int galleryShipClass = -1;
@@ -173,8 +175,8 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         // Set initial function based on open type
         if (type == 0 && tile != null) {
             this.guiFunc = tile.getGuiFunc();
-            this.bookChapNum = tile.getBookChap();
-            this.bookPageNum = tile.getBookPage();
+            this.bookChapNum = Mth.clamp(tile.getBookChap(), 0, GuiBook.PageLimit.length - 1);
+            this.bookPageNum = Mth.clamp(tile.getBookPage(), 0, GuiBook.PageLimit[this.bookChapNum]);
             this.radarZoomLv = tile.getRadarZoomLv();
         } else {
             this.guiFunc = type; // 1=radar, 2=book
@@ -187,6 +189,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             this.bookChapNum = bookmark.chapter();
             this.bookPageNum = bookmark.page();
         }
+        bookNavigation.visit(bookChapNum, bookPageNum);
 
         // Cache localized strings
         strPos = Component.translatable("gui.shincolle_kai.radar.position").getString();
@@ -245,7 +248,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
         int localX = (int) (mouseX * GUI_SCALE_INV) - this.leftPos;
         int localY = (int) (mouseY * GUI_SCALE_INV) - this.topPos;
-        GuiBook.BookIcon icon = GuiBook.getHoveredIcon(bookChapNum, bookPageNum, localX, localY);
+        GuiBook.BookIcon icon = GuiBook.getHoveredIcon(bookChapNum, bookPageNum, localX, localY, bookRightPageOffset());
         if (icon == null || icon.stack() == null || icon.stack().isEmpty()) {
             return Optional.empty();
         }
@@ -372,6 +375,11 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                     break;
                 case 2: // Book
                     g.blit(TEX_BOOK, 0, 0, 0, 0, 256, 192);
+                    Rect2i selectedTab = selectedChapterTabArea(bookChapNum);
+                    g.fill(selectedTab.getX(), selectedTab.getY(), selectedTab.getX() + selectedTab.getWidth(),
+                            selectedTab.getY() + selectedTab.getHeight(), 0x40FFFFFF);
+                    g.renderOutline(selectedTab.getX(), selectedTab.getY(),
+                            selectedTab.getWidth(), selectedTab.getHeight(), 0xFFFFE699);
                     if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
                         int backgroundU = bookChapNum == 4 ? 0 : 105;
                         g.blit(TEX_BOOK2, 20, 48, backgroundU, 0, 87, 130);
@@ -407,7 +415,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 drawRadarText(g);
                 break;
             case 2:
-                drawBookText(g);
+                drawBookText(g, mouseX - leftPos, mouseY - topPos);
                 break;
             case 3:
                 drawTeamText(g);
@@ -442,7 +450,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             int localY = (int) (mouseY * GUI_SCALE_INV) - this.topPos;
 
             // Item icon tooltip
-            ItemStack hovered = GuiBook.getHoveredItem(bookChapNum, bookPageNum, localX, localY);
+            ItemStack hovered = GuiBook.getHoveredItem(bookChapNum, bookPageNum, localX, localY, bookRightPageOffset());
             if (hovered != null && !hovered.isEmpty()) {
                 g.renderTooltip(this.font, hovered, mouseX, mouseY);
             }
@@ -621,14 +629,35 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         }
     }
 
-    private void drawBookText(GuiGraphics g) {
+    private void drawBookText(GuiGraphics g, int mouseX, int mouseY) {
         // Chapters 4/5 page>0: entity gallery mode
         if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
             drawEntityGallery(g);
         } else {
             // Draw book content using GuiBook helper
-            GuiBook.drawBookContent(g, this.font, this.bookChapNum, this.bookPageNum);
+            GuiBook.drawBookContent(g, this.font, this.bookChapNum, this.bookPageNum, mouseX, mouseY, bookRightPageOffset());
         }
+        bookBackLink().ifPresent(link -> GuiBook.drawLink(g, this.font, link, mouseX, mouseY));
+    }
+
+    static Rect2i selectedChapterTabArea(int chapter) {
+        int[] top = {34, 46, 60, 72, 83, 97, 110};
+        int[] bottom = {45, 59, 71, 82, 96, 109, 121};
+        return new Rect2i(244, top[chapter] + 1, 11, bottom[chapter] - top[chapter] - 1);
+    }
+
+    private int bookRightPageOffset() {
+        return GuiBook.rightPageOffset(bookChapNum, bookPageNum, bookNavigation.canGoBack());
+    }
+
+    private Optional<GuiBook.BookLink> bookBackLink() {
+        return bookNavigation.previousPage().map(page -> GuiBook.backLink(this.font, page.chapter(), page.page()));
+    }
+
+    private void openBookPage(int chapter, int page) {
+        bookChapNum = chapter;
+        bookPageNum = page;
+        bookNavigation.visit(chapter, page);
     }
 
     // ==================== Book Drawing ====================
@@ -701,16 +730,30 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         String key = "gui.shincolle_kai.book.chap" + bookChapNum + ".text" + bookPageNum + "d1";
         String text = Component.translatable(key).getString();
         if (!text.equals(key)) {
-            GuiBook.drawBookString(g, this.font, text, GuiBook.PageTRX, GALLERY_TEXT_Y);
+            int textY = GALLERY_TEXT_Y + (bookNavigation.canGoBack() ? this.font.lineHeight : 0);
+            GuiBook.drawBookString(g, this.font, text, GuiBook.PageTRX, textY);
         }
 
         // Render entity model
         if (galleryEntity != null) {
             // renderLabels already translated to the book origin.
+            Matrix4f transform = galleryModelTransform(mScale, mRotateX, mRotateY);
+            g.pose().pushPose();
+            g.pose().translate(transform.m30() - 64, transform.m31() - 140, transform.m32());
             Quaternionf cameraPitch = new Quaternionf().rotateX((float) Math.toRadians(mRotateY));
             InventoryScreen.renderEntityInInventory(g, 64, 140,
                     mScale, galleryModelRotation(mRotateX, mRotateY), cameraPitch, galleryEntity);
+            g.pose().popPose();
         }
+    }
+
+    static Matrix4f galleryModelTransform(int scale, float yawDegrees, float pitchDegrees) {
+        return new Matrix4f().translation(64, 140, 0).scale(scale, scale, -scale)
+                .rotate(galleryModelRotation(0, 0))
+                .translate(0, 0.7F, 0)
+                .rotateY((float) Math.toRadians(yawDegrees))
+                .rotateX((float) Math.toRadians(pitchDegrees))
+                .translate(0, -0.7F, 0);
     }
 
     static Quaternionf galleryModelRotation(float yawDegrees, float pitchDegrees) {
@@ -940,7 +983,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
     // ==================== Target Drawing ====================
 
-    private void updateTargetClassList() {
+    public void updateTargetClassList() {
         this.tarList.clear();
         if (this.capa != null) {
             List<String> targetNames = capa.getTargetClassNames();
@@ -948,6 +991,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 tarList.addAll(targetNames);
             }
         }
+        listNum[LISTCLICK_TARGET] = Mth.clamp(listNum[LISTCLICK_TARGET], 0, Math.max(0, tarList.size() - 13));
     }
 
     @Override
@@ -999,6 +1043,24 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                             return true;
                         }
                     }
+                }
+                Optional<GuiBook.BookLink> backLink = bookBackLink();
+                if (backLink.isPresent() && backLink.get().contains(this.font, xClick, yClick)) {
+                    if (button == 0) {
+                        bookNavigation.back().ifPresent(page -> openBookPage(page.chapter(), page.page()));
+                        GuiBook.resetPageCycling();
+                    }
+                    return true;
+                }
+                GuiBook.BookLink link = GuiBook.getHoveredLink(this.font, bookChapNum, bookPageNum,
+                        xClick, yClick, bookRightPageOffset());
+                if (link != null) {
+                    if (button == 0) {
+                        bookNavigation.rememberLinkSource(bookChapNum, bookPageNum);
+                        openBookPage(link.targetChap(), link.targetPage());
+                        GuiBook.resetPageCycling();
+                    }
+                    return true;
                 }
                 int bookBtn = GuiHelper.getButton(ID.Gui.ADMIRALDESK, 2, xClick, yClick);
                 handleBookClick(bookBtn, button);
@@ -1105,6 +1167,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         if (this.type == 2) {
             BookClientConfig.save(this.bookChapNum, this.bookPageNum);
         }
+        bookNavigation.clear();
         super.removed();
     }
 
@@ -1186,15 +1249,11 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     private void handleBookClick(int btn, int mouseBtn) {
         switch (btn) {
             case 0: // Left page
-                bookPageNum -= (mouseBtn == 0 ? 1 : 10);
-                if (bookPageNum < 0)
-                    bookPageNum = 0;
+                openBookPage(bookChapNum, Math.max(0, bookPageNum - (mouseBtn == 0 ? 1 : 10)));
                 break;
             case 1: // Right page
-                bookPageNum += (mouseBtn == 0 ? 1 : 10);
                 int maxPage = GuiBook.getMaxPageNumber(bookChapNum);
-                if (bookPageNum > maxPage)
-                    bookPageNum = maxPage;
+                openBookPage(bookChapNum, Math.min(maxPage, bookPageNum + (mouseBtn == 0 ? 1 : 10)));
                 break;
             case 2:
             case 3:
@@ -1203,8 +1262,8 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             case 6:
             case 7:
             case 8: // Chapters 0-6
-                bookChapNum = btn - 2;
-                bookPageNum = 0;
+                int targetChapter = btn - 2;
+                openBookPage(targetChapter, bookNavigation.pageForChapter(bookChapNum, targetChapter));
                 GuiBook.resetPageCycling();
                 break;
         }

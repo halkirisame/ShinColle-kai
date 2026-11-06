@@ -2,6 +2,7 @@ package com.lulan.shincolle.datagen.server;
 
 import com.lulan.shincolle.loot.AddItemModifier;
 import com.lulan.shincolle.loot.InjectLootTableModifier;
+import com.lulan.shincolle.loot.SoulTalismanDropModifier;
 import com.lulan.shincolle.reference.Reference;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
@@ -11,6 +12,7 @@ import net.minecraftforge.common.data.GlobalLootModifierProvider;
 import net.minecraftforge.common.loot.LootTableIdCondition;
 
 public class ShinColleGlobalLootModifierProvider extends GlobalLootModifierProvider {
+    public static final float SOUL_TALISMAN_DROP_CHANCE = 1F / 3000F;
 
     public ShinColleGlobalLootModifierProvider(PackOutput output) {
         super(output, Reference.MOD_ID);
@@ -19,6 +21,7 @@ public class ShinColleGlobalLootModifierProvider extends GlobalLootModifierProvi
     @Override
     protected void start() {
         add("add_drop", new AddItemModifier(new LootItemCondition[]{}));
+        add("soul_talisman_drop", new SoulTalismanDropModifier(new LootItemCondition[]{}, SOUL_TALISMAN_DROP_CHANCE));
 
         /*
          * 1.10.2 ChestLootTable:

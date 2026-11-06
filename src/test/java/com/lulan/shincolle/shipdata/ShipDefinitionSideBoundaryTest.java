@@ -29,6 +29,9 @@ class ShipDefinitionSideBoundaryTest {
                 "shipdata/ShipPresentationClientAccess$Endpoint", "entity/GenericShipEntity", "entity/GenericHostileShipEntity",
                 "network/S2CShipVisualEventPacket", "visualdata/ShipVisualEvent", "visualdata/ShipVisualDefinition",
                 "visualdata/ShipVisualPosture", "visualdata/ShipVisualPosture$Input",
+                "visualdata/ShipVisualExpression", "visualdata/ShipVisualExpression$Input", "visualdata/ShipVisualRandom",
+                "visualdata/ShipHeadTilt", "visualdata/ShipHeadTilt$Cycle", "visualdata/ShipHeadLook",
+                "visualdata/ShipVisualDefinition$HeadFollow", "visualdata/ShipVisualDefinition$FollowAxes",
                 "visualdata/ShipVisualValidator", "visualdata/ShipVisualPresentation", "visualdata/ShipVisualPresentation$Expression",
                 "visualdata/ShipVisualPresentation$Visibility", "visualdata/ShipVisualRenderMath", "visualdata/ShipVisualPolicy",
                 "visualdata/ShipVisualDefinition$Vector", "visualdata/ShipVisualDefinition$HeldItem", "visualdata/ShipVisualDefinition$Lod")) {

@@ -1,13 +1,17 @@
 package com.lulan.shincolle.entity;
 
+import com.lulan.shincolle.ai.registry.GenericShipBehaviors;
+import com.lulan.shincolle.ai.registry.GenericShipHost;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.shipdata.DefinitionBackedShip;
 import com.lulan.shincolle.shipdata.GenericShipState;
 import com.lulan.shincolle.shipdata.ShipDefinition;
-import com.lulan.shincolle.shipdata.ShipDefinitionAttributes;
 import com.lulan.shincolle.shipdata.ShipDefinitionId;
+import com.lulan.shincolle.shipdata.HostileVariantRoll;
+import com.lulan.shincolle.shipdata.HostileVariants;
+import com.lulan.shincolle.shipdata.ShipIndividual;
 import com.lulan.shincolle.utility.BuffHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -23,9 +27,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-public class GenericHostileShipEntity extends BasicEntityShipHostile implements DefinitionBackedShip {
+public class GenericHostileShipEntity extends BasicEntityShipHostile implements DefinitionBackedShip, GenericShipHost {
     private final GenericShipState definitionState = new GenericShipState();
     private boolean loadingDefinitionData;
+    private ShipIndividual individual = ShipIndividual.normal(false);
+    private ShipIndividual.Presentation individualPresentation = ShipIndividual.Presentation.NORMAL;
+    private boolean saveIndividual;
     private com.lulan.shincolle.shipdata.ShipPresentation clientPresentation;
 
     public GenericHostileShipEntity(EntityType<? extends GenericHostileShipEntity> type, Level level) {
@@ -41,13 +48,24 @@ public class GenericHostileShipEntity extends BasicEntityShipHostile implements 
         setAmmoConsumption(1);
         bossBarColor = BossEvent.BossBarColor.YELLOW;
         postInit();
-        // Acquisition and hostile egg drops are not enabled for data-defined ships yet.
         dropItem = ItemStack.EMPTY;
     }
 
     @Override
     public GenericShipState definitionState() {
         return definitionState;
+    }
+
+    @Override
+    public ItemStack getDropEgg() {
+        ShipDefinition definition = definitionState.definition();
+        dropItem = definition == null ? ItemStack.EMPTY
+                : com.lulan.shincolle.item.GenericShipSpawnEgg.create(definition.id(), false);
+        CompoundTag recruitment = individual.recruitmentData();
+        if (!dropItem.isEmpty() && recruitment != null) {
+            dropItem.getOrCreateTag().put(ShipIndividual.KEY, recruitment);
+        }
+        return super.getDropEgg();
     }
 
     @Override
@@ -60,9 +78,44 @@ public class GenericHostileShipEntity extends BasicEntityShipHostile implements 
     }
 
     public void initialize(ShipDefinitionId id) {
+        individual = ShipIndividual.normal(false);
+        individualPresentation = ShipIndividual.Presentation.NORMAL;
+        saveIndividual = false;
         definitionState.identify(id.toString());
+        ShipDefinition definition = definitionState.definition();
+        saveIndividual = definition != null && definition.hostileVariants() != HostileVariants.NONE;
         refreshDefinition();
         initAttrs(0);
+    }
+
+    public ShipIndividual individual() {
+        return individual;
+    }
+
+    public ShipIndividual.Presentation individualPresentation() {
+        return individualPresentation;
+    }
+
+    public void receiveIndividualPresentation(ShipIndividual.Presentation presentation) {
+        if (level().isClientSide()) individualPresentation = presentation;
+    }
+
+    public void selectVariant(HostileVariants.Variant variant) {
+        if (level().isClientSide()) return;
+        float ratio = getMaxHealth() > 0 ? getHealth() / getMaxHealth() : 0;
+        individual = ShipIndividual.selected(variant);
+        individualPresentation = individual.presentation();
+        saveIndividual = variant != null || definitionState.definition().hostileVariants() != HostileVariants.NONE;
+        calcShipAttributes(31, true);
+        setHealth(getMaxHealth() * ratio);
+        creatBossEvent();
+        ModNetworking.sendToAllTracking(S2CEntitySyncPacket.syncShipDefinition(this), this);
+    }
+
+    private void rollIndividual() {
+        if (!definitionState.dormant() && !individual.rolled()) {
+            selectVariant(HostileVariantRoll.select(definitionState.definition().hostileVariants(), random::nextInt));
+        }
     }
 
     private void refreshDefinition() {
@@ -72,7 +125,13 @@ public class GenericHostileShipEntity extends BasicEntityShipHostile implements 
             refreshDimensions();
             calcShipAttributes(31, false);
         })) {
+            if (!level().isClientSide() && !definitionState.dormant() && definitionState.definition() != null
+                    && !goalSelector.getAvailableGoals().isEmpty()) {
+                clearAITasks();
+                setAIList();
+            }
             ModNetworking.sendToAllTracking(S2CEntitySyncPacket.syncShipDefinition(this), this);
+            creatBossEvent();
         }
     }
 
@@ -87,11 +146,36 @@ public class GenericHostileShipEntity extends BasicEntityShipHostile implements 
     }
 
     @Override
+    protected void setAIList() {
+        GenericShipBehaviors.install(this, true);
+    }
+
+    @Override
+    protected boolean usesCannonAttack() {
+        return false;
+    }
+
+    @Override
+    public net.minecraft.world.entity.Mob behaviorEntity() {
+        return this;
+    }
+
+    @Override
+    public net.minecraft.world.entity.ai.goal.GoalSelector behaviorGoals() {
+        return goalSelector;
+    }
+
+    @Override
+    public void installStandardAi() {
+        super.setAIList();
+    }
+
+    @Override
     protected void updateRawAttributes() {
         ShipDefinition definition = definitionState.definition();
         if (definition != null) {
             BuffHelper.updateAttrsRawHostile(shipAttrs, getScaleLevel(),
-                    ShipDefinitionAttributes.columns(definition.hostileModifiers()));
+                    individual.hostileMultipliers(definition));
         }
     }
 
@@ -111,6 +195,7 @@ public class GenericHostileShipEntity extends BasicEntityShipHostile implements 
     public void tick() {
         if (!level().isClientSide()) {
             refreshDefinition();
+            rollIndividual();
         } else if (clientPresentation != definitionState.presentation(true)) {
             clientPresentation = definitionState.presentation(true);
             refreshDimensions();
@@ -161,18 +246,32 @@ public class GenericHostileShipEntity extends BasicEntityShipHostile implements 
     public void addAdditionalSaveData(CompoundTag nbt) {
         super.addAdditionalSaveData(nbt);
         nbt.putString("ShipId", getShipId());
+        if (saveIndividual) nbt.put(ShipIndividual.KEY, individual.save());
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag nbt) {
         definitionState.identify(nbt.getString("ShipId"));
+        individual = ShipIndividual.load(nbt, getShipId());
+        individualPresentation = individual.presentation();
+        ShipDefinition definition = definitionState.definition();
+        saveIndividual = nbt.contains(ShipIndividual.KEY) || (!individual.rolled() && definition != null
+                && definition.hostileVariants() != HostileVariants.NONE);
         super.readAdditionalSaveData(nbt);
         setStateMinor(ID.M.ShipClass, 0);
     }
 
     @Override
     protected Component getTypeName() {
-        return definitionState == null ? super.getTypeName() : definitionState.name(level().isClientSide());
+        Component typeName = definitionState == null ? super.getTypeName() : definitionState.name(level().isClientSide());
+        String name = individualPresentation == null ? "" : individualPresentation.name();
+        return name.isEmpty() ? typeName : Component.translatableWithFallback(name, typeName.getString());
+    }
+
+    @Override
+    public void setCustomName(Component name) {
+        super.setCustomName(name);
+        creatBossEvent();
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
@@ -30,13 +31,6 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
     private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID, "textures/gui/guiformation.png");
 
     /**
-     * Formation type names
-     */
-    private static final String[] FORMATION_NAMES = {
-            "None", "Line Ahead", "Double Line", "Diamond", "Echelon", "Line Abreast"
-    };
-
-    /**
      * Attribute labels for formation buff display
      */
     private static final String[] ATTR_LABELS = {"ATK(L)", "ATK(H)", "DEF", "SPD", "CRI", "DODGE"};
@@ -44,7 +38,8 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
     /**
      * Indices into FormationHelper result array for the 6 displayed attributes
      */
-    private static final int[] ATTR_INDICES = {0, 1, 2, 3, 8, 9};
+    private static final int[] ATTR_INDICES = {ID.Attrs.ATK_L, ID.Attrs.ATK_H, ID.Attrs.DEF, ID.Attrs.SPD,
+            ID.Attrs.CRI, ID.Attrs.DODGE};
 
     /**
      * Currently selected team (0-8)
@@ -125,11 +120,11 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
     private String getShipName(int team, int slot) {
         CapaTeitoku capa = getCapaTeitoku();
         if (capa == null)
-            return "(Empty)";
+            return "";
 
         int shipUID = capa.getTeamMember(team, slot);
         if (shipUID <= 0)
-            return "(Empty)";
+            return "";
 
         // Try to find the entity in the client world using runtime entity ID
         Player player = Minecraft.getInstance().player;
@@ -225,9 +220,7 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
         graphics.drawString(this.font, unitName, 100, 182, 0xFFFF00, true);
 
         // Draw formation type name
-        String formatName = (formatID >= 0 && formatID < FORMATION_NAMES.length)
-                ? FORMATION_NAMES[formatID]
-                : "Unknown";
+        String formatName = I18n.get("gui.shincolle_kai.formation.format" + formatID);
         graphics.drawString(this.font, formatName,
                 80 - this.font.width(formatName) / 2, 140, 0x00CCFF, true);
 
@@ -240,7 +233,7 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
         // Draw ship slot list (6 slots on the right)
         for (int i = 0; i < 6; i++) {
             int textY = 9 + i * 27;
-            String slotLabel = "Slot " + (i + 1);
+            String slotLabel = I18n.get("gui.shincolle_kai.formation.slot", i + 1);
             int slotColor = (i == this.listClicked) ? 0xFFFFFF : 0xAAAAAA;
 
             // Slot number
@@ -248,13 +241,16 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
 
             // Ship name from capability data
             String shipName = getShipName(teamClicked, i);
-            boolean isEmpty = shipName.equals("(Empty)");
+            boolean isEmpty = shipName.isEmpty();
+            if (isEmpty) {
+                shipName = I18n.get("gui.shincolle_kai.formation.empty");
+            }
             graphics.drawString(this.font, shipName, 148, textY + 10,
                     isEmpty ? 0x666666 : 0x55FF55, true);
         }
 
         // Draw formation buff header
-        String fpHeader = "Formation Buffs";
+        String fpHeader = I18n.get("gui.shincolle_kai.formation.buffs");
         graphics.drawString(this.font, fpHeader, 10, 40, 0xCC88FF, true);
 
         // Draw attribute buff bars with real values from FormationHelper
@@ -274,16 +270,20 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
 
             // Buff value fill (center at 30 pixels = 1.0x multiplier)
             if (buffs != null && ATTR_INDICES[i] < buffs.length) {
+                // Dodge is an additive bonus; every other displayed attribute is a multiplier
+                boolean additive = ATTR_INDICES[i] == ID.Attrs.DODGE;
                 float buffVal = buffs[ATTR_INDICES[i]];
-                int fillWidth = (int) (buffVal * 30);
+                float ratio = additive ? 1.0f + buffVal : buffVal;
+                int fillWidth = (int) (ratio * 30);
                 fillWidth = Math.max(0, Math.min(fillWidth, 60));
                 if (fillWidth > 0) {
-                    int fillColor = buffVal >= 1.0f ? 0xFF00CC00 : 0xFFCC0000;
+                    int fillColor = ratio >= 1.0f ? 0xFF00CC00 : 0xFFCC0000;
                     graphics.fill(barBgX, barY + 1, barBgX + fillWidth, barY + 7, fillColor);
                 }
 
                 // Show numeric value
-                String valStr = String.format("%.0f%%", buffVal * 100);
+                String valStr = additive ? String.format("%+.0f%%", buffVal * 100)
+                        : String.format("%.0f%%", buffVal * 100);
                 graphics.drawString(this.font, valStr, barBgX + 62, barY, 0xCCCCCC, true);
             }
         }

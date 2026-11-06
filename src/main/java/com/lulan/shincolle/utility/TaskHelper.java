@@ -17,15 +17,14 @@ import com.lulan.shincolle.entity.other.EntityShipFishingHook;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
+import com.lulan.shincolle.item.RecipePaperData;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Dist4d;
-import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -39,7 +38,6 @@ import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.item.ItemStack;
@@ -59,7 +57,6 @@ import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -166,34 +163,18 @@ public class TaskHelper {
 
         // check recipe is valid
         InventoryCraftingFake recipe = new InventoryCraftingFake(3, 3);
-        ItemStack result = ItemStack.EMPTY;
-
-        if (paper.hasTag()) {
-            CompoundTag nbt = paper.getTag();
-            assert nbt != null;
-            ListTag tagList = nbt.getList("Recipe", Tag.TAG_COMPOUND);
-
-            for (int i = 0; i < 9; i++) {
-                CompoundTag itemTags = tagList.getCompound(i);
-                int slot = itemTags.getInt("Slot");
-
-                if (slot >= 0 && slot < 9) {
-                    recipe.setItem(slot, ItemStack.of(itemTags));
-                }
-            }
-
-            // get result
-            Optional<CraftingRecipe> recipeResult = host.level().getRecipeManager()
-                    .getRecipeFor(RecipeType.CRAFTING, recipe, host.level());
-            if (recipeResult.isPresent()) {
-                result = recipeResult.get().assemble(recipe, host.level().registryAccess());
-            }
-
-            if (result.isEmpty())
-                return;
-        } else {
-            return;
+        RecipePaperData.Decoded decoded = RecipePaperData.decode(paper);
+        if (!(decoded instanceof RecipePaperData.Valid valid)) return;
+        boolean hasInput = false;
+        for (int i = 0; i < 9; i++) {
+            ItemStack input = valid.input(i);
+            recipe.setItem(i, input);
+            hasInput |= !input.isEmpty();
         }
+        if (!hasInput) return;
+        ItemStack result = host.level().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, recipe, host.level())
+                .map(match -> match.assemble(recipe, host.level().registryAccess())).orElse(ItemStack.EMPTY);
+        if (result.isEmpty()) return;
 
         // start crafting
         int maxCraft = host.getLevel() / 20 + 1;
@@ -242,6 +223,11 @@ public class TaskHelper {
                     break;
                 }
 
+                NonNullList<ItemStack> remainStacks = NonNullList.create();
+                for (ItemStack remain : resultOpt.get().getRemainingItems(recipeTemp)) {
+                    remainStacks.add(remain.copy());
+                }
+
                 maxCraft--;
                 canAddExp = true;
 
@@ -263,8 +249,6 @@ public class TaskHelper {
                 }
 
                 // move remaining items (bucket, bottle...)
-                NonNullList<ItemStack> remainStacks = resultOpt.get()
-                        .getRemainingItems(recipeTemp);
                 for (ItemStack remain : remainStacks) {
                     if (!remain.isEmpty()) {
                         moveItemToHandler(chest, remain);
@@ -859,126 +843,95 @@ public class TaskHelper {
         }
     }
 
-    /**
-     * Pump fluid under ship (width: 3x3, depth: 2).
-     * Also collects XP orbs nearby.
-     */
+    /** Compatibility entry; the resource gate owns permission, schedules and success notification. */
     public static void onUpdatePumping(BasicEntityShip ship) {
-        // calc pump speed based on level
-        int delay = 63;
-        int level = ship.getLevel();
+        com.lulan.shincolle.ai.ShipResourceGate.tickPump(ship);
+    }
 
-        if (level >= 145)
-            delay = 3;
-        else if (level >= 115)
-            delay = 7;
-        else if (level >= 75)
-            delay = 15;
-        else if (level >= 30)
-            delay = 31;
+    public enum PumpXpResult { NO_OP, COMMITTED, EXTERNAL_CONTRACT_VIOLATION }
 
-        // pump liquid
-        if ((ship.tickCount & delay) == 0) {
-            CapaShipInventory inv = ship.getCapaShipInventory();
-
-            // check pump equip if not transport ship
-            // requires fluid drum (meta 1), not just any drum type
-            if (ship.getShipType() != ID.ShipType.TRANSPORT || !ship.getStateFlag(ID.F.IsMarried)) {
-                if (!checkItemWithMetaInShipInventory(inv, ModItems.EQUIP_DRUM.get(), 1, 0, 6))
-                    return;
+    /** Executes one authorized XP update. It never grants ship experience or liquid particles. */
+    public static PumpXpResult pumpExperience(BasicEntityShip ship) {
+        CapaShipInventory inventory = ship.getCapaShipInventory();
+        java.util.OptionalInt bottleSlot = java.util.OptionalInt.empty();
+        for (int slot = CapaShipInventory.EquipSlots; slot < inventory.getSlots(); slot++) {
+            if (!inventory.isSlotAvailable(slot)) break;
+            if (inventory.getStackInSlot(slot).is(Items.GLASS_BOTTLE)) {
+                bottleSlot = java.util.OptionalInt.of(slot);
+                break;
             }
-
-            // check fluid block
-            BlockPos pos = BlockHelper.getNearbyLiquid(ship, true, false, 3, 0);
-
-            if (pos != null && !ship.level().isClientSide()) {
-                // check player permission
-                Player player = ServerDataManager.getPlayerByUID(ship.getPlayerUID());
-
-                if (player != null) {
-                    BlockState state = ship.level().getBlockState(pos);
-
-                    if (BlockHelper.checkBlockIsLiquid(state, 0)) {
-                        // remove source block (simplified from original fluid tank filling)
-                        boolean doRemove = !BlockHelper.checkBlockNearbyIsSameBlock(
-                                ship.level(), state.getBlock(), pos.getX(), pos.getY(), pos.getZ(),
-                                3, ConfigHandler.infLiquid[0]);
-
-                        if (doRemove) {
-                            ship.level().removeBlock(pos, false);
-                            if (ship.getRandom().nextInt(3) == 0) {
-                                ship.playSound(SoundEvents.BUCKET_FILL, 0.5F,
-                                        ship.getRandom().nextFloat() * 0.4F + 0.8F);
-                            }
-                        }
+        }
+        if (bottleSlot.isEmpty()) return PumpXpResult.NO_OP;
+        // Legacy storage starts unset; only non-negative, value-semantic XP enters the resource rules.
+        int remainder = Math.max(0, ship.getStateMinor(ID.M.XP));
+        boolean changed = false;
+        for (ExperienceOrb orb : ship.level().getEntitiesOfClass(ExperienceOrb.class, ship.getBoundingBox().inflate(7D))) {
+            if (!orb.isAlive()) continue;
+            if (ship.distanceToSqr(orb) > 9D) {
+                Dist4d pull = CalcHelper.getDistanceFromA2B(ship, orb);
+                orb.push(pull.x * -0.25D, pull.y * -0.25D, pull.z * -0.25D);
+                changed = true;
+                continue;
+            }
+            CompoundTag saved = new CompoundTag();
+            try {
+                orb.addAdditionalSaveData(saved);
+            } catch (RuntimeException externalSaveFailure) {
+                continue;
+            }
+            if (!saved.contains("Count", Tag.TAG_INT)) continue;
+            var total = com.lulan.shincolle.ai.domain.task.ShipResourceRules.collectedXp(
+                    remainder, orb.getValue(), saved.getInt("Count"));
+            if (total.isEmpty()) continue;
+            remainder = total.getAsInt();
+            ship.setStateMinor(ID.M.XP, remainder);
+            orb.discard();
+            changed = true;
+            ship.level().playSound(null, ship.getX(), ship.getY(), ship.getZ(), SoundEvents.EXPERIENCE_ORB_PICKUP,
+                    SoundSource.PLAYERS, 0.1F,
+                    0.5F * ((ship.getRandom().nextFloat() - ship.getRandom().nextFloat()) * 0.7F + 1.8F));
+        }
+        if (!com.lulan.shincolle.ai.domain.task.ShipResourceRules.canBottle(remainder)) {
+            return changed ? PumpXpResult.COMMITTED : PumpXpResult.NO_OP;
+        }
+        int inputSlot = bottleSlot.getAsInt();
+        ItemStack input = inventory.getStackInSlot(inputSlot);
+        ItemStack reduced = input.copy();
+        reduced.shrink(1);
+        ItemStack output = new ItemStack(Items.EXPERIENCE_BOTTLE);
+        java.util.OptionalInt outputSlot = java.util.OptionalInt.empty();
+        for (int pass = 0; pass < 2 && outputSlot.isEmpty(); pass++) {
+            for (int slot = CapaShipInventory.EquipSlots; slot < inventory.getSlots(); slot++) {
+                if (!inventory.isSlotAvailable(slot)) break;
+                ItemStack candidate = slot == inputSlot ? reduced : inventory.getStackInSlot(slot);
+                boolean accepts = pass == 0 ? ItemStack.isSameItemSameTags(candidate, output)
+                        && candidate.getCount() < candidate.getMaxStackSize() : candidate.isEmpty();
+                if (accepts) {
+                    outputSlot = java.util.OptionalInt.of(slot);
+                    if (!candidate.isEmpty()) {
+                        output = candidate.copy();
+                        output.grow(1);
                     }
+                    break;
                 }
             }
         }
-
-        // collect xp orb
-        if ((ship.tickCount & 3) == 0) {
-            CapaShipInventory inv = ship.getCapaShipInventory();
-
-            // check pump equip if not transport ship
-            // requires fluid drum (meta 1), not just any drum type
-            if (ship.getShipType() != ID.ShipType.TRANSPORT || !ship.getStateFlag(ID.F.IsMarried)) {
-                if (!checkItemWithMetaInShipInventory(inv, ModItems.EQUIP_DRUM.get(), 1, 0, 6))
-                    return;
+        if (outputSlot.isEmpty()) {
+            ItemEntity dropped = new ItemEntity(ship.level(), ship.getX(), ship.getY(), ship.getZ(), output);
+            dropped.setDeltaMovement(ship.getRandom().nextGaussian() * 0.08D,
+                    ship.getRandom().nextGaussian() * 0.05D + 0.2D, ship.getRandom().nextGaussian() * 0.08D);
+            boolean spawned;
+            try {
+                spawned = ship.level().addFreshEntity(dropped);
+            } catch (RuntimeException externalSpawnFailure) {
+                return PumpXpResult.EXTERNAL_CONTRACT_VIOLATION;
             }
-
-            // check bottle in inventory
-            ItemStack bot = new ItemStack(Items.GLASS_BOTTLE);
-            int botid = findMatchingSlot(inv, bot);
-            if (botid < 0)
-                return;
-            bot = inv.getStackInSlot(botid);
-
-            // find xp orbs
-            AABB aabb = ship.getBoundingBox().inflate(7D, 7D, 7D);
-            List<ExperienceOrb> xpList = ship.level().getEntitiesOfClass(ExperienceOrb.class, aabb);
-
-            if (!xpList.isEmpty()) {
-                for (ExperienceOrb xp : xpList) {
-                    double dist = ship.distanceToSqr(xp);
-
-                    if (dist > 9D) {
-                        // pull xp orb
-                        Dist4d pullvec = CalcHelper.getDistanceFromA2B(ship, xp);
-                        xp.push(pullvec.x * -0.25D, pullvec.y * -0.25D, pullvec.z * -0.25D);
-                    } else {
-                        // collect xp orb
-                        ship.level().playSound(null, ship.getX(), ship.getY(), ship.getZ(),
-                                SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.1F,
-                                0.5F * ((ship.getRandom().nextFloat() - ship.getRandom().nextFloat()) * 0.7F
-                                        + 1.8F));
-
-                        int xpValue = xp.getValue();
-                        if (xpValue > 0) {
-                            ship.setStateMinor(ID.M.XP, ship.getStateMinor(ID.M.XP) + xpValue);
-                        }
-
-                        xp.discard();
-                    }
-                }
-            }
-
-            // transfer xp to bottle (1 bottle per update)
-            int xpvalue = ship.getStateMinor(ID.M.XP);
-
-            if (xpvalue >= 8) {
-                ship.setStateMinor(ID.M.XP, xpvalue - 8);
-
-                bot.shrink(1);
-                if (bot.isEmpty())
-                    inv.setStackInSlot(botid, ItemStack.EMPTY);
-
-                ItemStack xpbot = new ItemStack(Items.EXPERIENCE_BOTTLE);
-                if (!inv.addItemStackToInventory(xpbot)) {
-                    dropItemOnGround(ship, xpbot);
-                }
-            }
+            if (!spawned) return changed ? PumpXpResult.COMMITTED : PumpXpResult.NO_OP;
         }
+        inventory.setStackInSlot(inputSlot, reduced);
+        if (outputSlot.isPresent()) inventory.setStackInSlot(outputSlot.getAsInt(), output);
+        ship.setStateMinor(ID.M.XP, remainder - 8);
+        return PumpXpResult.COMMITTED;
     }
 
     // ========== Utility Methods ==========

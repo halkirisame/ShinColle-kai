@@ -102,31 +102,85 @@
         {"if": {"properties": {"slots": {"const": 15}}, "required": ["slots"]}, "then": {"properties": {"initial": {"maxItems": 15}}}}
       ]
     },
-    "construction": {"$ref": "#/$defs/acquisition", "default": {}},
+    "construction": {"$ref": "#/$defs/construction", "default": {}},
     "spawn": {"$ref": "#/$defs/acquisition", "default": {}},
     "behavior": {
       "type": "object", "default": {}, "additionalProperties": true,
       "properties": {
-        "ai": {"$ref": "#/$defs/behaviorId", "description": "Omission means no explicit AI override. An explicit ID must be selectable in the frozen server registry; no unknown-ID fallback."},
+        "ai": {"$ref": "#/$defs/shipAiId", "default": "shincolle_kai:standard", "description": "Defaults to shincolle_kai:standard when omitted. IDs outside the enum reject the whole definition; no unknown-ID fallback."},
         "attacks": {
-          "type": "array", "maxItems": 16, "uniqueItems": true, "default": [],
-          "items": {"$ref": "#/$defs/behaviorId"},
-          "description": "Each ID must be selectable in the frozen server registry. Unknown IDs reject the whole definition."
+          "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/shipAttackId"},
+          "description": "When omitted, friendly data-defined ships use shincolle_kai:light_cannon, shincolle_kai:heavy_cannon and shincolle_kai:melee; hostile data-defined ships use shincolle_kai:light_cannon and shincolle_kai:heavy_cannon. Selecting only one cannon excludes the other, even if its GUI setting is enabled. For friendly ships, melee works only while the admiral's melee setting is enabled; hostile ships use melee when explicitly selected. Empty arrays and IDs outside the enum reject the whole definition."
         }
       }
     },
+    "hostile_variants": {"$ref": "#/$defs/hostileVariants", "description": "Post-1.0 feature: this version only loads and validates this metadata. No selection, effects, recruitment transfer or rendering yet."},
     "recruitment": {"description": "Reserved, ignored regardless of its value in this version."}
   },
   "$defs": {
     "resourceLocation": {"type": "string", "maxLength": 64, "pattern": "^[a-z0-9_.-]+:[a-z0-9/._-]+(?![\\s\\S])"},
-    "behaviorId": {"type": "string", "maxLength": 64, "pattern": "^shincolle_kai:[a-z0-9/._-]+(?![\\s\\S])"},
+    "shipTraitId": {
+      "type": "string",
+      "enum": ["shincolle_kai:sturdy", "shincolle_kai:heavy_hitter", "shincolle_kai:armored", "shincolle_kai:quick_loader", "shincolle_kai:swift", "shincolle_kai:keen_eye"]
+    },
+    "hostileVariants": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "normal_weight": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 100},
+        "variants": {
+          "type": "array", "maxItems": 16, "uniqueItems": true, "default": [],
+          "items": {"$ref": "#/$defs/hostileVariant"},
+          "description": "IDs must be unique within a ship, even when other fields differ (checked by the server). Normal plus variant weights total at most 170000. All-zero weights mean a normal individual; rarity is display-only. This version does not perform the draw."
+        }
+      }
+    },
+    "hostileVariant": {
+      "type": "object", "additionalProperties": true, "required": ["id", "weight"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[a-z0-9_]{1,32}(?![\\s\\S])", "description": "Stable ID, identified together with the ship ID; do not use array order or display names as identity."},
+        "name": {"type": "string", "minLength": 1, "maxLength": 128, "description": "Optional translation key."},
+        "rarity": {"type": "string", "enum": ["common", "rare", "epic", "legendary"], "default": "rare"},
+        "weight": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "traits": {"type": "array", "maxItems": 4, "uniqueItems": true, "default": [], "items": {"$ref": "#/$defs/shipTraitId"}},
+        "hostile_modifiers": {"$ref": "#/properties/hostile_modifiers", "description": "Same six keys and bounds as ship-level modifiers; separate from persistent traits. Metadata only in this version."},
+        "visual_variant": {"type": "string", "maxLength": 128, "pattern": "^[a-z0-9_.-]+:[a-z0-9/._-]+(?![\\s\\S])", "description": "Individual texture ID, not geometry or animation. Existence is checked on the client."},
+        "red_aura": {"type": "boolean", "default": true}
+      }
+    },
+    "shipAiId": {"type": "string", "enum": ["shincolle_kai:standard"]},
+    "shipAttackId": {
+      "type": "string",
+      "enum": ["shincolle_kai:light_cannon", "shincolle_kai:heavy_cannon", "shincolle_kai:melee"],
+      "description": "Selectable attack IDs. Reserved IDs shincolle_kai:aircraft, shincolle_kai:tenryuu_skill, shincolle_kai:tatsuta_skill and shincolle_kai:nagato_skill cannot be selected in this version and reject the whole definition."
+    },
     "acquisition": {
       "type": "object", "additionalProperties": true,
-      "description": "Declarative eligibility and relative weight only; loading a definition does not yet add any acquisition route.",
+      "description": "Normal hostile spawn weight. Built-in ships total 700; a built-in destroyer has weight 46. Bosses exclude data-defined ships.",
       "properties": {
         "enabled": {"type": "boolean", "default": false},
         "weight": {"type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0}
       }
+    },
+    "construction": {
+      "type": "object", "additionalProperties": true,
+      "description": "Construction is fixed when the shipyard completes. Material mode joins the material-dependent built-in pool; weight defaults to 100 (multiplier 1). Weighted mode uses weight/10000 regardless of materials; weight defaults to 0 and the total pool is proportionally capped at 50%. Disabled definitions never enter construction.",
+      "properties": {
+        "enabled": {"type": "boolean", "default": false},
+        "weight": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "mode": {"enum": ["material", "weighted"], "default": "material"},
+        "tier": {"enum": ["small", "large"], "description": "Required for enabled material mode; omission in weighted mode allows both sizes."},
+        "material_mean": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "material_bias": {"enum": ["grudge", "abyssium", "ammo", "polymetal"], "description": "Subtract this material amount from the mean before computing distance; omitted means no bias."}
+      },
+      "allOf": [{
+        "if": {
+          "required": ["enabled"],
+          "properties": {"enabled": {"const": true}},
+          "not": {"required": ["mode"], "properties": {"mode": {"const": "weighted"}}}
+        },
+        "then": {"required": ["tier", "material_mean"]}
+      }]
     }
   }
 }

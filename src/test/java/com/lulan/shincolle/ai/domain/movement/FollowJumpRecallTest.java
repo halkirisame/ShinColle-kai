@@ -39,7 +39,8 @@ class FollowJumpRecallTest {
     void requestExpiresAndCannotBeUsedForAnotherOwnerOrDimension() {
         var dimension = new DimensionKey("minecraft", "overworld");
         var owner = new TargetHandle(UUID.randomUUID(), dimension);
-        var request = new FollowRecallRequest(owner, 500);
+        var key = new RecallRequestKey(UUID.randomUUID(), owner.uuid(), 1, UUID.randomUUID(), 7, 1);
+        var request = new FollowRecallRequest(owner, 500, key);
         assertEquals(100, request.remaining(owner, 500).orElseThrow());
         assertEquals(0, request.remaining(owner, 600).orElseThrow());
         assertTrue(request.remaining(owner, 900).isEmpty());

@@ -6,6 +6,8 @@ import java.util.function.IntUnaryOperator;
 /** Pure formulas retained by the observable AI compatibility fixtures. */
 public final class ShipAiCompatibilityRules {
 
+    private static final int HOSTILE_SEARCH_EXTENSION = 10;
+
     private ShipAiCompatibilityRules() {
     }
 
@@ -14,8 +16,20 @@ public final class ShipAiCompatibilityRules {
         return range < 2 ? Math.max(2, followMax + 2) : range;
     }
 
+    public static int hostileTargetSearchRange(float attackRange, int followMax) {
+        return targetSearchRange(attackRange, followMax) + HOSTILE_SEARCH_EXTENSION;
+    }
+
+    public static float hostileShipEngageRange(float attackRange, float targetAttackRange) {
+        return Math.min(attackRange, targetAttackRange);
+    }
+
     public static double targetSearchVerticalInflation(int range) {
         return range * 0.75D;
+    }
+
+    public static double targetRetentionRange(double existingRange, float attackRange) {
+        return Math.max(existingRange, attackRange);
     }
 
     /**

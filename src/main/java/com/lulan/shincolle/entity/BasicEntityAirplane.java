@@ -2,11 +2,14 @@ package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.ShipAircraftAttackGoal;
 import com.lulan.shincolle.ai.ShipTargetAuthorityGoal;
+import com.lulan.shincolle.ai.ShipOwnerAssistGate;
+import com.lulan.shincolle.ai.domain.AircraftPriorityTarget;
 import com.lulan.shincolle.ai.domain.TargetEligibilityEvaluator;
 import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
 import com.lulan.shincolle.ai.domain.TargetPredicateKind;
 import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
 import com.lulan.shincolle.ai.observation.MinecraftTargetClassificationAdapter;
+import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.equip.ShipOnHitEffects;
@@ -16,6 +19,8 @@ import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.TargetHelper;
 import net.minecraft.util.Mth;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -32,6 +37,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
@@ -46,6 +52,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
     protected boolean backHome;
     protected boolean canFindTargetFlag;
+    private Optional<AircraftPriorityTarget> priorityTarget = Optional.empty();
 
     // IShipAttackBase fields
     private Entity revengeTarget;
@@ -89,6 +96,32 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
     @Override
     public boolean canFindTarget() {
         return this.canFindTargetFlag && (this.numAmmoLight > 0 || this.numAmmoHeavy > 0);
+    }
+
+    public boolean activeForOwnerAssist() {
+        return this.isAlive() && !this.isRemoved() && this.canFindTarget() && !this.backHome && this.tickCount < 1200;
+    }
+
+    /** Limited diagnostic view; no client synchronization or persistence. */
+    public Optional<AircraftPriorityTarget> priorityTarget() {
+        return this.priorityTarget;
+    }
+
+    @Override
+    protected boolean canInheritHostTarget() {
+        return !(this.host instanceof BasicEntityShip ship && ship.hasTargetAuthority()) || activeForOwnerAssist();
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        this.priorityTarget = Optional.empty();
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        this.priorityTarget = Optional.empty();
+        super.remove(reason);
     }
 
     // ========== Lifetime ==========
@@ -157,6 +190,16 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         // server side airplane logic (before super.tick which handles host/lifetime
         // checks)
         if (!this.level().isClientSide()) {
+            if (this.host instanceof BasicEntityShip ship && ship.hasTargetAuthority()
+                    && (!ship.isAlive() || ship.isRemoved() || ship.level() != this.level() || this.isOwnerLost())) {
+                this.priorityTarget = Optional.empty();
+                this.setEntityTarget(null);
+                this.returnSummonResource();
+                this.discard();
+                return;
+            }
+            this.priorityTarget = this.priorityTarget.filter(priority ->
+                    ShipOwnerAssistGate.aircraft(this).filter(priority::equals).isPresent());
             if (this.host != null && ((Entity) this.host).isAlive()) {
                 Entity hostEnt = (Entity) this.host;
 
@@ -202,6 +245,11 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
                 // target finding every 16 ticks
                 if (this.tickCount % 16 == 0 && this.canFindTarget() && !this.backHome) {
+                    this.priorityTarget = ShipOwnerAssistGate.aircraft(this);
+                    if (this.level() instanceof ServerLevel level) {
+                        this.priorityTarget.flatMap(priority -> new MinecraftTargetResolver(level).resolve(priority.target()))
+                                .ifPresent(this::setEntityTarget);
+                    }
                     boolean findNewTarget = false;
 
                     if (this.tickCount < 1200) {
@@ -240,6 +288,7 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
                 this.backHome = true;
                 this.setEntityTarget(null);
             }
+            if (!activeForOwnerAssist()) this.priorityTarget = Optional.empty();
         }
 
         // facing calculation (both sides, every 2 ticks)

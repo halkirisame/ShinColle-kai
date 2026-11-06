@@ -8,14 +8,9 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
 
-/**
- * GUI screen for the recipe paper item.
- * Renders crafting grid labels, result display, and recipe info.
- */
+/** Client presentation of the server's synchronized recipe editor. */
 public class GuiRecipePaper extends AbstractContainerScreen<ContainerRecipePaper> {
-
     private static final ResourceLocation TEXTURE = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guirecipepaper.png");
 
@@ -27,64 +22,37 @@ public class GuiRecipePaper extends AbstractContainerScreen<ContainerRecipePaper
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        // Render background texture
         graphics.blit(TEXTURE, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
-
-        // Draw arrow from crafting grid to result slot
         int arrowX = this.leftPos + 90;
         int arrowY = this.topPos + 35;
-        // Simple arrow indicator (horizontal line with arrowhead)
         graphics.fill(arrowX, arrowY + 3, arrowX + 25, arrowY + 5, 0xFF888888);
-        // Arrowhead
         graphics.fill(arrowX + 22, arrowY + 1, arrowX + 25, arrowY + 7, 0xFF888888);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        // Draw title centered at top
-        String paperTitle = "Recipe Paper";
-        graphics.drawString(this.font, paperTitle,
-                this.imageWidth / 2 - this.font.width(paperTitle) / 2, 6, 0x404040, false);
+        graphics.drawString(this.font, this.title, this.imageWidth / 2 - this.font.width(this.title) / 2, 6, 0x404040, false);
+        Component result = Component.translatable("gui.shincolle_kai.recipepaper.preview");
+        graphics.drawString(this.font, result, 133 - this.font.width(result) / 2, 55, 0x888888, false);
 
-        // Draw section labels
-        // Crafting pattern label
-        String patternLabel = "Pattern";
-        graphics.drawString(this.font, patternLabel,
-                39 - this.font.width(patternLabel) / 2, 60, 0x888888, false);
-
-        // Result label
-        String resultLabel = "Result";
-        graphics.drawString(this.font, resultLabel,
-                124 - this.font.width(resultLabel) / 2, 52, 0x888888, false);
-
-        // Draw recipe info / helper text
-        // Check if any pattern slots have items
         boolean hasPattern = false;
         for (int i = 0; i < ContainerRecipePaper.CRAFTING_SLOT_COUNT; i++) {
-            ItemStack stack = this.menu.getRecipeInv().getItem(i);
-            if (!stack.isEmpty()) {
+            if (!this.menu.getRecipeInv().getItem(i).isEmpty()) {
                 hasPattern = true;
                 break;
             }
         }
-
-        if (!hasPattern) {
-            // Show instructions when empty
-            String hint1 = "Click items to set pattern";
-            String hint2 = "Empty hand to clear slot";
-            graphics.drawString(this.font, hint1,
-                    this.imageWidth / 2 - this.font.width(hint1) / 2, 68, 0x666666, false);
-            graphics.drawString(this.font, hint2,
-                    this.imageWidth / 2 - this.font.width(hint2) / 2, 78, 0x666666, false);
-        } else {
-            // Show pattern indicator
-            String patternSet = "Pattern set";
-            graphics.drawString(this.font, patternSet,
-                    this.imageWidth / 2 - this.font.width(patternSet) / 2, 68, 0x00AA00, false);
-        }
-
-        // Player inventory label
-        graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0x404040, false);
+        String status = menu.hasInvalidRecipe() ? "invalid" : !hasPattern ? "hint"
+                : menu.getRecipeInv().getItem(ContainerRecipePaper.RESULT_SLOT).isEmpty() ? "unmatched" : "configured";
+        Component text = Component.translatable("gui.shincolle_kai.recipepaper." + status);
+        // Fit longer translations inside the existing screen without covering the inventory.
+        float scale = Math.min(1F, 168F / Math.max(1, this.font.width(text)));
+        graphics.pose().pushPose();
+        graphics.pose().translate(this.imageWidth / 2F, 73, 0);
+        graphics.pose().scale(scale, scale, 1F);
+        graphics.drawString(this.font, text, -this.font.width(text) / 2, 0,
+                menu.hasInvalidRecipe() ? 0xAA0000 : 0x666666, false);
+        graphics.pose().popPose();
     }
 
     @Override

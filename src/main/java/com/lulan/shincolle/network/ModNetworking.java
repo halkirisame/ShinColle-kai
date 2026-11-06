@@ -29,7 +29,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 public class ModNetworking {
 
     // Ship identity, definition and inventory hand snapshots require matching client/server jars.
-    private static final String PROTOCOL_VERSION = "17";
+    private static final String PROTOCOL_VERSION = "20";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),
@@ -128,6 +128,24 @@ public class ModNetworking {
                 .encoder(S2CShipVisualEventPacket::encode)
                 .decoder(S2CShipVisualEventPacket::decode)
                 .consumerMainThread(S2CShipVisualEventPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(C2SMountSkillPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SMountSkillPacket::encode)
+                .decoder(C2SMountSkillPacket::decode)
+                .consumerMainThread(C2SMountSkillPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CMountSkillPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CMountSkillPacket::encode)
+                .decoder(S2CMountSkillPacket::decode)
+                .consumerMainThread(S2CMountSkillPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(C2SShipClickPreferencePacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SShipClickPreferencePacket::encode)
+                .decoder(C2SShipClickPreferencePacket::decode)
+                .consumerMainThread(C2SShipClickPreferencePacket::handle)
                 .add();
 
         LogHelper.info("ShinColle: Network packets registered (" + packetId + " packets).");

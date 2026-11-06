@@ -20,12 +20,16 @@ import com.lulan.shincolle.entity.BasicEntityShipHostile;
 import com.lulan.shincolle.entity.IShipAttackBase;
 import com.lulan.shincolle.entity.IShipFloating;
 import com.lulan.shincolle.handler.ConfigHandler;
-import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.server.ServerDataManager;
+import com.lulan.shincolle.shipdata.GenericShipSpawner;
+import com.lulan.shincolle.shipdata.ShipChoice;
+import com.lulan.shincolle.shipdata.ShipDefinitionRegistry;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -71,7 +75,7 @@ public class EntityHelper {
     private static final double FLOAT_DOWN_MAX_VELOCITY = -0.08D;
     private static final double FLOAT_HOVER_DAMPING = 0.8D;
     private static final double WATER_DRAG = 0.8D;
-    private static final double COLLISION_BUMP_UP_VELOCITY = 0.3D;
+    public static final double COLLISION_BUMP_UP_VELOCITY = 0.3D;
     private static final double GLOBAL_SCAN_LIMIT = 30000000D;
     private static final int SPAWN_OFFSET_MIN = 20;
     private static final int SPAWN_OFFSET_RANGE = 30;
@@ -118,6 +122,10 @@ public class EntityHelper {
      * decides, and the result is written back to the fields it came from.
      */
     private static boolean updateWaypointMoveNew(BasicEntityShip ship) {
+        if (com.lulan.shincolle.ai.ShipCraneStateAdapter.arrive(ship)) {
+            ship.setPassThroughWaypoint(Optional.empty());
+            return false;
+        }
         CommandPos current = new CommandPos(ship.getGuardedPos(0), ship.getGuardedPos(1), ship.getGuardedPos(2));
         BlockPos currentBlock = new BlockPos(current.x(), current.y(), current.z());
         boolean blockGuard = ship.hasGuardDestination();
@@ -178,6 +186,27 @@ public class EntityHelper {
 
     private static CommandPos commandPos(BlockPos pos) {
         return new CommandPos(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    /** Advance only after the crane has completed its own work, without a second waypoint stay. */
+    public static boolean departCrane(BasicEntityShip ship, com.lulan.shincolle.tileentity.TileEntityCrane crane) {
+        if (!com.lulan.shincolle.ai.ShipCraneStateAdapter.guards(ship, crane)) return false;
+        WaypointLinks links = new WaypointLinks(
+                crane.hasNextWaypoint() ? Optional.of(commandPos(crane.getNextWaypoint())) : Optional.empty(),
+                crane.hasLastWaypoint() ? Optional.of(commandPos(crane.getLastWaypoint())) : Optional.empty());
+        WaypointStep step = WaypointTraversal.depart(commandPos(crane.getBlockPos()), links,
+                ship.hasLastWaypoint() ? Optional.of(commandPos(ship.getLastWaypoint())) : Optional.empty());
+        ship.setWpStayTime(0);
+        ship.setWpStayAt(null);
+        ship.setPassThroughWaypoint(Optional.empty());
+        setLastWaypointForShipAndPassengers(ship, crane.getBlockPos());
+        ship.recordWaypointCheck(step);
+        if (step instanceof WaypointStep.Advance advance) {
+            applyWaypointDestination(ship,
+                    new BlockPos(advance.destination().x(), advance.destination().y(), advance.destination().z()));
+            return true;
+        }
+        return false;
     }
 
     private static void setLastWaypointForShipAndPassengers(BasicEntityShip ship, BlockPos current) {
@@ -372,6 +401,11 @@ public class EntityHelper {
         }
 
         // apply drag in water
+        if (ship instanceof net.minecraft.world.entity.Mob mob
+                && mob.getMoveControl() instanceof com.lulan.shincolle.ai.path.ShipMoveControl control
+                && control.liftRequested(ship.tickCount)) {
+            vy = Math.max(vy, COLLISION_BUMP_UP_VELOCITY);
+        }
         ship.setDeltaMovement(motion.x * WATER_DRAG, vy, motion.z * WATER_DRAG);
     }
 
@@ -459,7 +493,7 @@ public class EntityHelper {
     private static BlockPos getEntityFeetBlockPos(Entity entity) {
         return new BlockPos(
                 Mth.floor(entity.getX()),
-                (int) entity.getBoundingBox().minY,
+                Mth.floor(entity.getBoundingBox().minY),
                 Mth.floor(entity.getZ()));
     }
 
@@ -573,7 +607,7 @@ public class EntityHelper {
 
         int blockX = Mth.floor(player.getX());
         int blockZ = Mth.floor(player.getZ());
-        int groups = Math.max(1, spawnCfg[2]);
+        int groups = spawnCfg[2];
         int loop = 30 + groups * 30;
 
         while (groups > 0 && loop > 0) {
@@ -709,11 +743,48 @@ public class EntityHelper {
                 || level.getBiome(pos).is(BiomeTags.IS_RIVER);
     }
 
+    // A world-sized AABB query walks every section column in range; iterate the loaded entities instead.
     private static int countLoadedHostileShips(ServerLevel level) {
-        AABB worldBox = new AABB(
+        AABB worldBox = hostileCountBox(level);
+        int count = 0;
+        for (Entity entity : level.getAllEntities()) {
+            if (isInHostileCountBox(entity, worldBox)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static AABB hostileCountBox(ServerLevel level) {
+        return new AABB(
                 -GLOBAL_SCAN_LIMIT, level.getMinBuildHeight(), -GLOBAL_SCAN_LIMIT,
                 GLOBAL_SCAN_LIMIT, level.getMaxBuildHeight(), GLOBAL_SCAN_LIMIT);
-        return level.getEntitiesOfClass(BasicEntityShipHostile.class, worldBox).size();
+    }
+
+    /**
+     * Same filter as {@code getEntitiesOfClass(BasicEntityShipHostile.class, box)}: the entity's
+     * storage section must lie in the range the section walk visits, and its bounding box must
+     * intersect the box. Ships above or below the build height are therefore not counted.
+     */
+    public static boolean isInHostileCountBox(ServerLevel level, Entity entity) {
+        return isInHostileCountBox(entity, hostileCountBox(level));
+    }
+
+    private static boolean isInHostileCountBox(Entity entity, AABB box) {
+        if (!(entity instanceof BasicEntityShipHostile) || entity.isSpectator()) {
+            return false;
+        }
+        BlockPos pos = entity.blockPosition();
+        int sectionX = SectionPos.blockToSectionCoord(pos.getX());
+        int sectionY = SectionPos.blockToSectionCoord(pos.getY());
+        int sectionZ = SectionPos.blockToSectionCoord(pos.getZ());
+        return sectionX >= SectionPos.posToSectionCoord(box.minX - 2.0D)
+                && sectionX <= SectionPos.posToSectionCoord(box.maxX + 2.0D)
+                && sectionY >= SectionPos.posToSectionCoord(box.minY - 4.0D)
+                && sectionY <= SectionPos.posToSectionCoord(box.maxY)
+                && sectionZ >= SectionPos.posToSectionCoord(box.minZ - 2.0D)
+                && sectionZ <= SectionPos.posToSectionCoord(box.maxZ + 2.0D)
+                && entity.getBoundingBox().intersects(box);
     }
 
     private static int[] pickSpawnXZ(RandomSource rng, int blockX, int blockZ, int minOffset, int offsetRange) {
@@ -761,8 +832,14 @@ public class EntityHelper {
             double z,
             int scaleLevel,
             RandomSource rng) {
-        EntityType<? extends BasicEntityShipHostile> type = pickRandomMobShipType(rng);
-        BasicEntityShipHostile mob = type.create(level);
+        ShipChoice choice = pickRandomMobShipType(rng, scaleLevel);
+        BasicEntityShipHostile mob;
+        if (choice instanceof ShipChoice.Defined defined) {
+            mob = (BasicEntityShipHostile) GenericShipSpawner.create(level, defined.id(), true, null);
+        } else {
+            EntityType<?> type = ShipSpawnEgg.getEntityTypeForClass(((ShipChoice.BuiltIn) choice).shipClass() + 2000);
+            mob = type == null ? null : (BasicEntityShipHostile) type.create(level);
+        }
         if (mob == null) {
             return;
         }
@@ -772,60 +849,56 @@ public class EntityHelper {
         level.addFreshEntity(mob);
     }
 
-    private static EntityType<? extends BasicEntityShipHostile> pickRandomMobShipType(RandomSource rng) {
-        int ran = rng.nextInt(100);
+    private record MobShipEntry(ShipChoice choice, int weight) {
+    }
 
-        if (ran > 75) {
-            switch (rng.nextInt(3)) {
-                case 1:
-                    return ModEntities.BB_YAMATO_MOB.get();
-                case 2:
-                    switch (rng.nextInt(4)) {
-                        case 1:
-                            return ModEntities.BB_HIEI_MOB.get();
-                        case 2:
-                            return ModEntities.BB_HARUNA_MOB.get();
-                        case 3:
-                            return ModEntities.BB_KIRISHIMA_MOB.get();
-                        default:
-                            return ModEntities.BB_KONGOU_MOB.get();
-                    }
-                default:
-                    return ModEntities.BB_NAGATO_MOB.get();
-            }
+    private static List<MobShipEntry> mobShipTable(int scaleLevel) {
+        List<MobShipEntry> table = new ArrayList<>();
+        for (int shipClass : new int[]{ID.ShipClass.BBYamato, ID.ShipClass.BBNagato}) {
+            table.add(new MobShipEntry(new ShipChoice.BuiltIn(shipClass), 56));
         }
-
-        if (ran > 45) {
-            switch (rng.nextInt(3)) {
-                case 1:
-                case 2:
-                    switch (rng.nextInt(4)) {
-                        case 1:
-                            return ModEntities.CL_TENRYUU_MOB.get();
-                        case 2:
-                            return ModEntities.CL_TATSUTA_MOB.get();
-                        case 3:
-                            return ModEntities.CA_ATAGO_MOB.get();
-                        default:
-                            return ModEntities.CA_TAKAO_MOB.get();
-                    }
-                default:
-                    if (rng.nextInt(2) == 1) {
-                        return ModEntities.CV_KAGA_MOB.get();
-                    }
-                    return ModEntities.CV_AKAGI_MOB.get();
-            }
+        for (int shipClass : new int[]{ID.ShipClass.BBKongou, ID.ShipClass.BBHiei, ID.ShipClass.BBHaruna, ID.ShipClass.BBKirishima}) {
+            table.add(new MobShipEntry(new ShipChoice.BuiltIn(shipClass), 14));
         }
+        for (int shipClass : new int[]{ID.ShipClass.CLTenryuu, ID.ShipClass.CLTatsuta, ID.ShipClass.CAAtago,
+                ID.ShipClass.CATakao, ID.ShipClass.CVKaga, ID.ShipClass.CVAkagi}) {
+            table.add(new MobShipEntry(new ShipChoice.BuiltIn(shipClass), 35));
+        }
+        for (int shipClass : new int[]{ID.ShipClass.DDAkatsuki, ID.ShipClass.DDHibiki, ID.ShipClass.DDIkazuchi,
+                ID.ShipClass.DDInazuma, ID.ShipClass.DDShimakaze, ID.ShipClass.SSU511, ID.ShipClass.SSRo500}) {
+            table.add(new MobShipEntry(new ShipChoice.BuiltIn(shipClass), 46));
+        }
+        if (scaleLevel < 2) {
+            ShipDefinitionRegistry.server().all().values().stream()
+                    .filter(d -> d.spawn().enabled() && d.spawn().weight() > 0)
+                    .sorted(java.util.Comparator.comparing(d -> d.id().toString()))
+                    .forEach(d -> table.add(new MobShipEntry(new ShipChoice.Defined(d.id()), d.spawn().weight())));
+        }
+        return table;
+    }
 
-        return switch (rng.nextInt(7)) {
-            case 1 -> ModEntities.DESTROYER_HIBIKI_MOB.get();
-            case 2 -> ModEntities.DESTROYER_IKAZUCHI_MOB.get();
-            case 3 -> ModEntities.DESTROYER_INAZUMA_MOB.get();
-            case 4 -> ModEntities.DESTROYER_SHIMAKAZE_MOB.get();
-            case 5 -> ModEntities.SS_U511_MOB.get();
-            case 6 -> ModEntities.SS_RO500_MOB.get();
-            default -> ModEntities.DESTROYER_AKATSUKI_MOB.get();
-        };
+    private static ShipChoice pickRandomMobShipType(RandomSource rng, int scaleLevel) {
+        List<MobShipEntry> table = mobShipTable(scaleLevel);
+        long total = 0;
+        for (MobShipEntry entry : table) total += entry.weight();
+        long roll = nextSpawnWeight(rng, total);
+        for (MobShipEntry entry : table) {
+            roll -= entry.weight();
+            if (roll < 0) return entry.choice();
+        }
+        return table.get(table.size() - 1).choice();
+    }
+
+    private static long nextSpawnWeight(RandomSource rng, long bound) {
+        if (bound <= Integer.MAX_VALUE) return rng.nextInt((int) bound);
+        // Rejection sampling keeps integer weights unbiased even when addon totals exceed int range.
+        long bits;
+        long value;
+        do {
+            bits = rng.nextLong() >>> 1;
+            value = bits % bound;
+        } while (bits - value + (bound - 1) < 0);
+        return value;
     }
 
 }

@@ -20,11 +20,7 @@
       "rules": []
     },
     "target": {
-      "type": "minecraft:matching_blocks",
-      "blocks": [
-        "minecraft:gravel",
-        "minecraft:stone"
-      ]
+      "type": "shincolle_kai:config_gravel_target"
     }
   }
 }

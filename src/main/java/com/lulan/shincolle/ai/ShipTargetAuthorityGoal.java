@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.domain.AiRandomStream;
 import com.lulan.shincolle.ai.domain.action.ActionKind;
 import com.lulan.shincolle.ai.domain.CurrentLockObservation;
 import com.lulan.shincolle.ai.domain.ManualOrderObservation;
+import com.lulan.shincolle.ai.domain.OwnerAssistObservation;
 import com.lulan.shincolle.ai.domain.RawEntityObservation;
 import com.lulan.shincolle.ai.domain.RevengeObservation;
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
@@ -102,8 +103,10 @@ public final class ShipTargetAuthorityGoal extends Goal {
         Optional<ManualOrderObservation> manual = observeManual();
         Optional<RevengeObservation> revenge = observeRevenge();
         Optional<CurrentLockObservation> current = observeCurrent(level);
+        Optional<OwnerAssistObservation> assist = this.friendly == null ? Optional.empty()
+                : ShipOwnerAssistGate.observe(this.friendly, this.entity, assistRetentionRange());
         TargetAuthorityInput withoutScan = new TargetAuthorityInput(
-                tick, this.state, gate, manual, revenge, current, Optional.empty());
+                tick, this.state, gate, manual, revenge, current, Optional.empty(), assist);
         TargetAuthorityDecision decision = TargetLockReducer.reduce(withoutScan);
 
         if (decision.next().lock().isEmpty()
@@ -111,7 +114,7 @@ public final class ShipTargetAuthorityGoal extends Goal {
             this.autoRange = searchRange();
             TargetState scan = scan(level, tick);
             decision = TargetLockReducer.reduce(new TargetAuthorityInput(
-                    tick, this.state, gate, manual, revenge, current, Optional.of(scan)));
+                    tick, this.state, gate, manual, revenge, current, Optional.of(scan), assist));
         }
 
         this.state = decision.next();
@@ -130,7 +133,20 @@ public final class ShipTargetAuthorityGoal extends Goal {
     }
 
     public Optional<TargetLock> currentLock() {
-        return this.state.lock();
+        return this.friendly == null ? this.state.lock()
+                : ShipOwnerAssistGate.current(this.friendly, this.state.lock(), assistRetentionRange());
+    }
+
+    public void clearOwnerAssist() {
+        if (this.state.lock().filter(lock -> lock.source() == TargetSource.OWNER_ASSIST).isPresent()) {
+            clearLock();
+            project(null);
+        }
+    }
+
+    private double assistRetentionRange() {
+        return ShipSkillAttackGate.targetRetentionRange(this.entity,
+                ShipAiCompatibilityRules.targetRetentionRange(this.fixedRange, this.host.getAttrs().getAttackRange()), true);
     }
 
     private SourceGate sourceGate() {
@@ -157,7 +173,7 @@ public final class ShipTargetAuthorityGoal extends Goal {
                 handle,
                 TargetHelper.isValidAuthorityManualTarget(this.friendly)
                         && (TargetHelper.canDetectTarget(this.host, target) || held),
-                this.entity.distanceToSqr(target) <= range * range));
+                ManualOrderObservation.inChaseRange(this.entity.distanceToSqr(target), range)));
     }
 
     private Optional<RevengeObservation> observeRevenge() {
@@ -175,8 +191,11 @@ public final class ShipTargetAuthorityGoal extends Goal {
             return Optional.empty();
         }
         Entity resolved = new MinecraftTargetResolver(level).resolve(lock.target()).orElse(null);
+        double ordinaryRange = ShipAiCompatibilityRules.targetRetentionRange(
+                lock.source() == TargetSource.AUTO ? this.autoRange : this.fixedRange,
+                this.host.getAttrs().getAttackRange());
         double range = ShipSkillAttackGate.targetRetentionRange(this.entity,
-                lock.source() == TargetSource.AUTO ? this.autoRange : this.fixedRange, true);
+                ordinaryRange, true);
         return Optional.of(new CurrentLockObservation(
                 resolved != null,
                 resolved != null && resolved.isAlive() && !resolved.isRemoved(),
@@ -223,8 +242,11 @@ public final class ShipTargetAuthorityGoal extends Goal {
     }
 
     private int searchRange() {
-        return ShipAiCompatibilityRules.targetSearchRange(
-                this.host.getAttrs().getAttackRange(), this.host.getStateMinor(ID.M.FollowMax));
+        return this.host instanceof BasicEntityShipHostile
+                ? ShipAiCompatibilityRules.hostileTargetSearchRange(
+                        this.host.getAttrs().getAttackRange(), this.host.getStateMinor(ID.M.FollowMax))
+                : ShipAiCompatibilityRules.targetSearchRange(
+                        this.host.getAttrs().getAttackRange(), this.host.getStateMinor(ID.M.FollowMax));
     }
 
     private TargetHandle handle(Entity target) {

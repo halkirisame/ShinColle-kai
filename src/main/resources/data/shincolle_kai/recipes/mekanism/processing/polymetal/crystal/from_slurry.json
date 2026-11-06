@@ -1,0 +1,17 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "mekanism:crystallizing",
+  "chemicalType": "slurry",
+  "input": {
+    "amount": 200,
+    "slurry": "shincolle_kai:clean_polymetal"
+  },
+  "output": {
+    "item": "shincolle_kai:polymetal_crystal"
+  }
+}

@@ -74,6 +74,12 @@ public final class ShipMovementGate {
             return OptionalLong.empty();
         }
         if (!owner.isAlive() || owner.level() != host.level()) return OptionalLong.empty();
+        if (owner instanceof ServerPlayer player && (!ConfigHandler.canTeleport() || !recallEligible(ship, player))) {
+            com.lulan.shincolle.handler.ShipFollowRecallHandler.cancelShip(ship,
+                    com.lulan.shincolle.ai.domain.movement.RecallCancellation.INELIGIBLE);
+            executor.clearFollowRecall();
+            return OptionalLong.empty();
+        }
         // A request is held while the owner is gliding or falling, so nobody is teleported into the air.
         if (!com.lulan.shincolle.handler.ShipFollowRecallHandler.isSettled(owner.getUUID())) return OptionalLong.empty();
         return executor.followRecallRemaining(ShipCommandStateAdapter.handle(owner),
@@ -93,7 +99,17 @@ public final class ShipMovementGate {
         BasicEntityShip ship = host instanceof BasicEntityShip s ? s
                 : host instanceof BasicEntityMount mount ? mount.getHost() : null;
         if (ship == null || !(host instanceof IShipAttackBase base)) return null;
-        return MovementIntentResolver.resolve(facts(host, base, ship));
+        MovementDecision standing = MovementIntentResolver.resolve(facts(host, base, ship));
+        MovementIntent craneStanding = host instanceof BasicEntityMount
+                ? MovementIntentResolver.resolve(facts(ship, ship, ship)).intent() : standing.intent();
+        return ShipCraneStateAdapter.motion(host, craneStanding)
+                .map(intent -> new MovementDecision(intent, standing.permissions())).orElse(standing);
+    }
+
+    public static Optional<MovementIntent.CranePosition> cranePosition(Entity host) {
+        MovementDecision decision = decision(host);
+        return decision != null && decision.intent() instanceof MovementIntent.CranePosition intent
+                ? Optional.of(intent) : Optional.empty();
     }
 
     public static MovementIntent intent(Entity host) {

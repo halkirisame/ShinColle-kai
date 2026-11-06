@@ -4,6 +4,7 @@ import com.lulan.shincolle.entity.IShipEmotion;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.EmotionHelper;
+import com.lulan.shincolle.utility.EntityHelper;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
@@ -312,7 +313,7 @@ public class ModelMountSuH extends ShipModelBaseAdv<Entity> {
         float angleX = Mth.cos(ageInTicks * 0.08F);
 
         this.offsetY = this.getBaseOffsetY();
-        if (ent.getShipDepth(0) > 0D) {
+        if (EntityHelper.checkEntityIsInLiquid(entity)) {
             // [PORT] 1.10.2 -> 1.20.1: restore mount water bobbing translation.
             // Visual check required: water bobbing amplitude should match 1.10.2
             // mount behavior.

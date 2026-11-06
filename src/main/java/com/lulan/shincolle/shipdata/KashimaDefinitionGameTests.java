@@ -58,7 +58,6 @@ public final class KashimaDefinitionGameTests {
             place(helper, ship);
             checkDefinition(helper, ship);
             helper.assertTrue(!ship.definitionState().dormant(), "hostile definition missing");
-            helper.assertTrue(ship.getDropEgg().isEmpty(), "unimplemented hostile acquisition enabled");
         });
     }
 
@@ -67,7 +66,8 @@ public final class KashimaDefinitionGameTests {
         ShipDefinition definition = ship.definitionState().definition();
         helper.assertTrue(definition != null && definition.id().equals(KASHIMA), "wrong definition identity");
         helper.assertTrue(definition.visual().equals(new ResourceLocation("shincolle_kai", "kashima")), "wrong visual ID");
-        helper.assertTrue(!definition.construction().enabled() && !definition.spawn().enabled(), "natural acquisition enabled");
+        helper.assertTrue(!definition.construction().enabled() && definition.spawn().enabled() && definition.spawn().weight() == 35,
+                "Kashima acquisition settings changed");
         helper.assertTrue(ship.getShipId().equals(KASHIMA.toString()) && !ship.definitionState().dormant(), "entity not initialized");
         helper.assertTrue(!entity.level().isClientSide(), "test is not running on dedicated server");
     }

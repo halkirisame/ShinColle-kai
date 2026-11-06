@@ -2,6 +2,7 @@ package com.lulan.shincolle.shipdata;
 
 /** Client-installed endpoint. A dedicated server never loads or installs the implementation. */
 public final class ShipPresentationClientAccess {
+    private static final ShipPresentationSnapshot EMPTY = new ShipPresentationSnapshot(-1, java.util.Map.of());
     private static volatile Endpoint endpoint;
 
     private ShipPresentationClientAccess() {
@@ -11,6 +12,8 @@ public final class ShipPresentationClientAccess {
         void install(ShipPresentationSnapshot snapshot);
 
         ShipPresentation get(String id, long generation);
+
+        ShipPresentationSnapshot snapshot();
     }
 
     public static void bind(Endpoint client) {
@@ -27,5 +30,10 @@ public final class ShipPresentationClientAccess {
     public static ShipPresentation get(String id, long generation) {
         Endpoint client = endpoint;
         return client == null ? null : client.get(id, generation);
+    }
+
+    public static ShipPresentationSnapshot snapshot() {
+        Endpoint client = endpoint;
+        return client == null ? EMPTY : client.snapshot();
     }
 }

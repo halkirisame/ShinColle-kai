@@ -7,6 +7,7 @@ import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.tileentity.TileEntityCrane;
 import com.lulan.shincolle.utility.GuiHelper;
+import com.lulan.shincolle.entity.BasicEntityShip;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.resources.language.I18n;
@@ -17,6 +18,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * GUI screen for the crane block.
@@ -90,7 +92,15 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
             case 2 -> graphics.blit(TEXTURE, this.leftPos + 23, this.topPos + 36, 189, 101, 13, 13);
         }
 
-        // TODO: per-slot NOT mode indicators (modeItem bitfield not yet ported)
+        int energyMode = this.menu.getEnergyMode();
+        int energyU = energyMode == 1 ? 176 : energyMode == 2 ? 189 : 202;
+        graphics.blit(TEXTURE, this.leftPos + 39, this.topPos + 36, energyU, 114, 13, 13);
+        for (int slot = 0; slot < ContainerCrane.GHOST_SLOT_COUNT; slot++) {
+            if (this.menu.getItemMode(slot)) {
+                graphics.blit(TEXTURE, this.leftPos + 7 + (slot % 9) * 18,
+                        this.topPos + (slot < 9 ? 64 : 95), 0, 217, 18, 18);
+            }
+        }
     }
 
     @Override
@@ -113,11 +123,22 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
         String unloadLabel = tr("gui.shincolle_kai.crane.tochest", "To Chest");
         graphics.drawString(this.font, unloadLabel, 21, 85, 0x000000, false);
 
-        // TODO: draw ship name when crane is paired (requires TileEntityCrane.getShip())
+        if (this.menu.getDockedShipId() >= 0) {
+            graphics.drawString(this.font, this.font.plainSubstrByWidth(dockedShipName().getString(), 87), 80, 24, 0xFFFFFF, true);
+        }
+        graphics.drawString(this.font, number(this.menu.getFluidAmount()) + " mB", 80, 35, 0x404040, false);
+        graphics.drawString(this.font, number(this.menu.getEnergyAmount()) + " FE", 80, 44, 0x404040, false);
 
-        // Player inventory label
-        graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0x404040,
-                false);
+    }
+
+    private static String number(int value) {
+        return String.format(Locale.ROOT, "%,d", value);
+    }
+
+    private Component dockedShipName() {
+        var entity = this.minecraft.level == null ? null : this.minecraft.level.getEntity(this.menu.getDockedShipId());
+        return entity instanceof BasicEntityShip ship ? ship.getDisplayName()
+                : Component.translatable("gui.shincolle_kai.crane.ship_unavailable");
     }
 
     @Override
@@ -192,6 +213,24 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
         int mx = mouseX - this.leftPos;
         int my = mouseY - this.topPos;
         List<Component> lines = new ArrayList<>();
+
+        if (mx >= 80 && mx < 168 && my >= 22 && my < 53) {
+            if (my < 34 && this.menu.getDockedShipId() >= 0) {
+                lines.add(dockedShipName());
+            } else if (my >= 34 && my < 44) {
+                lines.add(Component.translatable("gui.shincolle_kai.crane.fluid_amount",
+                        number(this.menu.getFluidAmount()), number(this.menu.getFluidCapacity())));
+            } else if (my >= 44) {
+                lines.add(Component.translatable("gui.shincolle_kai.crane.energy_amount",
+                        number(this.menu.getEnergyAmount()), number(this.menu.getEnergyCapacity())));
+            }
+        }
+        if (mx >= 7 && mx < 169 && (my >= 64 && my < 82 || my >= 95 && my < 113)) {
+            int slot = (mx - 7) / 18 + (my >= 95 ? 9 : 0);
+            lines.add(Component.translatable(this.menu.getItemMode(slot)
+                    ? "gui.shincolle_kai.crane.excluded" : "gui.shincolle_kai.crane.included"));
+            lines.add(Component.translatable("gui.shincolle_kai.crane.filter_controls"));
+        }
 
         if (my > 21 && my < 34) {
             if (mx > 22 && mx < 35) {

@@ -13,6 +13,7 @@ import com.lulan.shincolle.utility.BuffHelper;
 import com.lulan.shincolle.utility.CombatHelper;
 import com.lulan.shincolle.utility.PacketHelper;
 import com.lulan.shincolle.utility.TaskHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import io.netty.buffer.Unpooled;
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -147,6 +149,77 @@ public final class ShipEffectMapParityGameTests {
             ship.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, LONG, 1));
             helper.assertTrue(Math.abs(observedHurt(ship, viaMissile, 7L) / baseline - 1F) < 0.01F,
                     "Fire resistance alone does not reduce a missile hit");
+        });
+    }
+
+    @GameTest(template = "arena", batch = BATCH)
+    public static void missileCollisionUsesCurrentResistanceEffects(GameTestHelper helper) {
+        fixture(helper, false, (ship, entities) -> {
+            BasicEntityShipHostile attacker = hostile(helper, entities);
+            float baseline = observedMissileImpact(helper, entities, ship, attacker, false);
+            int[] amplifiers = {0, 1, 3, 6};
+            float[] ratios = {0.8F, 0.6F, 0.2F, 0.2F};
+            for (int i = 0; i < amplifiers.length; i++) {
+                ship.removeAllEffects();
+                ship.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, LONG, amplifiers[i]));
+                helper.assertTrue(ship.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier() == amplifiers[i],
+                        "Fixture: resistance amplifier " + amplifiers[i]);
+                float actual = observedMissileImpact(helper, entities, ship, attacker, false) / baseline;
+                helper.assertTrue(Math.abs(actual - ratios[i]) < 0.001F,
+                        "Collision resistance amplifier " + amplifiers[i] + " ratio " + actual
+                                + " expected " + ratios[i]);
+            }
+            ship.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+            helper.assertTrue(ship.getEffect(MobEffects.DAMAGE_RESISTANCE) == null, "Fixture: removed resistance");
+            helper.assertTrue(Math.abs(observedMissileImpact(helper, entities, ship, attacker, false) / baseline - 1F)
+                    < 0.001F, "The next collision in the same tick sees resistance removal");
+
+            ship.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 0, 1));
+            helper.assertTrue(ship.getEffect(MobEffects.DAMAGE_RESISTANCE).getDuration() == 0,
+                    "Fixture: zero-duration resistance is present before the next world tick");
+            helper.assertTrue(Math.abs(observedMissileImpact(helper, entities, ship, attacker, false) / baseline - 1F)
+                    < 0.001F, "Zero-duration resistance does not reduce a collision");
+            ship.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+            ship.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, -1, 1));
+            helper.assertTrue(ship.getEffect(MobEffects.DAMAGE_RESISTANCE).isInfiniteDuration(),
+                    "Fixture: infinite resistance");
+            helper.assertTrue(Math.abs(observedMissileImpact(helper, entities, ship, attacker, false) / baseline - 0.6F)
+                    < 0.001F, "Infinite resistance reduces a collision");
+        });
+    }
+
+    @GameTest(template = "arena", batch = BATCH)
+    public static void missileExpiryUsesResistanceNotFireResistance(GameTestHelper helper) {
+        fixture(helper, true, (ship, entities) -> {
+            BasicEntityShipHostile attacker = hostile(helper, entities);
+            float baseline = observedMissileImpact(helper, entities, ship, attacker, true);
+            DamageSource direct = helper.getLevel().damageSources().mobAttack(attacker);
+            float directBaseline = observedHurt(ship, direct, 7L);
+            helper.assertTrue(directBaseline > 1F, "Fixture: direct ship hit above minimum clamp");
+            ship.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, LONG, 1));
+            helper.assertTrue(ship.getEffect(MobEffects.FIRE_RESISTANCE).getAmplifier() == 1,
+                    "Fixture: fire resistance amplifier 1");
+            float actual = observedMissileImpact(helper, entities, ship, attacker, true) / baseline;
+            helper.assertTrue(Math.abs(actual - 1F) < 0.001F,
+                    "Expiry ignores fire resistance, ratio " + actual + " expected 1.0");
+            helper.assertTrue(Math.abs(observedHurt(ship, direct, 7L) / directBaseline - 0.6F) < 0.001F,
+                    "Fire resistance still reduces direct ship attacks");
+            ship.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, LONG, 0));
+            helper.assertTrue(ship.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier() == 0,
+                    "Fixture: resistance amplifier 0 alongside fire resistance");
+            helper.assertTrue(Math.abs(observedMissileImpact(helper, entities, ship, attacker, true) / baseline - 0.8F)
+                    < 0.001F, "Both effects apply only the missile resistance branch");
+
+            ship.removeAllEffects();
+            int light = ship.level().getMaxLocalRawBrightness(ship.blockPosition());
+            helper.assertTrue(light <= 2, "Fixture: dark room");
+            float plain = CombatHelper.modDamageByLight(100F, attacker.getDamageType(), ship.getDamageType(), 0F);
+            float lit = CombatHelper.modDamageByLight(100F, attacker.getDamageType(), ship.getDamageType(), 0.8F);
+            helper.assertTrue(Math.abs(lit - plain) > 1F, "Fixture: night vision changes the light modifier");
+            attacker.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, LONG, 0));
+            helper.assertTrue(attacker.getEffect(MobEffects.NIGHT_VISION) != null, "Fixture: host night vision");
+            helper.assertTrue(Math.abs(observedMissileImpact(helper, entities, ship, attacker, true) / baseline
+                    - lit / plain) < 0.001F, "Missile damage still reads the causing host's night vision");
         });
     }
 
@@ -338,6 +411,51 @@ public final class ShipEffectMapParityGameTests {
         return enemy;
     }
 
+    private static float observedMissileImpact(GameTestHelper helper, GameTestEntities entities,
+                                               BasicEntityShip ship, BasicEntityShipHostile attacker,
+                                               boolean expire) {
+        EntityAbyssMissile missile = entities.add(ModEntities.ABYSS_MISSILE.get().create(helper.getLevel()));
+        helper.assertTrue(missile != null, "Fixture: real missile");
+        missile.initMissile(attacker, 0, 0, 100F, 0F, (float) attacker.getY(),
+                ship.getX(), (float) ship.getY(), ship.getZ(), 140, 0F, 0F, 0F, 0F);
+        missile.setPos(ship.position());
+        missile.tickCount = expire ? missile.life + 1 : 6;
+        helper.assertTrue(missile.getHostEntity() == attacker && missile.getMissileType() == 0,
+                "Fixture: initialized host and ordinary missile");
+        helper.assertTrue(!TeamHelper.checkSameOwner(missile, ship)
+                && !CombatHelper.isFriendlyFire(attacker, ship), "Fixture: hostile missile may hurt this ship");
+        helper.assertTrue(helper.getLevel().addFreshEntity(missile), "Fixture: register missile");
+        GameTestEntities.assertRegistered(helper, missile);
+        ship.getAttrs().setAttrsBuffed(ID.Attrs.DEF, 0F);
+        ship.getAttrs().setAttrsBuffed(ID.Attrs.DODGE, 0F);
+        helper.assertTrue(ship.getAttrs().getAttrsBuffed(ID.Attrs.DEF) == 0F
+                && ship.getAttrs().getAttrsBuffed(ID.Attrs.DODGE) == 0F
+                && ship.getHealth() > 100F && ship.getStateMinor(ID.M.NumGrudge) > 0
+                && !ship.getStateFlag(ID.F.NoFuel), "Fixture: healthy, fueled defender without DEF or dodge");
+        HurtProbe probe = new HurtProbe(ship);
+        float health = ship.getHealth();
+        ship.setInvulnerable(false);
+        ship.invulnerableTime = 0;
+        ship.getRandom().setSeed(7L);
+        attacker.getRand().setSeed(7L);
+        MinecraftForge.EVENT_BUS.register(probe);
+        try {
+            // Exercise production collision/expiry and its AoE dispatch, never a synthetic DamageSource.
+            missile.tick();
+        } finally {
+            MinecraftForge.EVENT_BUS.unregister(probe);
+            ship.setInvulnerable(true);
+            ship.invulnerableTime = 0;
+        }
+        helper.assertTrue(missile.isRemoved(), "Fixture: impact consumed the missile");
+        helper.assertTrue(probe.hits == 1 && probe.amount > 1F,
+                "Exactly one impact reaches LivingHurtEvent above the minimum clamp, hits=" + probe.hits);
+        helper.assertTrue(ship.getHealth() == health, "Probe cancels before vanilla resistance/armor/HP processing");
+        helper.assertTrue(probe.source.getEntity() == attacker && probe.source.is(DamageTypes.MOB_ATTACK),
+                "Impact retains the causing host and mob attack damage type");
+        return probe.amount;
+    }
+
     /** The amount a real hit carries into the damage event, with the random stream pinned. */
     private static float observedHurt(BasicEntityShip ship, DamageSource source, long seed) {
         HurtProbe probe = new HurtProbe(ship);
@@ -360,6 +478,8 @@ public final class ShipEffectMapParityGameTests {
     public static final class HurtProbe {
         private final BasicEntityShip target;
         private float amount = Float.NaN;
+        private DamageSource source;
+        private int hits;
 
         HurtProbe(BasicEntityShip target) {
             this.target = target;
@@ -369,6 +489,8 @@ public final class ShipEffectMapParityGameTests {
         public void onHurt(LivingHurtEvent event) {
             if (event.getEntity() == this.target) {
                 this.amount = event.getAmount();
+                this.source = event.getSource();
+                this.hits++;
                 event.setCanceled(true);
             }
         }

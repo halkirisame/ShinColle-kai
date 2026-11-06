@@ -21,6 +21,37 @@ class ShipAiCompatibilityRulesTest {
     }
 
     @Test
+    void targetRetentionNeverRoundsBelowLiveAttackRange() {
+        assertEquals((double) 15.4F, ShipAiCompatibilityRules.targetRetentionRange(15D, 15.4F));
+        assertEquals((double) 15.4F, ShipAiCompatibilityRules.targetRetentionRange(11D, 15.4F));
+        assertEquals((double) 12.6F, ShipAiCompatibilityRules.targetRetentionRange(11D, 12.6F));
+    }
+
+    @Test
+    void targetRetentionPreservesLargerExistingRangeAndIntegerBoundary() {
+        assertEquals(16D, ShipAiCompatibilityRules.targetRetentionRange(16D, 15.4F));
+        assertEquals(15D, ShipAiCompatibilityRules.targetRetentionRange(15D, 15F));
+        assertEquals(8D, ShipAiCompatibilityRules.targetRetentionRange(8D, 1.49F));
+    }
+
+    @Test
+    void hostileSearchExtendsRoundedRangeAndMinimumByTen() {
+        assertEquals(25, ShipAiCompatibilityRules.hostileTargetSearchRange(15.4F, 6));
+        assertEquals(32, ShipAiCompatibilityRules.hostileTargetSearchRange(21.5F, 6));
+        assertEquals(18, ShipAiCompatibilityRules.hostileTargetSearchRange(1.49F, 6));
+        assertEquals(12, ShipAiCompatibilityRules.hostileTargetSearchRange(1.5F, 6));
+        assertEquals(15, ShipAiCompatibilityRules.targetSearchRange(15.4F, 6));
+    }
+
+    @Test
+    void hostileEngagementUsesBothLiveRanges() {
+        assertEquals(9F, ShipAiCompatibilityRules.hostileShipEngageRange(15.4F, 9F));
+        assertEquals(15.4F, ShipAiCompatibilityRules.hostileShipEngageRange(15.4F, 22F));
+        assertEquals(12F, ShipAiCompatibilityRules.hostileShipEngageRange(15.4F, 12F));
+        assertEquals(9F, ShipAiCompatibilityRules.hostileShipEngageRange(9F, 9F));
+    }
+
+    @Test
     void targetSearchBoxKeepsOriginalVerticalRatio() {
         assertEquals(0D, ShipAiCompatibilityRules.targetSearchVerticalInflation(0));
         assertEquals(9D, ShipAiCompatibilityRules.targetSearchVerticalInflation(12));

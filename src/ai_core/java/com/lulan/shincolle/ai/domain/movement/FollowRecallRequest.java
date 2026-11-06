@@ -5,8 +5,12 @@ import com.lulan.shincolle.ai.domain.TargetHandle;
 import java.util.OptionalLong;
 
 /** A jump's short wait belongs to the host, so starting its follow goal cannot discard it. */
-public record FollowRecallRequest(TargetHandle owner, long detectedAt) {
+public record FollowRecallRequest(TargetHandle owner, long detectedAt, RecallRequestKey key) {
     public static final int WAIT_TICKS = 100;
+
+    public FollowRecallRequest {
+        if (!owner.uuid().equals(key.owner())) throw new IllegalArgumentException("Recall owner does not match its key");
+    }
 
     public OptionalLong remaining(TargetHandle currentOwner, long now) {
         if (!owner.equals(currentOwner) || now < detectedAt || now >= detectedAt + OwnerJumpDetector.HOLD_TICKS) {

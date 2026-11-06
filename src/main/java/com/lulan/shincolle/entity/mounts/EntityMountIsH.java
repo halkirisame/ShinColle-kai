@@ -14,6 +14,7 @@ public class EntityMountIsH extends BasicEntityMountLarge {
 
     public EntityMountIsH(EntityType<? extends EntityMountIsH> type, Level level) {
         super(type, level);
+        this.moveControl = new ShipMoveControl(this, 60F, 1.0F);
         this.seatPos = new float[]{-0.32F, 1F, 0F};
         this.seatPos2 = new float[]{0.61F, 0.28F, 0F};
     }

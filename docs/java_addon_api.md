@@ -1,5 +1,7 @@
 # ShinColle-kai Java Addon API
 
+[アドオン制作の入口](addon_development.md)
+
 更新: 2026-10-20
 
 ## 配布形態

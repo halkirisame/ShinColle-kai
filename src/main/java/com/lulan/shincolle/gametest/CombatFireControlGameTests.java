@@ -6,6 +6,7 @@ import com.lulan.shincolle.ai.ShipGuardingGoal;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
+import com.lulan.shincolle.ai.domain.TargetSource;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
@@ -220,34 +221,81 @@ public final class CombatFireControlGameTests {
      * goal that started on release did.
      */
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_fire_control_crane",
-            timeoutTicks = 200)
+            timeoutTicks = 300)
     public static void craneReleaseRestartsTheCannonAim(GameTestHelper helper) {
-        run(helper, 160, s -> {
-            s.owner(new Vec3(0.5D, 0D, -3.5D));
-            Recorder ship = s.ship(new Vec3(0.5D, 0D, 2.5D));
+        Vec3 ownerPosition = new Vec3(0.5D, 0D, -3.5D);
+        Vec3 shipPosition = new Vec3(0.5D, 0D, 2.5D);
+        Vec3 targetPosition = new Vec3(6.5D, 0D, 2.5D);
+        GameTestEntities.whenPositionsTicking(helper, () -> {
+            Scene s = new Scene(helper);
+            GameTestEntities.onCompletion(helper, s::close, "crane scene");
+            UUID ownerId = UUID.randomUUID();
+            Recorder ship = s.ship(shipPosition, ownerId);
+            CombatFixturePreparation.pin(helper, ship);
+            Goal initial = CombatFixturePreparation.authority(ship);
             s.cannons(ship);
-            Mob cow = s.cow(new Vec3(6.5D, 0D, 2.5D));
-            s.at(LOCK - 1, () -> crane(ship, 1));
-            s.at(LOCK, () -> s.attack(ship, cow));
+            Mob[] target = {null};
+            int[] locked = {-1};
             int[] released = {-1};
-            s.at(LOCK + 60, () -> {
-                s.expect(ship.getStateMinor(ID.M.CraneState) > 0, "Fixture must keep the crane");
-                s.expect(ship.getEntityTarget() == cow, "Fixture must lock the target on the crane: "
-                        + ship.probe(cow));
+            List<String> preparation = new ArrayList<>();
+            helper.startSequence().thenWaitUntil(() -> s.expect(ship.tickCount >= 24,
+                    "Waiting for crane fixture AI: " + CombatFixturePreparation.probe(helper, ship, null)))
+                    .thenExecute(GameTestVerification.namedFailure(() -> s.guard(() -> {
+                CombatFixturePreparation.assertReady(helper, ship, initial);
+                s.expect(ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                        "Crane fixture needs fuel: " + CombatFixturePreparation.probe(helper, ship, null));
+                s.owner(ownerPosition, ownerId);
+                GameTestEntities.assertRegistered(helper, s.owner);
+                s.expect(ship.getOwner() == s.owner, "Crane fixture owner must resolve");
+                target[0] = s.cow(targetPosition);
+                CombatFixturePreparation.pin(helper, target[0]);
+                GameTestEntities.assertRegistered(helper, target[0]);
+                CombatFixturePreparation.holdAtCrane(helper, ship);
+                s.expect(ship.getStateMinor(ID.M.CraneState) == 1, "Crane fixture state did not apply");
+                s.expect(ship.getEntityTarget() == null && ship.calls.isEmpty(), "Combat began before the command");
+                preparation.add("before command " + CombatFixturePreparation.probe(helper, ship, target[0]));
+                s.attack(ship, target[0]);
+                preparation.add("after command " + CombatFixturePreparation.probe(helper, ship, target[0]));
+                s.expect(ship.getCommandState().manualAttack().filter(ShipCommandStateAdapter.handle(target[0])::equals)
+                                .isPresent() && ship.getManualTarget() == target[0],
+                        "First attack command was discarded: " + CombatFixturePreparation.probe(helper, ship, target[0]));
+            }))).thenWaitUntil(() -> s.expect(ship.currentTargetLock()
+                            .filter(lock -> lock.source() == TargetSource.MANUAL).isPresent()
+                            && ship.getEntityTarget() == target[0],
+                    "Waiting for the crane MANUAL lock: " + CombatFixturePreparation.probe(helper, ship, target[0])))
+                    .thenExecute(GameTestVerification.namedFailure(() -> {
+                s.expect(ship.calls.isEmpty(), "Fired before the crane hold began: " + ship.calls);
+                locked[0] = ship.tickCount;
+                preparation.add("locked " + CombatFixturePreparation.probe(helper, ship, target[0]));
+            }))
+                    .thenWaitUntil(() -> s.expect(ship.tickCount - locked[0] >= 60,
+                            "Crane hold entity ticks did not advance: " + CombatFixturePreparation.probe(helper, ship, target[0])))
+                    .thenExecute(GameTestVerification.namedFailure(() -> s.guard(() -> {
+                String state = CombatFixturePreparation.probe(helper, ship, target[0]);
+                s.expect(ship.getStateMinor(ID.M.CraneState) == 1, "Fixture must keep the crane: " + state);
+                s.expect(ship.getEntityTarget() == target[0] && ship.getManualTarget() == target[0]
+                                && ship.getCommandState().manualAttack().isPresent()
+                                && ship.currentTargetLock().filter(lock -> lock.source() == TargetSource.MANUAL).isPresent(),
+                        "Fixture lost the crane command/lock: " + state + " preparation=" + preparation);
                 s.expect(ship.calls.isEmpty(), "Fired on the crane: " + ship.calls);
-                crane(ship, 0);
+                CombatFixturePreparation.releaseCrane(ship);
+                s.expect(ship.getStateMinor(ID.M.CraneState) == 0, "Crane release did not apply: " + state);
                 released[0] = ship.tickCount;
-            });
-            s.end(ship, () -> {
+                preparation.add("released " + CombatFixturePreparation.probe(helper, ship, target[0]));
+            }))).thenWaitUntil(() -> s.expect(ship.tickCount - released[0] >= 80,
+                    "Release entity ticks did not advance: " + CombatFixturePreparation.probe(helper, ship, target[0])))
+                    .thenExecute(GameTestVerification.namedFailure(() -> s.guard(() -> {
                 int aim = ShipAiCompatibilityRules.aimTime(ship.getLevel());
                 s.expect(aim > 2, "Fixture needs an aim time longer than the tick order: " + aim);
                 List<Call> cannon = ship.calls.stream().filter(Call::cannon).toList();
                 s.expect(!cannon.isEmpty(), "No cannon shot after the release: " + ship.calls + " "
-                        + ship.probe(cow));
+                        + CombatFixturePreparation.probe(helper, ship, target[0]) + " preparation=" + preparation);
                 s.expect(cannon.get(0).tick - released[0] >= aim - 1, "Fired " + (cannon.get(0).tick - released[0])
-                        + " ticks after the release, before the aim time " + aim + ": " + ship.calls);
-            });
-        });
+                        + " ticks after the release, before the aim time " + aim + ": " + ship.calls
+                        + " preparation=" + preparation);
+                helper.succeed();
+            })));
+        }, ownerPosition, shipPosition, targetPosition);
     }
 
     /**
@@ -273,13 +321,13 @@ public final class CombatFireControlGameTests {
                 s.expect(!ship.getNavigation().isDone(), "Fixture must still path toward the target: "
                         + ship.probe(cow));
                 s.expect(ship.calls.isEmpty(), "Fixture must take the crane before the first shot: " + ship.calls);
-                crane(ship, 1);
+                CombatFixturePreparation.holdAtCrane(helper, ship);
             });
             int[] released = {-1};
             s.at(LOCK + 70, () -> {
                 s.expect(ship.getStateMinor(ID.M.CraneState) > 0, "Fixture must keep the crane");
                 s.expect(ship.calls.isEmpty(), "Fired on the crane: " + ship.calls);
-                crane(ship, 0);
+                CombatFixturePreparation.releaseCrane(ship);
                 released[0] = ship.tickCount;
             });
             s.end(ship, () -> {
@@ -292,12 +340,6 @@ public final class CombatFireControlGameTests {
                         + " ticks after the release, before the aim time " + aim + ": " + ship.calls);
             });
         });
-    }
-
-    private static void crane(Recorder ship, int state) {
-        // a crane change is ignored for 20 ticks after the previous one
-        ship.setStateTimer(ID.T.CrandDelay, 0);
-        ship.setStateMinor(ID.M.CraneState, state);
     }
 
     // ---------- fixture ----------
@@ -340,14 +382,22 @@ public final class CombatFireControlGameTests {
         }
 
         void owner(Vec3 position) {
+            this.owner(position, UUID.randomUUID());
+        }
+
+        void owner(Vec3 position, UUID ownerId) {
             this.owner = FakePlayerFactory.get(this.helper.getLevel(),
-                    new GameProfile(UUID.randomUUID(), "fire_control_owner"));
+                    new GameProfile(ownerId, "fire_control_owner"));
             this.owner.moveTo(this.helper.absoluteVec(position));
             this.helper.getLevel().addNewPlayer(this.owner);
             this.ownerAdded = true;
         }
 
         Recorder ship(Vec3 position) {
+            return this.ship(position, this.owner.getUUID());
+        }
+
+        Recorder ship(Vec3 position, UUID ownerId) {
             Recorder ship = this.entities.add(new Recorder(ModEntities.BB_KONGOU.get(), this.helper.getLevel()));
             // a fresh ship has only a few HP; stray damage kills it or stands it up
             ship.setInvulnerable(true);
@@ -367,7 +417,7 @@ public final class CombatFireControlGameTests {
             ship.calcShipAttributes(31, false);
             // raising the attributes leaves the old health, low enough to flee
             ship.setHealth(ship.getMaxHealth());
-            ship.setOwnerUUID(this.owner.getUUID());
+            ship.setOwnerUUID(ownerId);
             ship.moveTo(this.helper.absoluteVec(position));
             this.expect(this.helper.getLevel().addFreshEntity(ship), "failed to add ship");
             return ship;
@@ -397,7 +447,7 @@ public final class CombatFireControlGameTests {
             BasicEntityShipHostile target = this.entities.add(
                     ModEntities.BB_KIRISHIMA_MOB.get().create(this.helper.getLevel()));
             this.expect(target != null, "failed to create hostile");
-            target.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(this.helper, target);
             target.setInvulnerable(true);
             target.setPersistenceRequired();
             target.moveTo(this.helper.absoluteVec(position));

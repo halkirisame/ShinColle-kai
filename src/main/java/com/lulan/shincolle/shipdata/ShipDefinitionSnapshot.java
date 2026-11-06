@@ -22,4 +22,10 @@ public record ShipDefinitionSnapshot(long generation, Map<ShipDefinitionId, Ship
     public ShipDefinition get(ShipDefinitionId id) {
         return all.get(id);
     }
+
+    /** Resolves both IDs in this generation only; missing ships or variants return null. */
+    public HostileVariants.Variant getVariant(ShipDefinitionId shipId, String variantId) {
+        ShipDefinition definition = get(shipId);
+        return definition == null ? null : definition.hostileVariants().get(variantId);
+    }
 }

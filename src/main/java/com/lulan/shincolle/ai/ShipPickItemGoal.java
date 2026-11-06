@@ -10,6 +10,7 @@ import com.lulan.shincolle.ai.domain.movement.StuckDetector;
 import com.lulan.shincolle.ai.domain.movement.StuckStage;
 import com.lulan.shincolle.ai.domain.movement.StuckState;
 import com.lulan.shincolle.ai.domain.ShipAiCompatibilityRules;
+import com.lulan.shincolle.ai.domain.task.ShipResourceRules;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
@@ -120,11 +121,11 @@ public class ShipPickItemGoal extends Goal {
 
             // within 3 blocks
             if (this.ship.distanceToSqr(this.entItem) < 9.0D) {
-                if (this.entItem instanceof ItemEntity itemEntity) {
+                if (this.entItem instanceof ItemEntity itemEntity && itemEntity.isAlive()) {
                     ItemStack stack = itemEntity.getItem();
                     int count = stack.getCount();
 
-                    if (!itemEntity.hasPickUpDelay()) {
+                    if (!stack.isEmpty() && !itemEntity.hasPickUpDelay()) {
                         ItemStack attemptedStack = stack.copy();
                         boolean picked = this.ship.getCapaShipInventory().addItemStackToInventory(stack);
                         LogHelper.diag("DIAG: pickitem ship=" + this.ship + " item=" + attemptedStack
@@ -153,6 +154,8 @@ public class ShipPickItemGoal extends Goal {
 
                             // pickup animation
                             this.ship.take(itemEntity, count);
+
+                            ShipResourceGate.pickedUp(this.ship, new ShipResourceRules.PickupResult(count));
 
                             // remove item entity if fully consumed
                             if (stack.isEmpty()) {

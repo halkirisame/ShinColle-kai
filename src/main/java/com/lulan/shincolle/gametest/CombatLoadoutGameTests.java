@@ -7,6 +7,7 @@ import com.lulan.shincolle.entity.IShipAircraftAttack;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.utility.LogHelper;
+import com.lulan.shincolle.shipdata.DefinitionBackedShip;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -23,7 +24,8 @@ import java.util.List;
 /**
  * The fire control goal fires only the weapons of the attack goals a ship registers. The guard
  * goal used to fire on the move by the type flags alone, so a flag without its attack goal would
- * mean a guarding ship fires less under NEW. Every ship type is checked for such a flag.
+ * mean a guarding ship fires less under NEW. Built-in ship types are checked for such a flag;
+ * definition-backed ships choose their weapons from their definition instead.
  */
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -44,6 +46,10 @@ public final class CombatLoadoutGameTests {
                 Entity entity = type.create(helper.getLevel());
                 if (!(entity instanceof BasicEntityShip ship)) {
                     if (entity != null) entity.discard();
+                    continue;
+                }
+                if (ship instanceof DefinitionBackedShip) {
+                    ship.discard();
                     continue;
                 }
                 setAIList.invoke(ship);

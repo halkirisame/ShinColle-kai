@@ -48,7 +48,7 @@ public class KaitaiHammer extends BasicItem {
 
     /**
      * Left click on one's own ship kills it in one hit (it turns back into an item
-     * and loses a level). Costs 1 durability outside creative mode. A ship that
+     * without losing a level). Costs 1 durability outside creative mode. A ship that
      * belongs to someone else is left alone, but the click is still consumed.
      */
     @Override

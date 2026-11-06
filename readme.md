@@ -14,7 +14,7 @@ PinkaLulan氏作のShinColleを、kousakirai氏がForge 1.20.1へ移植したも
 派生版(fork)です。移植版に残っていた不具合の修正と、移植時に取りこぼされた挙動の復元を
 進めています。
 
-**現在プレイ可能なβ版として公開し、継続して開発しています。**造船所を建てて艦を建造し、
+**プレイ可能な版として公開し、継続して開発しています。**造船所を建てて艦を建造し、
 装備を整え、艦隊を指揮して戦い、育てて婚約するところまで一通り遊べます。
 未完成のシステムや既知の問題もありますが、通常のワールドで実際に遊びながら開発を進めています。
 
@@ -166,24 +166,21 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## β版 v1.20.1-0.13.0 について
+## v1.20.1-1.0.0 について
 
-**β版 `0.13.0`** です。
+Minecraft 1.20.1向け「深これ改」1.0.0の案内です。
 
-造船所を建てて艦を建造し、装備させ、艦隊を指揮して戦い、育てて婚約するところまで
-一通り遊べます。初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を
-案内します。この版では艦AIの改修と不具合の修正を行い、鹿島など新規艦の表示基盤を追加しました。
+造船所で艦を建造し、装備を整え、艦隊を指揮して戦い、育成や婚約を楽しめます。
+初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を案内します。
 
-**ただし未完成の領域と既知の不具合があります。**`1.0.0` はそれらが解消された版の
-ために取ってあります。
+この版では、野生の敵艦娘として雪風が加わり、鹿島も出現するようになりました。
+自分の艦を持ち運ぶサファリネットと、試験的な機能の深海棲艦魂符、Mekanism 連携を追加し、
+騎乗中の武装の発射やクレーンの荷役など、原典 ShinColle 1.10.2 の機能を復元しています。
 
-既知の不具合: 艦が手持ちアイテムを表示しない。
+既知の問題や、確認が十分でない部分も残っています。1.0.0という版名は、
+すべての問題が解消したことを意味するものではありません。
 
-新AIが既定になり、追従の呼び戻し・上下離脱の通知・エンドでの奈落救出を実装しました。
-釣り機構、貨物容量、シップタンク、表示と音にも修正を入れています。
-天龍・龍田・長門の特殊攻撃は新AIに実装しましたが、実機確認は未完了です。
-
-残る確認・復元: 新AIの手触り / 釣りの描画・音・操作とクレーン / 他の艦の固有攻撃・演出。
+更新の前にワールドをバックアップし、サーバーとすべてのクライアントを同じ版にそろえてください。
 
 変更点は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
@@ -225,7 +222,15 @@ ShinColle-kai についての質問、感想、動作報告、開発の相談は
 - 原作: PinkaLulan氏 — https://github.com/PinkaLulan/ShinColle
 - Forge 1.20.1 移植: kousakirai氏 — https://github.com/kousakirai/ShinColle-Reforge
 
+### 謝辞
+
+- しらたき氏（Texture Artist） — サファリネットのテクスチャ制作
+- Ciao_Min氏（Development Contributor） — 開発協力
+- ズィズィ氏 — 雪風のモデル制作
+
 ## ライセンス
+
+サファリネットのテクスチャ（作: しらたき）は、他のMOD・フォークなどへの取り込みと、画像単体での配布（素材集など）を禁止しています。実況・動画・スクリーンショット・二次創作、深これ改向けのアドオンやリソースパックは自由です（[利用条件](src/main/resources/assets/shincolle_kai/textures/item/safari_net/LICENSE)）。
 
 本MODはMITライセンスで公開しています。ただし、艦AIの判断部分（`src/ai_core`）は [PolyForm Shield License 1.0.0](src/ai_core/LICENSE) です。詳細は [LICENSE](LICENSE) をご覧ください。
 
@@ -250,7 +255,7 @@ It is a fork of ShinColle-Reforge, kousakirai's Forge 1.20.1 port of PinkaLulan'
 ShinColle, fixing bugs left in that port and restoring behaviour lost in the move from
 1.10.2.
 
-**It is a playable beta under active development.** You can build a shipyard, construct
+**It is playable and under active development.** You can build a shipyard, construct
 ships, equip them, command a fleet in battle, level them up and marry them. Some systems
 are still incomplete and there are known issues, but development goes on while playing
 in ordinary worlds.
@@ -406,27 +411,23 @@ Problems currently known to affect play.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About the beta release, v1.20.1-0.13.0
+## About v1.20.1-1.0.0
 
-This is the **beta, `0.13.0`**.
+This guide covers ShinColle-kai 1.0.0 for Minecraft 1.20.1.
 
-The mod is playable end to end - build a shipyard, construct ships, equip them, command
-a fleet, fight, level up and marry. New players receive a guide book whose "Getting
-Started" chapter walks through the basics. This version reworks the ship AI, fixes bugs,
-and adds the display groundwork for new ships such as Kashima.
+Build a shipyard, construct and equip ships, command your fleet in battle,
+and enjoy training and marriage. New players receive a guide book;
+its "Getting Started" chapter introduces the basics.
 
-**Some systems are known to be incomplete.** `1.0.0` is reserved for the release where
-they are closed.
+This version adds Yukikaze as a wild enemy shipgirl, and Kashima now appears as one too.
+It adds the Safari Net for carrying your own ships, the Abyssal Soul Talisman as an
+experimental feature, and Mekanism integration, and it restores features of the original
+ShinColle 1.10.2 such as firing weapons while mounted and crane cargo work.
 
-Known defect: ships do not render a held item.
+Known issues and areas that still need verification remain. The 1.0.0 version
+number does not mean that every issue has been resolved.
 
-The redesigned AI is now the default, with follow recall, vertical-separation notices
-and void rescue in the End. Fishing, cargo capacity, ship tanks, text and sounds have
-received fixes. Tenryuu, Tatsuta and Nagato's special attacks are implemented in the
-new AI, but their in-game verification is incomplete.
-
-Remaining checks and restoration: the feel of the new AI; fishing visuals, sound and
-operation and the crane; other ships' special attacks and combat effects.
+Back up your worlds before updating, and use the same version on the server and every client.
 
 See [CHANGELOG.md](CHANGELOG.md) for the changes.
 
@@ -470,7 +471,15 @@ fork.** It is maintained independently of both.
 - Original mod: PinkaLulan — https://github.com/PinkaLulan/ShinColle
 - Forge 1.20.1 port: kousakirai — https://github.com/kousakirai/ShinColle-Reforge
 
+### Acknowledgements
+
+- しらたき (Texture Artist) — Safari Net textures
+- Ciao_Min (Development Contributor) — development contributions
+- ズィズィ — Yukikaze model
+
 ## License
+
+Safari Net textures by しらたき are All Rights Reserved; including them in other mods, forks or other software, and distributing them on their own (for example as asset collections), are prohibited. Videos, streams, screenshots, fan works, and addons and resource packs for ShinColle-kai are welcome ([terms](src/main/resources/assets/shincolle_kai/textures/item/safari_net/LICENSE)).
 
 ShinColle-kai is released under the MIT License, except for the ship AI core in `src/ai_core`, which is under the [PolyForm Shield License 1.0.0](src/ai_core/LICENSE). See [LICENSE](LICENSE) for details.
 

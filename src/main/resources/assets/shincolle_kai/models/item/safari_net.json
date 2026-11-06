@@ -1,0 +1,62 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "shincolle_kai:item/safari_net/safari_net_empty"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 2
+      },
+      "model": "shincolle_kai:item/safari_net_dd"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 3
+      },
+      "model": "shincolle_kai:item/safari_net_cl"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 4
+      },
+      "model": "shincolle_kai:item/safari_net_ca"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 5
+      },
+      "model": "shincolle_kai:item/safari_net_bb"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 6
+      },
+      "model": "shincolle_kai:item/safari_net_ao"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 7
+      },
+      "model": "shincolle_kai:item/safari_net_ss"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 8
+      },
+      "model": "shincolle_kai:item/safari_net_de"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 9
+      },
+      "model": "shincolle_kai:item/safari_net_pr"
+    },
+    {
+      "predicate": {
+        "shincolle_kai:net_icon": 10
+      },
+      "model": "shincolle_kai:item/safari_net_cv"
+    }
+  ]
+}

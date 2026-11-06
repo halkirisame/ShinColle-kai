@@ -15,6 +15,7 @@ public final class GuardMovePlanner {
     static final int FIRST_REPATH = 10;
     static final int REPATH = 32;
     static final int ANCHOR_RESOLVE = 8;
+    static final double DESTINATION_MOVED_SQ = 4D;
     static final double FORMATION_STALE_SQ = 6D;
     static final double TELEPORT_Y_OFFSET = 0.75D;
     /**
@@ -39,7 +40,7 @@ public final class GuardMovePlanner {
 
     public static MovementState.Guard stopped(MovementState.Guard state) {
         return new MovementState.Guard(FIRST_REPATH, state.stillTimer(), state.farTimer(), state.anchorResolveAt(),
-                state.destination(), state.anchorMemory(), false);
+                state.destination(), state.anchorMemory(), false, state.pathedDestination());
     }
 
     /**
@@ -77,20 +78,20 @@ public final class GuardMovePlanner {
     public static MovementState.Guard formationPlace(MovementState.Guard state, MovementPoint place,
                                                      MovementPoint guarded) {
         return new MovementState.Guard(state.repathIn(), state.stillTimer(), state.farTimer(),
-                state.anchorResolveAt(), place, guarded, state.moving());
+                state.anchorResolveAt(), place, guarded, state.moving(), state.pathedDestination());
     }
 
     /** A different guarded point starts a new wait for a far-distance teleport. */
     public static MovementState.Guard toPoint(MovementState.Guard state, MovementPoint point) {
         int farTimer = point.equals(state.destination()) ? state.farTimer() : 0;
         return new MovementState.Guard(state.repathIn(), state.stillTimer(), farTimer,
-                state.anchorResolveAt(), point, state.anchorMemory(), state.moving());
+                state.anchorResolveAt(), point, state.anchorMemory(), state.moving(), state.pathedDestination());
     }
 
     /** Outside a formation the ship follows the guarded entity without restarting the far wait. */
     public static MovementState.Guard toEntity(MovementState.Guard state, MovementPoint point) {
         return new MovementState.Guard(state.repathIn(), state.stillTimer(), state.farTimer(),
-                state.anchorResolveAt(), point, state.anchorMemory(), state.moving());
+                state.anchorResolveAt(), point, state.anchorMemory(), state.moving(), state.pathedDestination());
     }
 
     /**
@@ -100,7 +101,7 @@ public final class GuardMovePlanner {
     public static MovementState.Guard count(MovementState.Guard state, boolean stuck) {
         return new MovementState.Guard(state.repathIn() - 1, stuck ? state.stillTimer() + 1 : 0,
                 state.farTimer(), state.anchorResolveAt(), state.destination(), state.anchorMemory(),
-                state.moving());
+                state.moving(), state.pathedDestination());
     }
 
     public static boolean anchorResolveDue(MovementState.Guard state, int now) {
@@ -109,7 +110,7 @@ public final class GuardMovePlanner {
 
     public static MovementState.Guard anchorResolved(MovementState.Guard state, int now) {
         return new MovementState.Guard(state.repathIn(), state.stillTimer(), state.farTimer(), now + ANCHOR_RESOLVE,
-                state.destination(), state.anchorMemory(), state.moving());
+                state.destination(), state.anchorMemory(), state.moving(), state.pathedDestination());
     }
 
     /** On its way while outside the inner distance, and under a move order until it arrives. */
@@ -122,9 +123,14 @@ public final class GuardMovePlanner {
      * @param temporaryMove a move order, which ends on arrival rather than stopping short of it
      * @param dimension     the destination's dimension
      * @param stuck         this goal tick's observation of the way there
+     * @param guardEntity   guarding a moving entity, not a point already pathed by a command
      */
     public record Facts(double distanceSq, FollowRange range, boolean temporaryMove, DimensionKey dimension,
-                        TeleportRule teleport, StuckState stuck) {
+                        TeleportRule teleport, StuckState stuck, boolean guardEntity) {
+        public Facts(double distanceSq, FollowRange range, boolean temporaryMove, DimensionKey dimension,
+                     TeleportRule teleport, StuckState stuck) {
+            this(distanceSq, range, temporaryMove, dimension, teleport, stuck, false);
+        }
     }
 
     /**
@@ -140,13 +146,17 @@ public final class GuardMovePlanner {
             steps.add(new MovementStep.Stop(MovementBody.SELF, MovementReason.GUARD_ARRIVED));
         }
         int repathIn = state.repathIn();
+        MovementPoint pathedDestination = state.pathedDestination();
         Optional<MovementStep.PathTo> recovery = StuckDetector.recovery(facts.stuck(), MovementBody.SELF,
                 new MovementTarget.Point(state.destination()), state.destination(), 1D, Optional.empty());
         if (recovery.isPresent()) {
             repathIn = REPATH;
+            pathedDestination = state.destination();
             steps.add(recovery.get());
-        } else if (repathIn <= 0) {
+        } else if (repathIn <= 0 || (facts.guardEntity()
+                && state.destination().distanceSq(pathedDestination) >= DESTINATION_MOVED_SQ)) {
             repathIn = REPATH;
+            pathedDestination = state.destination();
             steps.add(new MovementStep.PathTo(MovementBody.SELF, new MovementTarget.Point(state.destination()), 1D,
                     MovementReason.GUARD));
         }
@@ -176,13 +186,14 @@ public final class GuardMovePlanner {
             }
         }
         return new PlannedMove<>(new MovementState.Guard(repathIn, stillTimer, farTimer, state.anchorResolveAt(),
-                state.destination(), state.anchorMemory(), moving), new MovementPlan(steps));
+                state.destination(), state.anchorMemory(), moving, pathedDestination), new MovementPlan(steps));
     }
 
     /** A path request that was carried out sets whether the ship is on its way. */
     public static MovementState.Guard pathed(MovementState.Guard state, PathOutcome outcome) {
         if (outcome == PathOutcome.NONE) return state;
         return new MovementState.Guard(state.repathIn(), state.stillTimer(), state.farTimer(),
-                state.anchorResolveAt(), state.destination(), state.anchorMemory(), outcome == PathOutcome.ISSUED);
+                state.anchorResolveAt(), state.destination(), state.anchorMemory(), outcome == PathOutcome.ISSUED,
+                state.pathedDestination());
     }
 }

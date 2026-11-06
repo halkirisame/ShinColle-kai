@@ -29,6 +29,42 @@ public class BlockCrane extends BasicBlockContainer {
 
     @SuppressWarnings("deprecation")
     @Override
+    public boolean isSignalSource(BlockState state) {
+        return true;
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public int getSignal(BlockState state, net.minecraft.world.level.BlockGetter level, BlockPos pos,
+                         net.minecraft.core.Direction side) {
+        return level.getBlockEntity(pos) instanceof TileEntityCrane tile ? tile.getRedstoneOutput() : 0;
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public int getDirectSignal(BlockState state, net.minecraft.world.level.BlockGetter level, BlockPos pos,
+                               net.minecraft.core.Direction side) {
+        return getSignal(state, level, pos, side);
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (!state.is(newState.getBlock())) {
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof TileEntityCrane tile) {
+                // Filter samples are configuration, not real cargo to drop.
+                var filters = tile.getInventory();
+                for (int slot = 0; slot < filters.getSlots(); slot++) {
+                    filters.setStackInSlot(slot, ItemStack.EMPTY);
+                }
+            }
+        }
+        super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {

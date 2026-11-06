@@ -141,6 +141,8 @@ public class ConfigHandler {
      * Liquid drum: base, enchant rate
      */
     public static int[] drumLiquid = new int[]{40, 5};
+    /** Energy pump rates: base and additional FE/t per enchantment. */
+    public static int[] drumEnergy = new int[]{400, 100};
     /**
      * Infinite liquid pump: min water depth, min lava depth
      */
@@ -170,7 +172,7 @@ public class ConfigHandler {
     public static double[] tileVolCore = new double[]{9600D, 16D, 240D};
 
     /**
-     * Crane: internal fluid tank capacity (mB), internal energy capacity (EU)
+     * Crane: internal fluid tank capacity (mB), internal energy capacity (FE)
      */
     public static int[] tileCrane = new int[]{2048000, 160000000};
 
@@ -237,6 +239,7 @@ public class ConfigHandler {
         syncIntArray(tickFishing, COMMON.tickFishingConfig.get());
         syncIntArray(tickMining, COMMON.tickMiningConfig.get());
         syncIntArray(drumLiquid, COMMON.drumLiquidConfig.get());
+        syncIntArray(drumEnergy, COMMON.drumEnergyConfig.get());
         syncIntArray(infLiquid, COMMON.infLiquidConfig.get());
         syncIntArray(shipTeleport, COMMON.shipTeleportConfig.get());
         syncIntArray(tileCrane, COMMON.tileCraneConfig.get());
@@ -465,12 +468,12 @@ public class ConfigHandler {
         return COMMON.shipEquipSlotsCurios.get();
     }
 
-    public static int polymetalOreRate() {
-        return COMMON.polymetalOreRate.get();
+    public static int polymetalOreClusters() {
+        return COMMON.polymetalOreClusters.get();
     }
 
-    public static int polymetalGravelRate() {
-        return COMMON.polymetalGravelRate.get();
+    public static int polymetalGravelClusters() {
+        return COMMON.polymetalGravelClusters.get();
     }
 
     public static double dropRateGrudge() {
@@ -597,6 +600,7 @@ public class ConfigHandler {
         public final ConfigValue<List<? extends Integer>> expGainTaskConfig;
         public final ConfigValue<List<? extends Integer>> mobSpawnConfig;
         public final ConfigValue<List<? extends Integer>> drumLiquidConfig;
+        public final ConfigValue<List<? extends Integer>> drumEnergyConfig;
         public final ConfigValue<List<? extends Integer>> shipTeleportConfig;
         public final ConfigValue<List<? extends Integer>> tickFishingConfig;
         public final ConfigValue<List<? extends Integer>> tickMiningConfig;
@@ -608,8 +612,8 @@ public class ConfigHandler {
         public final DoubleValue volumeAttack;
 
         // ==================== WORLD GEN ====================
-        public final IntValue polymetalOreRate;
-        public final IntValue polymetalGravelRate;
+        public final IntValue polymetalOreClusters;
+        public final IntValue polymetalGravelClusters;
         public final ConfigValue<List<? extends Boolean>> polyGravelBaseBlockConfig;
 
         Common(ForgeConfigSpec.Builder builder) {
@@ -759,7 +763,7 @@ public class ConfigHandler {
                             e -> e instanceof Double);
 
             tileCraneConfig = builder
-                    .comment("Crane settings: [internal fluid tank capacity (mB), internal energy capacity (EU)]")
+                    .comment("Crane settings: [internal fluid tank capacity (mB), internal energy capacity (FE)]")
                     .defineList("tileCrane",
                             Arrays.asList(2048000, 160000000),
                             e -> e instanceof Integer);
@@ -994,6 +998,11 @@ public class ConfigHandler {
                             Arrays.asList(40, 5),
                             e -> e instanceof Integer);
 
+            drumEnergyConfig = builder
+                    .comment("Energy transport rate: [base FE/t per pump, additional FE/t per enchantment]. "
+                            + "Total Rate = (ShipLV * 0.1 + 1) * (BaseRate * #Pumps + EnchantRate * #Enchantments)")
+                    .defineList("drumEnergy", Arrays.asList(400, 100), e -> e instanceof Integer);
+
             shipTeleportConfig = builder
                     .comment("Ship teleport when following and guarding: [cooldown (ticks), distance (blocks^2)]")
                     .defineList("shipTeleport",
@@ -1040,13 +1049,13 @@ public class ConfigHandler {
             // ==================== WORLD GEN ====================
             builder.comment("World generation settings").push("world");
 
-            polymetalOreRate = builder
+            polymetalOreClusters = builder
                     .comment("Polymetallic Ore clusters per chunk")
-                    .defineInRange("polymetalOreRate", 7, 0, 100);
+                    .defineInRange("polymetalOreClusters", 20, 0, 100);
 
-            polymetalGravelRate = builder
+            polymetalGravelClusters = builder
                     .comment("Polymetallic Gravel clusters per chunk")
-                    .defineInRange("polymetalGravelRate", 4, 0, 100);
+                    .defineInRange("polymetalGravelClusters", 4, 0, 100);
 
             polyGravelBaseBlockConfig = builder
                     .comment("PolyGravel replacement blocks: [stone, gravel, sand, dirt]")

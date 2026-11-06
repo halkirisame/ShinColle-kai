@@ -4,6 +4,8 @@ import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.network.ModNetworking;
+import com.lulan.shincolle.network.S2CGUISyncPacket;
 import com.lulan.shincolle.team.TeamData;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -16,8 +18,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,6 +43,7 @@ public class ServerDataManager {
 
     public static final int MAX_CUSTOM_TARGET_CLASSES = 64;
     public static final int MAX_TARGET_CLASS_NAME_LENGTH = 128;
+    private static final int RADAR_START_TICK = 100;
 
     // ========== Data maps ==========
 
@@ -811,6 +816,57 @@ public class ServerDataManager {
         if (serverTicks % 6000 == 0) {
             save();
         }
+        if (serverTicks > RADAR_START_TICK && serverTicks % ConfigHandler.radarUpdate() == 0) {
+            syncRadarShipLists();
+        }
+    }
+
+    private static void syncRadarShipLists() {
+        MinecraftServer server = getServer();
+        if (server == null || mapShipID == null)
+            return;
+        List<ServerPlayer> online = server.getPlayerList().getPlayers();
+        if (online.isEmpty())
+            return;
+
+        Map<Integer, ServerPlayer> byUid = new HashMap<>();
+        for (ServerPlayer player : online) {
+            CapaTeitoku capa = getTeitokuCapability(player);
+            if (capa != null && capa.getPlayerUID() > 0) {
+                byUid.put(capa.getPlayerUID(), player);
+            }
+        }
+
+        Map<Integer, List<Integer>> lists = collectRadarShipIds(server, byUid);
+        lists.forEach((uid, ids) -> ModNetworking.sendToPlayer(
+                S2CGUISyncPacket.syncIntList(S2CGUISyncPacket.SyncGUI_ShipList, ids), byUid.get(uid)));
+    }
+
+    /** Collect loaded ships for each online admiral, retaining empty lists to clear stale radar entries. */
+    public static Map<Integer, List<Integer>> collectRadarShipIds(
+            MinecraftServer server, Map<Integer, ServerPlayer> byUid) {
+        Map<Integer, List<Integer>> lists = new HashMap<>();
+        byUid.keySet().forEach(uid -> lists.put(uid, new ArrayList<>()));
+        if (server == null || mapShipID == null || byUid.isEmpty())
+            return lists;
+
+        for (Map.Entry<Integer, CacheDataShip> entry : mapShipID.entrySet()) {
+            CacheDataShip data = entry.getValue();
+            if (data == null || data.dimension == null)
+                continue;
+            ServerLevel level = server.getLevel(data.dimension);
+            if (level == null)
+                continue;
+            Entity entity = level.getEntity(data.entityID);
+            if (!(entity instanceof BasicEntityShip ship) || ship.getShipUID() != entry.getKey())
+                continue;
+            int ownerUid = ship.getPlayerUID();
+            ServerPlayer owner = byUid.get(ownerUid);
+            if (owner == null || owner.level().dimension() != ship.level().dimension())
+                continue;
+            lists.get(ownerUid).add(data.entityID);
+        }
+        return lists;
     }
 
     // ========== Utility ==========

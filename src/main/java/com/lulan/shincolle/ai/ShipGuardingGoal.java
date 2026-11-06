@@ -191,7 +191,7 @@ public class ShipGuardingGoal extends Goal {
                 this.distSq, new FollowRange(this.minDistSq, this.maxDistSq), isTemporaryBlockMove(),
                 // a guarded point is in the ship's dimension; checkGuardTarget ends the guard otherwise
                 ShipCommandStateAdapter.handle(this.guarded != null ? this.guarded : this.hostEntity).dimension(),
-                ShipMovementGate.teleportRule(), this.stuck));
+                ShipMovementGate.teleportRule(), this.stuck, this.guarded != null));
         this.move = GuardMovePlanner.pathed(planned.state(), ShipMovementExecutor.run(this.hostEntity, planned.plan()));
 
         if (LogHelper.diagEnabled()) {

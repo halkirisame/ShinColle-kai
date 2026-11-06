@@ -1,5 +1,232 @@
 # 変更履歴 / Changelog
 
+## v1.20.1-1.0.0 (2026-11-06)
+
+### 新しい艦
+
+- 雪風を追加しました。野生の敵艦娘として出現し、建造では入手できません。モデル・素材を提供してくださったズィズィ氏に感謝します。
+- 鹿島が野生の敵艦娘として出現するようになりました。倒すと鹿島の卵を落とすことがあり、味方に迎えられます。建造では入手できません。
+- 鹿島に自動のまばたき、感情・姿勢・攻撃に応じた表情の変化、首かしげ、頭の向きに合わせた髪とツインテールの動きを追加しました。
+
+### 新しいアイテム
+
+- サファリネットを追加しました。自分の味方艦を状態・装備ごと持ち運べ、繰り返し使えます。しゃがまずに艦を右クリックすると収納し、ブロックを右クリックすると放出します。他のプレイヤーの艦や敵艦は収納できず、中身入りのネットから放出・拾得できるのは元の所有者だけです。しゃがみ右クリックで艦の画面を開く操作は従来どおりです。テクスチャ制作: しらたき（他のMOD・フォークへの取り込みは不可。実況・二次創作・アドオンは自由）。
+- 深海棲艦魂符を先行要素（試験的な機能）として追加しました。自分の艦を最大6隻まで入れて持ち運べます。1隻ずつ、または艦隊ごと格納し、現在の艦隊の順に1隻ずつ、またはクリックした場所の周りへ一度に放出します。モードは指揮棒と同じ修飾キーとマウスホイールで切り替えます。作業台では作れず、敵対モブからごく稀に手に入ります。
+
+### 他のMODとの連携
+
+- Mekanism 連携を追加しました。Mekanism を入れていると、ポリメタル鉱石を Mekanism の鉱石処理で2〜5倍に加工できます（粉・汚れた粉・凝塊・欠片・結晶と、汚れた／純粋な懸濁液）。粉はかまど・溶鉱炉でポリメタルに戻せます。Mekanism がなくても従来どおり動作します。
+
+### 原典 ShinColle 1.10.2 から復元
+
+- 騎乗した艦の武装を、ホットバー1〜4番のキーで撃てるようにしました。照準のマーカー、再使用までの時間、艦載機の数を表示します。キーを押し続けると、ホットバーを切り替えずに撃ち続けます。騎乗中のインベントリ操作と、指揮棒のチーム操作のショートカットが優先されます。
+- 近くにある治癒・再生のポーションの雲や、飛んでいるスプラッシュ・残留ポーションで、味方艦の回復量が増える効果を復元しました。雲があればそちらを優先し、1秒に1回まで働きます。誰が投げたポーションでも効きます。
+- 金床でエンチャントの本を使い、艦の装備にエンチャントできるようにしました。費用は30レベル固定です。同時に名前を変える・消す場合も、追加の費用はかかりません。
+- 指揮棒でチーム管理の修飾キー（既定はShift）を押しながら自分の艦以外の生物を左クリックすると、その種類を攻撃目標リストへ登録・解除できるようにしました。プレイヤーは対象外です。登録・解除できたときはアクションバーで知らせ、提督の机の剣タブにも反映されます。通常の左クリックと、自分の艦へのチーム操作は従来どおりです。
+- 小型・大型の建造卵を高速建造材へ解体するレシピを、JEI で表示するようにしました。
+- 騎乗体に専用の移動制御と原典の段差高3を復元し、騎乗体ごとの旋回上限と陣形速度を反映しました。
+
+### クレーン
+
+- 数量モードで、指定個数に達した品物まで余計に積み下ろしする問題を修正しました。
+- 荷役中の連続出力と、正常終了時の短いパルスを、赤石モードの設定どおりに出力するようにしました。
+- ターゲットレンチで、クレーンとチェストなどの経由点のブロックをつなげるようにしました。
+- 入港の順番待ち、荷物の積み下ろし、時間を決めた待機、作業後につないだ経由点への出発を復元しました。
+- アイテムを損傷値・NBT・共通の Forge タグで見分ける設定と、右クリックで設定する除外フィルターを復元しました。
+- 艦のポンプ装備を使った液体の貯蔵と容器への出し入れ、FE の蓄電とバッテリーの充電・放電を追加しました。
+- 画面に除外の印、停泊中の艦の名前、たまっている液体と FE の量を表示するようにしました。
+- 取り込み範囲の外で待っている艦は、通れる道があればクレーンの真下まで歩き続けるようにしました。
+- クレーンを壊したとき、フィルターに登録した見本が実物として落ちないようにしました。
+- 画面で、プレイヤーのインベントリの文字がフィルターに重ならないようにしました。
+
+### 戦闘と艦AI
+
+- 提督が直前に近接攻撃や投射物を当てた相手を、手動で指示した相手の次に優先して援護するようにしました。味方艦と、出撃中の艦載機が対象です。自動で敵を探す範囲と、艦載機が帰る条件は変わりません。
+- 指揮棒で射程の外にいる敵へ攻撃を指示すると、艦が近づいて撃つようにしました。追従・護衛中は、提督や護衛先から離れてよい範囲の端まで追います。艦から64ブロック以内（目標を保持する距離がそれより長い艦はその距離まで）なら狙い続け、離れると狙いを外しますが、指示は残り、近づくと再び狙います。自動の索敵・反撃、座っているときや燃料切れでの停止、指示の取り消しは従来どおりです。
+- 敵艦が自動で敵を探す距離と、狙い続ける距離を10ブロック延ばしました。そのかわり、敵艦が味方艦を撃つときは、その味方艦の射程に入るまで近づいてから撃ちます。敵艦がプレイヤーを撃つ距離と、味方艦の索敵・射撃の距離は変わりません。
+- 射程の端にいる相手への狙いが途切れて、攻撃できないことがある問題を修正しました。敵艦・味方艦の両方が対象です。
+- 陣形移動で、参加できる艦が5隻以上いれば、その場にいない艦・別の次元にいる艦・範囲外の艦などを今回だけ外して移動するようにしました。外した艦は、理由と隊の何番目の艦かを知らせます。単縦陣と梯形陣では参加する艦を隊の順に前へ詰め、ほかの陣形では従来の位置に並びます（ダイヤモンド陣で残りが5隻のときは、従来どおり詰めて並びます）。隊の登録と移動の速さは変わりません。
+- 追従中や、動く相手を護衛している間に、相手が動いてから艦が追いつくまでの遅れを減らしました。開始・停止の距離、瞬間移動する条件、地点の護衛、経由点の巡回は従来どおりです。
+- 高速で移動したあとの呼び戻しで、艦の読み込みに時間がかかっても途中でやめず、一定の時間まで待つようにしました。呼び戻せなかった艦は、まとめて知らせます。命令を変えるなどして取り消した呼び戻しは再開しません。
+- 艦が行き先にたどり着けずに引っかかったとき、サーバーが一瞬止まる問題を軽くしました。届かない場所が多いところでは、回り道を始めるまでに最大0.8秒ほどかかることがあります。
+- 連装砲（通常型・S型）の攻撃にも、所有者・同盟・誤射の設定による保護が効くようにしました。保護される相手にはダメージを与えず、ひるませもしません。相手を追う動きと、6発の弾の消費は変わりません。
+- 水面から1段の岸へ通常の経路探索がつながらず、艦が水側で止まる問題を修正しました。安全に浮上・上陸できる岸への経路接続を追加し、浮力や移動速度は変更していません。
+- 水上の艦が岸の縁で止まる問題を修正しました。味方艦・騎乗体・敵艦が、それぞれの段差高までの岸へ浮き上がって上陸します。プレイヤー操縦中の騎乗体は従来どおりです。
+- 敵艦の段差高を大きさの段階に合わせた1〜4段へ戻しました。
+
+### アイテムと卵
+
+- 有効なデータ定義の艦すべての味方卵を、艦ID順でクリエイティブタブへ追加しました。同期や再読込の後に更新するようにしました。
+- 婚約指輪を、同じものなら64個まで重ねられるようにしました。右クリックの ON/OFF は手に持った束全体に効き、結婚では1回につき1個だけ使います。
+- 艦の卵を、種類と中身が同じものなら16個まで重ねられるようにしました。使うときも解体するときも1個ずつ消費します。
+- 大型の建造卵を解体して得られる高速建造材を、64個から8個に減らしました。小型は8個のままです。持ち主や保存データのない個別艦の卵も、8個に解体できます（データ定義の艦の汎用卵は除きます）。艦が沈んだときに保存された卵は、これまでどおり解体できません。
+- 味方艦が沈んで卵に戻ったときも、解体ハンマーで倒したときも、レベルが下がらないようにしました（これまでは1下がっていました）。すでに持っている卵のレベルは変わりません。
+- レシピ用紙を主手か副手に持って開き、材料の写し取り・消去と、製作結果の確認ができるようにしました。変更はその用紙にすぐ保存され、用紙を動かすと画面が閉じます。中身が壊れた用紙や、古い結果の表示からは製作しません。
+- 艦のデータが入った卵の説明欄の要求レベルが、実際に消費する経験値レベルより大きく表示されていた問題を修正しました。
+- 死亡卵から復活した味方艦が、育成・装備を反映した最大HPまで全回復するように修正しました。保存していた警戒命令が低HPの逃走で中断される問題を解消します。ネット・魂符で運ぶ際の負傷HPは従来どおり保持します。
+
+### 操作と説明書
+
+- 艦の「設定」画面の先頭に、右クリックとしゃがみ右クリックの操作を入れ替える設定を追加しました。オンにすると右クリックで艦のインベントリ、しゃがみ右クリックで座る・立つを切り替えます。既定は従来どおりで、自分のクライアントの全艦に適用されます。アイテム固有の操作は変わりません。
+- 説明書で開いている章を強調し、リンク先から戻る操作と画面内の章別ページ記憶を追加しました。図鑑モデルの回転中心を足元から上げました。
+- 説明書の「ハジメニ」章を見直しました。最初の艦を建造するページに深海ノ熱水噴出孔のレシピを載せ、関係する章へクリックで移れるリンクを付けました。資材の入手方法、陣形の画面の開き方、陣形で動かした艦が到着後もその場に留まること、射程外の敵へは近づいて攻撃することなどを今の動作に合わせて書き直し、サファリネット・深海棲艦魂符・騎乗中の武装の説明を加えました。
+
+### 修正
+
+- 新しく設置した小型ドックを使える人を、設置者・その同盟・サーバーの管理者（OP）に限定しました。所有者情報のない既存ドックは、これまでどおり誰でも使えます。
+- 他のプレイヤーが所有する経由点を、所有者か OP 以外が通常の操作で撤去できないようにしました。クリエイティブモードだけでは保護を回避できません。
+- コンパスの周囲読み込みが設定に従うようにし、装備を外したときや艦がいなくなった後も読み込みが残る問題を修正しました。
+- 通常のビームを艦が受けたとき、防御力による軽減が二重にかかる問題を修正しました。
+- 資材を保存した重怨を大型設備へ再投入すると、中身の資材が失われる問題を修正しました。Easy モードでも、保存資材には倍率を重ねてかけません。
+- 多金属鉱石・海底多金属砂利の生成回数と、砂利が置き換えるブロックを設定から読むようにしました。生成回数は新しい `polymetalOreClusters`・`polymetalGravelClusters` で指定し、既定の生成量は維持します。
+- 艦の採掘の既定表で、多金属資材の枠から深海金属が出る問題を修正しました。既存の採掘設定は、該当する未編集の既定行だけを更新します。
+- 敵艦の群数を0にすると通常の敵艦生成を止められるようにしました。
+- 設備設定の再読込後、小型・大型建造所と火山コアの稼働にも新しい値を反映するようにしました。
+- 味方艦がケーキなどを製作したとき、材料の空の容器がなくなる問題を修正しました。チェストが満杯のときは、製作結果と同じく空の容器を地面に落とします。
+- 味方艦が落ちているアイテムを拾っても、育成の経験値が増えない問題を修正しました。拾えるすべての艦が対象で、拾ったものを全部しまえたときに1回分の経験値を得ます（拾った個数には比例しません）。
+- 味方艦の自動ポンプと、経験値の瓶詰めが動かない問題を修正しました。有限の液体の源は、容器に全部入るときだけ汲みます。経験値は8ポイントにつき瓶1本です。無限に汲める深さの設定を0以下にしても、有限の源は汲めます。
+- 多金属鉱石を掘っても経験値が出ない問題を修正しました。通常は1〜4、幸運付きの道具では幸運のレベル+1倍の経験値が出ます。シルクタッチでは出ません。Curios を併用していても、適さない道具では出ません。
+- 味方艦のミサイルで敵を沈めても、撃った艦の撃沈数と士気が増えない問題を修正しました。
+- 艦がミサイルを受けたとき、艦独自の軽減に耐性ではなく耐火が使われていた問題を修正しました。耐性は1レベルにつき20%（最大4レベル）軽減し、耐火はミサイル以外の、艦からの直撃を軽減します。
+- 提督の机と携帯の深海レーダーに、自分の艦が表示されない問題を修正しました。同じ次元にいる読み込み済みの自分の艦を、設定した更新間隔で表示します。
+- 騎乗体に座った艦が近くのプレイヤーを見るとき、顔の向きに合わせて体も少し向くように修正しました。
+- 騎乗体8種が水上で上下に揺れる様子が表示されない問題を修正しました。
+- データ定義の艦（鹿島・雪風など）で、歩くアニメーションと止まっているアニメーションが頻繁に切り替わる問題を軽くしました。
+- 戦闘糧食の説明文に、改行の記号がそのまま表示される問題を修正しました。
+- MOD一覧の作者欄に、テクスチャ制作のしらたき氏、開発協力の Ciao_Min 氏、雪風のモデル制作のズィズィ氏を加えました。
+- 装備の説明表示が、画面下端でも下枠まで収まるようにしました。
+- 装備詳細画面の長い行がパネル幅で折り返され、右端で切れないようにしました。
+- 中国語（簡体字・繁体字）の訳の抜けを補い、装備名を英語版と同じ個別の名前に改めました。装備詳細画面などで英語のまま表示されていた文言を、各言語で表示するようにしました。
+- 負の高さで、足元の液体判定・水深が1ブロック上を参照する問題を修正しました。艦・召喚物・騎乗体、操縦・航跡・モデル・炉の液体判定に共通して適用します。
+
+### アドオン制作者向け
+
+- datapack の艦定義で、建造と通常の敵としての出現を指定できるようにしました。建造は、資材による建造・固定の確率での建造・建造しない、の中から艦ごとに選べます。重み付きの建造の割合は合計50%までです。完成した建造卵は、選ばれた艦を保ちます。
+- 艦定義の `hostile_variants` で、固有名・特性・敵専用の補正を持つ敵の固有個体を出せるようにしました。固有個体が落とした卵からは、固有名・特性・レア度を引き継いだレベル1の味方を迎えられます（敵専用の補正は引き継ぎません）。個体の情報は、沈んだときの卵・サファリネット・魂符でも保たれます。個体ごとに、色違いのテクスチャ（`visual_variant`）と赤いオーラ（`red_aura`）を指定でき、色違いの見た目は加入後も保たれます。
+- `/reload` で艦定義の攻撃設定を変えると、すでに出現している艦にもすぐ反映するようにしました。定義で `melee` を指定した敵艦は、新しく出現したものから近接攻撃をします。味方艦の近接攻撃の設定と、組み込みの敵の攻撃は変わりません。
+- 艦IDのない汎用艦は、召喚しても世界に残らないようにしました。IDはあるが定義だけが見つからない艦は、これまでどおり保存したまま、定義が戻るのを待ちます。
+- 艦定義の公開 JSON Schema に、選べる AI・攻撃の ID と、省略したときの既定値を書き足しました。
+- 標準の艦を追加する方法の日英の文書と、見本の艦を追加しました。
+
+### 更新時の注意
+
+- 更新の前にワールドをバックアップしてください。サーバーとすべてのクライアントを同じ版にそろえてください。
+- 0.13.0 から、味方艦がプレイヤーへ新たに反撃するのは、許可した場合だけになっています（0.13.0 の変更履歴に書き漏れていました）。許可を設定していない艦は、以前からいる艦も含めて反撃しません。艦の AI 設定か、指揮棒の艦隊設定で許可でき、艦自身か所属する艦隊のどちらかが許可していれば反撃します。これまでの敵味方の判定は変わりません。また、この設定はすべての攻撃をすぐに止めるスイッチではありません。
+
+### English
+
+#### New ships
+
+- Added Yukikaze. She appears as a wild enemy shipgirl and cannot be obtained through construction. Thanks to ズィズィ for the model and assets.
+- Kashima now appears as a wild enemy shipgirl. Defeating her can drop a Kashima egg that you can use to recruit her. She cannot be obtained through construction.
+- Added automatic blinking, expressions that follow emotion, pose and attacks, head tilting, and hair and twin-tail movement that follows the head to Kashima.
+
+#### New items
+
+- Added the Safari Net, a reusable item that carries one of your own ships together with its state and equipment. Right-click a ship without sneaking to store it, and right-click a block to release it. Other players' ships and enemy ships cannot be stored, and only the original owner can release or pick up a filled net. Sneak-right-clicking a ship still opens its screen. Texture by しらたき (not to be included in other mods or forks; free for videos, fan works and addons).
+- Added the Abyssal Soul Talisman as a preview (experimental) feature. It carries up to six of your own ships. Store ships one at a time or a whole fleet, then release them one by one in your current fleet order or all at once around the clicked spot. Switch modes with the same modifier key and mouse wheel as the Command Baton. It cannot be crafted; it drops very rarely from hostile mobs.
+
+#### Mod integration
+
+- Added Mekanism integration. With Mekanism installed, Polymetal Ore can be processed 2x–5x through Mekanism's ore processing (dust, dirty dust, clumps, shards and crystals, plus dirty and clean slurry). The dust can be smelted back into Polymetal in a furnace or blast furnace. Everything works as before without Mekanism.
+
+#### Restored from the original ShinColle 1.10.2
+
+- Mounted ship weapons can be fired with the hotbar 1–4 keys again, with aim markers, cooldowns and aircraft counts. Hold a key to keep firing without changing hotbar slots. Mount inventory and Command Baton team shortcuts take priority.
+- Restored the healing boost for friendly ships from nearby healing or regeneration clouds and from flying splash or lingering potions. Clouds take priority, the boost applies at most once per second, and it works no matter who threw the potion.
+- Ship equipment can be enchanted with enchanted books at an anvil again, for a fixed cost of 30 levels. Renaming or clearing the name at the same time costs nothing extra.
+- Holding the team-management modifier key (Shift by default) while left-clicking a creature other than your own ship with the Command Baton adds or removes its kind from the attack-target list. Players are excluded. Successful changes are shown on the action bar and in the sword tab of the Admiral's Desk. Normal left-clicks and team operations on your own ships are unchanged.
+- JEI shows the recipes for dismantling small and large construction eggs into instant construction materials again.
+- Restored dedicated movement control and the original step height of 3 for mounts, applying each mount's turn limit and formation speed.
+
+#### Cranes
+
+- Fixed quantity modes loading or unloading extra items after their specified count had already been reached.
+- The redstone mode setting now controls continuous output during cargo work and short pulses on normal completion.
+- Target Wrenches can link cranes to chests and other waypoint blocks.
+- Restored arrival queues, cargo work, timed waits, and departure to the linked waypoint after the work is done.
+- Restored item matching by damage, NBT and shared Forge tags, and right-click exclusion filters.
+- Added fluid storage and container transfers powered by ship pump equipment, and FE storage with battery charging and discharging.
+- The crane screen shows exclusion marks, the docked ship's name, and the stored fluid and FE amounts.
+- Ships waiting outside the capture area keep walking toward the crane's underside when a path exists.
+- Filter samples no longer drop as real items when a crane is broken.
+- The player inventory label no longer overlaps the filters on the crane screen.
+
+#### Combat and ship AI
+
+- Friendly ships and launched aircraft now assist against whatever the admiral last hit with a melee attack or projectile, right after any manually ordered target. Automatic search range and aircraft return conditions are unchanged.
+- Ordering an attack on an enemy out of range with the Command Baton now makes the ship close in and fire. While following or escorting, it chases up to the edge of the area it may leave. The target stays locked within 64 blocks of the ship (or its longer target-holding range); beyond that the lock is released but the order remains, and the ship aims again when it comes back in range. Automatic search, retaliation, stopping while seated or out of fuel, and order cancellation are unchanged.
+- Enemy ships search for and keep targets 10 blocks farther. In exchange, when an enemy ship attacks a friendly ship, it closes in until it is within that friendly ship's range before firing. The range at which enemy ships fire at players, and friendly ships' search and firing ranges, are unchanged.
+- Fixed ships losing aim at targets right at the edge of their range and failing to attack. This applies to both enemy and friendly ships.
+- Formation moves now proceed when at least five ships can take part, leaving out ships that are absent, in another dimension or out of range for that move only. You are told which ships were left out, why, and their position in the team. Line ahead and echelon move the remaining ships forward in team order; other formations keep their usual positions (diamond still closes up when five ships remain). Team membership and speed are unchanged.
+- Ships that follow you or escort a moving target catch up sooner after it moves. Start and stop distances, teleport conditions, position escort and waypoint patrol are unchanged.
+- Recalls after fast travel no longer give up when ships take a while to load; they wait up to a fixed limit and report any ships that could not be recalled together. Recalls cancelled by a new order are not resumed.
+- Reduced the brief server freeze when a ship gets stuck because it cannot reach its destination. Where many spots are unreachable, a detour may take up to about 0.8 seconds to start.
+- Twin guns (normal and S type) now respect owner, alliance and friendly-fire protection: protected targets take no damage and do not react. Chasing and the six-shot ammunition use are unchanged.
+- Fixed ordinary path searches stopping on the water side of a one-block bank. Added safe surface-water-to-bank connections without changing buoyancy or movement speed.
+- Ships now lift over shoreline edges up to their step height, including allied ships, mounts and hostile ships. Player-controlled mounts are unchanged.
+- Restored hostile ship step heights of one to four blocks according to their size stage.
+
+#### Items and eggs
+
+- Added friendly spawn eggs for all valid data-defined ships to the creative tab, sorted by ship ID and refreshed after synchronization or reload.
+
+- Engagement rings with the same data stack up to 64. The right-click ON/OFF toggle applies to the whole stack, and each marriage uses only one ring.
+- Ship eggs of the same kind and contents stack up to 16. Using or dismantling them still consumes one at a time.
+- Dismantling a large construction egg now gives 8 instant construction materials instead of 64; small eggs still give 8. Individual ship eggs without an owner or saved data can also be dismantled into 8 (generic eggs for data-defined ships excluded). Eggs saved when a ship sank still cannot be dismantled.
+- Friendly ships no longer lose a level when they sink and return to an egg, or when they are defeated with the Kaitai Hammer (previously they lost one level). Existing eggs keep their current level.
+- Recipe papers can be opened from the main or off hand to copy or clear materials and check the crafting result. Changes are saved to the paper immediately, and the screen closes if the paper is moved. Ships do not craft from damaged papers or stale result displays.
+- Fixed saved ship eggs showing a required experience level higher than the amount actually consumed.
+- Ships revived from saved death eggs now heal to their final maximum HP after restoring growth and equipment, avoiding low-health fleeing that interrupts a saved guard order. Net and talisman transport still preserve wounded health.
+
+#### Controls and guide book
+
+- Added a client-local option at the top of ship Settings to swap right-click and sneak-right-click actions for all your ships. When enabled, right-click opens the ship inventory and sneak-right-click toggles sitting. Disabled by default; item-specific actions are unchanged.
+- Highlighted the guide book's current chapter, added return links and per-chapter page memory while the screen is open, and raised the gallery model's rotation pivot above its feet.
+- Revised the Introduction chapter of the guide book. The first-build page now shows the Small Shipyard recipe, and clickable links jump to related chapters. Descriptions now match current behavior (where materials come from, how to open the formation screen, ships moved in formation staying in place, closing in on out-of-range targets), and the Safari Net, the Abyssal Soul Talisman and mounted weapons are covered.
+
+#### Fixes
+
+- Newly placed small docks can now be used only by the player who placed them, that player's allies, and server operators (OPs). Existing docks without owner information remain open to everyone.
+- Owned waypoints can now be removed through normal interactions only by their owner or a server operator (OP). Creative mode alone does not bypass this protection.
+- Compass chunk loading now follows the settings and no longer stays active after the equipment is removed or the ship is gone.
+- Fixed defense reduction being applied twice when ships are hit by normal beams.
+- Fixed stored materials being lost when a Heavy Grudge Lump is fed back into a large facility. Stored materials are not multiplied again, even in Easy mode.
+- Generation counts for Polymetal Ore and seafloor Polymetal Gravel, and the blocks the gravel replaces, now follow the settings. Use the new `polymetalOreClusters` and `polymetalGravelClusters` keys to set the generation counts; default generation amounts are unchanged.
+- Fixed the default ship mining table giving Abyssal Metal from entries meant for Polymetal materials. Existing mining settings are updated only for the affected default lines that have not been edited.
+- Setting the enemy ship group count to 0 now stops normal enemy ship spawning.
+- Reloading facility settings now also applies the new values to small and large shipyards and the Volcano Core during operation.
+- Fixed empty material containers being lost when friendly ships craft cakes and similar items. If the chest is full, the empty containers drop on the ground like the crafted items.
+- Fixed friendly ships not gaining training experience when picking up items. Every ship that can pick up items gains one portion of experience each time it stores everything it picked up, regardless of the item count.
+- Fixed friendly ships' automatic pumping and experience bottling not working. Finite fluid sources are pumped only when the container can take all of it, and experience is bottled at one bottle per 8 points. Finite sources can still be pumped when the infinite-pumping depth is set to 0 or below.
+- Fixed Polymetal Ore giving no experience when mined. It gives 1–4 normally and (Fortune level + 1) times that with Fortune, and none with Silk Touch. With Curios installed, unsuitable tools still give none.
+- Fixed sinking an enemy with a friendly ship's missile not raising the firing ship's kill count and morale.
+- Fixed ships using Fire Resistance instead of Resistance for their own missile damage reduction. Resistance reduces it by 20% per level (up to 4 levels), and Fire Resistance reduces direct hits from ships other than missiles.
+- Fixed your own ships not appearing on the Admiral's Desk radar and the portable Abyssal Radar. Loaded ships of yours in the same dimension are shown at the configured radar update interval.
+- Ships seated on a mount now turn their body slightly with their face when looking at a nearby player.
+- Fixed the bobbing of the eight mount types on water not being shown.
+- Reduced frequent switching between walking and idle animations for data-defined ships such as Kashima and Yukikaze.
+- Fixed literal line-break tags appearing in combat ration tooltips.
+- Added しらたき (textures), Ciao_Min (development contributor) and ズィズィ (Yukikaze model) to the authors in the mod list.
+- Equipment tooltips now fit inside their bottom border even at the bottom edge of the screen.
+- Long lines on the equipment detail screen now wrap at the panel width instead of being cut off at the right edge.
+- Filled missing Simplified and Traditional Chinese translations and renamed Chinese equipment names to match the English item names. Text on the equipment detail screen and similar places that was always shown in English is now translated.
+- Fixed feet liquid and depth queries reading one block too high at negative heights. The shared correction also applies to summons, mounts, steering, wakes, models and furnace liquid checks.
+
+#### For addon authors
+
+- Ship definitions in datapacks can specify construction and normal hostile spawning. Each ship can use material-based construction, fixed-probability construction, or no construction. Weighted construction shares are capped at 50% in total, and completed construction eggs keep their selected ship.
+- `hostile_variants` in a ship definition spawns enemy unique individuals with their own names, traits and enemy-only modifiers. Eggs dropped by unique individuals recruit a level-1 friendly ship that keeps the name, traits and rarity (enemy-only modifiers are not inherited). Individual data is kept in sunk-ship eggs, Safari Nets and talismans. Each individual can set a texture variant (`visual_variant`) and a red aura (`red_aura`); the texture variant is kept after recruitment.
+- Changing a ship definition's attack settings with `/reload` now applies to ships already in the world right away. Newly spawned enemy ships whose definition specifies `melee` use melee attacks. Friendly ships' melee setting and built-in enemies' attacks are unchanged.
+- Generic ships without a ship ID no longer stay in the world when summoned. Ships whose ID is set but whose definition is missing are still saved and wait for the definition to return.
+- The public JSON Schema for ship definitions now lists the selectable AI and attack IDs and the defaults used when they are omitted.
+- Added Japanese and English documents on adding standard ships, with a sample ship.
+
+#### Updating
+
+- Back up your worlds before updating, and use the same version on the server and every client.
+- Since 0.13.0, friendly ships only start retaliating against players when allowed (this was missing from the 0.13.0 changelog). Ships without the setting, including existing ones, do not retaliate. Allow it in the ship's AI settings or the Command Baton's fleet settings; a ship retaliates if either the ship itself or its fleet allows it. Existing friend-or-foe rules are unchanged, and this is not a switch that immediately stops all attacks.
+
 ## v1.20.1-0.13.0 (β版)
 
 - 釣りモードの艦へ指揮棒のシングルモードで通常の移動を指示すると、到着後もその釣り場に留まるようにしました。同じ地点を再指定すると追従へ戻ります。グループ指示と移動専用指示の動作は従来どおりです。
@@ -14,66 +241,66 @@
 
 - リソースパックの visual 定義で、新規艦のモデル・テクスチャ・基本アニメーションを表示できるようになりました。縮尺・影・骨の役割対応を指定でき、見た目の定義が欠ける艦は仮モデルで表示します。鹿島 (`shincolle_kai:kashima`) を表示確認用に追加しました（能力値は暫定、コマンド・専用 egg のみ。建造・自然出現は無効）。既存艦の描画は変更しません。クライアント・サーバーは両方とも protocol 16 に対応する同じ版を使用してください。
 
-- Fixed Iron's Spellbooks spells hitting allied ships and turning ships against each other. Spell damage from you, your summons, or a player allied with the ship's owner is now cancelled against that owner's ships (yours and your allies' alike), and the cancelled hit no longer makes your ships take the ship as a revenge target. Spell damage from strangers, and damage from other mods' spells, is unchanged. Saved worlds and the network protocol are unchanged.
+- Iron's Spellbooks の魔法が味方艦に当たり、艦同士が戦い始める問題を修正しました。自分・自分の召喚物・艦の持ち主と同盟したプレイヤーの魔法のダメージは、その持ち主の艦（自分の艦と同盟相手の艦）に対しては無効になり、無効になった攻撃で艦が相手を反撃の対象にすることもなくなりました。無関係なプレイヤーの魔法と、ほかのMODの魔法のダメージは変わりません。保存データと通信のプロトコルは変わりません。
 
 - 艦・召喚物による通常モブの撃破について、実績・総撃破数・種類別撃破数・撃破スコアボードの不足分を補います。既存のプレイヤー受領者を優先し、受領者がいなければ同じ次元にいるオンライン提督へ計上します。FTB Quests 2001.4.12では提督のチームの標準撃破タスクも通常の開始条件に従って補完します。攻撃者は艦・召喚物のままなので、軽減・ノックバック・報復対象を計上のために変えません。補完はtick終了時に行い、救命・死亡キャンセルでは加算しません。XP・ドロップ・Lootingは変更せず、特殊ボスの独自死亡や他MODの蘇生等は保証範囲外です。
 
-- **For addon authors:** ship definitions (`data/<namespace>/shincolle_kai/ships/<path>.json`, `"schema": 1`) can now be spawned with the administrator command `/shincolle ship spawn <ship_id> [hostile]` or a `generic_ship_spawn_egg` carrying `ShipId`. Optional `dimensions`, `mount_offset`, `equip_type`, `attack_profile` (`shincolle_kai:default` only) and `hostile_modifiers` are supported. Friendly ships use `base_stats` and `growth`; hostile ships use configured tier values times `hostile_modifiers` (default 1, maximum 2.4), ignoring friendly base/growth values. Dimensions and hostile modifiers must be at least the smallest positive IEEE 754 float (`Float.MIN_VALUE`). Missing definitions leave ships dormant with their saved data retained until restored, including protection from piston and vehicle movement. Saved generic ship eggs have the same owner-only pickup protection and operator exception as built-in ship eggs. Built-in ships are unchanged. Clients and servers must both use protocol 16. The automated-test sample is not distributed in the JAR.
+- **アドオン制作者向け:** 艦定義（`data/<namespace>/shincolle_kai/ships/<path>.json`、`"schema": 1`）の艦を、管理者用のコマンド `/shincolle ship spawn <ship_id> [hostile]` か、`ShipId` を持つ `generic_ship_spawn_egg` で出せるようになりました。省略できる項目として `dimensions`、`mount_offset`、`equip_type`、`attack_profile`（`shincolle_kai:default` のみ）、`hostile_modifiers` に対応します。味方の艦は `base_stats` と `growth` を使います。敵の艦は設定の段階ごとの値に `hostile_modifiers`（既定1、最大2.4）を掛けた値を使い、味方用の基礎値・成長値は使いません。`dimensions` と `hostile_modifiers` は、正の最小の IEEE 754 浮動小数点数（`Float.MIN_VALUE`）以上にしてください。定義が見つからない艦は、保存データを保ったまま休眠し、定義が戻るまでピストンや乗り物でも動かされません。保存された汎用艦の卵にも、組み込みの艦の卵と同じく、持ち主だけが拾える保護と管理者の例外があります。組み込みの艦は変わりません。クライアントとサーバーは、どちらも protocol 16 に対応する版を使ってください。自動テスト用の見本は JAR に含めていません。
 
 - GeckoLib 4.8.4 を本体に同梱しました（別途導入は不要）。鹿島のモデル・アニメーション・テクスチャ素材を収録しました。
 
-- Fixed potion effects not reaching the ship's own damage and fishing rules. Resistance, Fire Resistance, Night Vision and Luck given to a ship (or to a shipgirl/Abyssal attacker) now take effect: Resistance cuts damage from abyssal missiles by 20% per level (up to 4 levels), Fire Resistance cuts damage from other ships' direct attacks the same way, an attacker's Night Vision brightens the day/night damage modifier by 0.8, and Luck raises the chance of treasure while fishing. These stack with Minecraft's own Resistance on top, so a resisted hit is reduced twice; the ship's attributes from potions are unchanged. Effects that expire, are removed or are replaced by a weaker hidden one stop applying at once.
+- ポーションの効果が、艦独自のダメージの計算と釣りの判定に効いていなかった問題を修正しました。艦（または攻撃する側の艦娘・深海棲艦）に付いた耐性・耐火・暗視・幸運が効くようになります。耐性は深海棲艦のミサイルのダメージを1レベルにつき20%（最大4レベル）減らし、耐火はほかの艦の直接攻撃のダメージを同じだけ減らします。攻撃する側に暗視があると、昼夜によるダメージの補正が0.8だけ明るい側へ寄ります。幸運は、釣りで宝物が出る確率を上げます。これらは Minecraft 本来の耐性の効果に重ねてかかるため、耐性が付いていると攻撃は2回軽減されます。ポーションによる艦の能力値は変わりません。効果が切れる・消される・弱い隠れた効果に置き換わると、すぐに効かなくなります。
 
-- **Breaking change for addon authors:** the public API is now split into a stable part (`com.lulan.shincolle.api`) and an experimental part (`com.lulan.shincolle.api.experimental`, which may change without notice). `ShinColleApi.API_VERSION` (now `1`) is raised only when a stable API changes incompatibly; additions do not raise it. `onShipHit` is removed from `IShipEquipment` and `ShipEquipmentProvider` and moved to `api.experimental.equipment.ShipEquipmentHitCallback`: an Item or provider that wants hit callbacks now implements that interface as well, and only those that do are called (the built-in Tinkers' Construct provider does). `ShipAttributeLayout.initialize(...)` is no longer public; the layout is built once from the frozen ship-attribute registry and read with `ShipAttributeLayout.current()`, which throws `IllegalStateException` if called before registries are frozen. `ShipEquipmentResolver` (internal, was in `api.equipment`) moved to `com.lulan.shincolle.equip` and is not part of the API. Documented dependency range for addons: `versionRange = "[1.20.1-1.0.0,1.20.1-2)"`; versions before 1.0 do not fix the API. Saved worlds and the network protocol are unchanged.
+- **アドオン制作者向けの互換性のない変更:** 公開 API を、安定版（`com.lulan.shincolle.api`）と試験版（`com.lulan.shincolle.api.experimental`。予告なく変わることがあります）に分けました。`ShinColleApi.API_VERSION`（現在は `1`）は、安定版の API に互換性のない変更があったときだけ上げ、追加だけでは上げません。`onShipHit` は `IShipEquipment` と `ShipEquipmentProvider` から削除し、`api.experimental.equipment.ShipEquipmentHitCallback` へ移しました。命中時の呼び出しを受けたい Item や provider は、このインターフェイスも実装してください。実装したものだけが呼ばれます（組み込みの Tinkers' Construct の provider は実装しています）。`ShipAttributeLayout.initialize(...)` は公開をやめました。レイアウトは確定した艦属性のレジストリから1回だけ作られ、`ShipAttributeLayout.current()` で読みます。レジストリの確定前に呼ぶと `IllegalStateException` を投げます。`ShipEquipmentResolver`（内部用で、`api.equipment` にありました）は `com.lulan.shincolle.equip` へ移り、API には含まれません。アドオンの依存範囲は `versionRange = "[1.20.1-1.0.0,1.20.1-2)"` と記載しました。1.0 より前の版では API を固定しません。保存データと通信のプロトコルは変わりません。
 
-- **Breaking change for addon authors:** ship-equipment providers are now registered in a Forge registry, `shincolle_kai:equipment_provider`, instead of through `ShipEquipmentProviders.register(...)` (removed together with `freeze`, `frozen`, `detached` and the `Registry` class). Create a `DeferredRegister<ShipEquipmentProvider>` against `ShipEquipmentProviders.REGISTRY_KEY` and register it on your mod event bus. Precedence is now chosen by the provider itself through the new `ShipEquipmentProvider.priority()` (default 0; higher first, ties broken by registry ID), and the registry is not saved or synchronized. The built-in Tinkers' Construct provider keeps its ID `shincolle_kai:tconstruct_tools` and priority 0. Saved worlds and the network protocol are unchanged.
+- **アドオン制作者向けの互換性のない変更:** 艦の装備の provider は、`ShipEquipmentProviders.register(...)` ではなく、Forge のレジストリ `shincolle_kai:equipment_provider` に登録するようになりました（`register` は `freeze`、`frozen`、`detached`、`Registry` クラスとともに削除しました）。`ShipEquipmentProviders.REGISTRY_KEY` に対して `DeferredRegister<ShipEquipmentProvider>` を作り、自分の MOD のイベントバスに登録してください。優先順位は、新しい `ShipEquipmentProvider.priority()`（既定0。大きいほど先で、同じならレジストリ ID の順）で provider 自身が決めます。このレジストリは保存も同期もされません。組み込みの Tinkers' Construct の provider は、ID `shincolle_kai:tconstruct_tools` と優先順位0のままです。保存データと通信のプロトコルは変わりません。
 
-- **Breaking change for addon authors:** combat-target traits are no longer assigned in Java. `TargetTraits.registerTargetTrait(...)` (with `freeze`, `frozen`, `detached`, `traitsFor` and `Registry`) and the `api.target.TargetTrait` enum are removed. A trait is now assigned to an entity type by the entity-type tag `<trait namespace>:shincolle_kai/target_trait/<trait path>`, for example `data/shincolle_kai/tags/entity_types/shincolle_kai/target_trait/anti_air_eligible.json` to make your aircraft anti-air targets (and `anti_submarine_eligible.json` for submarines); no Java is needed, and the assignment follows `/reload`. `CoreTargetTraits` holds the two built-in trait IDs and `tag(id)`. The registry `shincolle_kai:target_trait` and its element type `TargetTrait` are experimental (`api.experimental.target`); only the two built-in traits are read for now. Classification by entity class (aircraft, missiles, submarines) is unchanged.
+- **アドオン制作者向けの互換性のない変更:** 戦闘の目標の特性を Java で割り当てる方式をやめました。`TargetTraits.registerTargetTrait(...)`（`freeze`、`frozen`、`detached`、`traitsFor`、`Registry` を含む）と、列挙型 `api.target.TargetTrait` を削除しました。特性は、エンティティタイプのタグ `<trait namespace>:shincolle_kai/target_trait/<trait path>` で割り当てます。たとえば、自分の航空機を対空の目標にするには `data/shincolle_kai/tags/entity_types/shincolle_kai/target_trait/anti_air_eligible.json`、潜水艦なら `anti_submarine_eligible.json` を使います。Java は不要で、割り当ては `/reload` に追従します。`CoreTargetTraits` は、組み込みの2つの特性の ID と `tag(id)` を持ちます。レジストリ `shincolle_kai:target_trait` とその要素の型 `TargetTrait` は試験版（`api.experimental.target`）で、今のところ読むのは組み込みの2つの特性だけです。エンティティのクラス（航空機・ミサイル・潜水艦）による分類は変わりません。
 
-- **Breaking change for addon authors:** equipment definitions moved from `data/<namespace>/equipment/` to `data/<namespace>/shincolle_kai/equipment/`, and every equipment JSON must now start with `"schema": 4` (the published JSON Schema is now `equipment:4`). The old directory is no longer read: if a namespace still has JSON files there, one warning per namespace is written to the log. A definition whose `schema` is missing, not an integer, or not 4 is rejected on its own and the others still load. Definition IDs, saved worlds and the network protocol are unchanged. KubeJS scripts that write equipment JSON should use `kubejs/data/<namespace>/shincolle_kai/equipment/`.
+- **アドオン制作者向けの互換性のない変更:** 装備の定義の場所を `data/<namespace>/equipment/` から `data/<namespace>/shincolle_kai/equipment/` に移しました。装備の JSON は、すべて `"schema": 4` で始める必要があります（公開している JSON Schema は `equipment:4` になりました）。古い場所は読みません。古い場所に JSON ファイルが残っている名前空間ごとに、ログへ警告を1回出します。`schema` がない・整数でない・4でない定義は、その定義だけを読み込まず、ほかの定義は読み込みます。定義の ID、保存データ、通信のプロトコルは変わりません。装備の JSON を書き出す KubeJS のスクリプトは、`kubejs/data/<namespace>/shincolle_kai/equipment/` を使ってください。
 
-- Training Books now stack up to 64, as in the original mod.
+- 整備員訓練書を、元の MOD と同じく64個まで重ねられるようにしました。
 
-- Fixed a ship egg saved when a ship died being turned into fast construction material at a crafting table, which destroyed the ship's equipment, cargo and owner data. Dismantling an egg with a Kaitai Hammer now accepts only plain construction eggs, including the ones from the shipyards (named or not); saved ship eggs, eggs of a specific ship, and untagged, old-format or malformed eggs give nothing and are left untouched. Large construction eggs now give 64 construction material as in the original mod (they gave 8), small ones still give 8, and the hammer wears as before. Note: a saved egg can no longer be converted into construction material this way.
+- 艦が沈んだときに保存された卵が作業台で高速建造材に変えられ、艦の装備・積み荷・持ち主のデータが失われる問題を修正しました。解体ハンマーで解体できるのは、造船所で作ったものを含むふつうの建造卵（名前の有無は問いません）だけになりました。保存された艦の卵、特定の艦の卵、タグのない卵・古い形式の卵・壊れた卵からは何も得られず、そのまま残ります。大型の建造卵からは、元の MOD と同じく高速建造材が64個得られるようになりました（これまでは8個）。小型は8個のままで、ハンマーの消耗もこれまでどおりです。なお、保存された卵をこの方法で高速建造材に変えることはできなくなりました。
 
-- Restored the original mod's recipes for the Desk, Small Shipyard, Kaitai Hammer, Target Wrench, Volcano Block and Crane. Costs that go up: the Desk takes 5 obsidian (was 2) but only 1 wool of any colour (was 2 white); the Small Shipyard takes 2 Grudge, 3 lava buckets and 4 obsidian (was 1, 1 and 3) in a 3x3; the Kaitai Hammer takes 6 Abyssium (was 5); the Target Wrench takes 6 Abyssium (was 4). Costs that go down: both Volcano Block layouts need a single Grudge Block in the middle (was 4) and 4 magma blocks plus 4 obsidian around it. The Crane keeps its 7 Abyssium, piston and Grudge Block, but now uses the original layout (Grudge Block in the middle, piston below it). Lava and milk buckets used in these recipes are still returned as empty buckets.
+- 提督の机、小型造船所、解体ハンマー、ターゲットレンチ、深海火山ブロック、深海クレーンのレシピを、元の MOD のものに戻しました。材料が増えるもの: 提督の机は黒曜石5個（これまでは2個）で、羊毛は色を問わず1個（これまでは白2個）。小型造船所は怨念2個・溶岩入りバケツ3個・黒曜石4個（これまでは1・1・3個）を3×3に並べます。解体ハンマーは深海金属6個（これまでは5個）、ターゲットレンチは深海金属6個（これまでは4個）。材料が減るもの: 深海火山ブロックは2通りの並べ方とも、中央の怨念ノ塊が1個（これまでは4個）になり、周りにマグマブロック4個と黒曜石4個を置きます。深海クレーンは深海金属7個・ピストン・怨念ノ塊のままで、並べ方が元の MOD のもの（怨念ノ塊が中央、ピストンがその下）になりました。これらのレシピで使う溶岩入りバケツとミルク入りバケツは、これまでどおり空のバケツになって戻ります。
 
-- Restored the original mod's material recipes: one Polymetal Nodule can be split into 9 Polymetal Nuggets again, and 9 nuggets (3x3) join back into a nodule, with no gain either way. Light and heavy ammunition can also be made from tin, lead, bronze, steel, silver and uranium ingots (same layout as the other metals: 7 ingots, a Grudge and gunpowder or blaze powder), but these recipes only appear when a mod or data pack supplies the matching `forge:ingots/<metal>` tag; without such a metal nothing changes. The ten existing recipes that took one vanilla material (Abyssium from iron, Recipe Paper with lapis, and light and heavy ammunition from copper, iron, gold and diamond) now accept any item of the same `forge:ingots/…` or `forge:gems/…` tag, so another mod's copper, iron, gold, diamond or lapis works too; vanilla materials, layouts and result counts are unchanged.
+- 元の MOD の素材のレシピを戻しました。ポリメタル1個をポリメタルナゲット9個に分けられるようになり、ナゲット9個（3×3）で元に戻せます。どちらの向きでも増減はありません。軽弾薬と重弾薬は、錫・鉛・青銅・鋼・銀・ウランのインゴットからも作れます（ほかの金属と同じ並べ方で、インゴット7個・怨念・火薬かブレイズパウダー）。ただし、これらのレシピは、対応する `forge:ingots/<metal>` タグを MOD や datapack が用意しているときだけ現れ、その金属がなければ何も変わりません。バニラの素材を1種類使っていた既存の10個のレシピ（鉄からの深海金属、ラピスラズリを使うレシピ用紙、銅・鉄・金・ダイヤモンドからの軽弾薬と重弾薬）は、同じ `forge:ingots/…` か `forge:gems/…` のタグの素材ならどれでも使えるようになり、ほかの MOD の銅・鉄・金・ダイヤモンド・ラピスラズリでも作れます。バニラの素材、並べ方、できる個数は変わりません。
 
-- Restored the original mod's combat ration recipes. The wheat recipes now need the original six wheat around the base item (bread or a cooked meat, a golden carrot and a grudge) instead of one wheat, so the old cheap recipes are gone. Cooked meats now make the meat ration (type 2) instead of the plain one, the ice cream now makes the real ice cream ration (type 4, which clears debuffs when fed), and the upgraded rations can be crafted again: ration + grudge block + polymetal gravel (types 1 and 3) and ice cream + grudge block (type 5). Rations can also be crafted with cooked rice or flour, but only when a data pack or another mod fills the `shincolle_kai:cooked_rice` or `shincolle_kai:flour` item tag; both tags are empty by default, so out of the box only the six-wheat recipes are available.
+- 元の MOD の戦闘糧食のレシピを戻しました。小麦のレシピは、小麦1個ではなく、元の MOD と同じく、基になるもの（パンか焼いた肉、金のニンジン、怨念）の周りに小麦6個が必要になり、これまでの安いレシピはなくなりました。焼いた肉からは、ふつうの糧食ではなく肉の糧食（2番）ができます。アイスクリームからは、本来のアイスクリームの糧食（4番。与えると悪い効果を消します）ができます。上位の糧食も再び作れます: 糧食＋怨念ノ塊＋ポリメタルノ砂利（1番と3番）、アイスクリーム＋怨念ノ塊（5番）。炊いた米や小麦粉からも作れますが、datapack かほかの MOD が `shincolle_kai:cooked_rice` か `shincolle_kai:flour` のアイテムタグを埋めたときだけです。どちらのタグも既定では空なので、導入したままの状態では小麦6個のレシピだけが使えます。
 
-- Fixed followers being left behind when the admiral teleports a long way twice in a short time. Teleporting again within 20 seconds (with `/tp`, a waystone and the like) now brings the followers every time, instead of leaving the ones already moved at the first destination until the admiral came back. The wait of about 5 seconds is the same for each teleport, and a follower that is still waiting for an earlier one keeps its wait. Sitting, guarding, movement-banned, unfollowed or out-of-fuel ships and other admirals' ships are still not teleported.
+- 提督が短い間に2回遠くへテレポートしたとき、追従する艦が置き去りになる問題を修正しました。20秒以内にもう一度テレポートしても（`/tp` やウェイストーンなど）、そのたびに追従する艦がついてきます。これまでは、1回目の行き先へ移った艦が、提督が戻ってくるまでそこに残っていました。約5秒の待ち時間はテレポートごとに同じで、前のテレポートの待ち時間の途中にいる艦は、その待ち時間を保ちます。座っている艦・護衛中の艦・移動を禁止した艦・追従していない艦・燃料切れの艦・ほかの提督の艦は、これまでどおりテレポートしません。
 
-- Restored Carrier Hime's missile melee: her melee attack now launches one missile along her melee missile parameters (double melee damage, no knockback, 100-tick life) from 1.3 blocks above her feet toward the lower body of the target, instead of dealing contact damage. Damage is dealt only when the missile lands, and the attack is charged as a melee attack, with no cannon ammunition, aircraft slot or grudge spent. Melee still requires the Use Melee setting, which stays off by default.
-- Restored Northern Hime's floating fortress: her heavy cannon shot launches a fortress (instead of an ordinary missile) that flies to its target and explodes within about 2.4 blocks of it, when the target is lost or she recalls it, or after 25 seconds, dealing her heavy cannon damage in a 4.5-block radius. It uses one heavy ammunition unit and no heavy aircraft slot, and nothing is refunded when it ends; it disappears without exploding if its ship is gone. Her heavy aircraft are ordinary takoyaki again, and block-targeted heavy shots stay ordinary missiles.
-- Restored cluster missiles' five submunitions at eight-tick intervals while the parent continues flying. Each child retains half the parent's launch damage, inherits its motion, and falls with horizontal drag and a brief trail delay. Raw child trajectories no longer depend on proximity to the world origin.
+- 空母棲姫のミサイルによる近接攻撃を戻しました。近接攻撃は、接触でダメージを与えるのではなく、近接用のミサイルの設定（近接ダメージの2倍、ノックバックなし、寿命100 tick）で、足元から1.3ブロック上から相手の下半身へ向けてミサイルを1発撃ちます。ダメージはミサイルが着弾したときだけ入ります。攻撃は近接攻撃として数え、砲の弾薬・艦載機の枠・怨念は使いません。近接攻撃には、これまでどおり「近接攻撃を使う」の設定が必要で、既定はオフのままです。
+- 北方棲姫の浮遊要塞を戻しました。重砲を撃つと、ふつうのミサイルではなく要塞を打ち出します。要塞は目標へ飛び、目標から約2.4ブロック以内に入ったとき、目標を失ったとき、北方棲姫が呼び戻したとき、または25秒たったときに爆発して、半径4.5ブロックに北方棲姫の重砲のダメージを与えます。重弾薬を1単位使い、重い艦載機の枠は使わず、終わっても弾薬は戻りません。撃った艦がいなくなると、爆発せずに消えます。重い艦載機は再びふつうのたこ焼きになり、ブロックを狙った重砲はふつうのミサイルのままです。
+- クラスターミサイルが、親のミサイルが飛び続けている間に8 tick おきに子弾を5発出す動きを戻しました。子弾はそれぞれ親の発射時のダメージの半分を持ち、親の動きを受け継いで、水平方向に減速しながら落ち、航跡は少し遅れて出ます。子弾の軌道が、ワールドの原点からの距離に左右されなくなりました。
 
-- Restored Ru-class battleships' fixed-aim heavy burst: 5 or more missiles at four-tick boundaries, each dealing 20% heavy damage, plus double light-base melee damage. A burst is charged once; repeated heavy inputs while busy consume nothing. Sitting, crane loading, fuel loss, AI suspension, death, removal, loading a save, or changing dimensions cancels unfinished shots without refund or automatic resumption. Light attacks and movement remain independent.
+- 戦艦ル級の、狙いを固定した重砲の連射を戻しました。4 tick ごとに5発以上のミサイルを撃ち、それぞれ重砲のダメージの20%を与えます。あわせて、近接攻撃のダメージを軽砲の基礎値の2倍に戻しました。連射の消費は1回分だけで、撃っている間に重砲の入力を繰り返しても何も消費しません。座る・クレーンでの積み込み・燃料切れ・AIの停止・死亡・消滅・保存データの読み込み・次元の移動のいずれかで、撃ち終わっていない弾は取り消され、消費は戻らず、自動では再開しません。軽砲と移動は、これとは別に動きます。
 
-- Restored light torpedo projectiles for allied Yo, Ro500, U511, Submarine Hime and SSNH, and wild U511 and Ro500. Ka and So are unchanged. Equipment-derived light-torpedo speed bonuses and SSNH's melee damage are restored.
-- Restored Submarine Hime and SSNH's twin light and heavy missile launches, including block-targeted heavy shots, without charging ammunition or grudge for each projectile separately.
-- Restored the twin missiles' brief trail and railgun-head delay without hiding their models. Missile spawn synchronization now preserves the remaining delay for late tracking; clients and servers must use the same updated network protocol.
+- 味方のヨ級・呂500・U511・潜水棲姫・SSNH と、野生の U511・呂500 の軽魚雷の弾を戻しました。カ級とソ級は変わりません。装備による軽魚雷の速さの上乗せと、SSNH の近接攻撃のダメージも戻しました。
+- 潜水棲姫と SSNH が、軽・重のミサイルを左右2発ずつ撃つ攻撃を戻しました。ブロックを狙った重砲も含みます。弾1発ごとに弾薬や怨念を別に消費することはありません。
+- 左右2発のミサイルの短い航跡と、レールガンの先端が遅れて出る演出を、モデルを隠さずに戻しました。ミサイルが出現するときの同期で残りの遅れの時間を保つため、あとから見え始めたプレイヤーにも正しく表示されます。クライアントとサーバーは、通信のプロトコルを更新した同じ版を使ってください。
 
-- Restored class-specific melee damage for Kirishima, Ikazuchi, Carrier Water Demon, and the affected Hime ships, plus Northern and Harbour Hime's heavy-cannon multiplier. Aircraft damage is unchanged.
-- Restored Battleship Hime's default cluster missile type, Harbour Hime's railgun, Isolated Hime's unmarried gravity missile, Atago's married ring-effect gravity missile, and Carrier Hime's melee missile parameter minima. Equipment-specified missile types remain effective.
-- Restored Carrier Water Demon's light cannon alongside its aircraft, including existing ships and saved eggs. Heavy-cannon inputs are rejected without consumption, also while mounted; saved ammunition-use preferences are preserved.
+- 霧島・雷・空母水鬼と該当する姫の艦の、艦ごとの近接ダメージと、北方棲姫・港湾棲姫の重砲の倍率を戻しました。艦載機のダメージは変わりません。
+- 戦艦棲姫の既定のクラスターミサイル、港湾棲姫のレールガン、離島棲鬼の未婚時の重力ミサイル、愛宕の結婚後の指輪の効果による重力ミサイル、空母棲姫の近接用ミサイルの設定の下限を戻しました。装備で指定したミサイルの種類は、これまでどおり有効です。
+- 空母水鬼の、艦載機と並んで撃つ軽砲を戻しました。すでにいる艦と保存された卵にも適用されます。重砲の入力は、騎乗中も含め、消費せずに受け付けません。保存されている弾薬の使用の設定は保たれます。
 
-- Restored the strict 128-tick post-combat morale window. Periodic recovery resumes sooner, and extra post-combat morale loss ends sooner; amounts, morale bands, update intervals, and ration order are unchanged.
-- Fixed movement costs and transport experience at Y=0 and underground. The first travel sample after spawning, loading, or changing dimensions has no distance charge; idle costs and minimum morale loss still apply. Same-dimension teleports still count toward endpoint distance.
+- 戦闘のあとの士気の判定を、厳密に128 tick の区切りに戻しました。定期的な回復が早く再開し、戦闘のあとに余分に士気が下がる時間も早く終わります。量・士気の段階・更新の間隔・糧食の順番は変わりません。
+- Y=0 と地下での、移動による消費と輸送の経験値を修正しました。出現・読み込み・次元の移動のあと、最初の移動の測定では距離による消費をしません。待機中の消費と、士気の最低限の減少はこれまでどおりです。同じ次元の中でのテレポートは、これまでどおり移動した距離として数えます。
 
-- Restored class-configured grudge and ammunition consumption for 25 allied ship types, including existing ships and saved eggs. Saved custom consumption bases for these types are replaced on load; back up worlds and saved eggs before upgrading. Default costs are higher for these ships, except that ammunition remains unchanged for destroyers, submarines, and transports.
-- Restored Akatsuki's innate searchlight while married with ring effects enabled. Its final searchlight level is exactly 1, even with multiple searchlights equipped; disabling ring effects restores the equipment-derived level on the next recalculation.
-- Restored the marriage-ring effects given to the admiral by the destroyers I, Ro, Ha, Ni, Akatsuki, Hibiki, Ikazuchi and Inazuma, Destroyer Hime and Battleship Re to the original mod's kinds and strengths. Akatsuki now grants haste instead of speed, Destroyer Hime's speed and haste use separate scalings, and Re's resistance is unchanged below level 50 and stronger from level 50 up. Durations, the 128-tick period, the 16-block range and the marriage, ring-effect and grudge conditions are unchanged. Strength per level changes: Re's resistance is stronger, while most of the others are equal or weaker than before at some levels.
-- Restored the self abilities of the Ne-class, Ri-class, Heavy Cruiser Hime and Ru-class to the original mod. Ne, Ri and Heavy Cruiser Hime give themselves speed and jump boost whenever it is not daytime, and Ru gives herself luck by day, each lasting 150 ticks and renewed every 128 ticks. They no longer need marriage or grudge, and an admiral does not have to be present; only the ship's ring-effect setting matters. Ne and Ri keep their strengths (level/70 and level/60) with a shorter duration (150 instead of 200 ticks). Heavy Cruiser Hime now boosts herself (speed level/50, jump level/40) instead of her admiral, and also does so where there is no day-night cycle, such as the Nether. Ru's luck becomes level/140 for 150 ticks, replacing level/80 for 50 + level ticks. Turning the setting off only stops new effects; active ones run out on their own.
-- Restored the marriage-ring effects that Kongou, Hiei, Haruna, Kirishima, Nagato, Yamato, Ta-class, Battleship Hime, Carrier Hime, Carrier Water Demon, Akagi, Kaga and Wo-class give to the ships around them to the original mod's kinds and strengths, with the reach set as follows. Every living ship of the same owner whose body touches the cube extending 16 blocks from the source's body now receives the effect, the source itself included, with no sphere limit and no cap on the number of ships (Akagi, Kaga, Wo-class, Battleship Hime, Carrier Hime and Carrier Water Demon no longer exclude themselves, and Battleship Hime, Carrier Hime and Carrier Water Demon no longer stop at 12 blocks and level/50+1 ships). Kongou gives health boost (level/120, 140+level ticks), Hiei saturation (level/120, 100+2x level), Haruna luck (level/120, 100+level), Kirishima night vision (100+level), Nagato strength (level/70), Yamato and Battleship Hime resistance and fire resistance (both level/70), Ta-class speed (level/80), Carrier Hime jump boost (level/70), Carrier Water Demon haste (level/70) and Wo-class strength (level/80, 30+level); Akagi and Kaga keep jump boost (level/85) and Ta-class keeps its formula. Durations stay 50+level except where listed. The 128-tick period and the marriage, ring-effect and grudge conditions are unchanged; ships of other owners, admirals and mobs are never affected, and a ship that is dying is no longer given effects. Strength changes in both directions: Kongou, Hiei and Haruna get lower amplifiers but longer durations; Nagato and Yamato get higher amplifiers; Battleship Hime, Carrier Hime and Carrier Water Demon get lower amplifiers and shorter durations (Battleship Hime's fire resistance becomes level/70 instead of always level I). The reach is wider for all of them. Carrier Water Demon's own night vision is unchanged. Effects already given are not removed when the ring is switched off or a ship moves away; they run out by themselves.
-- Restored the marriage-ring effects of Midway Hime and removed the surrounding Strength of Isolated Hime. Midway Hime's absorption now reaches every living ship of the same owner whose body touches the cube extending 16 blocks from her body (herself included, with no cap on the number of ships) at amplifier level / 50 for 50 + level ticks, instead of at most level / 50 + 1 ships within 12 blocks at level / 35 + 1 for 80 + level ticks; her owner within 16 blocks now gets the same new amplifier and duration (level / 50 for 50 + level ticks) under the same marriage, ring and distance conditions. Her own healing is now 9% of her maximum health plus 1 every 128 ticks, but only while she has some grudge left (marriage and the ring were already not required). Isolated Hime no longer gives the ships around her Strength, so fleets lose that bonus; her blinding attacks and the poison she adds while married with the ring on are unchanged, and Strength already granted simply runs out.
-- Fixed formation-mode commands being refused ("the formation conditions are not met") when the same ship is in two teams. A ship in several teams now follows the first team that has a formation and five or more ships, and setting a formation on a team resets the formation of every other team that contains one of its ships, as in the original mod.
-
+- 味方の艦25種で、艦種ごとに設定された怨念と弾薬の消費を戻しました。すでにいる艦と保存された卵にも適用されます。これらの艦種で保存されていた独自の消費の基礎値は、読み込み時に置き換わります。更新の前に、ワールドと保存された卵をバックアップしてください。これらの艦の既定の消費は多くなります。ただし、駆逐艦・潜水艦・輸送艦の弾薬の消費は変わりません。
+- 指輪の効果を有効にして結婚した暁の、生まれつきの探照灯を戻しました。探照灯を何個装備していても、最終的な探照灯のレベルはちょうど1です。指輪の効果を無効にすると、次の再計算で装備によるレベルに戻ります。
+- 駆逐イ級・ロ級・ハ級・ニ級、暁・響・雷・電、駆逐棲姫、戦艦レ級が、結婚指輪の効果として提督に与える効果を、元の MOD の種類と強さに戻しました。暁は移動速度上昇ではなく採掘速度上昇を与えます。駆逐棲姫の移動速度上昇と採掘速度上昇は、別々の割合で強くなります。レ級の耐性は、レベル50未満では変わらず、レベル50からは強くなります。効果の時間、128 tick の周期、16ブロックの範囲、結婚・指輪の効果・怨念の条件は変わりません。レベルごとの強さは変わります。レ級の耐性は強くなり、ほかの多くは、レベルによってはこれまでと同じか弱くなります。
+- 重巡ネ級・重巡リ級・重巡棲姫・戦艦ル級の、自分にかける能力を元の MOD のものに戻しました。ネ級・リ級・重巡棲姫は昼間以外のときに自分へ移動速度上昇と跳躍力上昇を、ル級は昼間に自分へ幸運を与えます。どれも150 tick 続き、128 tick ごとに更新されます。結婚も怨念も不要になり、提督がその場にいる必要もありません。関係するのは、艦の指輪の効果の設定だけです。ネ級とリ級は強さ（レベル/70 とレベル/60）を保ち、時間が短くなります（200 tick から150 tick へ）。重巡棲姫は提督ではなく自分を強化し（移動速度上昇はレベル/50、跳躍力上昇はレベル/40）、ネザーのような昼夜のない場所でも強化します。ル級の幸運は、「レベル/80 を 50＋レベル tick」から「レベル/140 を150 tick」に変わります。設定をオフにすると新しい効果が止まるだけで、かかっている効果は時間切れで消えます。
+- 金剛・比叡・榛名・霧島・長門・大和・戦艦タ級・戦艦棲姫・空母棲姫・空母水鬼・赤城・加賀・空母ヲ級が、結婚指輪の効果として周りの艦に与える効果を、元の MOD の種類と強さに戻し、届く範囲を次のようにしました。効果を出す艦の体から16ブロック広げた立方体に体が触れている、同じ持ち主の生きている艦すべてが効果を受けます。効果を出す艦自身も含み、球の範囲の制限も艦の数の上限もありません（赤城・加賀・ヲ級・戦艦棲姫・空母棲姫・空母水鬼は自分を除かなくなり、戦艦棲姫・空母棲姫・空母水鬼は12ブロックと「レベル/50＋1隻」で止まらなくなりました）。金剛は体力増強（レベル/120、140＋レベル tick）、比叡は満腹度回復（レベル/120、100＋レベルの2倍）、榛名は幸運（レベル/120、100＋レベル）、霧島は暗視（100＋レベル）、長門は攻撃力上昇（レベル/70）、大和と戦艦棲姫は耐性と耐火（どちらもレベル/70）、タ級は移動速度上昇（レベル/80）、空母棲姫は跳躍力上昇（レベル/70）、空母水鬼は採掘速度上昇（レベル/70）、ヲ級は攻撃力上昇（レベル/80、30＋レベル）を与えます。赤城と加賀は跳躍力上昇（レベル/85）のまま、タ級は計算式も同じままです。時間は、書いたもの以外は50＋レベルのままです。128 tick の周期と、結婚・指輪の効果・怨念の条件は変わりません。ほかの持ち主の艦・提督・モブには効果がなく、死にかけている艦には効果を与えなくなりました。強さは上がるものも下がるものもあります。金剛・比叡・榛名は効果のレベルが下がるかわりに時間が長くなり、長門と大和は効果のレベルが上がり、戦艦棲姫・空母棲姫・空母水鬼は効果のレベルが下がって時間も短くなります（戦艦棲姫の耐火は、常にレベルIではなくレベル/70 になります）。どの艦も、届く範囲は広がります。空母水鬼の自分の暗視は変わりません。指輪をオフにしたり艦が離れたりしても、かかっている効果は消えず、時間切れで消えます。
+- 中間棲姫の結婚指輪の効果を元の MOD に戻し、離島棲鬼が周りに与えていた攻撃力上昇をなくしました。中間棲姫の衝撃吸収は、体から16ブロック広げた立方体に体が触れている、同じ持ち主の生きている艦すべて（自分を含み、艦の数の上限なし）に、効果のレベル「レベル/50」、時間「50＋レベル tick」で届くようになりました。これまでは、12ブロック以内の最大「レベル/50＋1隻」に、効果のレベル「レベル/35＋1」、時間「80＋レベル tick」でした。16ブロック以内にいる持ち主も、同じ結婚・指輪・距離の条件で、新しい効果のレベルと時間（レベル/50、50＋レベル tick）を受けます。中間棲姫自身の回復は、128 tick ごとに最大体力の9%＋1になりました。ただし、怨念が少しでも残っているときだけです（結婚と指輪は以前から不要でした）。離島棲鬼は周りの艦に攻撃力上昇を与えなくなったため、艦隊はその強化を失います。目をくらませる攻撃と、指輪の効果をオンにして結婚しているときに加える毒は変わりません。すでにかかっている攻撃力上昇は、時間切れで消えます。
 - 同じ艦が複数のチームに入っているとき、陣形モードの命令が「陣形の条件を満たさない」で拒否される不具合を修正。艦は陣形を持つ5隻以上のチームの陣形に従い、チームに陣形を設定すると、同じ艦を含む他チームの陣形は元の MOD と同じく解除される。
 
 ## v1.20.1-0.12.1 (β版)
 
-**β版です。**0.12.0 からの変更は、未移植だった演出と表示の復元、騎乗体まわりの修正、新AIの不具合修正です。
+**β版です。**0.12.0 からの変更は、未移植だった演出と表示の復元、騎乗体まわりの修正、新AIの不具合修正と旧AIの撤去です。
+
+- 旧AI（LEGACY）を撤去し、艦のAIを新しいAI（NEW）に統一しました。`config/shincolle_kai-common.toml` の `shipAiTargetAuthority` と `shipAiNewDefaultApplied` は互換のために読み込みますが、`LEGACY` を指定しても旧AIには戻りません。移行の印の `shipAiNewDefaultApplied` は変更しないでください。`/shipaishadow` は互換のために残していますが、旧AIとの比較は行わず「比較未実施」と表示します。
 
 - ウェイポイントやクレーンで、経路設定用の道具を持つと所有者名と前地点・次地点・チェストの座標が表示されるようになりました。
 - 艦の頭上に所属する全チームの名前を表示する演出を復元しました。既存の名札設定・距離とスプリントキーに従って表示します。
@@ -120,9 +347,9 @@
 
 - 解体ハンマーで自分の艦を左クリックしても一撃で倒せない問題を修正しました。自分の艦を左クリックすると一撃で倒れて物品に戻ります（レベル-1）。サバイバルではハンマーの耐久が1減り、クリエイティブでは減りません。他人の艦には効きません。
 
-- With the new ship AI, guarding ships reset the far-distance teleport timer when they come within the configured distance or switch to a different point, instead of carrying time over from earlier patrol legs or orders.
+- 新しい艦のAIで、警備中の艦が設定した距離の内側に入ったときや、別の地点へ切り替えたときに、遠距離のテレポートまでの時間を最初から数え直すようにしました。これまでは、前の巡回の区間や前の命令の時間を引き継いでいました。
 
-- Morale changes from caressing a ship with the pointer now sync immediately to clients instead of waiting for the periodic update.
+- 指揮棒で艦を撫でたときの士気の変化を、定期的な更新を待たずに、すぐクライアントへ反映するようにしました。
 
 - 新AIで、エリトラ・ボート・馬などで速く遠くへ移動したとき、置き去りになった追従艦が、提督が着地して落ち着いた後に提督の近くへ来るようにしました。飛行中は空中へ飛ばしません。艦のいた場所が読み込まれていなくても、一時的に読み込んで呼びます（ゲームを再起動すると呼び戻しは行われません）。
 
@@ -175,7 +402,7 @@
 
 - シップタンク4種で水源・溶岩源を右クリックして1,000 mBずつ汲めるようにしました。液体入りでも同じ液体を継ぎ足せます。満杯・残容量不足・別液体入りでは源とタンクを変更しません。
 
-- 艦のAIを新しいAI（NEW）に統一しました。旧設定 `shipAiTargetAuthority` のキーと値は読み込めますが、`LEGACY` を指定しても旧AIには戻りません。
+- 艦のAIを新しいAI（`shipAiTargetAuthority = NEW`）へ切り替えました。既存の設定も初回更新時にこの項目だけ1度NEWになります。以前のAIに戻す場合は設定をLEGACYへ変更してワールドに入り直してください。その後は手動の選択を維持します。
 
 - `shipAiTargetAuthority = NEW` で、召喚後に艦本体の移動速度が変わっても騎乗体に反映されず、低速のまま残る問題を修正しました。騎乗体の属性は32 tickごとに本体へ追随し、負傷したHPは回復しません。
 
@@ -189,9 +416,9 @@
 
 - `shipAiTargetAuthority = NEW` で、ウェイポイントの巡回を原作に合わせました。騎乗体(艤装)に乗った姫も次のウェイポイントへ進みます。巡回で行き先が替わっても、戦闘中の目標・手動攻撃のロックは切れず、感情や視線も出ません。経路の終点はブロックの中心になり、待機中に提督の命令で別の点へ行かせても、次の点では待機を最初から数えます。
 
-- Heavy shots that miss now aim at the ground to the side of the target instead of flying up and past it to explode in mid-air, and ships firing from underwater launch heavy shots from the original height.
+- 外れた重砲が、目標を越えて上へ飛んで空中で爆発するのではなく、目標の脇の地面を狙うようにしました。水中から撃つ艦は、元の高さから重砲を撃ちます。
 
-- With `shipAiTargetAuthority = NEW`, ships following their admiral now measure the distance again every 32 ticks as in the original, so they keep walking to where the admiral was instead of stopping the moment they get close.
+- `shipAiTargetAuthority = NEW` で、提督についていく艦が、原作どおり32 tick ごとに距離を測り直すようにしました。近づいた瞬間に止まらず、提督がいた場所まで歩き続けます。
 
 - `shipAiTargetAuthority = NEW` で、提督についていく間や警備で歩く間も、敵と交戦している艦は頭を提督や行き先ではなく撃っている相手へ向けるようにしました。交戦していなければ今までどおりです。体は進む向きのままなので、真後ろの相手は向ききれません。
 
@@ -239,9 +466,9 @@
 - 深海棲艦と敵艦載機が、自陣営のミサイル・ビーム・艦載機を誤って狙う問題を修正しました。深海棲艦のミサイル・ビーム・設置弾は、深海棲艦側の艦や艦載機を巻き込まなくなりました。艦娘は対空戦闘ONなら深海棲艦が撃ったミサイルと艦載機を迎撃し、OFFなら狙いません。
   あわせて、艦娘のビーム・設置弾(ブラックホールの引き寄せなど)・北方棲姫の浮遊要塞は、持ち主のプレイヤーとそのペットを巻き込まなくなりました(原作どおり)。深海棲艦からプレイヤーへの攻撃は従来どおりです。
 
-- `/shipaishadow` は互換用に残しています。旧AIとの比較は行わず、比較未実施と表示します。
+- 管理者向けに、艦の攻撃対象選別を変更せず新旧AIの差分を計測する `/shipaishadow` コマンドを追加しました。
 
-- 艦の攻撃対象は、手動指示、反撃、自動索敵の順に1つの目標権限で管理します。`shipAiTargetAuthority` は設定ファイルの互換用で、動作するAIを切り替えません。
+- 管理者向け設定 `shipAiTargetAuthority` を追加しました。0.12.0の既定は `NEW` で、手動指示、反撃、自動索敵の順に1つの目標権限で管理します。`LEGACY` を選ぶと従来のAIを使えます。
 
 - プレイヤーが攻撃したときや攻撃されたときに周囲の同じ持ち主の艦娘が加勢し、深海棲艦が攻撃されたときに周囲の深海棲艦が応援する反撃連携を復元しました。
 
@@ -259,7 +486,7 @@
 ### Migration
 
 - 更新前にワールドをバックアップしてください。確認した0.11.0の保存例では、所有者・編成・婚姻・装備・貨物と死亡卵を引き継ぎ、継続プレイと卵からの復活を確認しています。
-- `config/shincolle_kai-common.toml` の `shipAiTargetAuthority` と `shipAiNewDefaultApplied` は互換用に残しています。設定値や移行の印にかかわらず、新しいAI（NEW）で動作します。旧AIへ戻す設定はありません。移行の印は変更しないでください。
+- 初回更新時に `config/shincolle_kai-common.toml` の `shipAiTargetAuthority` が一度NEWになります。旧AIを使う場合は初回更新後に `shipAiTargetAuthority = "LEGACY"` へ変更してワールドに入り直してください。その後の手動選択は保持されます。`shipAiNewDefaultApplied` は変更しないでください。
 - 公開Java APIとKubeJSの定義は維持しています。内部AIクラスへ直接依存するアドオンは互換保証の対象外です。
 
 ### English summary — 0.12.0 (Beta)
@@ -268,7 +495,7 @@
 - Fixes cover fishing, cargo capacity, ship tanks, text overlap, damage voices, level-up sounds and first-person petting-hand rendering. In-game visuals, sounds and the feel of the AI still need verification.
 - The ship AI core uses PolyForm Shield License 1.0.0. Other code, upstream-derived portions and code published in 0.11.0 or earlier remain MIT; see LICENSE for the scope.
 - **Breaking:** use the same 0.12.0 version on the server and every client. Mixed connections with 0.11.0 are not supported.
-- **Migration:** back up your world first. Tested 0.11.0 saves preserve ships, formations, marriage, equipment, cargo and sunk-ship eggs. Ships now run only the redesigned AI (NEW). The old configuration keys remain readable, but selecting LEGACY does not restore the previous AI. Leave `shipAiNewDefaultApplied` unchanged. Public Java API and KubeJS definitions are preserved; internal AI dependencies are outside the compatibility guarantee.
+- **Migration:** back up your world first. Tested 0.11.0 saves preserve ships, formations, marriage, equipment, cargo and sunk-ship eggs. The first update switches `shipAiTargetAuthority` to NEW once. To use the previous AI, set it to LEGACY after updating and re-enter the world. Leave `shipAiNewDefaultApplied` unchanged. Public Java API and KubeJS definitions are preserved; internal AI dependencies are outside the compatibility guarantee.
 - **Known issues:** petting may not raise morale; ships do not render held items. Some ship work tasks, combat effects and models still need in-game checks or restoration.
 
 ## v1.20.1-0.11.0 (β版)
@@ -399,15 +626,15 @@
   スライムとゴーレムからも怨念が出るようになり、こちらは原典どおりに戻ります。
 
 - OP向けの `/shipsummonmount` を追加しました。32ブロック以内で見ている対応艦の
-  外見トグルを有効にし、連装砲mountを即時召喚します。再実行してもmountは増えず、
+  外見トグルを有効にし、連装砲の騎乗体を即時召喚します。再実行しても騎乗体は増えず、
   燃料切れ・非対応艦・対象不在では理由を表示します。
 
-- 昼夜サイクルを止めたワールドで、時刻がちょうど時の区切りにあると時報が毎tick鳴り続ける
+- 昼夜サイクルを止めたワールドで、時刻がちょうど時の区切りにあると時報が絶えず鳴り続ける
   問題を修正しました。同じ時刻の区切りでは1艦につき1回だけ鳴ります。原典由来の不具合です。
 
-- 艦インベントリのレベル表示が、接続先serverの絶対レベル上限に到達したときだけ
-  金色になるようにしました。上限は接続・respawn・dimension移動・config reload時に同期され、
-  client側のローカル設定がserverと異なる場合もserverの値に追随します。
+- 艦インベントリのレベル表示が、接続先のサーバーの絶対レベル上限に到達したときだけ
+  金色になるようにしました。上限は接続・リスポーン・次元の移動・設定の再読み込みのときに同期され、
+  クライアント側の設定がサーバーと異なる場合も、サーバーの値に従います。
 
 - 深海棲艦の乗り物が解除後も残って積み重なる問題を修正しました。解除時に乗客を降ろして
   乗り物を消し、宿主を失った個体も自動で消えます。移植で欠落した原典の挙動の回復です。
@@ -418,7 +645,7 @@
   スニーク状態・ダッシュ状態を維持します。重複時は実体への操作、陣形GUI、地点指示の
   既存の優先順に従います。
 
-- 指揮棒の自艦のチーム管理をshift+左クリックへ統合しました。未編成なら追加、編成済みなら選択、
+- 指揮棒の自艦のチーム管理をShift+左クリックへ統合しました。未編成なら追加、編成済みなら選択、
   選択中なら削除し、追加・削除は艦種と艦名をアクションバーへ表示します。
   通常の左クリックは何もせず、攻撃指示と紛らわしい対象クラス登録通知も出しません。
   モード切替後も選択と護衛先を保持し、全モードで選択マーカーを表示します。
@@ -426,13 +653,13 @@
 - 艦が乗り物に乗っている場合も、通常の移動指示は乗り物の経路完了時に解除されるよう修正しました。
 
 - 指揮棒の通常のブロック右クリックは移動指示になり、経路完了後に地点指定を解除して追従へ戻ります。
-  shift+右クリックでは到達後もその地点を護衛します。陣形GUIの入口をctrl+右クリックへ移しました。
+  Shift+右クリックでは到達後もその地点を護衛します。陣形GUIの入口をCtrl+右クリックへ移しました。
 
 - 陸上の移動指示で、艦が通り過ぎた経路点へ戻ろうとして旋回し続ける問題を修正しました。
   非飛行艦は高さの変わり目までの経路で、直進できる最も遠い点を目指すようになります。
   先読みでは進行線上の足元も確認し、床のない隙間を避ける迂回経路を維持します。
-  幅1.0以上2.0未満のmountなどで先読み目標がセルの角にあると、足元走査が終了せず
-  サーバが停止する問題を修正しました。支持確認を移動区間内に制限します。
+  幅1.0以上2.0未満の騎乗体などで先読み目標がセルの角にあると、足元走査が終了せず
+  サーバーが停止する問題を修正しました。支持確認を移動区間内に制限します。
 
 - 指揮棒の攻撃指示を艦が保持するようにしました。自動索敵で指示を失わず、報復が終わると
   指定対象へ戻ります。同じ対象への再指示で解除できます。射程外では指示を残して自衛し、
@@ -482,7 +709,7 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 ### 大型造船所の渦のちらつきと暗さを修正
 
-- 渦がちらつき、見る角度によって暗くなる問題を修正しました。真上から見ると normal で、
+- 渦がちらつき、見る角度によって暗くなる問題を修正しました。真上から見ると通常の明るさで、
   横から見るほど暗くなる症状です。
 - 原因は移植時の退行でした。原典の渦はライティングの影響を受けませんが、移植版は
   法線で明るさが変わる描画経路を通っていました。渦はプレイヤーの方を向く板なので、
@@ -494,10 +721,8 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 - 設定画面にあった外観の切り替え(モデルパーツのON/OFFと手持ちアイテム表示)を、
   艦のインベントリ画面の「設定」ボタンの下へ移しました。設定画面を開かずに切り替えられます。
-- 1行4個で並び、パーツ数が多い艦は2段になります。パーツを持たない艦では表示されません。
+- 設定ボタンの左端に揃えて1行4個で並び、パーツ数が多い艦は2段になります。パーツを持たない艦では表示されません。
 - 設定画面の「外観」セクションは無くなりました。他の項目の位置は変わりません。
-- トグルは設定ボタンの左端に揃えて1行4個で並びます。プレイヤーのインベントリに
-  重なっていた問題も解消しました。
 
 ### 中間棲姫の名前を修正
 
@@ -523,7 +748,7 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 ### 色のレベル上限を設定可能に
 
-- common configの`maxLevelUnmarried`と`maxLevel`で、未婚色と既婚色のレベル上限を別々に設定できるようにしました。既定値は100/150のままです。
+- 共通設定（common config）の`maxLevelUnmarried`と`maxLevel`で、未婚色と既婚色のレベル上限を別々に設定できるようにしました。既定値は100/150のままです。
 - レベル1000までの育成・管理コマンド・遠征計算に対応しました。設定上限を上げると、遠征の失敗率と運はその上限に対する現在レベルで正規化されます。
 - レベル150超で照準時間が負になり即発砲してしまうため、原典の最短値10tickを下限にしました。150以下の値は変わりません。
 
@@ -533,17 +758,17 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 - 装備ツールチップの素材欄と稀少度欄を別行に分け、横幅が伸びるのを抑えました。挙動が自明でない装備には説明行が付きます(現在は付与弾のみ)。
 - 弾薬5種(91式徹甲弾・一式徹甲弾・三式焼霰弾・劣化ウラン弾・反重力制御弾)の命中時効果を、Java内の固定値から装備定義JSONの`attack_effects`へ移しました。効果・強さ・持続・発動率は変わりません。datapackやアドオンから弾薬の効果を変更・追加できるようになりました。ツールチップ上では効果行が素材・稀少度の上へ移動します。
 
-### linked Waypointの巡回と待機時間を復元
+### つないだウェイポイントの巡回と待機時間を復元
 
-- 味方艦がWaypointへ到着すると、Target Wrenchで作ったnext/last linkを辿って次のblock guard先へ進むようになりました。前の地点へ戻るlinkではlast側を選び、往復経路を巡回できます。
-- 艦側とWaypoint側の待機設定のうち長い方を採用します。待機設定0は即座に次の地点へ進み、1〜16は原典どおり段階ごとの時間へ変換されます。
-- world origin、Y=0、負YのWaypoint linkも保存・再起動後に正規の経路として維持されます。未設定linkとの区別は明示的に保存します。
-- Target Wrenchを持って自分のWaypointを右クリックすると、Waypoint側の待機設定を0〜16で循環変更できます。
+- 味方艦がウェイポイントへ到着すると、ターゲットレンチでつないだ次・前のリンクをたどって、次の地点へ進むようになりました。前の地点へ戻るリンクでは前側を選ぶため、往復する経路も巡回できます。
+- 艦側とウェイポイント側の待機設定のうち長い方を採用します。待機設定0は即座に次の地点へ進み、1〜16は原典どおり段階ごとの時間へ変換されます。
+- ワールドの原点、Y=0、負のYにあるウェイポイントのリンクも、保存・再起動の後に正しい経路として維持されます。
+- ターゲットレンチを持って自分のウェイポイントを右クリックすると、ウェイポイント側の待機設定を0〜16で循環変更できます。
 
 ### MOD IDを `shincolle_kai` へ変更
 
 - MOD IDを `shincolle` から `shincolle_kai` へ変更しました。MOD名は ShinColle-kai に統一しています。
-- 旧IDで保存された艦娘やアイテムは引き継げません。1.20.1では移行する手段がありません。ワールド自体は開けます(起動時の「missing registry entries」で止まらないようにしてあります)。旧版のjarを残しておけば、旧ワールドは旧版で開けます。
+- 旧IDで保存された艦娘やアイテムは引き継げません。1.20.1では移行する手段がありません。ワールド自体は開けます(起動時の「missing registry entries」で止まらないようにしてあります)。旧版のJARを残しておけば、旧ワールドは旧版で開けます。
 - 設定ファイルは `shincolle_kai-common.toml` / `shincolle_kai-mining.cfg` として新規生成されます。旧設定は引き継がれません。
 - Javaアドオンおよび装備JSONの名前空間も `shincolle_kai:` へ変わりました。
 - 2026-08-09の「MOD IDは `shincolle` のままなので、既存のアドオンとワールドはそのまま利用できます」という記述は、この変更で無効になりました。
@@ -559,16 +784,16 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 - 指揮棒のモードをShift+マウスホイールで前後へ切り替え、HUDの3行表示で現在位置を確認できるようにしました。
 - 単艦モードが選択中の全艦へ作用していた問題を修正し、選択済みかつ実体がある最小スロットの1隻だけへ指示するようにしました。
-- 単艦モードの対象艦が射程外または別dimensionの場合は、後続艦へフォールバックせず何も起こらない原典挙動を復元しました。
+- 単艦モードの対象艦が射程外または別の次元にいる場合は、後続艦へフォールバックせず何も起こらない原典挙動を復元しました。
 - スプリント操作中はモード切替とHUDを抑止し、艦隊操作との競合を防ぎました。
 - 移動指示の目的地と艦から目的地への線を継続表示し、燃料切れで命令を受けられない艦を赤マーカーで示します。
 - 経路表示へ武装用の粒子が誤用され、九一式徹甲弾の画像が大量表示される問題を修正しました。原典の白い目的地マーカーとガード線へ戻し、同じ地点の重複・点滅も抑えました。
 - 目的地マーカーの描画状態が後続描画へ漏れ、艦モデルが暗転する問題を修正しました。
 - 移動先・攻撃対象マーカーが巨大爆発へ誤変換され、目的地で爆風が再生成され続ける問題を修正しました。
-- Y=0以下の目的地が無効扱いされる問題を修正し、カスタムディメンションを含む正確な目的地dimensionを同期するようにしました。
+- Y=0以下の目的地が無効扱いされる問題を修正し、カスタムディメンションを含む正確な目的地の次元を同期するようにしました。
 - 新規艦や一部の旧保存艦が、未命令なのに旧未設定座標`(-1,-1,-1)`へ移動しようとして追従しない問題を修正しました。正規の負Y目的地は維持されます。
-- 単艦モードの先頭選択艦が別dimensionまたは未ロードのとき、後続艦へ命令が誤って移る問題を修正しました。
-- 艦同期payloadの変更に伴いnetwork protocolを8へ更新し、旧JARとの誤decodeを接続時に拒否します。
+- 単艦モードの先頭選択艦が別の次元にいるか未ロードのとき、後続艦へ命令が誤って移る問題を修正しました。
+- 艦の同期の内容を変えたため通信のプロトコルを8へ上げ、旧版のJARとの接続は拒否します。
 
 ### 婚約指輪の右クリックを修正
 
@@ -576,17 +801,17 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 ### ウェイポイントと艦タスクの誤動作を修正
 
-- chest未設定のWaypointがワールド原点`(0,0,0)`を作業先として扱い、そこにあるかまどやインベントリを誤使用する問題を修正しました。
-- ワールド原点、Y=0、負YにあるcontainerもTarget Wrenchで正規の作業先として設定でき、保存後も維持されます。
+- チェストを設定していないウェイポイントがワールド原点`(0,0,0)`を作業先として扱い、そこにあるかまどやインベントリを誤使用する問題を修正しました。
+- ワールド原点、Y=0、負のYにある容器もターゲットレンチで正規の作業先として設定でき、保存後も維持されます。
 - 艦タスクの入力・出力・燃料面設定が無視され、調理時にかまどのスロットを直接操作する問題を修正しました。Forgeの面別インベントリ経由で搬入・搬出します。
 - 全面が有効な既定設定で、原木など燃料にもなる調理材料が入力スロットではなく燃料スロットへ誤投入される問題を修正しました。回収後に艦の荷物へ収まらない出力も消失せず、その場へドロップします。
-- metadata・NBT比較の設定を、クラフトと調理の材料選択・結果回収に反映しました。
+- メタデータ・NBTの比較の設定を、クラフトと調理の材料選択・結果回収に反映しました。
 
 ### 宝箱の戦利品を復元
 
 - 存在していた戦利品JSONがどの宝箱にも接続されず、スポーン卵・武装・婚約指輪などが一切出現しなかった問題を修正しました。
 - ボーナスチェスト、イグルー、ダンジョン、村の武器鍛冶屋、廃坑、砂漠の寺院、ジャングルの寺院、ネザー要塞、要塞、エンドシティへ原典相当の戦利品を追加しました。
-- スポーン卵の建造区分・艦種と、武装のランダムvariantを正しいNBTで生成するようにしました。
+- スポーン卵の建造区分・艦種と、武装のランダムな種類を正しいNBTで生成するようにしました。
 - 原典の抽選回数、幸運による追加抽選、重み、確率、個数を復元しました。
 
 ### 艦の標的保持と反撃を修正
@@ -598,13 +823,13 @@ KubeJS連携・装備datapack・Javaアドオン向けPublic APIは、このリ�
 
 ### 味方艦の感情・反応を復旧
 
-- 味方艦の撫で・攻撃・被弾・待機・指揮・艦娘タスクに対応する感情反応が呼ばれず、表情やemoteが出なかった問題を修正しました。
-- 反応ごとの発生確率と待ち時間を原典1.10.2へ戻し、被弾反応の割り込みとshock反応も復旧しました。
-- 給餌成功時と満腹で拒否した時の専用emoteが表示されなくなる問題も同時に修正しました。
+- 味方艦の撫で・攻撃・被弾・待機・指揮・艦娘タスクに対応する感情反応が呼ばれず、表情やエモートが出なかった問題を修正しました。
+- 反応ごとの発生確率と待ち時間を原典1.10.2へ戻し、被弾反応の割り込みとショックの反応も復旧しました。
+- 給餌成功時と満腹で拒否した時の専用のエモートが表示されなくなる問題も同時に修正しました。
 - 原典で汗・しずくを表す感情タイプ0がクライアント描画直前に破棄され、満腹拒否など一部の反応だけ表示されない問題を修正しました。
 - 指揮棒で撫でた実際の部位がサーバーへ伝わらず、別の部位として反応する問題を修正しました。
-- 頭から胸までの撫でposeを原典どおり約4秒表示し、不機嫌時などの押し返しで反応対象を見失う問題を修正しました。
-- 押し返しの速度が対象player本人へ同期されず、実際には動かなかった問題を修正しました。
+- 頭から胸までの撫での姿勢を原典どおり約4秒表示し、不機嫌時などの押し返しで反応対象を見失う問題を修正しました。
+- 押し返しの速度が対象のプレイヤー本人へ同期されず、実際には動かなかった問題を修正しました。
 
 ### 大型造船所の組み立て操作を修正
 

@@ -17,6 +17,7 @@ import com.lulan.shincolle.ai.domain.combat.CombatTimingState;
 import com.lulan.shincolle.ai.domain.combat.WeaponChannel;
 import com.lulan.shincolle.ai.domain.combat.WeaponReadiness;
 import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
+import com.lulan.shincolle.ai.registry.GenericShipHost;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipHostile;
@@ -91,9 +92,15 @@ public final class ShipCombatGate {
                 ? Optional.of(ShipCommandStateAdapter.handle(engagement.target())) : Optional.empty();
     }
 
-    /** Adds an attack goal's weapons to its host's loadout; every host that has one records it. */
+    /** Adds a goal's weapons, except on definition-backed ships whose selected entries own the loadout. */
     static void carry(Object host, WeaponChannel... channels) {
+        if (host instanceof GenericShipHost) return;
         if (host instanceof ShipCombatHost combatHost) combatHost.shipCombatState().addWeapons(Set.of(channels));
+    }
+
+    /** Definition-backed ships carry exactly their installed attack entries' channel union. */
+    public static void installGenericWeapons(GenericShipHost host, Set<WeaponChannel> channels) {
+        host.shipCombatState().addWeapons(channels);
     }
 
     static ShipCombatState state(Entity host) {
@@ -115,7 +122,10 @@ public final class ShipCombatGate {
         double distanceSq = target == null ? Double.MAX_VALUE : host.distanceToSqr(target);
         double meleeDistanceSq = target == null ? Double.MAX_VALUE
                 : host.distanceToSqr(target.getX(), target.getBoundingBox().minY, target.getZ());
-        float range = ship.getAttrs().getAttackRange();
+        float range = host instanceof BasicEntityShipHostile && target instanceof BasicEntityShip friendly
+                ? ShipAiCompatibilityRules.hostileShipEngageRange(
+                        ship.getAttrs().getAttackRange(), friendly.getAttrs().getAttackRange())
+                : ship.getAttrs().getAttackRange();
         double reach = host.getBbWidth() * host.getBbWidth() * 16F;
         return new CombatContext(engagement.intent(), timing, loadout, distanceSq, meleeDistanceSq,
                 range * range, reach, onSight, aimTime(ship), readiness(host), ship.getStateFlag(ID.F.UseMelee),
