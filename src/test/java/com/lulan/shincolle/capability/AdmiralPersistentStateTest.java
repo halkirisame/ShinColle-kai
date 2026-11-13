@@ -112,7 +112,7 @@ class AdmiralPersistentStateTest {
         Field[] fields = Arrays.stream(AdmiralPersistentState.class.getDeclaredFields())
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .toArray(Field[]::new);
-        assertEquals(15, fields.length);
+        assertEquals(16, fields.length);
 
         for (Field field : fields) {
             field.setAccessible(true);
@@ -172,6 +172,27 @@ class AdmiralPersistentStateTest {
         state.setUnitName(0, null);
 
         assertEquals("", state.getUnitName(0));
+    }
+
+    @Test
+    void shipGuiRangeDefaultsBoundsAndCopyArePerTeam() {
+        AdmiralPersistentState source = new AdmiralPersistentState(1);
+        for (int team = 0; team < AdmiralPersistentState.TEAM_NUM; team++) {
+            assertEquals(0, source.getShipGuiRangeStage(team));
+            source.setShipGuiRangeStage(team, team % 3);
+        }
+        source.setShipGuiRangeStage(-1, 2);
+        source.setShipGuiRangeStage(9, 1);
+        assertEquals(0, source.getShipGuiRangeStage(-1));
+        assertEquals(0, source.getShipGuiRangeStage(9));
+        AdmiralPersistentState target = new AdmiralPersistentState(1);
+        target.copyFrom(source);
+        for (int team = 0; team < AdmiralPersistentState.TEAM_NUM; team++) {
+            assertEquals(team % 3, source.getShipGuiRangeStage(team));
+            assertEquals(team % 3, target.getShipGuiRangeStage(team));
+        }
+        source.setShipGuiRangeStage(0, 2);
+        assertEquals(0, target.getShipGuiRangeStage(0));
     }
 
     private static void makeNonDefault(Field field, AdmiralPersistentState source) throws IllegalAccessException {

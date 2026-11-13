@@ -126,6 +126,9 @@ public class S2CGUISyncPacket {
         for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
             buf.writeBoolean(capa.getRetaliatePlayer(i));
         }
+        for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
+            buf.writeByte(capa.getShipGuiRangeStage(i));
+        }
     }
 
     // ========== Factory Methods ==========
@@ -481,7 +484,6 @@ public class S2CGUISyncPacket {
         readPlayerMisc(buf, capa);
     }
 
-    @OnlyIn(Dist.CLIENT)
     private static void readPlayerMisc(FriendlyByteBuf buf, CapaTeitoku capa) {
         capa.setHasRing(buf.readBoolean());
         capa.setRingActive(buf.readBoolean());
@@ -493,6 +495,10 @@ public class S2CGUISyncPacket {
         capa.setTeamCooldown(buf.readInt());
         for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
             capa.setRetaliatePlayer(i, buf.readBoolean());
+        }
+        for (int i = 0; i < CapaTeitoku.TEAM_NUM; i++) {
+            int stage = buf.readByte();
+            capa.setShipGuiRangeStage(i, stage >= 0 && stage <= 2 ? stage : 0);
         }
     }
 

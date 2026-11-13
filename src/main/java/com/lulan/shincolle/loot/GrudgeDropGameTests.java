@@ -1,6 +1,7 @@
 package com.lulan.shincolle.loot;
 
 import com.lulan.shincolle.gametest.GameTestEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.reference.Reference;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -9,17 +10,25 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.living.LootingLevelEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import java.util.function.Consumer;
 
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -106,6 +115,137 @@ public final class GrudgeDropGameTests {
                         + " grudge, but seed " + seed + " dropped " + count);
             }
         }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void enabledLootingThreeAddsThreeGrudge(GameTestHelper helper) {
+        assertDeathLoot(helper, true, 1.0D, 3, 4, 4);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void disabledLootingKeepsOriginalGrudgeCount(GameTestHelper helper) {
+        helper.assertTrue(!ConfigHandler.COMMON.lootingAffectsGrudge.getDefault(),
+                "Looting must not affect grudge by default");
+        assertDeathLoot(helper, false, 1.0D, 3, 1, 1);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void enabledWithoutLootingKeepsOriginalGrudgeCount(GameTestHelper helper) {
+        assertDeathLoot(helper, true, 1.0D, 0, 1, 1);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void enabledLootingAddsToFractionalGrudgeRate(GameTestHelper helper) {
+        assertDeathLoot(helper, true, 0.5D, 1, 1, 2);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void enabledLootingKeepsExplodedBlockLootUntouched(GameTestHelper helper) {
+        boolean previous = ConfigHandler.COMMON.lootingAffectsGrudge.get();
+        try {
+            ConfigHandler.COMMON.lootingAffectsGrudge.set(true);
+            helper.assertTrue(ConfigHandler.lootingAffectsGrudge(), "Looting option must be enabled");
+            explodedBlockLootKeepsNoGrudge(helper);
+        } finally {
+            ConfigHandler.COMMON.lootingAffectsGrudge.set(previous);
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void enabledLootingUsesForgeEventLevel(GameTestHelper helper) {
+        assertEventLoot(helper, 5, 6);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void enabledNegativeForgeLootingDoesNotReduceGrudge(GameTestHelper helper) {
+        assertEventLoot(helper, -2, 1);
+        helper.succeed();
+    }
+
+    private static void assertDeathLoot(GameTestHelper helper, boolean enabled, double rate, int lootingLevel,
+                                       int min, int max) {
+        boolean previousEnabled = ConfigHandler.COMMON.lootingAffectsGrudge.get();
+        double previousRate = ConfigHandler.COMMON.dropRateGrudge.get();
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ConfigHandler.COMMON.lootingAffectsGrudge.set(enabled);
+            ConfigHandler.COMMON.dropRateGrudge.set(rate);
+            helper.assertTrue(ConfigHandler.lootingAffectsGrudge() == enabled, "Looting option was not applied");
+            helper.assertTrue(ConfigHandler.dropRateGrudge() == rate, "Grudge rate was not applied");
+            Creeper victim = entities.add(helper.spawn(EntityType.CREEPER, 1, 2, 1));
+            Zombie killer = entities.add(helper.spawn(EntityType.ZOMBIE, 2, 2, 1));
+            equipLootingSword(helper, killer, lootingLevel);
+            LootParams params = deathParams(helper.getLevel(), victim, killer);
+            for (long seed = 1; seed <= 64; seed++) {
+                LootContext context = new LootContext.Builder(params).withOptionalRandomSeed(seed).create(null);
+                ObjectArrayList<ItemStack> loot = new AddItemModifier(new LootItemCondition[]{})
+                        .apply(new ObjectArrayList<>(), context);
+                int count = countGrudge(loot);
+                helper.assertTrue(count >= min && count <= max,
+                        "Looting " + lootingLevel + " at rate " + rate + " must drop " + min + ".." + max
+                                + " grudge, but seed " + seed + " dropped " + count);
+            }
+        } finally {
+            ConfigHandler.COMMON.lootingAffectsGrudge.set(previousEnabled);
+            ConfigHandler.COMMON.dropRateGrudge.set(previousRate);
+        }
+    }
+
+    private static void assertEventLoot(GameTestHelper helper, int eventLevel, int expected) {
+        boolean previousEnabled = ConfigHandler.COMMON.lootingAffectsGrudge.get();
+        double previousRate = ConfigHandler.COMMON.dropRateGrudge.get();
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ConfigHandler.COMMON.lootingAffectsGrudge.set(true);
+            ConfigHandler.COMMON.dropRateGrudge.set(1.0D);
+            helper.assertTrue(ConfigHandler.lootingAffectsGrudge(), "Looting option must be enabled");
+            helper.assertTrue(ConfigHandler.dropRateGrudge() == 1.0D, "Grudge rate must be 1.0");
+            Creeper victim = entities.add(helper.spawn(EntityType.CREEPER, 1, 2, 1));
+            Zombie killer = entities.add(helper.spawn(EntityType.ZOMBIE, 2, 2, 1));
+            equipLootingSword(helper, killer, 3);
+            boolean[] observed = {false};
+            Consumer<LootingLevelEvent> listener = event -> {
+                if (event.getEntity() == victim) {
+                    helper.assertTrue(event.getLootingLevel() == 3, "Forge must start from Looting III");
+                    observed[0] = true;
+                    event.setLootingLevel(eventLevel);
+                }
+            };
+            MinecraftForge.EVENT_BUS.addListener(listener);
+            try {
+                ObjectArrayList<ItemStack> loot = applyModifier(deathParams(helper.getLevel(), victim, killer),
+                        new ItemStack(Items.GUNPOWDER));
+                helper.assertTrue(observed[0], "Modifier must obtain Looting through the Forge event");
+                helper.assertTrue(countGrudge(loot) == expected,
+                        "Forge Looting " + eventLevel + " must drop " + expected + " grudge, but saw " + loot);
+            } finally {
+                MinecraftForge.EVENT_BUS.unregister(listener);
+            }
+        } finally {
+            ConfigHandler.COMMON.lootingAffectsGrudge.set(previousEnabled);
+            ConfigHandler.COMMON.dropRateGrudge.set(previousRate);
+        }
+    }
+
+    private static void equipLootingSword(GameTestHelper helper, Zombie killer, int level) {
+        ItemStack sword = new ItemStack(Items.DIAMOND_SWORD);
+        if (level > 0) {
+            sword.enchant(Enchantments.MOB_LOOTING, level);
+        }
+        killer.setItemSlot(EquipmentSlot.MAINHAND, sword);
+        helper.assertTrue(EnchantmentHelper.getMobLooting(killer) == level, "Killer's Looting level was not applied");
+    }
+
+    private static LootParams deathParams(ServerLevel level, Creeper victim, Zombie killer) {
+        return new LootParams.Builder(level)
+                .withParameter(LootContextParams.ORIGIN, victim.position())
+                .withParameter(LootContextParams.THIS_ENTITY, victim)
+                .withParameter(LootContextParams.KILLER_ENTITY, killer)
+                .withParameter(LootContextParams.DAMAGE_SOURCE, level.damageSources().mobAttack(killer))
+                .create(LootContextParamSets.ENTITY);
     }
 
     private static ObjectArrayList<ItemStack> applyModifier(LootParams params, ItemStack vanillaDrop) {

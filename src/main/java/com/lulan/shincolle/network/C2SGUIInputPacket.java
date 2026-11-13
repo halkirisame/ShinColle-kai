@@ -80,6 +80,8 @@ public class C2SGUIInputPacket {
     public static final byte HitHeight = 35;
     public static final byte SetUnitName = 36;
     public static final byte SetRetaliate = 37;
+    public static final byte RemoveTeamShip = 38;
+    public static final byte SetShipGuiRange = 39;
     // op tool
     public static final byte SetUnatkClass = 50;
     public static final byte ShowUnatkClass = 51;
@@ -595,6 +597,12 @@ public class C2SGUIInputPacket {
                     case SetRetaliate:
                         handleSetRetaliate(sender);
                         break;
+                    case SetShipGuiRange:
+                        handleSetShipGuiRange(sender);
+                        break;
+                    case RemoveTeamShip:
+                        handleRemoveTeamShip(sender);
+                        break;
                     case SetUnatkClass:
                         handleSetUnatkClass(sender);
                         break;
@@ -705,7 +713,7 @@ public class C2SGUIInputPacket {
 
     /**
      * Open ship GUI.
-     * values: 0:player eid, 1:(unused dim), 2:entity id
+     * values: 0:player eid, 1:(unused dim), 2:entity id, optional 3:team index
      */
     private void handleOpenShipGUI(ServerPlayer player) {
         if (values.length < 3 || !hasPointerInHand(player))
@@ -714,9 +722,26 @@ public class C2SGUIInputPacket {
         ServerLevel level = player.serverLevel();
         Entity entity = level.getEntity(values[2]);
 
-        if (entity instanceof BasicEntityShip ship && canManageShip(player, ship)
-                && isWithinPointerRange(player, ship)) {
-            ship.openGUI(player);
+        if (!(entity instanceof BasicEntityShip ship) || !canManageShip(player, ship)
+                || !com.lulan.shincolle.utility.ShipInventoryAccess.isAvailable(ship)) {
+            return;
+        }
+        double rangeSqr = POINTER_RANGE_SQR;
+        if (values.length >= 4) {
+            int team = values[3];
+            CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+            if (capa == null || team < 0 || team >= CapaTeitoku.TEAM_NUM
+                    || !capa.isShipInTeam(team, ship.getShipUID())) {
+                return;
+            }
+            int range = capa.getShipGuiRange(team);
+            rangeSqr = (double) range * range;
+        }
+        if (ship.level() == player.level() && player.distanceToSqr(ship) <= rangeSqr) {
+            double maxDistanceSqr = rangeSqr;
+            NetworkHooks.openScreen(player, new SimpleMenuProvider(
+                    (id, inv, p) -> new ContainerShipInventory(id, inv, ship, maxDistanceSqr),
+                    ship.getDisplayName()), buf -> buf.writeInt(ship.getId()));
         }
     }
 
@@ -822,6 +847,42 @@ public class C2SGUIInputPacket {
                 ? "chat.shincolle_kai.pointer.team_removed" : "chat.shincolle_kai.pointer.team_added",
                 shipLabel), true);
 
+        resetTeamFormationAndSync(player, capa, teamId);
+    }
+
+    private void handleRemoveTeamShip(ServerPlayer player) {
+        if (values.length != 4 || !hasPointerInHand(player)
+                || !(player.containerMenu instanceof ContainerFormation)) {
+            return;
+        }
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        int teamId = values[1];
+        int slot = values[2];
+        int shipUid = values[3];
+        if (capa == null || teamId < 0 || teamId >= CapaTeitoku.TEAM_NUM
+                || slot < 0 || slot >= CapaTeitoku.SLOT_NUM || shipUid <= 0
+                || capa.getTeamMember(teamId, slot) != shipUid) {
+            return;
+        }
+
+        capa.setTeamMember(teamId, slot, 0);
+        capa.setTeamSID(teamId, slot, 0);
+        capa.setShipSelected(teamId, slot, false);
+
+        BasicEntityShip removed = ServerDataManager.getShipByUID(shipUid);
+        if (removed != null && removed.getPlayerUID() == capa.getPlayerUID()) {
+            removed.setStateMinor(ID.M.FormatType, 0);
+            removed.setStateMinor(ID.M.FormatPos, 0);
+            if (ShipNameTagHelper.refresh(removed)) {
+                removed.sendSyncPacketUnitName();
+            }
+        }
+
+        resetTeamFormationAndSync(player, capa, teamId);
+    }
+
+    private static void resetTeamFormationAndSync(ServerPlayer player, CapaTeitoku capa, int teamId) {
+        ServerLevel level = player.serverLevel();
         // [PORT] 1.10.2 -> 1.20.1: changing team members clears formation selection.
         capa.setFormatID(teamId, 0);
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
@@ -870,15 +931,11 @@ public class C2SGUIInputPacket {
         int teamId = capa.getSelectTeam();
         List<BasicEntityShip> removedShips = new ArrayList<>();
         for (int i = 0; i < CapaTeitoku.SLOT_NUM; i++) {
-            int sid = capa.getTeamSID(teamId, i);
             BasicEntityShip member = resolveTeamShip(player.serverLevel(), capa, teamId, i);
-            if (member != null) removedShips.add(member);
-            if (sid > 0) {
-                Entity shipEnt = player.serverLevel().getEntity(sid);
-                if (shipEnt instanceof BasicEntityShip ship) {
-                    ship.setStateMinor(ID.M.FormatType, 0);
-                    ship.setStateMinor(ID.M.FormatPos, 0);
-                }
+            if (member != null) {
+                removedShips.add(member);
+                member.setStateMinor(ID.M.FormatType, 0);
+                member.setStateMinor(ID.M.FormatPos, 0);
             }
             capa.setTeamMember(teamId, i, 0);
             capa.setTeamSID(teamId, i, 0);
@@ -954,6 +1011,27 @@ public class C2SGUIInputPacket {
     }
 
     /**
+     * Set the distance stage for opening ship menus from a fleet.
+     * values: 0:player eid, 1:team index, 2:stage (0/1/2)
+     */
+    private void handleSetShipGuiRange(ServerPlayer player) {
+        if (values.length < 3) {
+            return;
+        }
+        int team = values[1];
+        int stage = values[2];
+        if (team < 0 || team >= CapaTeitoku.TEAM_NUM || stage < 0 || stage > 2) {
+            return;
+        }
+        CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
+        if (capa == null) {
+            return;
+        }
+        capa.setShipGuiRangeStage(team, stage);
+        ModNetworking.sendToPlayer(S2CGUISyncPacket.syncPlayerMisc(capa), player);
+    }
+
+    /**
      * Allow or forbid every ship of a team to retaliate against players.
      * values: 0:player eid, 1:team index, 2:permitted (0/1)
      */
@@ -998,8 +1076,8 @@ public class C2SGUIInputPacket {
                 }
                 capa.setFormatID(k, 0);
                 for (int j = 0; j < CapaTeitoku.SLOT_NUM; j++) {
-                    int otherSid = capa.getTeamSID(k, j);
-                    if (otherSid > 0 && player.serverLevel().getEntity(otherSid) instanceof BasicEntityShip other) {
+                    BasicEntityShip other = resolveTeamShip(player.serverLevel(), capa, k, j);
+                    if (other != null) {
                         other.setStateMinor(ID.M.FormatType, 0);
                     }
                 }
@@ -1242,6 +1320,7 @@ public class C2SGUIInputPacket {
      * stringData: the new team name
      */
     private void handleDeskRename(ServerPlayer player) {
+        if (!ServerDataManager.authorizeTeam(player)) return;
         if (stringData == null || stringData.isEmpty())
             return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
@@ -1255,6 +1334,7 @@ public class C2SGUIInputPacket {
      * stringData: the target team leader's name
      */
     private void handleDeskAlly(ServerPlayer player) {
+        if (!ServerDataManager.authorizeTeam(player)) return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
 
         int myTid = capa.getPlayerUID();
@@ -1270,6 +1350,7 @@ public class C2SGUIInputPacket {
      * stringData: the target team leader's name
      */
     private void handleDeskBreak(ServerPlayer player) {
+        if (!ServerDataManager.authorizeTeam(player)) return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
 
         int myTid = capa.getPlayerUID();
@@ -1285,6 +1366,7 @@ public class C2SGUIInputPacket {
      * stringData: the target team leader's name
      */
     private void handleDeskBan(ServerPlayer player) {
+        if (!ServerDataManager.authorizeTeam(player)) return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
 
         int myTid = capa.getPlayerUID();
@@ -1302,6 +1384,7 @@ public class C2SGUIInputPacket {
      * stringData: the target team leader's name
      */
     private void handleDeskUnban(ServerPlayer player) {
+        if (!ServerDataManager.authorizeTeam(player)) return;
         CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
 
         int myTid = capa.getPlayerUID();

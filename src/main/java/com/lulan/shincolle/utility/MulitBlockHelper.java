@@ -4,12 +4,16 @@ import com.lulan.shincolle.block.BasicBlockMulti;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.tileentity.BasicTileMulti;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
+import com.lulan.shincolle.tileentity.TileMultiPolymetal;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MulitBlockHelper {
 
@@ -166,6 +170,7 @@ public class MulitBlockHelper {
     public static void setupStructure(Level level, int xCoord, int yCoord, int zCoord, int type) {
         BlockPos pos;
         BlockPos masterPos = new BlockPos(xCoord, yCoord, zCoord);
+        List<TileMultiPolymetal> polymetalTiles = beginPolymetalStructureUpdate(level, masterPos);
         LogHelper.debug("DEBUG: setup structure type: " + type);
 
         // get all tiles and set core position, then update blockstates
@@ -185,12 +190,15 @@ public class MulitBlockHelper {
                 } // end z loop
             } // end y loop
         } // end x loop
+        polymetalTiles.forEach(TileMultiPolymetal::endStructureUpdate);
     }
 
     // Reset tile multi, called from master block if struct broken
     public static void resetStructure(Level level, int xCoord, int yCoord, int zCoord) {
         LogHelper.debug("DEBUG: reset struct: client? " + level.isClientSide + " " + xCoord + " " + yCoord + " "
                 + zCoord);
+        List<TileMultiPolymetal> polymetalTiles = beginPolymetalStructureUpdate(level,
+                new BlockPos(xCoord, yCoord, zCoord));
 
         for (int x = xCoord - 1; x < xCoord + 2; x++) {
             for (int y = yCoord - 2; y < yCoord + 1; y++) {
@@ -208,5 +216,17 @@ public class MulitBlockHelper {
                 }
             }
         }
+        polymetalTiles.forEach(TileMultiPolymetal::endStructureUpdate);
+    }
+
+    private static List<TileMultiPolymetal> beginPolymetalStructureUpdate(Level level, BlockPos core) {
+        List<TileMultiPolymetal> tiles = new ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(core.offset(-1, -2, -1), core.offset(1, 0, 1))) {
+            if (level.getBlockEntity(pos) instanceof TileMultiPolymetal tile) {
+                tile.beginStructureUpdate();
+                tiles.add(tile);
+            }
+        }
+        return tiles;
     }
 }

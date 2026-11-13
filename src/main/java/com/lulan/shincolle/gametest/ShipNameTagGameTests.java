@@ -2,6 +2,7 @@ package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
+import com.lulan.shincolle.client.gui.inventory.ContainerFormation;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.init.ModItems;
@@ -9,6 +10,7 @@ import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.S2CEntitySyncPacket;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.PacketHelper;
 import com.lulan.shincolle.utility.ShipNameTagHelper;
 import com.mojang.authlib.GameProfile;
@@ -16,7 +18,9 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -151,6 +155,162 @@ public final class ShipNameTagGameTests {
         });
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "ship_name_tag")
+    public static void guiRemoveUnloadedUidLeavesOtherSlotsAndSelectionsInPlace(GameTestHelper helper) {
+        ready(helper, () -> {
+            try (Fixture fixture = new Fixture(helper)) {
+                fixture.openFormation();
+                int uid = NEXT_UID.getAndIncrement();
+                int otherUid = NEXT_UID.getAndIncrement();
+                fixture.capa.setTeamMember(0, 0, uid);
+                fixture.capa.setTeamSID(0, 0, 123456);
+                fixture.capa.setShipSelected(0, 0, true);
+                fixture.capa.setTeamMember(0, 3, otherUid);
+                fixture.capa.setTeamSID(0, 3, -1);
+                fixture.capa.setShipSelected(0, 3, true);
+                fixture.capa.setFormatID(0, 2);
+                int emptyUid = fixture.capa.getTeamMember(0, 1);
+                helper.assertTrue(ServerDataManager.getShipByUID(uid) == null
+                                && ServerDataManager.getShipByUID(otherUid) == null
+                                && fixture.capa.getTeamMember(0, 0) == uid
+                                && fixture.capa.getTeamSID(0, 0) == 123456
+                                && fixture.capa.isShipSelected(0, 0) && fixture.capa.getFormatID(0) == 2
+                                && fixture.capa.getTeamMember(0, 3) == otherUid
+                                && fixture.capa.getTeamSID(0, 3) == -1 && fixture.capa.isShipSelected(0, 3)
+                                && emptyUid <= 0,
+                        "Unloaded membership and active formation fixture");
+
+                invoke(fixture.removePacket(0, 0, uid), "handleRemoveTeamShip", fixture.player);
+
+                helper.assertTrue(fixture.capa.getTeamMember(0, 0) == 0
+                                && fixture.capa.getTeamSID(0, 0) == 0 && !fixture.capa.isShipSelected(0, 0),
+                        "Unloaded member must be cleared by uid and slot alone");
+                helper.assertTrue(fixture.capa.getTeamMember(0, 3) == otherUid
+                                && fixture.capa.getTeamSID(0, 3) == -1 && fixture.capa.isShipSelected(0, 3)
+                                && fixture.capa.getTeamMember(0, 1) == emptyUid && fixture.capa.getFormatID(0) == 0,
+                        "Removal must not compact slots or change other selections, and must clear formation");
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "ship_name_tag")
+    public static void guiRemoveLoadedShipRefreshesNamesAndResetsFiveRemainingShips(GameTestHelper helper) {
+        ready(helper, () -> {
+            try (Fixture fixture = new Fixture(helper)) {
+                fixture.openFormation();
+                fixture.capa.setUnitName(0, "Removed Fleet");
+                List<BasicEntityShip> remaining = new ArrayList<>();
+                for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+                    BasicEntityShip member = slot == 1 ? fixture.ship : fixture.newShip();
+                    fixture.member(0, slot, member);
+                    fixture.capa.setShipSelected(0, slot, true);
+                    member.setStateMinor(ID.M.FormatType, 2);
+                    member.setStateMinor(ID.M.FormatPos, slot);
+                    if (slot != 1) remaining.add(member);
+                    helper.assertTrue(member.getStateMinor(ID.M.FormatType) == 2
+                                    && member.getStateMinor(ID.M.FormatPos) == slot,
+                            "Loaded formation fixture must retain each member's position");
+                }
+                fixture.capa.setFormatID(0, 2);
+                ShipNameTagHelper.refresh(fixture.ship);
+                helper.assertTrue(fixture.ship.unitNames.equals(List.of("Removed Fleet"))
+                                && ServerDataManager.getShipByUID(fixture.ship.getShipUID()) == fixture.ship
+                                && fixture.capa.getFormatID(0) == 2 && remaining.size() == 5,
+                        "Loaded uid lookup, name and six-member formation fixture");
+
+                invoke(fixture.removePacket(0, 1, fixture.ship.getShipUID()), "handleRemoveTeamShip", fixture.player);
+
+                helper.assertTrue(fixture.ship.getStateMinor(ID.M.FormatType) == 0
+                                && fixture.ship.getStateMinor(ID.M.FormatPos) == 0 && fixture.ship.unitNames.isEmpty()
+                                && fixture.capa.getTeamMember(0, 1) == 0 && fixture.capa.getTeamSID(0, 1) == 0
+                                && !fixture.capa.isShipSelected(0, 1) && fixture.capa.getFormatID(0) == 0,
+                        "Removed loaded member must lose formation and team name even with five members left");
+                for (BasicEntityShip member : remaining) {
+                    int slot = member.getStateMinor(ID.M.FormatPos);
+                    helper.assertTrue(member.getStateMinor(ID.M.FormatType) == 0
+                                    && fixture.capa.getTeamMember(0, slot) == member.getShipUID()
+                                    && fixture.capa.isShipSelected(0, slot),
+                            "Remaining members must keep their original slots and selections without formation buffs");
+                }
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "ship_name_tag")
+    public static void guiRemoveOneMembershipKeepsOtherFleetAndName(GameTestHelper helper) {
+        ready(helper, () -> {
+            try (Fixture fixture = new Fixture(helper)) {
+                fixture.openFormation();
+                fixture.member(0, 1, fixture.ship);
+                fixture.member(4, 3, fixture.ship);
+                fixture.capa.setShipSelected(4, 3, true);
+                fixture.capa.setFormatID(4, 3);
+                fixture.capa.setUnitName(0, "First Fleet");
+                fixture.capa.setUnitName(4, "Fifth Fleet");
+                ShipNameTagHelper.refresh(fixture.ship);
+                helper.assertTrue(fixture.ship.unitNames.equals(List.of("First Fleet", "Fifth Fleet"))
+                                && fixture.capa.isShipSelected(4, 3) && fixture.capa.getFormatID(4) == 3,
+                        "Multiple fleet membership fixture");
+
+                invoke(fixture.removePacket(0, 1, fixture.ship.getShipUID()), "handleRemoveTeamShip", fixture.player);
+
+                helper.assertTrue(fixture.capa.getTeamMember(0, 1) == 0
+                                && fixture.capa.getTeamMember(4, 3) == fixture.ship.getShipUID()
+                                && fixture.capa.getTeamSID(4, 3) == fixture.ship.getId()
+                                && fixture.capa.isShipSelected(4, 3) && fixture.capa.getFormatID(4) == 3
+                                && fixture.ship.unitNames.equals(List.of("Fifth Fleet")),
+                        "Only the requested membership and its derived name must be removed");
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "ship_name_tag")
+    public static void guiRemoveRejectsStaleUidInvalidPayloadAndMissingAuthority(GameTestHelper helper) {
+        ready(helper, () -> {
+            try (Fixture fixture = new Fixture(helper)) {
+                fixture.openFormation();
+                fixture.member(0, 1, fixture.ship);
+                fixture.capa.setTeamMember(0, 0, 0);
+                fixture.capa.setTeamMember(0, 2, -1);
+                fixture.capa.setShipSelected(0, 1, true);
+                fixture.capa.setFormatID(0, 2);
+                helper.assertTrue(fixture.capa.isShipSelected(0, 1) && fixture.capa.getFormatID(0) == 2
+                                && fixture.capa.getTeamMember(0, 0) == 0 && fixture.capa.getTeamMember(0, 2) == -1,
+                        "Rejection fixture must begin with a selected member and formation");
+                int uid = fixture.ship.getShipUID();
+                int[][] invalid = {
+                        {fixture.player.getId(), 0, 1, uid + 1},
+                        {fixture.player.getId(), -1, 1, uid},
+                        {fixture.player.getId(), CapaTeitoku.TEAM_NUM, 1, uid},
+                        {fixture.player.getId(), 0, -1, uid},
+                        {fixture.player.getId(), 0, CapaTeitoku.SLOT_NUM, uid},
+                        {fixture.player.getId(), 0, 0, 0},
+                        {fixture.player.getId(), 0, 2, -1},
+                        {}, {fixture.player.getId()}, {fixture.player.getId(), 0},
+                        {fixture.player.getId(), 0, 1}, {fixture.player.getId(), 0, 1, uid, 1}
+                };
+                for (int[] values : invalid) {
+                    fixture.assertRemoveRejected(new C2SGUIInputPacket(C2SGUIInputPacket.RemoveTeamShip, values));
+                }
+                fixture.player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                fixture.player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+                helper.assertTrue(fixture.player.getMainHandItem().isEmpty()
+                                && fixture.player.getOffhandItem().isEmpty(), "Missing pointer fixture");
+                fixture.assertRemoveRejected(fixture.removePacket(0, 1, uid));
+                fixture.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+                fixture.player.closeContainer();
+                helper.assertTrue(!(fixture.player.containerMenu instanceof ContainerFormation)
+                                && fixture.player.getMainHandItem().is(ModItems.POINTER.get()),
+                        "Missing formation menu fixture must still hold the pointer");
+                fixture.assertRemoveRejected(fixture.removePacket(0, 1, uid));
+            }
+            helper.succeed();
+        });
+    }
+
     private static void ready(GameTestHelper helper, Runnable verification) {
         GameTestEntities.whenPositionsTicking(helper, verification, POSITION);
     }
@@ -218,6 +378,39 @@ public final class ShipNameTagGameTests {
             capa.setTeamSID(team, slot, member.getId());
             helper.assertTrue(capa.getTeamMember(team, slot) == member.getShipUID()
                             && capa.getTeamSID(team, slot) == member.getId(), "Team membership fixture");
+        }
+
+        private void openFormation() {
+            ServerDataManager.updateShipID(ship);
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.POINTER.get()));
+            invoke(new C2SGUIInputPacket(C2SGUIInputPacket.OpenItemGUI, new int[]{player.getId(), 0, 0}),
+                    "handleOpenItemGUI", player);
+            helper.assertTrue(player.containerMenu instanceof ContainerFormation
+                            && player.getMainHandItem().is(ModItems.POINTER.get())
+                            && ServerDataManager.getShipByUID(ship.getShipUID()) == ship,
+                    "Removal requires the actual formation menu, a held pointer and a registered loaded ship");
+        }
+
+        private C2SGUIInputPacket removePacket(int team, int slot, int uid) {
+            return new C2SGUIInputPacket(C2SGUIInputPacket.RemoveTeamShip, new int[]{player.getId(), team, slot, uid});
+        }
+
+        private void assertRemoveRejected(C2SGUIInputPacket packet) {
+            CompoundTag before = capa.serializeNBT();
+            int[][] entityIds = new int[CapaTeitoku.TEAM_NUM][CapaTeitoku.SLOT_NUM];
+            for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
+                for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+                    entityIds[team][slot] = capa.getTeamSID(team, slot);
+                }
+            }
+            invoke(packet, "handleRemoveTeamShip", player);
+            helper.assertTrue(capa.serializeNBT().equals(before), "Rejected removal must not change persistent state");
+            for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
+                for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
+                    helper.assertTrue(capa.getTeamSID(team, slot) == entityIds[team][slot],
+                            "Rejected removal must not change runtime entity ids");
+                }
+            }
         }
 
         @Override

@@ -704,6 +704,8 @@
   "gui.shincolle_kai.formation.buffs": "陣型加成",
   "gui.shincolle_kai.formation.slot": "位置 %s",
   "gui.shincolle_kai.formation.empty": "(空)",
+  "gui.shincolle_kai.formation.remove": "移出艦隊",
+  "gui.shincolle_kai.formation.remove_confirm": "再次點擊以移出艦隊",
   "gui.shincolle_kai.aisettings.title": "設定",
   "gui.shincolle_kai.aisettings.swapclick": "交換右鍵操作",
   "gui.shincolle_kai.aisettings.swapclick.desc": "開啟：右鍵開啟艦船物品欄，潛行右鍵切換坐下或站起。適用於此用戶端上你的所有艦船。物品專屬操作不變。",

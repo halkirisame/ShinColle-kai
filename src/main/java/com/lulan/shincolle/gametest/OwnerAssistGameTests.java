@@ -17,6 +17,7 @@ import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.team.TeamData;
 import com.lulan.shincolle.utility.TeamHelper;
 import com.mojang.authlib.GameProfile;
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -32,6 +33,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.FakePlayer;
@@ -687,6 +691,19 @@ public final class OwnerAssistGameTests {
         private void arrow(Mob target, Entity shooter) {
             Arrow arrow = this.entities.add(new Arrow(this.helper.getLevel(), target.getX() - 2D,
                     target.getY() + 0.8D, target.getZ()));
+            AABB flightPath = arrow.getBoundingBox().expandTowards(2D, 0D, 0D);
+            Map<BlockPos, BlockState> displaced = new HashMap<>();
+            GameTestEntities.onCompletion(this.helper, () -> displaced.forEach((pos, state) ->
+                    this.helper.getLevel().setBlock(pos, state, 3)), "arrow flight path cleanup");
+            BlockPos.betweenClosedStream(flightPath).forEach(pos -> {
+                BlockState state = this.helper.getLevel().getBlockState(pos);
+                if (!state.isAir()) {
+                    displaced.put(pos.immutable(), state);
+                    this.helper.getLevel().setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+                }
+            });
+            this.helper.assertTrue(!this.helper.getLevel().getBlockCollisions(arrow, flightPath).iterator().hasNext(),
+                    "Actual arrow flight path must be clear, including its spawn position");
             arrow.setOwner(shooter);
             arrow.setNoGravity(true);
             arrow.setBaseDamage(4D);

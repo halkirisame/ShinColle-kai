@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.OptionalInt;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.LOAD_PREPARATION;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.OWNER_UNAVAILABLE;
 import static com.lulan.shincolle.ai.domain.formation.FormationProjection.Reason.MEMBERSHIP_UNAVAILABLE;
@@ -63,15 +64,7 @@ public final class ShipFormationStateAdapter {
         if (capa == null) return new FormationProjection.Pending(MEMBERSHIP_UNAVAILABLE);
         ServerLevel level = (ServerLevel) this.ship.level();
         int shipUid = this.ship.getShipUID();
-        int team = -1;
-        // A ship in several teams follows the first team that has a formation and enough ships
-        for (int k = 0; k < CapaTeitoku.TEAM_NUM; k++) {
-            if (capa.getFormatID(k) > 0 && capa.isShipInTeam(k, shipUid) && capa.getNumberOfShip(level, k) > 4) {
-                team = k;
-                break;
-            }
-        }
-        if (team < 0) team = capa.findTeamOfShip(shipUid);
+        int team = formationTeam(capa, level, shipUid).orElseGet(() -> capa.findTeamOfShip(shipUid));
         if (team < 0) return new FormationProjection.Inactive(NOT_MEMBER);
         var members = new ArrayList<FormationProjector.Member>();
         for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
@@ -89,6 +82,16 @@ public final class ShipFormationStateAdapter {
         }
         return FormationProjector.project(new FormationProjector.Observation(true,
                 FormationProjector.Membership.MEMBER, capa.getFormatID(team), this.ship.getShipUID(), members));
+    }
+
+    /** The same formal roster must drive both projection and waypoint propagation. */
+    public static OptionalInt formationTeam(CapaTeitoku capa, ServerLevel level, int shipUid) {
+        // A ship in several teams follows the first team that has a formation and enough ships.
+        for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
+            if (capa.getFormatID(team) > 0 && capa.isShipInTeam(team, shipUid)
+                    && capa.getNumberOfShip(level, team) > 4) return OptionalInt.of(team);
+        }
+        return OptionalInt.empty();
     }
 
     public static Optional<FormationProjection.Active> active(IShipFlags source) {

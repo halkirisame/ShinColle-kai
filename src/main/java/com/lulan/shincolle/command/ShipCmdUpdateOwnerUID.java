@@ -2,9 +2,11 @@ package com.lulan.shincolle.command;
 
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.item.SavedEggOwnership;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.server.ServerDataManager;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -27,12 +29,44 @@ public class ShipCmdUpdateOwnerUID {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("shipupdateowneruid")
+                .then(Commands.literal("migrateTeam").requires(s -> s.hasPermission(2))
+                        .then(Commands.argument("oldTeamId", IntegerArgumentType.integer(1))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(ctx -> migrateTeam(ctx.getSource(),
+                                                IntegerArgumentType.getInteger(ctx, "oldTeamId"),
+                                                EntityArgument.getPlayer(ctx, "target"))))))
+                .then(Commands.literal("migrateEgg").requires(s -> s.hasPermission(2))
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .executes(ctx -> migrateEgg(ctx.getSource(), EntityArgument.getPlayer(ctx, "target")))))
                 // /shipupdateowneruid (self, no permission needed)
                 .executes(ctx -> executeSelf(ctx.getSource()))
                 // /shipupdateowneruid <player> (requires OP)
                 .then(Commands.argument("player", EntityArgument.player())
                         .requires(s -> s.hasPermission(2))
                         .executes(ctx -> executeOther(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))));
+    }
+
+    private static int migrateTeam(CommandSourceStack source, int oldId, ServerPlayer target) {
+        if (!ServerDataManager.migrateLegacyTeam(oldId, target)) {
+            source.sendFailure(Component.literal("[ShinColle] Legacy team migration refused; all registrations were kept."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("[ShinColle] Migrated legacy team " + oldId
+                + " to " + target.getGameProfile().getName() + "."), true);
+        return 1;
+    }
+
+    private static int migrateEgg(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
+        ServerPlayer administrator = source.getPlayerOrException();
+        if (!SavedEggOwnership.migrateLegacyEgg(administrator.getMainHandItem(), target)) {
+            source.sendFailure(Component.literal("[ShinColle] Hold a legacy saved egg without an owner UUID in your main hand."));
+            return 0;
+        }
+        administrator.getInventory().setChanged();
+        administrator.containerMenu.broadcastChanges();
+        source.sendSuccess(() -> Component.literal("[ShinColle] Migrated the held legacy egg to "
+                + target.getGameProfile().getName() + "."), true);
+        return 1;
     }
 
     private static int executeSelf(CommandSourceStack source) {
@@ -64,8 +98,8 @@ public class ShipCmdUpdateOwnerUID {
     }
 
     /**
-     * Iterates all loaded levels, finds BasicEntityShip entities whose ownerName
-     * matches the player's name, and updates their PlayerUID to the player's
+     * Iterates all loaded levels, finds BasicEntityShip entities whose owner UUID
+     * matches the player, and updates their PlayerUID to the player's
      * current UID from capability data.
      *
      * @return the number of ships updated
@@ -78,6 +112,7 @@ public class ShipCmdUpdateOwnerUID {
         }
 
         int playerUID = capa.getPlayerUID();
+        if (playerUID <= 0) return 0;
         String playerName = player.getName().getString();
         int count = 0;
 
@@ -87,8 +122,10 @@ public class ShipCmdUpdateOwnerUID {
                     new AABB(level.getSharedSpawnPos()).inflate(30000000));
 
             for (BasicEntityShip ship : ships) {
-                if (playerName.equals(ship.ownerName) || player.getUUID().equals(ship.getOwnerUUID())) {
+                if (player.getUUID().equals(ship.getOwnerUUID())) {
                     ship.setStateMinor(ID.M.PlayerUID, playerUID);
+                    ship.ownerName = playerName;
+                    ship.sendSyncPacketAll();
                     count++;
                 }
             }

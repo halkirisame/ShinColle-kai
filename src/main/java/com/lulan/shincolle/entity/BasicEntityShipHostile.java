@@ -202,13 +202,19 @@ public abstract class BasicEntityShipHostile extends Mob
         if (this.dropItem.isEmpty()) {
             return ItemStack.EMPTY;
         }
+        return rollEggDrop(this.random, ConfigHandler.eggDropChance(this.getScaleLevel()))
+                ? this.dropItem.copy() : ItemStack.EMPTY;
+    }
 
-        return switch (this.getScaleLevel()) {
-            case 0 -> this.random.nextInt(5) == 0 ? this.dropItem.copy() : ItemStack.EMPTY;
-            case 1 -> this.random.nextInt(3) == 0 ? this.dropItem.copy() : ItemStack.EMPTY;
-            case 2 -> this.random.nextInt(10) > 0 ? this.dropItem.copy() : ItemStack.EMPTY;
-            default -> this.dropItem.copy();
-        };
+    /** chance 1.0 以上は乱数を引かずに必ず、0.0 以下は引かずに出さない。 */
+    static boolean rollEggDrop(RandomSource random, double chance) {
+        if (chance >= 1.0D) {
+            return true;
+        }
+        if (chance <= 0.0D) {
+            return false;
+        }
+        return random.nextDouble() < chance;
     }
 
     @Override

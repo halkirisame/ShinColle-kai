@@ -1,5 +1,5 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "shincolle_kai:stored_contents_shapeless",
   "ingredients": [
     {
       "item": "shincolle_kai:grudge_heavy"

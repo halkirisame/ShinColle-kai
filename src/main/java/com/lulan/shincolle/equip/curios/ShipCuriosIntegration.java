@@ -18,6 +18,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -207,32 +208,32 @@ public final class ShipCuriosIntegration {
      * Puts stacks saved by {@link #saveEquipped} back into the ship's
      * ship-equip Curios slot.
      *
-     * <p>Silently drops entries whose slot no longer exists - the configured
-     * slot count can shrink between the ship dying and being respawned.
+     * <p>Callers handling a revival use {@link #loadEquippedWithOverflow}
+     * to return equipment whose slot no longer exists.
      */
     public static void loadEquipped(LivingEntity shipEntity, ListTag list) {
-        if (list == null || list.isEmpty()) {
-            return;
-        }
-        var inventory = CuriosApi.getCuriosInventory(shipEntity).resolve().orElse(null);
-        if (inventory == null) {
-            return;
-        }
-        var handler = inventory.getStacksHandler(ShipEquipSlots.SLOT_ID).orElse(null);
-        if (handler == null) {
-            return;
-        }
+        loadEquippedWithOverflow(shipEntity, list);
+    }
 
-        var stacks = handler.getStacks();
+    /** Restores available slots and returns the saved stacks that did not fit. */
+    public static List<ItemStack> loadEquippedWithOverflow(LivingEntity shipEntity, ListTag list) {
+        if (list == null || list.isEmpty()) {
+            return List.of();
+        }
+        IItemHandlerModifiable stacks = handlerFor(shipEntity);
         int limit = Math.min(stacks.getSlots(), ShipEquipSlots.slotCount());
+        List<ItemStack> overflow = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
             int slot = entry.getByte("Slot") & 0xFF;
+            ItemStack stack = ItemStack.of(entry);
             if (slot >= limit) {
-                continue;
+                if (!stack.isEmpty()) overflow.add(stack);
+            } else {
+                stacks.setStackInSlot(slot, stack);
             }
-            stacks.setStackInSlot(slot, ItemStack.of(entry));
         }
+        return overflow;
     }
 
     /**
@@ -243,40 +244,62 @@ public final class ShipCuriosIntegration {
      *
      * <p>Always returns exactly {@link ShipEquipSlots#slotCount()} slots on
      * both sides so client and server build an identical slot list - a
-     * mismatch would desync the menu - falling back to a throwaway handler if
-     * the ship has no Curios capability (e.g. the client-side copy).
+     * mismatch would desync the menu. Client placeholders accept menu sync;
+     * server slots without persistent backing reject all interaction.
      */
     public static List<Slot> buildEquipSlots(BasicEntityShip ship) {
         int count = ShipEquipSlots.slotCount();
         if (count <= 0) {
             return List.of();
         }
-        IItemHandlerModifiable handler = handlerFor(ship, count);
+        IItemHandlerModifiable handler = handlerFor(ship);
+        boolean clientSide = ship == null || ship.level().isClientSide();
+        IItemHandlerModifiable placeholder = new ItemStackHandler(count);
 
         List<Slot> result = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             int slotIndex = i;
-            result.add(new SlotItemHandler(handler, slotIndex, ShipEquipSlots.slotX(), ShipEquipSlots.slotY(slotIndex)) {
+            boolean backed = slotIndex < handler.getSlots();
+            boolean active = backed || clientSide;
+            result.add(new SlotItemHandler(backed ? handler : placeholder, slotIndex,
+                    ShipEquipSlots.slotX(), ShipEquipSlots.slotY(slotIndex)) {
+                @Override
+                public boolean isActive() {
+                    return active;
+                }
+
                 @Override
                 public boolean mayPlace(ItemStack stack) {
-                    return ShipEquipSlots.accepts(stack) && super.mayPlace(stack);
+                    return active && ShipEquipSlots.accepts(stack) && super.mayPlace(stack);
+                }
+
+                @Override
+                public boolean mayPickup(Player player) {
+                    return active && super.mayPickup(player);
+                }
+
+                @Override
+                public void set(ItemStack stack) {
+                    if (active) {
+                        super.set(stack);
+                    }
                 }
             });
         }
         return result;
     }
 
-    private static IItemHandlerModifiable handlerFor(BasicEntityShip ship, int count) {
+    private static IItemHandlerModifiable handlerFor(LivingEntity ship) {
         if (ship != null) {
             IItemHandler handler = CuriosApi.getCuriosInventory(ship).resolve()
                     .flatMap(inv -> inv.getStacksHandler(ShipEquipSlots.SLOT_ID))
                     .map(stacksHandler -> (IItemHandler) stacksHandler.getStacks())
                     .orElse(null);
-            if (handler instanceof IItemHandlerModifiable modifiable && handler.getSlots() >= count) {
+            if (handler instanceof IItemHandlerModifiable modifiable) {
                 return modifiable;
             }
         }
-        return new ItemStackHandler(count);
+        return new ItemStackHandler(0);
     }
 
     /**

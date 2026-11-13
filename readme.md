@@ -80,6 +80,7 @@ ShinColle-ReforgeとはMOD IDが異なります。既存データは引き継が
 <!-- traceability: readme.optional.jei begin -->
 | JEI | 艦GUIとアイテム一覧の表示競合を回避 |
 <!-- traceability: readme.optional.jei end -->
+| Mekanism | ポリメタル鉱石を鉱石処理で2〜5倍に加工 |
 
 ## ShinColle-Reforgeとの違い
 
@@ -166,19 +167,17 @@ Reforgeのワールドを開くこと自体はできますが、**自動移行�
 
 不具合の報告は [Issues](https://github.com/halkirisame/ShinColle-kai/issues) へお願いします。
 
-## v1.20.1-1.0.0 について
+## v1.20.1-1.1.0 について
 
-Minecraft 1.20.1向け「深これ改」1.0.0の案内です。
+Minecraft 1.20.1向け「深これ改」1.1.0の案内です。
 
 造船所で艦を建造し、装備を整え、艦隊を指揮して戦い、育成や婚約を楽しめます。
 初めてワールドに入ると説明書が配られ、入門の章「はじめに」で遊び方を案内します。
 
-この版では、野生の敵艦娘として雪風が加わり、鹿島も出現するようになりました。
-自分の艦を持ち運ぶサファリネットと、試験的な機能の深海棲艦魂符、Mekanism 連携を追加し、
-騎乗中の武装の発射やクレーンの荷役など、原典 ShinColle 1.10.2 の機能を復元しています。
-
-既知の問題や、確認が十分でない部分も残っています。1.0.0という版名は、
-すべての問題が解消したことを意味するものではありません。
+この版では、鹿島と雪風の能力を調整し、それぞれに固有の能力を加えました。
+艦隊画面から遠くや別の次元にいる艦も編成から外せるようになり、海の構造物や古代都市などの宝箱にも
+深これ改のアイテムが入ります。大型造船所へのホッパー・パイプでの搬入を原典 ShinColle 1.10.2 から復元し、
+艦の装備や卵が失われる不具合などを修正しています。
 
 更新の前にワールドをバックアップし、サーバーとすべてのクライアントを同じ版にそろえてください。
 
@@ -323,6 +322,7 @@ Optional integrations (all work fine when absent):
 <!-- traceability: readme.optional.jei-en begin -->
 | JEI | Keeps its item list clear of the ship GUI |
 <!-- traceability: readme.optional.jei-en end -->
+| Mekanism | Polymetal Ore processed 2x–5x through ore processing |
 
 ## Differences from ShinColle-Reforge
 
@@ -411,21 +411,19 @@ Problems currently known to affect play.
 Please report bugs at
 [Issues](https://github.com/halkirisame/ShinColle-kai/issues).
 
-## About v1.20.1-1.0.0
+## About v1.20.1-1.1.0
 
-This guide covers ShinColle-kai 1.0.0 for Minecraft 1.20.1.
+This guide covers ShinColle-kai 1.1.0 for Minecraft 1.20.1.
 
 Build a shipyard, construct and equip ships, command your fleet in battle,
 and enjoy training and marriage. New players receive a guide book;
 its "Getting Started" chapter introduces the basics.
 
-This version adds Yukikaze as a wild enemy shipgirl, and Kashima now appears as one too.
-It adds the Safari Net for carrying your own ships, the Abyssal Soul Talisman as an
-experimental feature, and Mekanism integration, and it restores features of the original
-ShinColle 1.10.2 such as firing weapons while mounted and crane cargo work.
-
-Known issues and areas that still need verification remain. The 1.0.0 version
-number does not mean that every issue has been resolved.
+This version rebalances Kashima and Yukikaze and gives each an innate trait.
+The fleet screen can now remove distant or cross-dimension ships from a team, and ShinColle items
+now appear in more structure chests, including ocean structures and ancient cities. It restores
+hopper and pipe input to the large shipyard from the original ShinColle 1.10.2, and fixes issues
+such as lost ship equipment and eggs.
 
 Back up your worlds before updating, and use the same version on the server and every client.
 

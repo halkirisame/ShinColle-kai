@@ -583,6 +583,8 @@ checkstyle {
 
 tasks.named('checkstyleAddonExample', Checkstyle).configure { maxWarnings = 0 }
 tasks.named('checkstyleTest', Checkstyle).configure { maxWarnings = 0 }
+// The default 512m worker heap ran out while parsing main (2026-11-13).
+tasks.withType(Checkstyle).configureEach { maxHeapSize = '1g' }
 
 tasks.register('testAiCoreBoundary') {
     description = 'Checks rejected dependencies and accepted Java literals in the ship AI boundary validator.'

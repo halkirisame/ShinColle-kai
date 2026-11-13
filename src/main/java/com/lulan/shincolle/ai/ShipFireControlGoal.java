@@ -106,7 +106,8 @@ public class ShipFireControlGoal extends Goal {
                 }
             };
             LogHelper.diag("DIAG: attack fire ship=" + this.entity + " type=" + channel + " target=" + target);
-            timing = CombatTimingReducer.onFired(timing, channel, delay, now);
+            timing = CombatTimingReducer.onFired(timing, channel,
+                    ShipInnateTraitsGate.postAttackDelay(this.entity, channel, delay), now);
         }
         state.setTiming(timing);
     }

@@ -690,6 +690,8 @@
   "gui.shincolle_kai.formation.buffs": "阵型加成",
   "gui.shincolle_kai.formation.slot": "位置 %s",
   "gui.shincolle_kai.formation.empty": "(空)",
+  "gui.shincolle_kai.formation.remove": "移出舰队",
+  "gui.shincolle_kai.formation.remove_confirm": "再次点击以移出舰队",
   "gui.shincolle_kai.aisettings.title": "设置",
   "gui.shincolle_kai.aisettings.swapclick": "交换右键操作",
   "gui.shincolle_kai.aisettings.swapclick.desc": "开启：右键打开舰船物品栏，潜行右键切换坐下或站起。适用于此客户端上你的所有舰船。物品专属操作不变。",

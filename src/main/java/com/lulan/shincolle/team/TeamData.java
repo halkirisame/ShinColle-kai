@@ -4,6 +4,7 @@ import com.lulan.shincolle.utility.LogHelper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Fleet team data.
@@ -19,6 +20,8 @@ public class TeamData {
     private int teamID;
     private String teamName;
     private String leaderName;
+    private UUID leaderUUID;
+    private boolean leaderIdentityPresent;
     private List<Integer> teamBanID;
     private List<Integer> teamAllyID;
 
@@ -64,6 +67,20 @@ public class TeamData {
 
     public void setTeamLeaderName(String name) {
         this.leaderName = name;
+    }
+
+    public UUID getTeamLeaderUUID() {
+        return this.leaderUUID;
+    }
+
+    public boolean hasTeamLeaderIdentity() {
+        return this.leaderIdentityPresent;
+    }
+
+    /** A present but invalid persisted identity remains unclaimable. */
+    public void setTeamLeaderUUID(UUID uuid) {
+        this.leaderUUID = uuid;
+        this.leaderIdentityPresent = true;
     }
 
     public List<Integer> getTeamBannedList() {

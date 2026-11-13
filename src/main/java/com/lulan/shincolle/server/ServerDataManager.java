@@ -20,7 +20,6 @@ import net.minecraftforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -250,14 +249,19 @@ public class ServerDataManager {
 
         int pUID = capa.getPlayerUID();
         if (pUID > 0 && tname != null && tname.length() > 1 && mapTeamID != null) {
+            // Creation must never replace existing registrations or their relations.
+            if (mapTeamID.containsKey(pUID)) {
+                authorizeTeam(player);
+                return false;
+            }
+            if (mapTeamID.values().stream()
+                    .anyMatch(team -> player.getUUID().equals(team.getTeamLeaderUUID()))) return false;
             TeamData tdata = new TeamData();
             tdata.setTeamID(pUID);
             tdata.setTeamName(tname);
             tdata.setTeamLeaderName(player.getGameProfile().getName());
+            tdata.setTeamLeaderUUID(player.getUUID());
             LogHelper.debug("create team: " + pUID + " " + tname);
-
-            // Remove duplicate team data for this leader
-            cleanTeamData(tdata);
 
             setTeamData(tdata);
             capa.setTeamCooldown(ConfigHandler.teamCooldown());
@@ -283,7 +287,7 @@ public class ServerDataManager {
         }
 
         int pUID = capa.getPlayerUID();
-        if (mapTeamID != null && mapTeamID.containsKey(pUID)) {
+        if (authorizeTeam(player)) {
             LogHelper.debug("remove team: " + pUID);
             removeTeamData(pUID);
             capa.setTeamCooldown(ConfigHandler.teamCooldown());
@@ -369,26 +373,50 @@ public class ServerDataManager {
         }
     }
 
-    /**
-     * Remove duplicate teams with the same leader name
-     */
-    private static void cleanTeamData(TeamData tdata) {
-        if (tdata == null || mapTeamID == null)
-            return;
-        String owner1 = tdata.getTeamLeaderName();
+    /** Claim only legacy data tied to this player's persisted positive numeric UID. */
+    public static boolean authorizeTeam(Player player) {
+        CapaTeitoku capa = getTeitokuCapability(player);
+        if (capa == null || capa.getPlayerUID() <= 0) return false;
+        TeamData team = getTeamData(capa.getPlayerUID());
+        if (team == null) return false;
+        if (team.hasTeamLeaderIdentity() && !player.getUUID().equals(team.getTeamLeaderUUID())) return false;
+        if (team.hasTeamLeaderIdentity() && player.getGameProfile().getName().equals(team.getTeamLeaderName())) return true;
+        team.setTeamLeaderUUID(player.getUUID());
+        team.setTeamLeaderName(player.getGameProfile().getName());
+        markDirty();
+        return true;
+    }
 
-        try {
-            Iterator<Map.Entry<Integer, TeamData>> iter = mapTeamID.entrySet().iterator();
-            while (iter.hasNext()) {
-                Map.Entry<Integer, TeamData> entry = iter.next();
-                TeamData existing = entry.getValue();
-                if (owner1.equals(existing.getTeamLeaderName())) {
-                    iter.remove();
+    /** Called only by the permission-gated administrator command. No merging or overwriting. */
+    public static boolean migrateLegacyTeam(int oldId, Player target) {
+        TeamData old = getTeamData(oldId);
+        CapaTeitoku capa = getTeitokuCapability(target);
+        if (old == null || old.hasTeamLeaderIdentity() || capa == null || capa.getPlayerUID() <= 0) return false;
+        int newId = capa.getPlayerUID();
+        if (oldId != newId && getTeamData(newId) != null) return false;
+        if (mapTeamID.values().stream().anyMatch(team -> team != old
+                && target.getUUID().equals(team.getTeamLeaderUUID()))) return false;
+        mapTeamID.remove(oldId);
+        old.setTeamID(newId);
+        old.setTeamLeaderUUID(target.getUUID());
+        old.setTeamLeaderName(target.getGameProfile().getName());
+        mapTeamID.put(newId, old);
+        for (TeamData team : mapTeamID.values()) {
+            team.getTeamAllyList().replaceAll(id -> id == oldId ? newId : id);
+            team.getTeamBannedList().replaceAll(id -> id == oldId ? newId : id);
+        }
+        markDirty();
+        MinecraftServer server = getServer();
+        if (server != null) {
+            for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+                CapaTeitoku onlineCapa = getTeitokuCapability(online);
+                if (onlineCapa != null) {
+                    ModNetworking.sendToPlayer(S2CGUISyncPacket.syncTeamData(onlineCapa,
+                            getTeamData(onlineCapa.getPlayerUID()), mapTeamID), online);
                 }
             }
-        } catch (Exception e) {
-            LogHelper.info("clean team data fail: " + e);
         }
+        return true;
     }
 
     // ========== Player data ==========

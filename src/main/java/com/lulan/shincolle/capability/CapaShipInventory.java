@@ -2,6 +2,7 @@ package com.lulan.shincolle.capability;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.utility.LogHelper;
+import com.lulan.shincolle.utility.ShipInventoryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -45,6 +46,7 @@ public class CapaShipInventory {
      * ship's own consumption as well.
      */
     public boolean isSlotAvailable(int slotid) {
+        if (!ShipInventoryAccess.isAvailable(owner)) return false;
         if (!(owner instanceof BasicEntityShip ship)) {
             // No host to ask (the client-side placeholder container). Keep every
             // slot usable rather than silently shrinking the inventory.

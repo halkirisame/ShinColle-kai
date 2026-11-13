@@ -16,6 +16,9 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.ItemStackHandler;
 
 import javax.annotation.Nullable;
@@ -67,6 +70,8 @@ public class BlockGrudgeHeavy extends BasicBlockMulti {
                 CompoundTag tag = dropStack.getOrCreateTag();
                 tag.putIntArray("Mats", mats);
                 tag.putInt("Fuel", tile.getPowerRemained());
+                tile.getCapability(ForgeCapabilities.FLUID_HANDLER).ifPresent(tank ->
+                        tag.put("FuelFluid", tank.getFluidInTank(0).writeToNBT(new CompoundTag())));
 
                 // [PORT] 1.10.2 -> 1.20.1: heavy grudge core drop used a custom item
                 // entity to reduce accidental loss.
@@ -116,6 +121,11 @@ public class BlockGrudgeHeavy extends BasicBlockMulti {
                 // Restore fuel
                 if (tag.contains("Fuel")) {
                     tile.setPowerRemained(tag.getInt("Fuel"));
+                }
+                if (tag.contains("FuelFluid")) {
+                    FluidStack fluid = FluidStack.loadFluidStackFromNBT(tag.getCompound("FuelFluid"));
+                    tile.getCapability(ForgeCapabilities.FLUID_HANDLER).ifPresent(tank ->
+                            tank.fill(fluid, IFluidHandler.FluidAction.EXECUTE));
                 }
             }
         }

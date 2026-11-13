@@ -6,12 +6,14 @@ import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.init.ModMenuTypes;
 import com.lulan.shincolle.utility.TeamHelper;
+import com.lulan.shincolle.utility.ShipInventoryAccess;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
@@ -45,6 +47,7 @@ public class ContainerShipInventory extends AbstractContainerMenu {
     public static final int VISIBLE_SHIP_SLOTS = EQUIP_SLOTS + INV_SLOTS_PER_PAGE;
 
     private final BasicEntityShip ship;
+    private final double maxDistanceSqr;
     private final PagedShipContainerWrapper shipInv;
 
     /**
@@ -58,8 +61,13 @@ public class ContainerShipInventory extends AbstractContainerMenu {
      * Server-side constructor
      */
     public ContainerShipInventory(int containerId, Inventory playerInv, BasicEntityShip ship) {
+        this(containerId, playerInv, ship, 64.0);
+    }
+
+    public ContainerShipInventory(int containerId, Inventory playerInv, BasicEntityShip ship, double maxDistanceSqr) {
         super(ModMenuTypes.SHIP_INVENTORY.get(), containerId);
         this.ship = ship;
+        this.maxDistanceSqr = maxDistanceSqr;
         this.shipInv = (ship != null)
                 ? new PagedShipContainerWrapper(ship.getCapaShipInventory())
                 : new PagedShipContainerWrapper(new CapaShipInventory(TOTAL_SHIP_SLOTS, null));
@@ -112,14 +120,21 @@ public class ContainerShipInventory extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         return ship != null
+                && ShipInventoryAccess.isAvailable(ship)
                 && ship.isAlive()
                 && player.level() == ship.level()
-                && player.distanceToSqr(ship) < 64.0
+                && player.distanceToSqr(ship) <= maxDistanceSqr
                 && (TeamHelper.checkSameOwner(player, ship) || ship.isOwnedBy(player));
     }
 
     @Override
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (ShipInventoryAccess.isAvailable(ship)) super.clicked(slotId, button, clickType, player);
+    }
+
+    @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if (!ShipInventoryAccess.isAvailable(ship)) return ItemStack.EMPTY;
         ItemStack result = ItemStack.EMPTY;
         Slot slot = this.slots.get(index);
 

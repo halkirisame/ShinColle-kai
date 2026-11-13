@@ -6,6 +6,8 @@ import com.lulan.shincolle.ai.*;
 import com.lulan.shincolle.ai.diag.TickStallProbe;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.TargetLock;
+import com.lulan.shincolle.ai.domain.traits.ShipInnateTraits;
+import com.lulan.shincolle.ai.domain.traits.ShipInnateTraits.TrainingRemainder;
 import com.lulan.shincolle.ai.domain.action.ActionKind;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
@@ -85,6 +87,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.entity.player.Inventory;
@@ -130,6 +133,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * survives death alongside the ship's own inventory.
      */
     public static final String CURIOS_EGG_TAG = "ShinColleCuriosEquip";
+    private static final String DEATH_CURIOS_SNAPSHOT_TAG = "DeathCuriosSnapshot";
     /** Minimum final movement speed as a ratio of the ship's raw MOV. */
     public static final float MIN_MOV_RATIO = 0.1F;
     private static final Set<String> REPORTED_INVALID_EQUIPMENT = ConcurrentHashMap.newKeySet();
@@ -590,6 +594,9 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // save ship inventory
         nbt.put(CapaShipInventory.InvName, itemHandler.serializeNBT());
+        if (this.deathCuriosSnapshot != null) {
+            nbt.put(DEATH_CURIOS_SNAPSHOT_TAG, this.deathCuriosSnapshot.copy());
+        }
         if (this.guardedEntityUuid != null) {
             nbt.putUUID("GuardEntityUUID", this.guardedEntityUuid);
         }
@@ -615,6 +622,8 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (nbt.contains(CapaShipInventory.InvName)) {
             itemHandler.deserializeNBT(nbt.getCompound(CapaShipInventory.InvName));
         }
+        this.deathCuriosSnapshot = nbt.contains(DEATH_CURIOS_SNAPSHOT_TAG, Tag.TAG_LIST)
+                ? nbt.getList(DEATH_CURIOS_SNAPSHOT_TAG, Tag.TAG_COMPOUND).copy() : null;
 
         this.guardedEntityUuid = nbt.hasUUID("GuardEntityUUID")
                 ? nbt.getUUID("GuardEntityUUID") : null;
@@ -1270,13 +1279,23 @@ public abstract class BasicEntityShip extends TamableAnimal
             return;
         }
 
+        boolean training = exp > 0 && ShipInnateTraitsGate.trainingSupported(this);
+        if (training) {
+            var remainder = new TrainingRemainder(getPersistentData().getInt(TrainingRemainder.KEY));
+            var award = ShipInnateTraits.trainingAward(exp, remainder);
+            exp = award.experience();
+            getPersistentData().putInt(TrainingRemainder.KEY, award.remainder().fifths());
+        }
+
         // a ship that was never restored from NBT still carries ExpNext == 0,
         // which would let any gain skip a level
         if (StateMinor[ID.M.ExpNext] <= 0) {
             setExpNext();
         }
 
-        StateMinor[ID.M.ExpCurrent] += exp;
+        StateMinor[ID.M.ExpCurrent] = training
+                ? (int) Math.min(Integer.MAX_VALUE, (long) StateMinor[ID.M.ExpCurrent] + exp)
+                : StateMinor[ID.M.ExpCurrent] + exp;
 
         // a single gain can cover more than one level, and leftover experience
         // above the new threshold must level the ship again instead of sitting
@@ -1665,6 +1684,23 @@ public abstract class BasicEntityShip extends TamableAnimal
         if (this.decrSupplies(8)) {
             this.setHealth(this.getMaxHealth());
             this.StateTimer[ID.T.ImmuneTime] = 120;
+            if (this.deathCuriosSnapshot != null) {
+                List<ItemStack> overflow;
+                if (ModList.get().isLoaded("curios")) {
+                    overflow = ShipCuriosIntegration.loadEquippedWithOverflow(this, this.deathCuriosSnapshot);
+                } else {
+                    overflow = new ArrayList<>();
+                    for (int i = 0; i < this.deathCuriosSnapshot.size(); i++) {
+                        ItemStack stack = ItemStack.of(this.deathCuriosSnapshot.getCompound(i));
+                        if (!stack.isEmpty()) overflow.add(stack);
+                    }
+                }
+                for (ItemStack stack : overflow) {
+                    this.level().addFreshEntity(new ItemEntity(this.level(),
+                            this.getX(), this.getY(), this.getZ(), stack));
+                }
+                this.deathCuriosSnapshot = null;
+            }
             ModNetworking.sendToAllTracking(new S2CSpawnParticlePacket(
                     com.lulan.shincolle.network.ParticlePacketRoute.REPAIR_GODDESS_TYPE,
                     this.getId(), null), this);
@@ -3629,6 +3665,7 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInv, Player player) {
+        if (!ShipInventoryAccess.isAvailable(this)) return null;
         return new ContainerShipInventory(containerId, playerInv, this);
     }
 
@@ -3636,8 +3673,17 @@ public abstract class BasicEntityShip extends TamableAnimal
      * Open this ship's GUI for a server player.
      */
     public void openGUI(ServerPlayer player) {
+        if (!ShipInventoryAccess.isAvailable(this)) return;
         NetworkHooks.openScreen(player, this,
                 buf -> buf.writeInt(this.getId()));
+    }
+
+    protected void closeInventoryMenus() {
+        for (ServerPlayer viewer : ((ServerLevel) level()).players()) {
+            if (viewer.containerMenu instanceof ContainerShipInventory menu && menu.getShip() == this) {
+                viewer.closeContainer();
+            }
+        }
     }
 
     // ========== Simple Overrides ==========
@@ -3801,6 +3847,8 @@ public abstract class BasicEntityShip extends TamableAnimal
                                 ConfigHandler.maxLevelUnmarried, ConfigHandler.maxLevel);
 
                         this.setShipLevel(lv, true);
+                        this.setExpNext();
+                        this.sendSyncPacketMinor();
 
                         // level up sound
                         this.playVoice(ModSounds.SHIP_LEVEL.get(), 0.75F, 1F);
@@ -3879,7 +3927,8 @@ public abstract class BasicEntityShip extends TamableAnimal
 
         // Curios handles and clears death drops from super.die(). Capture the
         // capability first so the delayed ship egg can restore these stacks.
-        if (!this.level().isClientSide() && ModList.get().isLoaded("curios")) {
+        // A later lethal hit must not replace an already captured snapshot.
+        if (this.deathCuriosSnapshot == null && !this.level().isClientSide() && ModList.get().isLoaded("curios")) {
             this.deathCuriosSnapshot = ShipCuriosIntegration.saveAndClearEquipped(this);
         }
 
@@ -3916,7 +3965,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             com.lulan.shincolle.client.particle.ShipAmbientVisuals.death(this);
         }
 
-        if (this.deathTime == ConfigHandler.deathTime()) {
+        if (this.deathTime >= ConfigHandler.deathTime()) {
             // spawn ship egg
             if (!this.level().isClientSide() && this.getStateFlag(ID.F.CanDrop)) {
                 // prevent multiple drops
@@ -3931,13 +3980,12 @@ public abstract class BasicEntityShip extends TamableAnimal
                 // Curios keeps its slots on the entity capability, which dies
                 // with the entity - fold it into the egg too, or third-party
                 // equipment is lost outright on death.
-                if (ModList.get().isLoaded("curios")) {
-                    net.minecraft.nbt.ListTag curios = this.deathCuriosSnapshot != null
-                            ? this.deathCuriosSnapshot
-                            : ShipCuriosIntegration.saveEquipped(this);
-                    if (!curios.isEmpty()) {
-                        eggNbt.put(CURIOS_EGG_TAG, curios);
-                    }
+                ListTag curios = this.deathCuriosSnapshot;
+                if (curios == null && ModList.get().isLoaded("curios")) {
+                    curios = ShipCuriosIntegration.saveEquipped(this);
+                }
+                if (curios != null && !curios.isEmpty()) {
+                    eggNbt.put(CURIOS_EGG_TAG, curios);
                 }
                 // [PORT] 1.10.2 -> 1.20.1: keep legacy pickup-protection tags used by
                 // BasicEntityItem (owner only for saved ship eggs).
@@ -3997,10 +4045,6 @@ public abstract class BasicEntityShip extends TamableAnimal
                             d2, d0, d1);
                 }
             }
-        }
-        // clear bug entity
-        else if (this.deathTime > ConfigHandler.deathTime() && this.isAlive()) {
-            this.discard();
         }
     }
 

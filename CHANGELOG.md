@@ -1,5 +1,101 @@
 # 変更履歴 / Changelog
 
+## v1.20.1-1.1.0 (2026-11-13)
+
+### 原典 ShinColle 1.10.2 から復元
+
+- 大型造船所の土台（ポリメタルブロック）に付けたホッパーや液体パイプから、資材・燃料を搬入できるようにしました。形成前に付けたパイプも接続し、構造を組み直した後も置き直さずに搬入できます。
+
+### 艦の調整
+
+- 鹿島を火力・防御を控えめにした育成支援型へ調整し、燃料のある鹿島と同じ保存艦隊の味方艦に経験値+20%を追加しました。同じ所有者・同じ次元のロード済みの艦が対象で、鹿島本人は未編成でも有効です。複数の鹿島では重複せず、少量の経験値の端数も保存・復活をまたいで繰り越します。
+- 雪風の能力配分と成長を調整し、味方の雪風に回避+15ポイントと通常攻撃後の待ち時間÷1.1を追加しました。初撃・艦載機・固有スキルの待ち時間は変わりません。両艦の固有能力はNEW AIでのみ有効で、敵艦には付きません。
+
+### 艦隊画面
+
+- 艦隊画面で艦隊ごとに個体メニューを開ける距離を16/32/64ブロックから選べるようにしました(既定16)。遠くで開いたメニューがすぐ閉じる問題も修正しました。読み込まれていない艦は開けません。
+- 艦隊画面の選択中の艦に×ボタンを追加しました。同じ×を3秒以内に2回押すと、遠方・未ロード・別次元の艦も編成から外せます。空き枠は詰めず、隊の陣形は無陣形に戻ります。
+
+### 構造物の宝箱
+
+- 古代都市・森の洋館・埋もれた宝・砦の遺跡の宝物庫・難破船・海底遺跡の宝箱にも深これ改のアイテムが入るようにしました。古代都市と森の洋館は要塞、埋もれた宝はジャングルの寺院、砦の遺跡の宝物庫はネザー要塞と同じ中身です。難破船と海底遺跡には、整備員訓練書・近代化改修ツールを含む海専用の中身が入ります。生成済みのチャンクの宝箱は変わりません。
+
+### 新しい設定
+
+- 敵艦のスポーンエッグのドロップ確率を大きさの段階ごとに変える設定 `eggDropChanceMobSmall` / `eggDropChanceMobLarge` / `eggDropChanceBossSmall` / `eggDropChanceBossLarge` を追加しました。範囲は0.0〜1.0、既定は順に0.2・1/3・0.9・1.0で、従来の確率を維持します。
+- 怨念のドロップ数にドロップ増加を反映する設定 `lootingAffectsGrudge` を追加しました。有効にするとドロップ倍率にドロップ増加のレベルを加えます（倍率1.0・ドロップ増加IIIなら4個）。既定は無効で、従来のドロップ数を維持します。
+- 小型・大型造船所に燃料の消費倍率（`tileShipyardSmallFuelUse` / `tileShipyardLargeFuelUse`）を追加しました。既定は1.0で従来どおりです。値を下げると、建造時間や燃料1個の価値を変えずに燃料が長持ちします。
+
+### 修正
+
+- 訓練書を使った直後に、新しいレベルの必要経験値と表示を更新するよう修正しました。現在の経験値はそのまま保持します。
+- 小型・大型造船所で燃料の価値の倍率を高くしても燃料が詰まらないようにしました。満タン未満なら1個取り込み、上限を超えた燃料も保持します。燃料ゲージの表示は100%までです。
+- 味方艦の死亡待機中に保存・再読込すると Curios 装備が失われる問題を修正しました。退避した装備は Curios を一時的に外した環境でも死亡卵まで保持します。
+- 死亡演出時間を0にしたときに味方艦の死体が残り、卵が出ない問題を修正しました。待機中に設定時間を短くした場合も、次の死亡 tick で卵に戻ります。
+- 通常の敵艦生成の確率が、設定より1ポイント高くなる問題を修正しました。確率0では生成せず、既定の10は10%として判定します。ボスの生成は従来どおりです。
+- 通常の敵艦生成が、群の隻数や複数の群によって設定上限を超える問題を修正しました。同じ次元の読み込み済み敵艦の残り枠まで生成し、上限0では停止します。ボス自体の生成条件は変わりません。
+- 怨念の重塊を小型建造所へ投入したときに格納資材が失われる問題、撤去・再設置で未変換の溶岩が失われる問題、格納資材がツールチップに表示されない問題を修正しました。中身入りの大型コアは通常のクラフトで消費されなくなり、燃料入りのコアは建造所で資材化できなくなりました。タンクの昇格では同じ液体を容量内で合算して引き継ぎ、異なる液体や容量を超える組み合わせはクラフトできません。理由はツールチップで確認できます。
+- 保存艦入りの卵を小型・大型建造所が資材として消費しないようにしました。未保存の卵の資材化は変わりません。保存卵のツールチップにも資材化できないことを表示します。
+- `despawnEgg=-1` のとき、タグなしの専用ドロップが即座に消える不具合を修正しました。
+- 非クリエイティブで艦を解体したときに追加装備が回収されない問題と、保存先のない追加装備枠へ格納した装備が消える問題を修正しました。死亡卵から復活した際、現在の追加装備枠に収まらない装備は、復活させたプレイヤーの所持品へ返します。満杯で入りきらない分はプレイヤーの足元へ落ち、通常のアイテムと同様に放置で消えます。
+- 死亡待機中の艦が修理女神で回復したとき、退避していた追加装備を現在の枠へ戻すようにしました。回復後の解体や再死亡でも装備が失われません。枠に収まらない装備は艦の足元へ落ち、通常のアイテムと同様に放置で消えます。
+- 艦の復活に失敗した場合に卵や経験値を失う問題と、クリエイティブの所持品が満杯のときに保存卵を拾うと消える問題を修正しました。
+- データ定義が欠けて休眠中の汎用艦について、積荷・装備の画面と自動搬送を止め、定義が戻ったときのアイテムの消失・複製を防ぎました。
+- プレイヤー名の変更・名前の再利用や古い実体IDにより、所有艦・保存卵・チーム・陣形の操作が誤った相手に及ぶ問題を修正しました。旧形式の所有者情報は数値UIDで安全に補完し、管理者用の移行コマンドを追加しました。
+
+### 更新時の注意
+
+- 更新の前にワールドをバックアップしてください。サーバーとすべてのクライアントを同じ版にそろえてください。
+- 追加した設定は、どれも既定値で従来の挙動を保ちます。
+
+### English
+
+#### Restored from the original ShinColle 1.10.2
+
+- Restored inserting materials and fuel into a large shipyard through hoppers and fluid pipes attached to its base (polymetal blocks). Pipes attached before the structure forms also connect, and they keep working after the structure is rebuilt without being placed again.
+
+#### Ship balance
+
+- Rebalanced Kashima as a lower-firepower, lower-defense training support ship. A fueled, loaded Kashima grants +20% XP to friendly ships sharing a saved fleet, owner and dimension; she also supports herself without a fleet. Multiple Kashimas do not stack. Fractional bonus XP carries over between small rewards, saves and revival.
+- Rebalanced Yukikaze's stats and growth, and gave friendly Yukikaze +15 percentage points of dodge and ordinary post-attack intervals divided by 1.1. First shots, aircraft and special skills are unchanged. Both ships' innate traits apply only under NEW AI, never to enemies.
+
+#### Fleet screen
+
+- The fleet screen now lets each fleet choose a ship-menu range of 16/32/64 blocks (default 16). Fixed remotely opened menus closing immediately. Unloaded ships still cannot be opened.
+- Added a × button for the selected ship in the fleet screen. Click it twice within three seconds to remove even distant, unloaded, or cross-dimension ships from the team. The slot stays empty and the team's formation resets to none.
+
+#### Structure loot
+
+- ShinColle loot now also appears in ancient city, woodland mansion, buried treasure, bastion treasure, shipwreck, and underwater ruin chests. Ancient cities and woodland mansions share the stronghold loot, buried treasure shares the jungle temple loot, and bastion treasure shares the nether fortress loot. Shipwrecks and underwater ruins get new ocean loot that includes training books and modernization kits. Chests in already generated chunks are unchanged.
+
+#### New options
+
+- Added `eggDropChanceMobSmall` / `eggDropChanceMobLarge` / `eggDropChanceBossSmall` / `eggDropChanceBossLarge` to configure hostile ship spawn egg drop chances by scale level (0.0–1.0). Defaults of 0.2, 1/3, 0.9, and 1.0 preserve existing probabilities.
+- Added `lootingAffectsGrudge`, an option to add the killer's Looting level to the grudge drop rate (rate 1.0 with Looting III drops 4). It is disabled by default, preserving existing drop counts.
+- Added small/large shipyard fuel-use multipliers (`tileShipyardSmallFuelUse` / `tileShipyardLargeFuelUse`). The default of 1.0 preserves existing behavior; lower values make fuel last longer without changing build time or fuel value per item.
+
+#### Fixes
+
+- Fixed stale experience requirements after using training books. The new level and experience now sync immediately while preserving current experience.
+- Fixed small/large shipyards rejecting fuel at high fuel-value multipliers. Below full, they accept one fuel unit and retain any excess above capacity; the fuel gauge display stops at 100%.
+- Fixed Curios equipment being lost when a friendly ship is saved and reloaded during its death wait. Captured equipment is retained in the death egg even if Curios is temporarily absent.
+- Fixed friendly ships leaving a permanent corpse without an egg when the death animation time is zero. Shortening the configured wait below the elapsed time now completes death on the next death tick as well.
+- Fixed regular hostile ship spawn chances being one percentage point too high. A chance of 0 now disables regular spawns, and the default value of 10 means exactly 10%. Boss spawns are unchanged.
+- Fixed regular hostile ship groups exceeding the configured cap. Spawns now fit the remaining capacity for loaded hostile ships in the player's dimension, including across multiple groups; a cap of 0 disables regular spawns. Boss spawn conditions are unchanged.
+- Fixed stored materials being lost when recycling a heavy grudge core in a small shipyard, unconverted lava being lost on removal and placement, and missing stored-material tooltips. Heavy cores with stored contents are no longer consumed by regular crafting, and shipyards no longer recycle fueled cores. Tank upgrades preserve matching fluids within output capacity and reject mixed or over-capacity contents. Tooltips explain these restrictions.
+- Small and large shipyards no longer recycle eggs containing saved ships. Recycling of fresh eggs is unchanged, and saved-egg tooltips explain the restriction.
+- Fixed untagged protected drops disappearing immediately when `despawnEgg=-1` disables despawning.
+- Fixed missing extra-equipment drops when dismantling ships outside Creative mode, and prevented storing equipment in extra slots without persistent backing. When reviving a ship from a saved egg, extra equipment that no longer fits is returned to the reviving player's inventory. Any remainder drops at their feet and expires like ordinary dropped items.
+- When a dying ship recovers through a Repair Goddess, saved extra equipment is restored to its current slots, preventing loss on subsequent dismantling or death. Equipment that no longer fits drops at the ship's feet and expires like ordinary dropped items.
+- Failed ship revivals no longer consume eggs or experience. Saved ship eggs also remain recoverable when picked up with a full Creative inventory.
+- Blocked inventory/equipment menus and automatic transfers for dormant data-defined ships, preventing item loss or duplication when their definitions return.
+- Fixed owner, saved-egg, team, and formation identity checks after player renames, name reuse, or entity ID reuse. Legacy ownership is safely upgraded by numeric UID, and administrator migration commands were added.
+
+#### Updating
+
+- Back up your worlds before updating, and use the same version on the server and every client.
+- All new options default to the existing behavior.
+
 ## v1.20.1-1.0.0 (2026-11-06)
 
 ### 新しい艦

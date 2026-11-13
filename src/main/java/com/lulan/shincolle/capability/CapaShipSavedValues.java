@@ -1,6 +1,7 @@
 package com.lulan.shincolle.capability;
 
 import com.lulan.shincolle.ai.domain.AiDataVersion;
+import com.lulan.shincolle.ai.domain.traits.ShipInnateTraits.TrainingRemainder;
 import com.lulan.shincolle.ai.ShipClassAttackGate;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.ShipConsumptionDefaults;
@@ -34,6 +35,16 @@ public class CapaShipSavedValues {
         // save state minor array
         nbt.putIntArray("StateMinor", ship.getStateMinorArray());
 
+        int remainder = ship.getPersistentData().getInt(TrainingRemainder.KEY);
+        if (remainder == 0) nbt.remove(TrainingRemainder.KEY);
+        else nbt.putInt(TrainingRemainder.KEY, remainder);
+        // The entity's existing private storage backs the live value, but only this root key persists it.
+        if (nbt.contains("ForgeData", Tag.TAG_COMPOUND)) {
+            CompoundTag data = nbt.getCompound("ForgeData");
+            data.remove(TrainingRemainder.KEY);
+            if (data.isEmpty()) nbt.remove("ForgeData");
+        }
+
         // save state flags as byte array
         boolean[] flags = ship.getStateFlagArray();
         byte[] flagBytes = new byte[flags.length];
@@ -65,6 +76,11 @@ public class CapaShipSavedValues {
      */
     public static void loadNBTData(CompoundTag nbt, BasicEntityShip ship) {
         checkDataVersion(nbt);
+
+        // The independent root key owns restoration, including saves without any training data.
+        TrainingRemainder remainder = TrainingRemainder.loaded(nbt.contains(TrainingRemainder.KEY, Tag.TAG_INT),
+                nbt.getInt(TrainingRemainder.KEY));
+        ship.getPersistentData().putInt(TrainingRemainder.KEY, remainder.fifths());
 
         boolean hasMinor = nbt.contains("StateMinor", Tag.TAG_INT_ARRAY);
         boolean hasFlag = nbt.contains("StateFlag", Tag.TAG_BYTE_ARRAY);

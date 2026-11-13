@@ -582,7 +582,8 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider,
         if (level == null)
             return;
 
-        List<BasicEntityShip> ships = level.getEntitiesOfClass(BasicEntityShip.class, getCaptureArea());
+        List<BasicEntityShip> ships = level.getEntitiesOfClass(BasicEntityShip.class, getCaptureArea(),
+                com.lulan.shincolle.utility.ShipInventoryAccess::isAvailable);
         UUID selected = CraneLifecycle.choose(ships.stream().map(ship -> new CraneLifecycle.Candidate(
                 ship.getUUID(), ShipCraneStateAdapter.phase(ship), ship.isAlive(), isOwnerShip(ship),
                 ShipCraneStateAdapter.guards(ship, this))).toList()).orElse(null);
@@ -993,6 +994,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider,
         if (redSignalTicks > 0) setRedSignalTicks(redSignalTicks - 1);
         if (dockedShip != null) {
             if (!isActive || !isPaired || !dockedShip.isAlive() || !isOwnerShip(dockedShip)
+                    || !com.lulan.shincolle.utility.ShipInventoryAccess.isAvailable(dockedShip)
                     || !ShipCraneStateAdapter.guards(dockedShip, this)
                     || ShipCraneStateAdapter.phase(dockedShip) != CraneLifecycle.Phase.WORKING) {
                 releaseDockedShip(false);

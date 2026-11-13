@@ -43,7 +43,31 @@ public final class ChestLootInjectionGameTests {
             BuiltInLootTables.STRONGHOLD_LIBRARY,
             BuiltInLootTables.STRONGHOLD_CROSSING,
             BuiltInLootTables.STRONGHOLD_CORRIDOR,
-            BuiltInLootTables.END_CITY_TREASURE
+            BuiltInLootTables.END_CITY_TREASURE,
+            BuiltInLootTables.ANCIENT_CITY,
+            BuiltInLootTables.WOODLAND_MANSION,
+            BuiltInLootTables.BURIED_TREASURE,
+            BuiltInLootTables.BASTION_TREASURE,
+            BuiltInLootTables.SHIPWRECK_TREASURE,
+            BuiltInLootTables.SHIPWRECK_SUPPLY,
+            BuiltInLootTables.UNDERWATER_RUIN_BIG,
+            BuiltInLootTables.UNDERWATER_RUIN_SMALL
+    );
+
+    private static final List<ResourceLocation> EXCLUDED_TABLES = List.of(
+            BuiltInLootTables.SHIPWRECK_MAP,
+            BuiltInLootTables.ANCIENT_CITY_ICE_BOX,
+            BuiltInLootTables.RUINED_PORTAL,
+            BuiltInLootTables.PILLAGER_OUTPOST,
+            BuiltInLootTables.BASTION_OTHER,
+            BuiltInLootTables.VILLAGE_PLAINS_HOUSE
+    );
+
+    private static final List<ResourceLocation> OCEAN_TABLES = List.of(
+            BuiltInLootTables.SHIPWRECK_TREASURE,
+            BuiltInLootTables.SHIPWRECK_SUPPLY,
+            BuiltInLootTables.UNDERWATER_RUIN_BIG,
+            BuiltInLootTables.UNDERWATER_RUIN_SMALL
     );
 
     private ChestLootInjectionGameTests() {
@@ -75,13 +99,41 @@ public final class ChestLootInjectionGameTests {
     public static void unrelatedTreasureTableDoesNotReceiveShinColleLoot(GameTestHelper helper) {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             ServerLevel level = helper.getLevel();
-            LootTable table = level.getServer().getLootData().getLootTable(BuiltInLootTables.SHIPWRECK_MAP);
             LootParams params = chestParams(level);
 
-            for (long seed = 0; seed < 256; seed++) {
-                if (table.getRandomItems(params, seed).stream()
-                        .anyMatch(ChestLootInjectionGameTests::isShinColleItem)) {
-                    throw new AssertionError("ShinColle chest loot leaked into " + BuiltInLootTables.SHIPWRECK_MAP);
+            for (ResourceLocation tableId : EXCLUDED_TABLES) {
+                LootTable table = level.getServer().getLootData().getLootTable(tableId);
+                for (long seed = 0; seed < 256; seed++) {
+                    if (table.getRandomItems(params, seed).stream()
+                            .anyMatch(ChestLootInjectionGameTests::isShinColleItem)) {
+                        throw new AssertionError("ShinColle chest loot leaked into " + tableId);
+                    }
+                }
+            }
+
+            helper.succeed();
+        }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void oceanTablesOfferTrainingBooksAndModernKits(GameTestHelper helper) {
+        try (GameTestEntities entities = GameTestEntities.open(helper)) {
+            ServerLevel level = helper.getLevel();
+            LootParams params = chestParams(level);
+
+            for (ResourceLocation tableId : OCEAN_TABLES) {
+                LootTable table = level.getServer().getLootData().getLootTable(tableId);
+                boolean book = false;
+                boolean kit = false;
+                for (long seed = 0; seed < 1024 && !(book && kit); seed++) {
+                    for (ItemStack stack : table.getRandomItems(params, seed)) {
+                        book |= stack.is(ModItems.TRAINING_BOOK.get());
+                        kit |= stack.is(ModItems.MODERN_KIT.get());
+                    }
+                }
+                if (!book || !kit) {
+                    throw new AssertionError("Ocean table " + tableId + " is missing training book="
+                            + book + " or modern kit=" + kit);
                 }
             }
 

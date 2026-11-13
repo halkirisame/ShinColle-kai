@@ -110,7 +110,7 @@ public class ContainerSmallShipyard extends AbstractContainerMenu {
             public int get(int index) {
                 return switch (index) {
                     case DATA_FUEL_PERCENT -> tile.getPowerMax() > 0
-                            ? (int) ((long) tile.getPowerRemained() * 1000 / tile.getPowerMax())
+                            ? (int) Math.min(1000, (long) tile.getPowerRemained() * 1000 / tile.getPowerMax())
                             : 0;
                     case DATA_BUILD_PERCENT -> tile.getPowerGoal() > 0
                             ? (int) ((long) tile.getPowerConsumed() * 1000 / tile.getPowerGoal())

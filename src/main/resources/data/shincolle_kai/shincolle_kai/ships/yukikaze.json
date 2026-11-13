@@ -5,19 +5,19 @@
   "visual": "shincolle_kai:yukikaze",
   "base_stats": {
     "hp": 34,
-    "atk": 9,
-    "def": 0.1,
+    "atk": 10,
+    "def": 0.12,
     "spd": 1.0,
     "mov": 0.52,
-    "hit": 11
+    "hit": 7
   },
   "growth": {
     "hp": 0.34,
-    "atk": 0.38,
-    "def": 0.14,
+    "atk": 0.4,
+    "def": 0.16,
     "spd": 0.5,
     "mov": 1.0,
-    "hit": 0.5
+    "hit": 0.4
   },
   "hostile_modifiers": {
     "hp": 0.38,

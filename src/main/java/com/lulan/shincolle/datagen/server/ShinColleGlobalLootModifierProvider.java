@@ -42,6 +42,16 @@ public class ShinColleGlobalLootModifierProvider extends GlobalLootModifierProvi
         addChestInjection("stronghold_crossing", BuiltInLootTables.STRONGHOLD_CROSSING, "stronghold");
         addChestInjection("stronghold_corridor", BuiltInLootTables.STRONGHOLD_CORRIDOR, "stronghold");
         addChestInjection("end_city", BuiltInLootTables.END_CITY_TREASURE, "end_city");
+
+        // Structures added after 1.10.2.
+        addChestInjection("ancient_city", BuiltInLootTables.ANCIENT_CITY, "stronghold");
+        addChestInjection("woodland_mansion", BuiltInLootTables.WOODLAND_MANSION, "stronghold");
+        addChestInjection("buried_treasure", BuiltInLootTables.BURIED_TREASURE, "jungle_temple");
+        addChestInjection("bastion_treasure", BuiltInLootTables.BASTION_TREASURE, "nether_bridge");
+        addChestInjection("shipwreck_treasure", BuiltInLootTables.SHIPWRECK_TREASURE, "ocean_treasure");
+        addChestInjection("shipwreck_supply", BuiltInLootTables.SHIPWRECK_SUPPLY, "ocean_supply");
+        addChestInjection("underwater_ruin_big", BuiltInLootTables.UNDERWATER_RUIN_BIG, "ocean_supply");
+        addChestInjection("underwater_ruin_small", BuiltInLootTables.UNDERWATER_RUIN_SMALL, "ocean_supply");
     }
 
     private void addChestInjection(String name, ResourceLocation target, String source) {

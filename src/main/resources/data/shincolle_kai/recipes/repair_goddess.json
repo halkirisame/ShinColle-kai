@@ -1,5 +1,5 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "shincolle_kai:stored_contents_shaped",
   "pattern": [
     "GHG",
     "HDH",
