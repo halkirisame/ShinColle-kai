@@ -36,12 +36,9 @@
 - 通常の敵艦生成が、群の隻数や複数の群によって設定上限を超える問題を修正しました。同じ次元の読み込み済み敵艦の残り枠まで生成し、上限0では停止します。ボス自体の生成条件は変わりません。
 - 怨念の重塊を小型建造所へ投入したときに格納資材が失われる問題、撤去・再設置で未変換の溶岩が失われる問題、格納資材がツールチップに表示されない問題を修正しました。中身入りの大型コアは通常のクラフトで消費されなくなり、燃料入りのコアは建造所で資材化できなくなりました。タンクの昇格では同じ液体を容量内で合算して引き継ぎ、異なる液体や容量を超える組み合わせはクラフトできません。理由はツールチップで確認できます。
 - 保存艦入りの卵を小型・大型建造所が資材として消費しないようにしました。未保存の卵の資材化は変わりません。保存卵のツールチップにも資材化できないことを表示します。
-- `despawnEgg=-1` のとき、タグなしの専用ドロップが即座に消える不具合を修正しました。
 - 非クリエイティブで艦を解体したときに追加装備が回収されない問題と、保存先のない追加装備枠へ格納した装備が消える問題を修正しました。死亡卵から復活した際、現在の追加装備枠に収まらない装備は、復活させたプレイヤーの所持品へ返します。満杯で入りきらない分はプレイヤーの足元へ落ち、通常のアイテムと同様に放置で消えます。
-- 死亡待機中の艦が修理女神で回復したとき、退避していた追加装備を現在の枠へ戻すようにしました。回復後の解体や再死亡でも装備が失われません。枠に収まらない装備は艦の足元へ落ち、通常のアイテムと同様に放置で消えます。
 - 艦の復活に失敗した場合に卵や経験値を失う問題と、クリエイティブの所持品が満杯のときに保存卵を拾うと消える問題を修正しました。
-- データ定義が欠けて休眠中の汎用艦について、積荷・装備の画面と自動搬送を止め、定義が戻ったときのアイテムの消失・複製を防ぎました。
-- プレイヤー名の変更・名前の再利用や古い実体IDにより、所有艦・保存卵・チーム・陣形の操作が誤った相手に及ぶ問題を修正しました。旧形式の所有者情報は数値UIDで安全に補完し、管理者用の移行コマンドを追加しました。
+- プレイヤー名の変更・名前の再利用や古い実体IDにより、所有艦・保存卵・チーム・陣形の操作が誤った相手に及ぶ問題を修正しました。
 
 ### 更新時の注意
 
@@ -84,12 +81,9 @@
 - Fixed regular hostile ship groups exceeding the configured cap. Spawns now fit the remaining capacity for loaded hostile ships in the player's dimension, including across multiple groups; a cap of 0 disables regular spawns. Boss spawn conditions are unchanged.
 - Fixed stored materials being lost when recycling a heavy grudge core in a small shipyard, unconverted lava being lost on removal and placement, and missing stored-material tooltips. Heavy cores with stored contents are no longer consumed by regular crafting, and shipyards no longer recycle fueled cores. Tank upgrades preserve matching fluids within output capacity and reject mixed or over-capacity contents. Tooltips explain these restrictions.
 - Small and large shipyards no longer recycle eggs containing saved ships. Recycling of fresh eggs is unchanged, and saved-egg tooltips explain the restriction.
-- Fixed untagged protected drops disappearing immediately when `despawnEgg=-1` disables despawning.
 - Fixed missing extra-equipment drops when dismantling ships outside Creative mode, and prevented storing equipment in extra slots without persistent backing. When reviving a ship from a saved egg, extra equipment that no longer fits is returned to the reviving player's inventory. Any remainder drops at their feet and expires like ordinary dropped items.
-- When a dying ship recovers through a Repair Goddess, saved extra equipment is restored to its current slots, preventing loss on subsequent dismantling or death. Equipment that no longer fits drops at the ship's feet and expires like ordinary dropped items.
 - Failed ship revivals no longer consume eggs or experience. Saved ship eggs also remain recoverable when picked up with a full Creative inventory.
-- Blocked inventory/equipment menus and automatic transfers for dormant data-defined ships, preventing item loss or duplication when their definitions return.
-- Fixed owner, saved-egg, team, and formation identity checks after player renames, name reuse, or entity ID reuse. Legacy ownership is safely upgraded by numeric UID, and administrator migration commands were added.
+- Fixed owner, saved-egg, team, and formation identity checks after player renames, name reuse, or entity ID reuse.
 
 #### Updating
 
