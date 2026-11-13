@@ -32,6 +32,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
     public static final int TEAM_NUM = 9;
     public static final int SLOT_NUM = 6;
+    private static final int[] SHIP_GUI_RANGES = {16, 32, 64};
     private final AdmiralPersistentState persistent;
     private final AdmiralRuntimeState runtime;
     private final AdmiralClientMirror mirror;
@@ -69,6 +70,7 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
             // may reuse them after reload or a dimension transition.
             team.putInt("Format", persistent.getFormatID(i));
             team.putBoolean("RetaliatePlayer", persistent.getRetaliatePlayer(i));
+            team.putInt("ShipGuiRange", persistent.getShipGuiRangeStage(i));
             team.putString("Name", persistent.getUnitName(i));
             teamTag.add(team);
         }
@@ -102,6 +104,10 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
         persistent.setColledShipNum(nbt.getInt("ColledShip"));
         persistent.setColledEquipNum(nbt.getInt("ColledEquip"));
 
+        for (int i = 0; i < TEAM_NUM; i++) {
+            persistent.setShipGuiRangeStage(i, 0);
+        }
+
         // Load team data
         if (nbt.contains("Teams")) {
             ListTag teamTag = nbt.getList("Teams", Tag.TAG_COMPOUND);
@@ -121,6 +127,8 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
                 persistent.setFormatID(i, team.getInt("Format"));
                 persistent.setRetaliatePlayer(i, team.getBoolean("RetaliatePlayer"));
+                int stage = team.contains("ShipGuiRange", Tag.TAG_INT) ? team.getInt("ShipGuiRange") : 0;
+                persistent.setShipGuiRangeStage(i, stage >= 0 && stage <= 2 ? stage : 0);
                 persistent.setUnitName(i, team.getString("Name"));
             }
         }
@@ -479,6 +487,18 @@ public class CapaTeitoku implements INBTSerializable<CompoundTag> {
 
     public void setRetaliatePlayer(int team, boolean permitted) {
         persistent.setRetaliatePlayer(team, permitted);
+    }
+
+    public int getShipGuiRangeStage(int team) {
+        return persistent.getShipGuiRangeStage(team);
+    }
+
+    public void setShipGuiRangeStage(int team, int stage) {
+        persistent.setShipGuiRangeStage(team, stage);
+    }
+
+    public int getShipGuiRange(int team) {
+        return SHIP_GUI_RANGES[persistent.getShipGuiRangeStage(team)];
     }
 
     public void setFormatID(int team, int format) {

@@ -46,12 +46,13 @@ public final class GenericShipSpawnEgg extends Item {
         if (!(context.getLevel() instanceof ServerLevel level)) return InteractionResult.SUCCESS;
         Mob ship = GenericShipSpawner.create(level, id, stack.getTag().getBoolean("Hostile"), context.getPlayer());
         if (ship == null) return refuse(context, "unknown_ship");
+        List<ItemStack> overflow = List.of();
         if (ship instanceof com.lulan.shincolle.entity.GenericShipEntity friendly && stack.getTag().contains("StateMinor")) {
-            if (!ShipSpawnEgg.consumeSavedEggXpCost(context.getPlayer(), stack.getTag())) {
+            if (!ShipSpawnEgg.canAffordSavedEggXpCost(context.getPlayer(), stack.getTag())) {
                 ship.invalidateCaps();
                 return InteractionResult.FAIL;
             }
-            ShipSpawnEgg.initShipFromEgg(friendly, stack, context.getPlayer());
+            overflow = ShipSpawnEgg.initShipFromEgg(friendly, stack, context.getPlayer());
             friendly.setStateMinor(com.lulan.shincolle.reference.ID.M.ShipClass, 0);
         }
         if (ship instanceof com.lulan.shincolle.entity.GenericShipEntity friendly) {
@@ -66,6 +67,10 @@ public final class GenericShipSpawnEgg extends Item {
             ship.discard();
             ship.invalidateCaps();
             return InteractionResult.FAIL;
+        }
+        if (ship instanceof com.lulan.shincolle.entity.GenericShipEntity && stack.getTag().contains("StateMinor")) {
+            ShipSpawnEgg.returnRevivalEquipment(ship, context.getPlayer(), overflow);
+            ShipSpawnEgg.consumeSavedEggXpCost(context.getPlayer(), stack.getTag());
         }
         if (context.getPlayer() == null || !context.getPlayer().getAbilities().instabuild) stack.shrink(1);
         return InteractionResult.CONSUME;

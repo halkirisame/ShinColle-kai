@@ -2,6 +2,8 @@ package com.lulan.shincolle.init;
 
 import com.lulan.shincolle.crafting.RecipeEggDismantle;
 import com.lulan.shincolle.crafting.RecipeEnchantShell;
+import com.lulan.shincolle.crafting.RecipeStoredContentsShaped;
+import com.lulan.shincolle.crafting.RecipeStoredContentsShapeless;
 import com.lulan.shincolle.reference.Reference;
 
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -22,4 +24,10 @@ public class ModRecipes {
 
     public static final RegistryObject<RecipeSerializer<RecipeEggDismantle>> EGG_DISMANTLE = RECIPE_SERIALIZERS
             .register("egg_dismantle", RecipeEggDismantle.Serializer::new);
+
+    public static final RegistryObject<RecipeSerializer<RecipeStoredContentsShaped>> STORED_CONTENTS_SHAPED = RECIPE_SERIALIZERS
+            .register("stored_contents_shaped", RecipeStoredContentsShaped.Serializer::new);
+
+    public static final RegistryObject<RecipeSerializer<RecipeStoredContentsShapeless>> STORED_CONTENTS_SHAPELESS = RECIPE_SERIALIZERS
+            .register("stored_contents_shapeless", RecipeStoredContentsShapeless.Serializer::new);
 }

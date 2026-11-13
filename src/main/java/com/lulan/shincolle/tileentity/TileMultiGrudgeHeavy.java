@@ -62,6 +62,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     // Config values
     private static volatile int POWER_MAX;
     private static volatile int BUILD_SPEED;
+    private static volatile long fuelDrainMicros;
     private static volatile float FUEL_MAGN;
 
     static {
@@ -96,6 +97,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
      * Remaining fuel power in storage
      */
     private int powerRemained = 0;
+    private long fuelUseCarryMicros = 0;
     /**
      * Power goal for current build
      */
@@ -140,6 +142,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         POWER_MAX = (int) cfg[0];
         BUILD_SPEED = (int) cfg[1];
         FUEL_MAGN = (float) cfg[2];
+        fuelDrainMicros = Math.round(BUILD_SPEED * ConfigHandler.tileShipyardLargeFuelUse * 1_000_000);
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, TileMultiGrudgeHeavy tile) {
@@ -296,7 +299,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     }
 
     public boolean hasRemainedPower() {
-        return powerRemained >= BUILD_SPEED;
+        long required = BUILD_SPEED > 0 ? (fuelDrainMicros + 999_999) / 1_000_000 : BUILD_SPEED;
+        return powerRemained >= required;
     }
 
     public boolean canBuild() {
@@ -318,7 +322,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     public int getPowerRemainingScaled(int pixels) {
         if (POWER_MAX <= 0)
             return 0;
-        return powerRemained * pixels / POWER_MAX;
+        return (int) Math.min(pixels, (long) powerRemained * pixels / POWER_MAX);
     }
 
     public int getBuildProgressScaled(int pixels) {
@@ -345,9 +349,9 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
 
         int fuelValue = (int) (LAVA_BUCKET_BURN_TIME * FUEL_MAGN);
-        if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
+        if (fuelValue > 0) {
             fuelTank.drain(LAVA_BUCKET_MB, IFluidHandler.FluidAction.EXECUTE);
-            powerRemained += fuelValue;
+            powerRemained = (int) Math.min(Integer.MAX_VALUE, (long) powerRemained + fuelValue);
             setChanged();
         }
     }
@@ -391,6 +395,8 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                 }
             } else if (stack.getItem() instanceof IShipResourceItem resource) {
                 if (invMode == 0) {
+                    if (stack.getItem() instanceof com.lulan.shincolle.block.ItemBlockGrudgeHeavy
+                            && com.lulan.shincolle.block.ItemBlockGrudgeHeavy.hasStoredFuel(stack)) continue;
                     ResourceAmount adjusted;
                     try {
                         adjusted = ResourceYieldPolicy.apply(resource.getResourceAmount(stack));
@@ -487,7 +493,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
         int burnTime = ForgeHooks.getBurnTime(fuelStack, null);
         int fuelValue = burnTime > 0 ? (int) (burnTime * FUEL_MAGN) : 0;
-        if (fuelValue <= 0 || powerRemained + fuelValue > POWER_MAX) {
+        if (fuelValue <= 0) {
             return;
         }
 
@@ -497,7 +503,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         }
 
         fuelStack.shrink(1);
-        powerRemained += fuelValue;
+        powerRemained = (int) Math.min(Integer.MAX_VALUE, (long) powerRemained + fuelValue);
         if (fuelStack.isEmpty()) {
             inventory.setStackInSlot(slot, containerStack.isEmpty() ? ItemStack.EMPTY : containerStack.copy());
         }
@@ -585,8 +591,14 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                     inventory.setStackInSlot(instantSlot, ItemStack.EMPTY);
                 }
                 powerConsumed += POWER_INSTANT;
-            } else if (powerRemained >= BUILD_SPEED) {
-                powerRemained -= BUILD_SPEED;
+            } else if (hasRemainedPower()) {
+                if (BUILD_SPEED > 0) {
+                    fuelUseCarryMicros += fuelDrainMicros;
+                    powerRemained -= (int) (fuelUseCarryMicros / 1_000_000);
+                    fuelUseCarryMicros %= 1_000_000;
+                } else {
+                    powerRemained -= BUILD_SPEED;
+                }
                 powerConsumed += BUILD_SPEED;
             }
 
@@ -671,6 +683,7 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
      * ship disassembly recipe, then adds their values to this shipyard's stock.
      */
     private boolean recycleShipSpawnEgg(ItemStack stack) {
+        if (ShipSpawnEgg.isSavedEgg(stack)) return false;
         ItemStack[] recycledItems = ShipCalc.getKaitaiItems(ShipSpawnEgg.getShipClass(stack));
         ResourceAmount totalAmount = ResourceAmount.ZERO;
         try {

@@ -3,6 +3,7 @@ package com.lulan.shincolle.block;
 import com.lulan.shincolle.init.ModBlocks;
 import com.lulan.shincolle.tileentity.BasicTileMulti;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
+import com.lulan.shincolle.tileentity.TileMultiPolymetal;
 import com.lulan.shincolle.utility.LogHelper;
 import com.lulan.shincolle.utility.MulitBlockHelper;
 
@@ -52,6 +53,9 @@ public abstract class BasicBlockMulti extends BasicBlockContainer {
 
         if (state.getBlock() instanceof BasicBlockMulti) {
             level.setBlock(pos, state.setValue(MBS, mbState), 2);
+            if (level.getBlockEntity(pos) instanceof TileMultiPolymetal polymetal) {
+                polymetal.notifyStructureNeighbors();
+            }
         }
     }
 

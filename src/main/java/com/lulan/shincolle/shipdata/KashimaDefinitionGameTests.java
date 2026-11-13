@@ -1,10 +1,9 @@
 package com.lulan.shincolle.shipdata;
 
-import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.GenericHostileShipEntity;
 import com.lulan.shincolle.entity.GenericShipEntity;
 import com.lulan.shincolle.gametest.GameTestEntities;
-import com.lulan.shincolle.init.ModEntities;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.visualdata.ShipVisualPresentation;
@@ -17,8 +16,6 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
-import java.util.Arrays;
-
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class KashimaDefinitionGameTests {
@@ -27,7 +24,7 @@ public final class KashimaDefinitionGameTests {
     private KashimaDefinitionGameTests() { }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
-    public static void officialKashimaSpawnsAlliedWithTenryuuStatsOnDedicatedServer(GameTestHelper helper) {
+    public static void officialKashimaSpawnsAlliedWithSupportStatsOnDedicatedServer(GameTestHelper helper) {
         fixture(helper, entities -> {
             GenericShipEntity ship = (GenericShipEntity) GenericShipSpawner.create(helper.getLevel(), KASHIMA, false, null);
             helper.assertTrue(ship != null, "official allied definition not spawnable");
@@ -35,16 +32,20 @@ public final class KashimaDefinitionGameTests {
             place(helper, ship);
             checkDefinition(helper, ship);
             helper.assertTrue(ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel), "missing fuel");
-            BasicEntityShip tenryuu = entities.add(ModEntities.CL_TENRYUU.get().create(helper.getLevel()));
-            place(helper, tenryuu);
+            int[] attributes = {ID.Attrs.HP, ID.Attrs.ATK_L, ID.Attrs.DEF, ID.Attrs.SPD, ID.Attrs.MOV, ID.Attrs.HIT};
+            float[] base = {40F, 8F, .08F, 1F, .36F, 8F};
+            float[] growth = {.34F, .32F, .10F, .5F, .8F, .4F};
+            float[] coefficient = {1F, .133F, .00133F, .004F, .002F, .02F};
             for (int level : new int[]{1, 25, 100}) {
                 ship.setShipLevel(level, false);
-                tenryuu.setShipLevel(level, false);
-                helper.assertTrue(ship.getLevel() == level && tenryuu.getLevel() == level, "level fixture ignored");
+                helper.assertTrue(ship.getLevel() == level, "level fixture ignored");
                 ship.calcShipAttributes(31, false);
-                tenryuu.calcShipAttributes(31, false);
-                helper.assertTrue(Arrays.equals(ship.getAttrs().getAttrsRaw(), tenryuu.getAttrs().getAttrsRaw()),
-                        "provisional base/growth differs from Tenryuu at " + level);
+                for (int stat = 0; stat < attributes.length; stat++) {
+                    float expected = (base[stat] + level * coefficient[stat] * growth[stat])
+                            * (float) ConfigHandler.scaleShip[stat];
+                    helper.assertTrue(Math.abs(ship.getAttrs().getAttrsRaw(attributes[stat]) - expected) < .0001F,
+                            "support base/growth differs at level " + level + " attribute " + attributes[stat]);
+                }
             }
         });
     }

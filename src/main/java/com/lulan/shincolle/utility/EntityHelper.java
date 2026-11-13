@@ -229,8 +229,13 @@ public class EntityHelper {
         ServerPlayer owner = ServerDataManager.getPlayerByUID(ship.getPlayerUID());
         CapaTeitoku capa = owner == null ? null
                 : owner.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
-        int team = capa == null ? -1 : capa.findTeamOfShip(ship.getShipUID());
-        if (team < 0 || !(ship.level() instanceof ServerLevel serverLevel)) {
+        if (capa == null || !(ship.level() instanceof ServerLevel serverLevel)) {
+            applyWaypointGuard(ship, destination);
+            return;
+        }
+        int team = com.lulan.shincolle.ai.ShipFormationStateAdapter
+                .formationTeam(capa, serverLevel, ship.getShipUID()).orElse(-1);
+        if (team < 0) {
             applyWaypointGuard(ship, destination);
             return;
         }
@@ -239,6 +244,9 @@ public class EntityHelper {
         for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
             BasicEntityShip member = ServerDataManager.getShipByUID(capa.getTeamMember(team, slot));
             if (member != null && member.isAlive() && member.level() == serverLevel
+                    && member.getPlayerUID() == ship.getPlayerUID()
+                    && com.lulan.shincolle.ai.ShipFormationStateAdapter
+                        .formationTeam(capa, serverLevel, member.getShipUID()).orElse(-1) == team
                     && com.lulan.shincolle.ai.ShipFormationStateAdapter.active(member)
                         .map(a -> a.pattern().legacyId() == formationType).orElse(false)) {
                 ships.add(member);
@@ -592,14 +600,15 @@ public class EntityHelper {
             return;
         }
 
-        if (loadedHostileShips > spawnCfg[0]) {
+        if (loadedHostileShips >= spawnCfg[0]) {
             LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=hostileLimit");
             return;
         }
 
+        int remainingShips = spawnCfg[0] - loadedHostileShips;
         RandomSource rng = player.getRandom();
-        if (rng.nextInt(100) > spawnCfg[1]) {
+        if (rng.nextInt(100) >= spawnCfg[1]) {
             LogHelper.diag("DIAG: spawn mob ship rejected player=" + player.getName().getString()
                     + " reason=randomChance");
             return;
@@ -610,7 +619,7 @@ public class EntityHelper {
         int groups = spawnCfg[2];
         int loop = 30 + groups * 30;
 
-        while (groups > 0 && loop > 0) {
+        while (groups > 0 && loop > 0 && remainingShips > 0) {
             loop--;
             int[] spawnXZ = pickSpawnXZ(rng, blockX, blockZ, SPAWN_OFFSET_MIN, SPAWN_OFFSET_RANGE);
             int spawnX = spawnXZ[0];
@@ -632,14 +641,17 @@ public class EntityHelper {
             if (range > 0) {
                 shipNum = spawnCfg[3] + rng.nextInt(range + 1);
             }
+            shipNum = Math.min(shipNum, remainingShips);
 
             for (int i = 0; i < shipNum; i++) {
-                spawnRandomHostile(level,
+                if (spawnRandomHostile(level,
                         spawnX + rng.nextDouble(),
                         spawnY + 0.5D,
                         spawnZ + rng.nextDouble(),
                         rng.nextInt(10) > 7 ? 1 : 0,
-                        rng);
+                        rng)) {
+                    remainingShips--;
+                }
             }
         }
     }
@@ -825,7 +837,7 @@ public class EntityHelper {
         return y;
     }
 
-    private static void spawnRandomHostile(
+    private static boolean spawnRandomHostile(
             ServerLevel level,
             double x,
             double y,
@@ -841,12 +853,12 @@ public class EntityHelper {
             mob = type == null ? null : (BasicEntityShipHostile) type.create(level);
         }
         if (mob == null) {
-            return;
+            return false;
         }
 
         mob.initAttrs(scaleLevel);
         mob.moveTo(x, y, z, rng.nextFloat() * 360F, 0F);
-        level.addFreshEntity(mob);
+        return level.addFreshEntity(mob);
     }
 
     private record MobShipEntry(ShipChoice choice, int weight) {

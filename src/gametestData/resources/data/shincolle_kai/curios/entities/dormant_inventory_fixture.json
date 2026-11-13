@@ -1,0 +1,4 @@
+{
+  "entities": ["shincolle_kai:generic_ship"],
+  "slots": ["ship_equip"]
+}

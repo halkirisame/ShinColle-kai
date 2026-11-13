@@ -5,6 +5,7 @@ import com.lulan.shincolle.crafting.ShipCalc;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.entity.BasicEntityShipCV;
 import com.lulan.shincolle.entity.BasicEntityShipSmall;
+import com.lulan.shincolle.equip.curios.ShipCuriosIntegration;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.item.Ammo;
@@ -26,6 +27,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraftforge.fml.ModList;
 
 import java.util.List;
 
@@ -201,6 +203,13 @@ public class InteractHelper {
                             ship.getX() + f, ship.getY() + f1, ship.getZ() + f2,
                             invitem.copy());
                     ship.level().addFreshEntity(entityItem);
+                }
+            }
+
+            if (ModList.get().isLoaded("curios")) {
+                for (ItemStack equipped : ShipCuriosIntegration.getEquippedStacks(ship)) {
+                    ship.level().addFreshEntity(new ItemEntity(ship.level(),
+                            ship.getX(), ship.getY() + 0.8D, ship.getZ(), equipped.copy()));
                 }
             }
 

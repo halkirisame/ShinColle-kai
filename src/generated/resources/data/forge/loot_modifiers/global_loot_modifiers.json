@@ -3,7 +3,12 @@
     "shincolle_kai:inject_stronghold_crossing",
     "shincolle_kai:add_drop",
     "shincolle_kai:inject_jungle_temple",
+    "shincolle_kai:inject_shipwreck_supply",
     "shincolle_kai:inject_igloo",
+    "shincolle_kai:inject_woodland_mansion",
+    "shincolle_kai:inject_underwater_ruin_small",
+    "shincolle_kai:inject_shipwreck_treasure",
+    "shincolle_kai:inject_underwater_ruin_big",
     "shincolle_kai:soul_talisman_drop",
     "shincolle_kai:inject_nether_bridge",
     "shincolle_kai:inject_village_weaponsmith",
@@ -11,9 +16,12 @@
     "shincolle_kai:inject_end_city",
     "shincolle_kai:inject_stronghold_corridor",
     "shincolle_kai:inject_dungeon",
+    "shincolle_kai:inject_ancient_city",
     "shincolle_kai:inject_spawn_bonus",
+    "shincolle_kai:inject_bastion_treasure",
     "shincolle_kai:inject_mineshaft",
-    "shincolle_kai:inject_stronghold_library"
+    "shincolle_kai:inject_stronghold_library",
+    "shincolle_kai:inject_buried_treasure"
   ],
   "replace": false
 }

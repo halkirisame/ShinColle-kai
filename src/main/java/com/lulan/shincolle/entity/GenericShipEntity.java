@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity;
 
 import com.lulan.shincolle.ai.ShipPickItemGoal;
+import com.lulan.shincolle.ai.ShipInnateTraitsGate;
 import com.lulan.shincolle.ai.domain.combat.WeaponChannel;
 import com.lulan.shincolle.ai.registry.GenericShipBehaviors;
 import com.lulan.shincolle.ai.registry.GenericShipHost;
@@ -97,6 +98,9 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
             refreshDimensions();
             calcShipAttributes(31, false);
         })) {
+            if (!level().isClientSide() && definitionState.dormant()) {
+                closeInventoryMenus();
+            }
             if (!level().isClientSide() && !definitionState.dormant() && definitionState.definition() != null
                     && !goalSelector.getAvailableGoals().isEmpty()) {
                 clearAITasks();
@@ -153,6 +157,8 @@ public class GenericShipEntity extends BasicEntityShip implements DefinitionBack
             shipAttrs.setAttrsType(ShipDefinitionAttributes.columns(definition.growth()));
             BuffHelper.updateAttrsRaw(shipAttrs, ShipDefinitionAttributes.row(definition), getLevel(),
                     individual.traitMultipliers(getShipId()));
+            shipAttrs.setAttrsRaw(ID.Attrs.DODGE,
+                    ShipInnateTraitsGate.profile(this).rawDodge(shipAttrs.getAttrsRaw(ID.Attrs.DODGE)));
         }
     }
 

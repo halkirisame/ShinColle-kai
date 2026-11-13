@@ -363,8 +363,8 @@ public final class GenericShipGameTests {
             for (String methodName : new String[]{"tryClientVersionOnServer", "tryServerVersionOnClient"}) {
                 Method method = instance.getClass().getDeclaredMethod(methodName, String.class);
                 method.setAccessible(true);
-                helper.assertTrue((Boolean) method.invoke(instance, "20"), "current protocol rejected");
-                for (String old : new String[]{"14", "15", "16", "17", "18", "19", "ABSENT", "ACCEPTVANILLA"}) {
+                helper.assertTrue((Boolean) method.invoke(instance, "21"), "current protocol rejected");
+                for (String old : new String[]{"14", "15", "16", "17", "18", "19", "20", "ABSENT", "ACCEPTVANILLA"}) {
                     helper.assertTrue(!(Boolean) method.invoke(instance, old), "mismatched protocol accepted: " + old);
                 }
             }

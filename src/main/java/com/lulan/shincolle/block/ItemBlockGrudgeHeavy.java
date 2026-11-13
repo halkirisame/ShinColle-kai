@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * Custom BlockItem for GrudgeHeavy that displays stored materials in tooltip.
- * When the multi-block is broken, it stores material stock in "mats" NBT array.
+ * When the multi-block is broken, it stores material stock in "Mats" NBT array.
  */
 public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem {
 
@@ -34,13 +34,29 @@ public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem
         return mats;
     }
 
+    public static boolean hasStoredFuel(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && (tag.getInt("Fuel") > 0 || tag.getCompound("FuelFluid").getInt("Amount") > 0);
+    }
+
+    public static boolean hasStoredContents(ItemStack stack) {
+        if (hasStoredFuel(stack)) return true;
+        CompoundTag tag = stack.getTag();
+        if (tag != null) {
+            for (int amount : tag.getIntArray("Mats")) {
+                if (amount > 0) return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         if (stack.hasTag()) {
             CompoundTag nbt = stack.getTag();
             assert nbt != null;
-            if (nbt.contains("mats")) {
-                int[] mats = nbt.getIntArray("mats");
+            if (nbt.contains("Mats")) {
+                int[] mats = getStoredMaterials(stack);
                 if (mats.length >= 4) {
                     tooltip.add(Component.literal(
                             ChatFormatting.WHITE + "" + mats[0] + " " + Component.translatable("item.shincolle_kai.grudge").getString()));
@@ -52,6 +68,12 @@ public class ItemBlockGrudgeHeavy extends BlockItem implements IShipResourceItem
                             ChatFormatting.AQUA + "" + mats[3] + " " + Component.translatable("item.shincolle_kai.abyss_metal_1").getString()));
                 }
             }
+        }
+        if (hasStoredContents(stack)) {
+            tooltip.add(Component.translatable("tooltip.shincolle_kai.core_crafting_requires_empty").withStyle(ChatFormatting.YELLOW));
+        }
+        if (hasStoredFuel(stack)) {
+            tooltip.add(Component.translatable("tooltip.shincolle_kai.core_shipyard_requires_no_fuel").withStyle(ChatFormatting.YELLOW));
         }
     }
 

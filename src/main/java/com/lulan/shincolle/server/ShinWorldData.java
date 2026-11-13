@@ -133,6 +133,9 @@ public class ShinWorldData extends SavedData {
             tData.setTeamID(tUID);
             tData.setTeamName(tName);
             tData.setTeamLeaderName(tLName);
+            if (tag.contains("LeaderUUID")) {
+                tData.setTeamLeaderUUID(tag.hasUUID("LeaderUUID") ? tag.getUUID("LeaderUUID") : null);
+            }
             tData.setTeamBannedList(intArrayToList(tBan));
             tData.setTeamAllyList(intArrayToList(tAlly));
 
@@ -244,6 +247,11 @@ public class ShinWorldData extends SavedData {
                 tag.putInt(TAG_TUID, uid);
                 tag.putString(TAG_TNAME, tData.getTeamName());
                 tag.putString(TAG_TLNAME, tData.getTeamLeaderName());
+                if (tData.getTeamLeaderUUID() != null) {
+                    tag.putUUID("LeaderUUID", tData.getTeamLeaderUUID());
+                } else if (tData.hasTeamLeaderIdentity()) {
+                    tag.putString("LeaderUUID", "invalid");
+                }
                 tag.putIntArray(TAG_TBAN, listToIntArray(tData.getTeamBannedList()));
                 tag.putIntArray(TAG_TALLY, listToIntArray(tData.getTeamAllyList()));
 

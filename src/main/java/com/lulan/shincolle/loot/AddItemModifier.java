@@ -50,7 +50,11 @@ public class AddItemModifier extends LootModifier {
             return generatedLoot;
         }
 
-        addGrudge(generatedLoot, context.getRandom(), ConfigHandler.dropRateGrudge());
+        double effectiveRate = ConfigHandler.dropRateGrudge();
+        if (ConfigHandler.lootingAffectsGrudge()) {
+            effectiveRate += Math.max(0, context.getLootingModifier());
+        }
+        addGrudge(generatedLoot, context.getRandom(), effectiveRate);
         return generatedLoot;
     }
 

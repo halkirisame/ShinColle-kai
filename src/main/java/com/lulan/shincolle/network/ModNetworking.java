@@ -29,7 +29,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 public class ModNetworking {
 
     // Ship identity, definition and inventory hand snapshots require matching client/server jars.
-    private static final String PROTOCOL_VERSION = "20";
+    private static final String PROTOCOL_VERSION = "21";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Reference.MOD_ID, "main"),

@@ -47,7 +47,8 @@ public final class SavedEggXpGameTests {
             item.appendHoverText(egg, helper.getLevel(), tooltip, TooltipFlag.NORMAL);
             String expected = ChatFormatting.AQUA
                     + Component.translatable("gui.shincolle_kai.eggText").getString() + " " + example[1];
-            helper.assertTrue(tooltip.size() == 1 && tooltip.get(0).getString().equals(expected),
+            helper.assertTrue(tooltip.size() == 2 && tooltip.get(0).getString().equals(expected)
+                            && tooltip.get(1).getString().equals(Component.translatable("tooltip.shincolle_kai.saved_egg_no_recycling").getString()),
                     "ship level " + example[0] + " must show cost " + example[1] + ", got " + tooltip);
             helper.assertTrue(consumeXp(player, tag), "sufficient experience must allow the saved egg");
             helper.assertTrue(player.experienceLevel == 100 - example[1],
@@ -72,7 +73,11 @@ public final class SavedEggXpGameTests {
             }
             List<Component> tooltip = new ArrayList<>();
             item.appendHoverText(egg, helper.getLevel(), tooltip, TooltipFlag.NORMAL);
-            helper.assertTrue(tooltip.isEmpty(), "missing or empty saved state must not show a required level");
+            helper.assertTrue(emptyState
+                            ? tooltip.size() == 1 && tooltip.get(0).getString().equals(
+                                    Component.translatable("tooltip.shincolle_kai.saved_egg_no_recycling").getString())
+                            : tooltip.isEmpty(),
+                    "Missing or empty saved state must show no required level; saved state still explains recycling rejection.");
             helper.assertTrue(consumeXp(player, tag) && player.experienceLevel == 29,
                     "missing or empty saved state must not consume experience");
         }

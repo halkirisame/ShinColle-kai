@@ -3,6 +3,7 @@ package com.lulan.shincolle.entity.other;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.SafariNetItem;
+import com.lulan.shincolle.item.SavedEggOwnership;
 import com.lulan.shincolle.item.SoulTalismanItem;
 import com.lulan.shincolle.server.ServerDataManager;
 import net.minecraft.nbt.CompoundTag;
@@ -103,7 +104,8 @@ public class BasicEntityItem extends Entity {
         // server side
         else {
             // despawn ship mob egg after configured ticks
-            if (this.tickCount > ConfigHandler.despawnEgg()) {
+            int lifetime = ConfigHandler.despawnEgg();
+            if (lifetime >= 0 && this.tickCount > lifetime) {
                 ItemStack stack = this.getEntityItem();
                 if (!stack.hasTag()) {
                     this.discard();
@@ -173,43 +175,19 @@ public class BasicEntityItem extends Entity {
 
             // is OP
             else if (ServerDataManager.checkOP(player)) {
-                player.getInventory().add(itemstack);
+                storePickedStack(player, itemstack);
             }
             // not OP
             else {
                 // ship spawn egg = owner pick only
                 if (itemstack.getItem() == ModItems.SHIP_SPAWN_EGG.get()
                         || itemstack.getItem() == ModItems.GENERIC_SHIP_SPAWN_EGG.get()) {
-                    CompoundTag nbt = itemstack.getTag();
-
-                    // ship egg with tag
-                    if (nbt != null) {
-                        String pid1 = nbt.getString("ownername");
-                        String pid2 = player.getName().getString();
-
-                        // check player UID
-                        if (pid1.length() <= 1) {
-                            // no owner name, check UUID
-                            String uuid1 = nbt.getString("owner");
-                            String uuid2 = player.getUUID().toString();
-
-                            if (uuid2.equals(uuid1)) {
-                                player.getInventory().add(itemstack);
-                            }
-                        } else {
-                            if (pid1.equals(pid2)) {
-                                player.getInventory().add(itemstack);
-                            }
-                        }
-                    }
-                    // ship egg w/o tag
-                    else {
-                        player.getInventory().add(itemstack);
-                    }
+                    if (!SavedEggOwnership.mayPickUp(itemstack, player)) return;
+                    storePickedStack(player, itemstack);
                 }
                 // not ship spawn egg
                 else {
-                    player.getInventory().add(itemstack);
+                    storePickedStack(player, itemstack);
                 }
             }
 
@@ -223,6 +201,34 @@ public class BasicEntityItem extends Entity {
             if (itemstack.isEmpty() || itemstack.getCount() <= 0) {
                 this.discard();
             }
+        }
+    }
+
+    private static void storePickedStack(Player player, ItemStack stack) {
+        if (!player.getAbilities().instabuild || (!stack.is(ModItems.SHIP_SPAWN_EGG.get())
+                && !stack.is(ModItems.GENERIC_SHIP_SPAWN_EGG.get()))) {
+            player.getInventory().add(stack);
+            return;
+        }
+
+        // Inventory.add discards a Creative player's remainder when no room is left.
+        var inventory = player.getInventory();
+        while (!stack.isEmpty()) {
+            int slot = inventory.getSlotWithRemainingSpace(stack);
+            if (slot < 0) slot = inventory.getFreeSlot();
+            if (slot < 0) return;
+            ItemStack current = inventory.getItem(slot);
+            int limit = Math.min(stack.getMaxStackSize(), inventory.getMaxStackSize());
+            int moved = Math.min(stack.getCount(), limit - (current.isEmpty() ? 0 : current.getCount()));
+            if (moved <= 0) return;
+            if (current.isEmpty()) {
+                inventory.setItem(slot, stack.copyWithCount(moved));
+            } else {
+                current.grow(moved);
+            }
+            inventory.getItem(slot).setPopTime(5);
+            stack.shrink(moved);
+            inventory.setChanged();
         }
     }
 

@@ -21,6 +21,9 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
  * GUI screen for the fleet formation interface.
  * Reads team/formation data from client-side CapaTeitoku capability.
@@ -52,6 +55,16 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
     private static final int RETALIATE_Y = 4;
     private static final int RETALIATE_W = 132;
     private static final int RETALIATE_H = 12;
+    private static final int SHIP_GUI_RANGE_X = 74;
+    private static final int SHIP_GUI_RANGE_Y = 20;
+    private static final int SHIP_GUI_RANGE_W = 60;
+    private static final int SHIP_GUI_RANGE_H = 12;
+    private final Component[][] slotNotices = new Component[CapaTeitoku.TEAM_NUM][CapaTeitoku.SLOT_NUM];
+    private final long[][] slotNoticeUntil = new long[CapaTeitoku.TEAM_NUM][CapaTeitoku.SLOT_NUM];
+    private static final int REMOVE_X = 235;
+    private static final int REMOVE_Y = 13;
+    private static final int REMOVE_SIZE = 11;
+    private static final long REMOVE_CONFIRM_MS = 3000L;
     /**
      * Currently selected ship slot (0-5)
      */
@@ -64,6 +77,8 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
      * Last click timestamp (ms) for ship-slot double-click detection
      */
     private long lastSlotClickTime = 0L;
+    private int pendingRemoveSlot = -1;
+    private long pendingRemoveUntil = 0L;
     /**
      * Team name rename input field (legacy formation GUI behavior)
      */
@@ -82,6 +97,7 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
     @Override
     protected void init() {
         super.init();
+        this.pendingRemoveSlot = -1;
         // Initialize selected team from capability
         CapaTeitoku capa = getCapaTeitoku();
         if (capa != null) {
@@ -175,6 +191,12 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
                 this.leftPos + RETALIATE_X + RETALIATE_W, this.topPos + RETALIATE_Y + RETALIATE_H,
                 retaliate ? 0xCC22AA22 : 0x88555555);
 
+        int rangeStage = retaliateCapa != null ? retaliateCapa.getShipGuiRangeStage(teamClicked) : 0;
+        graphics.fill(this.leftPos + SHIP_GUI_RANGE_X, this.topPos + SHIP_GUI_RANGE_Y,
+                this.leftPos + SHIP_GUI_RANGE_X + SHIP_GUI_RANGE_W,
+                this.topPos + SHIP_GUI_RANGE_Y + SHIP_GUI_RANGE_H,
+                rangeStage == 0 ? 0x88555555 : 0xCC2266AA);
+
         // Draw formation type buttons (above team buttons, 6 formation types)
         for (int i = 0; i < 6; i++) {
             int btnX = this.leftPos + 18 + i * 18;
@@ -230,6 +252,10 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
                 I18n.get("gui.shincolle_kai.formation.retaliateplayer"),
                 RETALIATE_X + 3, RETALIATE_Y + 2, retaliate ? 0xFFFFFF : 0xAAAAAA, true);
 
+        int range = capa != null ? capa.getShipGuiRange(teamClicked) : 16;
+        graphics.drawString(this.font, I18n.get("gui.shincolle_kai.formation.shipguirange", range),
+                SHIP_GUI_RANGE_X + 3, SHIP_GUI_RANGE_Y + 2, 0xFFFFFF, true);
+
         // Draw ship slot list (6 slots on the right)
         for (int i = 0; i < 6; i++) {
             int textY = 9 + i * 27;
@@ -245,8 +271,24 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
             if (isEmpty) {
                 shipName = I18n.get("gui.shincolle_kai.formation.empty");
             }
-            graphics.drawString(this.font, shipName, 148, textY + 10,
-                    isEmpty ? 0x666666 : 0x55FF55, true);
+            shipName = this.font.plainSubstrByWidth(shipName, REMOVE_X - 2 - 148);
+            boolean notice = System.currentTimeMillis() < this.slotNoticeUntil[teamClicked][i];
+            String nameLine = notice ? this.slotNotices[teamClicked][i].getString() : shipName;
+            graphics.drawString(this.font, nameLine, 148, textY + 10,
+                    notice ? 0xFF5555 : isEmpty ? 0x666666 : 0x55FF55, true);
+
+            if (i == this.listClicked && capa != null && capa.getTeamMember(teamClicked, i) > 0) {
+                int buttonY = REMOVE_Y + i * 27;
+                boolean hovered = isRemoveButtonHovered(mouseX - this.leftPos, mouseY - this.topPos);
+                int color = this.pendingRemoveSlot == i ? 0xFFFF5555
+                        : hovered ? 0xFF7AB8FF : 0xFF4A90E2;
+                graphics.fill(REMOVE_X, buttonY, REMOVE_X + REMOVE_SIZE, buttonY + REMOVE_SIZE, color);
+                graphics.fill(REMOVE_X + 1, buttonY + 1,
+                        REMOVE_X + REMOVE_SIZE - 1, buttonY + REMOVE_SIZE - 1, 0xFF202838);
+                graphics.drawString(this.font, "×", REMOVE_X + (REMOVE_SIZE - this.font.width("×")) / 2,
+                        buttonY + (REMOVE_SIZE - this.font.lineHeight) / 2,
+                        this.pendingRemoveSlot == i ? 0xFFFF5555 : hovered ? 0xFFDDFFFF : 0xFFFFFFFF, false);
+            }
         }
 
         // Draw formation buff header
@@ -302,6 +344,27 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
         int mx = (int) mouseX - this.leftPos;
         int my = (int) mouseY - this.topPos;
 
+        CapaTeitoku removeCapa = getCapaTeitoku();
+        if (removeCapa != null && removeCapa.getTeamMember(teamClicked, listClicked) > 0
+                && isRemoveButtonHovered(mx, my)) {
+            this.lastSlotClicked = -1;
+            long now = System.currentTimeMillis();
+            if (this.pendingRemoveSlot == this.listClicked && now < this.pendingRemoveUntil) {
+                Player player = Minecraft.getInstance().player;
+                if (player != null) {
+                    ModNetworking.sendToServer(new C2SGUIInputPacket(C2SGUIInputPacket.RemoveTeamShip,
+                            new int[]{player.getId(), teamClicked, listClicked,
+                                    removeCapa.getTeamMember(teamClicked, listClicked)}));
+                }
+                this.pendingRemoveSlot = -1;
+            } else {
+                this.pendingRemoveSlot = this.listClicked;
+                this.pendingRemoveUntil = now + REMOVE_CONFIRM_MS;
+            }
+            return true;
+        }
+        this.pendingRemoveSlot = -1;
+
         if (this.renamingTeamName && this.unitNameField != null
                 && this.unitNameField.mouseClicked(mouseX, mouseY, button)) {
             return true;
@@ -317,6 +380,22 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
                         C2SGUIInputPacket.SetRetaliate,
                         new int[]{player != null ? player.getId() : 0, teamClicked, permitted ? 1 : 0}));
                 capa.setRetaliatePlayer(teamClicked, permitted);
+            }
+            return true;
+        }
+
+        if (mx >= SHIP_GUI_RANGE_X && mx < SHIP_GUI_RANGE_X + SHIP_GUI_RANGE_W
+                && my >= SHIP_GUI_RANGE_Y && my < SHIP_GUI_RANGE_Y + SHIP_GUI_RANGE_H) {
+            if (button != 0 && button != 1) {
+                return false;
+            }
+            CapaTeitoku capa = getCapaTeitoku();
+            if (capa != null) {
+                int stage = (capa.getShipGuiRangeStage(teamClicked) + (button == 0 ? 1 : 2)) % 3;
+                Player player = Minecraft.getInstance().player;
+                ModNetworking.sendToServer(new C2SGUIInputPacket(C2SGUIInputPacket.SetShipGuiRange,
+                        new int[]{player != null ? player.getId() : 0, teamClicked, stage}));
+                capa.setShipGuiRangeStage(teamClicked, stage);
             }
             return true;
         }
@@ -429,9 +508,34 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (System.currentTimeMillis() >= this.pendingRemoveUntil) {
+            this.pendingRemoveSlot = -1;
+        }
         this.renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         this.renderTooltip(graphics, mouseX, mouseY);
+        int mx = mouseX - this.leftPos;
+        int my = mouseY - this.topPos;
+        if (mx >= SHIP_GUI_RANGE_X && mx < SHIP_GUI_RANGE_X + SHIP_GUI_RANGE_W
+                && my >= SHIP_GUI_RANGE_Y && my < SHIP_GUI_RANGE_Y + SHIP_GUI_RANGE_H) {
+            graphics.renderTooltip(this.font, List.of(
+                    Component.translatable("gui.shincolle_kai.formation.shipguirange.tooltip1"),
+                    Component.translatable("gui.shincolle_kai.formation.shipguirange.tooltip2")),
+                    Optional.empty(), mouseX, mouseY);
+        }
+        CapaTeitoku capa = getCapaTeitoku();
+        if (capa != null && capa.getTeamMember(teamClicked, listClicked) > 0
+                && isRemoveButtonHovered(mouseX - this.leftPos, mouseY - this.topPos)) {
+            graphics.renderTooltip(this.font, Component.translatable(this.pendingRemoveSlot == this.listClicked
+                    ? "gui.shincolle_kai.formation.remove_confirm" : "gui.shincolle_kai.formation.remove"),
+                    mouseX, mouseY);
+        }
+    }
+
+    private boolean isRemoveButtonHovered(double mouseX, double mouseY) {
+        int buttonY = REMOVE_Y + this.listClicked * 27;
+        return mouseX >= REMOVE_X && mouseX < REMOVE_X + REMOVE_SIZE
+                && mouseY >= buttonY && mouseY < buttonY + REMOVE_SIZE;
     }
 
     private void handleShipSlotClick(int slot) {
@@ -458,9 +562,22 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
             return;
         }
 
+        Entity entity = player.level().getEntity(sid);
+        Component notice = null;
+        int range = capa.getShipGuiRange(this.teamClicked);
+        if (!(entity instanceof BasicEntityShip)) {
+            notice = Component.translatable("gui.shincolle_kai.formation.notice.notloaded");
+        } else if (player.distanceToSqr(entity) > (double) range * range) {
+            notice = Component.translatable("gui.shincolle_kai.formation.notice.outofrange", range);
+        }
+        if (notice != null) {
+            this.slotNotices[teamClicked][listClicked] = notice;
+            this.slotNoticeUntil[teamClicked][listClicked] = System.currentTimeMillis() + 2000L;
+            return;
+        }
         ModNetworking.sendToServer(new C2SGUIInputPacket(
                 C2SGUIInputPacket.OpenShipGUI,
-                new int[]{player.getId(), 0, sid}));
+                new int[]{player.getId(), 0, sid, teamClicked}));
     }
 
     private void swapSelectedShip(boolean moveUp) {

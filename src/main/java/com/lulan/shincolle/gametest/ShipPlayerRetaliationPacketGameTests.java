@@ -56,6 +56,7 @@ public final class ShipPlayerRetaliationPacketGameTests {
         capa.setTeamCooldown(119);
         for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
             capa.setRetaliatePlayer(team, team % 2 == 0);
+            capa.setShipGuiRangeStage(team, team % 3);
             capa.setFormatID(team, team % 5);
         }
         for (int slot = 0; slot < CapaTeitoku.SLOT_NUM; slot++) {
@@ -79,7 +80,7 @@ public final class ShipPlayerRetaliationPacketGameTests {
                 helper.assertTrue(encoded.readByte() == (full ? S2CGUISyncPacket.SyncPlayerProp
                         : S2CGUISyncPacket.SyncPlayerProp_Misc), "Wrong GUI packet type");
                 int length = encoded.readVarInt();
-                helper.assertTrue(length == (full ? 119 : 29), "Wrong GUI payload length: " + length);
+                helper.assertTrue(length == (full ? 128 : 38), "Wrong GUI payload length: " + length);
                 payload = new FriendlyByteBuf(Unpooled.wrappedBuffer(encoded.readByteArray(length)));
                 helper.assertTrue(payload.readBoolean() && !payload.readBoolean() && payload.readBoolean()
                                 && payload.readBoolean() && payload.readInt() == 3 && payload.readInt() == 7
@@ -88,6 +89,10 @@ public final class ShipPlayerRetaliationPacketGameTests {
                 for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
                     helper.assertTrue(payload.readBoolean() == capa.getRetaliatePlayer(team),
                             "Wrong fleet permission offset: " + team);
+                }
+                for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {
+                    helper.assertTrue(payload.readByte() == capa.getShipGuiRangeStage(team),
+                            "Wrong fleet GUI range offset: " + team);
                 }
                 if (full) {
                     for (int team = 0; team < CapaTeitoku.TEAM_NUM; team++) {

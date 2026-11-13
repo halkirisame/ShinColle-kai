@@ -226,6 +226,9 @@ public class ShipTank extends BasicItem {
 
         tooltip.add(Component.literal(ChatFormatting.AQUA + name + ChatFormatting.WHITE +
                 " " + amount + " / " + capacity + " mB"));
+        if (type < 3) {
+            tooltip.add(Component.translatable("tooltip.shincolle_kai.tank_upgrade_fluid").withStyle(ChatFormatting.GRAY));
+        }
     }
 
     /**

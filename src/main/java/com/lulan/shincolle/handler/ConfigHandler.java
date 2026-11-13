@@ -156,14 +156,18 @@ public class ConfigHandler {
      */
     public static boolean[] enableTask = new boolean[]{true, true, true, true};
     /**
-     * Small shipyard: max fuel storage, build speed, fuel magnification
+     * Small shipyard: max fuel storage, build speed (progress per tick),
+     * fuel value multiplier (fuel added per item). See defineList comments below for details.
      */
     public static double[] tileShipyardSmall = new double[]{460800D, 48D, 1D};
+    public static double tileShipyardSmallFuelUse = 1.0D;
 
     /**
-     * Large shipyard: max fuel storage, build speed, fuel magnification
+     * Large shipyard: max fuel storage, build speed (progress per tick),
+     * fuel value multiplier (fuel added per item). See defineList comments below for details.
      */
     public static double[] tileShipyardLarge = new double[]{1382400D, 48D, 1D};
+    public static double tileShipyardLargeFuelUse = 1.0D;
 
     /**
      * Volcano Core: max fuel storage, fuel consume speed, fuel value per grudge
@@ -221,7 +225,9 @@ public class ConfigHandler {
         syncDoubleArray(scaleMobLarge, COMMON.scaleMobLargeConfig.get());
         syncDoubleArray(scaleHeldItem, COMMON.scaleHeldItemConfig.get());
         syncDoubleArray(tileShipyardSmall, COMMON.tileShipyardSmallConfig.get());
+        tileShipyardSmallFuelUse = COMMON.tileShipyardSmallFuelUse.get();
         syncDoubleArray(tileShipyardLarge, COMMON.tileShipyardLargeConfig.get());
+        tileShipyardLargeFuelUse = COMMON.tileShipyardLargeFuelUse.get();
         syncDoubleArray(tileVolCore, COMMON.tileVolCoreConfig.get());
         syncDoubleArray(posHUD, COMMON.posHUDConfig.get());
 
@@ -480,6 +486,19 @@ public class ConfigHandler {
         return COMMON.dropRateGrudge.get();
     }
 
+    public static double eggDropChance(int scaleLevel) {
+        return switch (scaleLevel) {
+            case 0 -> COMMON.eggDropChanceMobSmall.get();
+            case 1 -> COMMON.eggDropChanceMobLarge.get();
+            case 2 -> COMMON.eggDropChanceBossSmall.get();
+            default -> COMMON.eggDropChanceBossLarge.get();
+        };
+    }
+
+    public static boolean lootingAffectsGrudge() {
+        return COMMON.lootingAffectsGrudge.get();
+    }
+
     public static double volumeTimekeeping() {
         return COMMON.volumeTimekeeping.get();
     }
@@ -551,10 +570,17 @@ public class ConfigHandler {
         public final IntValue shipAttackPlayer;
 
         public final DoubleValue dropRateGrudge;
+        public final BooleanValue lootingAffectsGrudge;
+        public final DoubleValue eggDropChanceMobSmall;
+        public final DoubleValue eggDropChanceMobLarge;
+        public final DoubleValue eggDropChanceBossSmall;
+        public final DoubleValue eggDropChanceBossLarge;
 
         // General tile entity / array configs
         public final ConfigValue<List<? extends Double>> tileShipyardSmallConfig;
+        public final DoubleValue tileShipyardSmallFuelUse;
         public final ConfigValue<List<? extends Double>> tileShipyardLargeConfig;
+        public final DoubleValue tileShipyardLargeFuelUse;
         public final ConfigValue<List<? extends Double>> tileVolCoreConfig;
         public final ConfigValue<List<? extends Integer>> tileCraneConfig;
         public final ConfigValue<List<? extends Integer>> ringAbilityConfig;
@@ -744,17 +770,68 @@ public class ConfigHandler {
                     .comment("Grudge drop rate multiplier (e.g. 0.5 = 50% chance, 5.5 = drop 5 + 50% chance for 1 more)")
                     .defineInRange("dropRateGrudge", 1.0D, 0.0D, 64.0D);
 
+            lootingAffectsGrudge = builder
+                    .comment("If true, add the killer's Looting level to dropRateGrudge " +
+                            "(e.g. 1.0 with Looting III drops 4 grudge)")
+                    .define("lootingAffectsGrudge", false);
+
+            eggDropChanceMobSmall = builder
+                    .comment("Chance (0.0-1.0) that a small hostile ship (scale level 0) drops its spawn egg on death. Default 0.2")
+                    .defineInRange("eggDropChanceMobSmall", 0.2D, 0.0D, 1.0D);
+
+            eggDropChanceMobLarge = builder
+                    .comment("Chance (0.0-1.0) that a large hostile ship (scale level 1) drops its spawn egg on death. Default 1/3")
+                    .defineInRange("eggDropChanceMobLarge", 1.0D / 3.0D, 0.0D, 1.0D);
+
+            eggDropChanceBossSmall = builder
+                    .comment("Chance (0.0-1.0) that a small boss (scale level 2) drops its spawn egg on death. Default 0.9")
+                    .defineInRange("eggDropChanceBossSmall", 0.9D, 0.0D, 1.0D);
+
+            eggDropChanceBossLarge = builder
+                    .comment("Chance (0.0-1.0) that a large boss (scale level 3) drops its spawn egg on death. Default 1.0")
+                    .defineInRange("eggDropChanceBossLarge", 1.0D, 0.0D, 1.0D);
+
             tileShipyardSmallConfig = builder
-                    .comment("Small shipyard settings: [max fuel storage, build speed, fuel magnification]")
+                    .comment("Small shipyard settings: [max fuel storage, build speed, fuel value multiplier]",
+                            "max fuel storage: how much fuel the shipyard can hold.",
+                            "build speed: build progress per tick; fuel used is build speed times FuelUse. " +
+                                    "Build time (ticks) = required fuel / build speed.",
+                            "  Required fuel is 57600 with 16 of each material, up to 460800 with 64 of each.",
+                            "fuel value multiplier: scales the fuel each fuel item or lava adds. Raise it to make fuel last longer.",
+                            "  It does not change build time or how fast the fuel bar drains.",
+                            "  To make fuel last longer, prefer lowering FuelUse instead of raising this multiplier.",
+                            "Fuel is taken while storage is below max;",
+                            "  storage may go over max by up to one item's value. Excess fuel is retained.")
                     .defineList("tileShipyardSmall",
                             Arrays.asList(460800D, 48D, 1D),
                             e -> e instanceof Double);
 
+            tileShipyardSmallFuelUse = builder
+                    .comment("Multiplier for fuel drained from the shipyard gauge while building.",
+                            "Lower values make fuel last longer without changing build time.",
+                            "Fuel value per item is unchanged, so lowering this does not cause storage capacity issues.")
+                    .defineInRange("tileShipyardSmallFuelUse", 1.0D, 0.0001D, 100.0D);
+
             tileShipyardLargeConfig = builder
-                    .comment("Large shipyard settings: [max fuel storage, build speed, fuel magnification]")
+                    .comment("Large shipyard settings: [max fuel storage, build speed, fuel value multiplier]",
+                            "max fuel storage: how much fuel the shipyard can hold.",
+                            "build speed: build progress per tick; fuel used is build speed times FuelUse. " +
+                                    "Build time (ticks) = required fuel / build speed.",
+                            "  Required fuel is 460800 with 100 of each material, up to 1382400 with 1000 of each.",
+                            "fuel value multiplier: scales the fuel each fuel item or lava adds. Raise it to make fuel last longer.",
+                            "  It does not change build time or how fast the fuel bar drains.",
+                            "  To make fuel last longer, prefer lowering FuelUse instead of raising this multiplier.",
+                            "Fuel is taken while storage is below max;",
+                            "  storage may go over max by up to one item's value. Excess fuel is retained.")
                     .defineList("tileShipyardLarge",
                             Arrays.asList(1382400D, 48D, 1D),
                             e -> e instanceof Double);
+
+            tileShipyardLargeFuelUse = builder
+                    .comment("Multiplier for fuel drained from the shipyard gauge while building.",
+                            "Lower values make fuel last longer without changing build time.",
+                            "Fuel value per item is unchanged, so lowering this does not cause storage capacity issues.")
+                    .defineInRange("tileShipyardLargeFuelUse", 1.0D, 0.0001D, 100.0D);
 
             tileVolCoreConfig = builder
                     .comment("Volcano Core settings: [max fuel storage, fuel consume speed, fuel value per grudge item]")
@@ -983,9 +1060,9 @@ public class ConfigHandler {
                             e -> e instanceof Integer);
 
             mobSpawnConfig = builder
-                    .comment("Mob ship spawn settings: [max number in world, spawn probability (roll per player every 128 ticks), "
-                            +
-                            "groups each spawn, min each group, max each group]")
+                    .comment("Mob ship spawn settings: [cap for regular spawns (loaded hostile ships in player's dimension), "
+                            + "spawn probability percent (0 disables, 100 always; " +
+                            "roll per player every 128 ticks), groups each spawn, min each group, max each group]")
                     .defineList("mobSpawn",
                             Arrays.asList(50, 10, 1, 1, 1),
                             e -> e instanceof Integer);

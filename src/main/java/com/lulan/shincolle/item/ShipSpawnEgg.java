@@ -27,6 +27,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -34,6 +35,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.registries.RegistryObject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,6 +162,14 @@ public class ShipSpawnEgg extends BasicItem {
     }
 
     static boolean consumeSavedEggXpCost(Player player, CompoundTag nbt) {
+        return checkSavedEggXpCost(player, nbt, true);
+    }
+
+    static boolean canAffordSavedEggXpCost(Player player, CompoundTag nbt) {
+        return checkSavedEggXpCost(player, nbt, false);
+    }
+
+    private static boolean checkSavedEggXpCost(Player player, CompoundTag nbt, boolean consume) {
         if (player == null || nbt == null) {
             return true;
         }
@@ -179,7 +189,9 @@ public class ShipSpawnEgg extends BasicItem {
             return false;
         }
 
-        player.giveExperienceLevels(-xpCost);
+        if (consume) {
+            player.giveExperienceLevels(-xpCost);
+        }
         return true;
     }
 
@@ -305,12 +317,17 @@ public class ShipSpawnEgg extends BasicItem {
         return null;
     }
 
+    public static boolean isSavedEgg(ItemStack stack) {
+        return stack.hasTag() && stack.getTag().contains(TAG_STATE_MINOR);
+    }
+
     /**
-     * Initialize a BasicEntityShip from spawn egg NBT data.
+     * Initialize a ship and return equipment to refund only after world addition succeeds.
      */
-    static void initShipFromEgg(BasicEntityShip ship, ItemStack eggStack, Player player) {
+    static List<ItemStack> initShipFromEgg(BasicEntityShip ship, ItemStack eggStack, Player player) {
         CompoundTag nbt = eggStack.getTag();
-        boolean isSavedEgg = nbt != null && nbt.contains("StateMinor");
+        List<ItemStack> overflow = List.of();
+        boolean isSavedEgg = isSavedEgg(eggStack);
         CapaTeitoku capa = player != null
                 ? player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null)
                 : null;
@@ -338,9 +355,17 @@ public class ShipSpawnEgg extends BasicItem {
             }
             // ...and its Curios-slot equipment, which lives on a separate
             // capability rather than in the inventory above.
-            if (nbt.contains(BasicEntityShip.CURIOS_EGG_TAG) && ModList.get().isLoaded("curios")) {
-                ShipCuriosIntegration.loadEquipped(ship,
-                        nbt.getList(BasicEntityShip.CURIOS_EGG_TAG, Tag.TAG_COMPOUND));
+            if (nbt.contains(BasicEntityShip.CURIOS_EGG_TAG)) {
+                ListTag saved = nbt.getList(BasicEntityShip.CURIOS_EGG_TAG, Tag.TAG_COMPOUND);
+                if (ModList.get().isLoaded("curios")) {
+                    overflow = ShipCuriosIntegration.loadEquippedWithOverflow(ship, saved);
+                } else {
+                    overflow = new ArrayList<>();
+                    for (int i = 0; i < saved.size(); i++) {
+                        ItemStack equipment = ItemStack.of(saved.getCompound(i));
+                        if (!equipment.isEmpty()) overflow.add(equipment);
+                    }
+                }
             }
             restoreSavedEggOwner(ship, nbt, player, capa);
 
@@ -368,6 +393,17 @@ public class ShipSpawnEgg extends BasicItem {
         // set can drop flag
         ship.setStateFlag(ID.F.CanDrop, true);
         ship.tickCount = 0;
+        return overflow;
+    }
+
+    static void returnRevivalEquipment(Entity ship, Player player, List<ItemStack> overflow) {
+        for (ItemStack equipment : overflow) {
+            if (player != null && ShipTransport.storeInInventory(player, equipment)) continue;
+            Entity recipient = player != null ? player : ship;
+            ItemEntity drop = new ItemEntity(ship.level(), recipient.getX(), recipient.getY(), recipient.getZ(), equipment);
+            drop.setDefaultPickUpDelay();
+            ship.level().addFreshEntity(drop);
+        }
     }
 
     private static void restoreSavedEggOwner(BasicEntityShip ship, CompoundTag nbt, Player player,
@@ -618,7 +654,7 @@ public class ShipSpawnEgg extends BasicItem {
         }
 
         // XP cost for saved eggs (eggs with stored ship data)
-        if (!consumeSavedEggXpCost(player, nbt)) {
+        if (!canAffordSavedEggXpCost(player, nbt)) {
             return InteractionResult.FAIL;
         }
 
@@ -637,7 +673,7 @@ public class ShipSpawnEgg extends BasicItem {
 
         if (entity instanceof BasicEntityShip ship) {
             // init ship from egg data
-            initShipFromEgg(ship, stack, player);
+            List<ItemStack> overflow = initShipFromEgg(ship, stack, player);
 
             // [PORT] Preserve legacy priority: renamed egg hover-name first, explicit NBT
             // name overrides afterward.
@@ -650,7 +686,13 @@ public class ShipSpawnEgg extends BasicItem {
             // when no saved state is provided.
             bootstrapFreshSpawnCombatState(ship, nbt);
 
-            level.addFreshEntity(ship);
+            if (!level.addFreshEntity(ship)) {
+                ship.discard();
+                ship.invalidateCaps();
+                return InteractionResult.FAIL;
+            }
+
+            returnRevivalEquipment(ship, player, overflow);
 
             // recalc attributes
             ship.calcShipAttributes(31, true);
@@ -661,9 +703,15 @@ public class ShipSpawnEgg extends BasicItem {
             // [PORT] 1.10.2 -> 1.20.1: keep hostile spawn silhouette larger than
             // regular ships by biasing hostile scale level away from 0.
             hostile.initAttrs(1 + level.random.nextInt(3));
-            level.addFreshEntity(hostile);
+            if (!level.addFreshEntity(hostile)) {
+                hostile.discard();
+                hostile.invalidateCaps();
+                return InteractionResult.FAIL;
+            }
             hostile.playAmbientSound();
         }
+
+        consumeSavedEggXpCost(player, nbt);
 
         // consume item in non-creative
         if (!player.getAbilities().instabuild) {
@@ -836,6 +884,7 @@ public class ShipSpawnEgg extends BasicItem {
                     tooltip.add(Component.literal(ChatFormatting.RED + ownerName));
                 }
                 appendStoredInventory(stack, tooltip);
+                tooltip.add(Component.translatable("tooltip.shincolle_kai.saved_egg_no_recycling").withStyle(ChatFormatting.YELLOW));
             } else if (nbt.contains("BuildType")) {
                 // Construction egg: show material amounts
                 int grudge = nbt.getInt("Grudge");

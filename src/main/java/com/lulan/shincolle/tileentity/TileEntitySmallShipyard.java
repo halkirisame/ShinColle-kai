@@ -83,6 +83,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     // Config values loaded from ConfigHandler
     private static volatile int POWER_MAX;
     private static volatile int BUILD_SPEED;
+    private static volatile long fuelDrainMicros;
     private static volatile float FUEL_MAGN;
 
     static {
@@ -101,6 +102,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Remaining fuel power in storage
      */
     private int powerRemained = 0;
+    private long fuelUseCarryMicros = 0;
     /**
      * Power goal for current build
      */
@@ -149,6 +151,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         POWER_MAX = (int) cfg[0];
         BUILD_SPEED = (int) cfg[1];
         FUEL_MAGN = (float) cfg[2];
+        fuelDrainMicros = Math.round(BUILD_SPEED * ConfigHandler.tileShipyardSmallFuelUse * 1_000_000);
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, TileEntitySmallShipyard tile) {
@@ -284,7 +287,8 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
      * Whether there is enough fuel for at least one tick
      */
     public boolean hasRemainedPower() {
-        return powerRemained >= BUILD_SPEED;
+        long required = BUILD_SPEED > 0 ? (fuelDrainMicros + 999_999) / 1_000_000 : BUILD_SPEED;
+        return powerRemained >= required;
     }
 
     /**
@@ -360,6 +364,8 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     }
 
     private boolean addResourceItem(IShipResourceItem resource, ItemStack stack) {
+        if (stack.getItem() instanceof com.lulan.shincolle.block.ItemBlockGrudgeHeavy
+                && com.lulan.shincolle.block.ItemBlockGrudgeHeavy.hasStoredFuel(stack)) return false;
         ResourceAmount adjusted;
         try {
             adjusted = ResourceYieldPolicy.apply(resource.getResourceAmount(stack));
@@ -367,6 +373,10 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
             return false;
         }
         int[] addMats = adjusted.toArray();
+        if (stack.getItem() instanceof com.lulan.shincolle.block.ItemBlockGrudgeHeavy) {
+            int[] stored = com.lulan.shincolle.block.ItemBlockGrudgeHeavy.getStoredMaterials(stack);
+            for (int i = 0; i < matsStock.length; i++) addMats[i] += stored[i];
+        }
         for (int i = 0; i < matsStock.length; i++) {
             if (addMats[i] < 0 || matsStock[i] > MAX_STOCK - addMats[i]) {
                 return false;
@@ -384,7 +394,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         }
         int burnTime = ForgeHooks.getBurnTime(fuelStack, null);
         int fuelValue = burnTime > 0 ? (int) (burnTime * FUEL_MAGN) : 0;
-        if (fuelValue <= 0 || powerRemained + fuelValue > POWER_MAX) {
+        if (fuelValue <= 0) {
             return;
         }
 
@@ -394,7 +404,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         }
 
         fuelStack.shrink(1);
-        powerRemained += fuelValue;
+        powerRemained = (int) Math.min(Integer.MAX_VALUE, (long) powerRemained + fuelValue);
         if (fuelStack.isEmpty()) {
             inventory.setStackInSlot(slot, containerStack.isEmpty() ? ItemStack.EMPTY : containerStack.copy());
         }
@@ -411,7 +421,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     private void consumeLavaFluidContainer(int slot, ItemStack containerStack) {
         int drainAmount = Math.min(LAVA_BUCKET_MB, getLavaAmount(containerStack));
         int fuelValue = getLavaFuelValue(drainAmount);
-        if (fuelValue <= 0 || powerRemained > POWER_MAX - fuelValue
+        if (fuelValue <= 0 || powerRemained >= POWER_MAX
                 || fuelTank.getSpace() < drainAmount) {
             return;
         }
@@ -490,9 +500,9 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         }
 
         int fuelValue = getLavaFuelValue(drainAmount);
-        if (fuelValue > 0 && powerRemained + fuelValue <= POWER_MAX) {
+        if (fuelValue > 0) {
             fuelTank.drain(drainAmount, IFluidHandler.FluidAction.EXECUTE);
-            powerRemained += fuelValue;
+            powerRemained = (int) Math.min(Integer.MAX_VALUE, (long) powerRemained + fuelValue);
             setChanged();
         }
     }
@@ -569,7 +579,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     public int getPowerRemainingScaled(int pixels) {
         if (POWER_MAX <= 0)
             return 0;
-        return powerRemained * pixels / POWER_MAX;
+        return (int) Math.min(pixels, (long) powerRemained * pixels / POWER_MAX);
     }
 
     // ==================== Slot Validation ====================
@@ -623,10 +633,16 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
                     inventory.setStackInSlot(instantSlot, ItemStack.EMPTY);
                 }
                 powerConsumed += POWER_INSTANT;
-            } else if (powerRemained >= BUILD_SPEED) {
+            } else if (hasRemainedPower()) {
                 // An instant construction item replaces this tick's normal
                 // fuel use; consuming both lost stored fuel unnecessarily.
-                powerRemained -= BUILD_SPEED;
+                if (BUILD_SPEED > 0) {
+                    fuelUseCarryMicros += fuelDrainMicros;
+                    powerRemained -= (int) (fuelUseCarryMicros / 1_000_000);
+                    fuelUseCarryMicros %= 1_000_000;
+                } else {
+                    powerRemained -= BUILD_SPEED;
+                }
                 powerConsumed += BUILD_SPEED;
             }
 
@@ -709,6 +725,7 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
     }
 
     private boolean recycleShipSpawnEgg(ItemStack stack) {
+        if (ShipSpawnEgg.isSavedEgg(stack)) return false;
         ItemStack[] recycledItems = ShipCalc.getKaitaiItems(ShipSpawnEgg.getShipClass(stack));
         ResourceAmount totalAmount = ResourceAmount.ZERO;
         try {
