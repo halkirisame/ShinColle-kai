@@ -35,10 +35,32 @@ class ShipLevelRulesTest {
     void setterAndTrainingRulesFollowConfiguredCaps() {
         assertTrue(ShipLevelRules.acceptsLevel(1000, 1000));
         assertFalse(ShipLevelRules.acceptsLevel(1001, 1000));
-        assertTrue(ShipLevelRules.canUseTrainingBook(999, 1000));
-        assertFalse(ShipLevelRules.canUseTrainingBook(1000, 1000));
+        assertTrue(ShipLevelRules.canUseTrainingBook(999, true, 600, 1000));
+        assertFalse(ShipLevelRules.canUseTrainingBook(1000, true, 600, 1000));
         assertEquals(600, ShipLevelRules.trainingBookResult(598, 10, false, 600, 1000));
         assertEquals(1000, ShipLevelRules.trainingBookResult(998, 10, true, 600, 1000));
+    }
+
+    @Test
+    void unmarriedTrainingBookRejectsAtDefaultNaturalCap() {
+        assertFalse(ShipLevelRules.canUseTrainingBook(100, false, 100, 150));
+    }
+
+    @Test
+    void unmarriedTrainingBookRejectsAboveLoweredNaturalCap() {
+        assertFalse(ShipLevelRules.canUseTrainingBook(120, false, 80, 150));
+    }
+
+    @Test
+    void unmarriedTrainingBookBelowLoweredNaturalCapStillGainsLevel() {
+        assertTrue(ShipLevelRules.canUseTrainingBook(79, false, 80, 150));
+        assertEquals(80, ShipLevelRules.trainingBookResult(79, 10, false, 80, 150));
+    }
+
+    @Test
+    void marriedTrainingBookUsesAbsoluteCap() {
+        assertTrue(ShipLevelRules.canUseTrainingBook(120, true, 80, 150));
+        assertFalse(ShipLevelRules.canUseTrainingBook(150, true, 80, 150));
     }
 
     @Test

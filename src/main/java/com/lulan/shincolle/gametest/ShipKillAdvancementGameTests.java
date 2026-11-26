@@ -62,7 +62,7 @@ public final class ShipKillAdvancementGameTests {
             BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
             helper.assertTrue(ship != null, "Fixture: ship creation");
             ship.tame(owner);
-            ship.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(helper, ship);
             ship.setStateMinor(ID.M.NumGrudge, 1000);
             ship.moveTo(helper.absoluteVec(new Vec3(2D, 2D, 1D)));
             helper.getLevel().addFreshEntity(ship);

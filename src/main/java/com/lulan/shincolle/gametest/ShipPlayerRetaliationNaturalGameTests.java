@@ -107,7 +107,7 @@ public final class ShipPlayerRetaliationNaturalGameTests {
                 int revengeTime = ship.getEntityRevengeTime();
                 helper.assertTrue(!ship.isInvulnerableTo(ship.damageSources().playerAttack(attacker[0])),
                         "Hit fixture must pass invulnerability check");
-                helper.assertTrue(ship.hurt(ship.damageSources().playerAttack(attacker[0]), 1F)
+                helper.assertTrue(entities.allowDamage(ship).hurt(ship.damageSources().playerAttack(attacker[0]), 1F)
                                 && ship.getHealth() < health && ship.isAlive(),
                         "The melee damage must actually land on the ship");
                 helper.assertTrue(ownerHit
@@ -201,7 +201,7 @@ public final class ShipPlayerRetaliationNaturalGameTests {
                 zombie[0].moveTo(ship.position().add(2D, 0D, 0D));
                 helper.assertTrue(helper.getLevel().addFreshEntity(zombie[0]), "Failed to add zombie");
                 ship.getAttrs().setAttrsBuffed(ID.Attrs.DODGE, 0F);
-                helper.assertTrue(ship.hurt(ship.damageSources().mobAttack(zombie[0]), 1F)
+                helper.assertTrue(entities.allowDamage(ship).hurt(ship.damageSources().mobAttack(zombie[0]), 1F)
                                 && ship.getEntityRevengeTarget() == zombie[0], "Non-player hit must record revenge");
                 ship.setInvulnerable(true);
                 target[0] = player(helper, entities, ATTACKER_UID, 3D);

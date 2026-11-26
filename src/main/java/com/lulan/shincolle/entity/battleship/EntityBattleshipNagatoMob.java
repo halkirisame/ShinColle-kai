@@ -38,7 +38,6 @@ public class EntityBattleshipNagatoMob extends BasicEntityShipHostile {
         this.StateMinor[ID.M.NumGrudge] = 999;
         this.setAmmoConsumption(1);
 
-        // boss bar color
         this.bossBarColor = BossEvent.BossBarColor.WHITE;
 
         // model display: state = 3

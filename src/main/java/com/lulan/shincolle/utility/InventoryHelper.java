@@ -40,6 +40,10 @@ import java.util.TreeMap;
  */
 public class InventoryHelper {
 
+    private static final Set<String> TASK_MATERIAL_TAG_CATEGORIES = Set.of(
+            "ingots", "nuggets", "gems", "dusts", "ores", "raw_materials", "storage_blocks",
+            "plates", "gears", "rods", "crops", "seeds", "dyes");
+
     public InventoryHelper() {
     }
 
@@ -371,7 +375,7 @@ public class InventoryHelper {
     }
 
     /**
-     * Check target and template using the TaskSide metadata/NBT options.
+     * Check target and template using the TaskSide metadata/NBT and material tag options.
      *
      * <p>Original 1.10.2 InventoryHelper.java:786-804:</p>
      * <pre>
@@ -384,9 +388,21 @@ public class InventoryHelper {
      * </pre>
      */
     public static boolean matchTargetItem(ItemStack target, ItemStack temp,
-                                          boolean checkMetadata, boolean checkNbt) {
-        if (target.isEmpty() || temp.isEmpty() || !ItemStack.isSameItem(target, temp))
+                                          boolean checkMetadata, boolean checkNbt, boolean checkOreTag) {
+        if (target.isEmpty() || temp.isEmpty())
             return false;
+        if (!ItemStack.isSameItem(target, temp)) {
+            return checkOreTag && target.getTags().anyMatch(tag -> {
+                var id = tag.location();
+                String path = id.getPath();
+                int separator = path.indexOf('/');
+                return id.getNamespace().equals("forge")
+                        && separator > 0 && separator < path.length() - 1
+                        && path.indexOf('/', separator + 1) < 0
+                        && TASK_MATERIAL_TAG_CATEGORIES.contains(path.substring(0, separator))
+                        && temp.is(tag);
+            });
+        }
         if (checkMetadata && target.getDamageValue() != temp.getDamageValue())
             return false;
         if (!checkNbt)

@@ -1,6 +1,5 @@
 package com.lulan.shincolle.client.visual;
 
-import com.lulan.shincolle.visualdata.ShipAuraBudget;
 import com.lulan.shincolle.visualdata.ShipAuraSelection;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.particle.ParticleRenderType;
@@ -90,20 +89,13 @@ class ShipAuraWiringTest {
         assertFalse(entity.redAura());
     }
 
-    private static Object state(String name) throws Exception {
-        var field = ShipAuraClient.class.getDeclaredField(name);
-        field.setAccessible(true);
-        return field.get(null);
-    }
-
     @Test
-    @SuppressWarnings("unchecked")
     void successfulReloadAndLogoutDisposeProductionSelectionBudgetAndDedicatedParticlesButFailureDoesNot() throws Exception {
         var files = files();
         reload(resources(files));
-        var selection = (ShipAuraSelection) state("SELECTION");
-        var budget = (ShipAuraBudget) state("BUDGET");
-        var particles = (List<ShipAuraParticle>) state("PARTICLES");
+        var selection = ShipAuraClient.selection();
+        var budget = ShipAuraClient.budget();
+        var particles = ShipAuraClient.particles();
         selection.begin(100, List.of(new ShipAuraSelection.Candidate(1, 0, true, true, false, false, true, true)));
         selection.complete(100);
         assertTrue(budget.emit(10, 1, 0));

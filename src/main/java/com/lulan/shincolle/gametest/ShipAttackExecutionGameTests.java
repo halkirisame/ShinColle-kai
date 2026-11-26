@@ -127,7 +127,7 @@ public final class ShipAttackExecutionGameTests {
                     ShipTargetAuthorityGoal authority = authorityGoal(ship);
                     UUID lockBefore = authority.currentLock().orElseThrow().target().uuid();
 
-                    mount.setEntityTarget(replacement);
+                    GameTestTargetWrites.ignoredByAuthority(helper, ship, mount, replacement);
 
                     helper.assertTrue(authority.currentLock().orElseThrow().target().uuid().equals(lockBefore),
                             "Mount external write changed the host authority lock");
@@ -158,6 +158,8 @@ public final class ShipAttackExecutionGameTests {
             BasicEntityShip secondOwner = friendly(helper, entities, 1D, 12D, 8402, true);
             firstOwner.getAttrs().setAttrsBuffed(ID.Attrs.MISS, 1F);
             secondOwner.getAttrs().setAttrsBuffed(ID.Attrs.MISS, 1F);
+            firstOwner.setInvulnerable(true);
+            secondOwner.setInvulnerable(true);
 
             TestMissile differentBlast = testMissile(
                     helper, entities, secondOwner, 5D, 2D, 20F);

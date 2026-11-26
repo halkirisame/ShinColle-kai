@@ -118,7 +118,6 @@ public class ShinWorldData extends SavedData {
             data.customTargetClass.put(uid, strList);
         }
 
-        // Load team data
         ListTag teamList = nbt.getList(TAG_TEAM_DATA, Tag.TAG_COMPOUND);
         LogHelper.info("load team data count: " + teamList.size());
         for (int i = 0; i < teamList.size(); i++) {
@@ -143,7 +142,6 @@ public class ShinWorldData extends SavedData {
             data.teamMap.put(tUID, tData);
         }
 
-        // Load ship data
         ListTag shipList = nbt.getList(TAG_SHIP_DATA, Tag.TAG_COMPOUND);
         LogHelper.info("load ship data count: " + shipList.size());
         for (int i = 0; i < shipList.size(); i++) {
@@ -260,7 +258,6 @@ public class ShinWorldData extends SavedData {
         }
         nbt.put(TAG_TEAM_DATA, teamDataList);
 
-        // Save ship data
         ListTag shipDataList = new ListTag();
         if (shipMap != null) {
             shipMap.forEach((uid, sData) -> {

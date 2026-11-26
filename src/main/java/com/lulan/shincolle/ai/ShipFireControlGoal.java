@@ -86,12 +86,12 @@ public class ShipFireControlGoal extends Goal {
             int delay = switch (channel) {
                 case LIGHT -> {
                     this.host.attackEntityWithAmmo(target);
-                    yield Math.max(5, (int) (ConfigHandler.baseAttackSpeed[1] / speed) + ConfigHandler.fixedAttackDelay[1]);
+                    yield Math.max(1, (int) (ConfigHandler.baseAttackSpeed[1] / speed) + ConfigHandler.fixedAttackDelay[1]);
                 }
                 case HEAVY -> {
                     this.host.attackEntityWithHeavyAmmo(target);
                     int wait = (int) (ConfigHandler.baseAttackSpeed[2] / speed) + ConfigHandler.fixedAttackDelay[2];
-                    yield Math.max(10, (int) (wait * this.host.heavyDelayScale()));
+                    yield Math.max(1, (int) (wait * this.host.heavyDelayScale()));
                 }
                 case AIR -> {
                     IShipAircraftAttack carrier = (IShipAircraftAttack) this.host;

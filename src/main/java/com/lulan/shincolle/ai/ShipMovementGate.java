@@ -1,6 +1,7 @@
 package com.lulan.shincolle.ai;
 
 import com.lulan.shincolle.ai.domain.movement.MovementInhibitReason;
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
 import com.lulan.shincolle.ai.domain.movement.MovementPermission;
 import com.lulan.shincolle.ai.domain.task.TaskMovePermissions;
 import com.lulan.shincolle.ai.domain.task.TaskMoveRequest;
@@ -145,7 +146,14 @@ public final class ShipMovementGate {
         if (ship == null) {
             return MovementPermission.inhibited(EnumSet.of(MovementInhibitReason.RIDING));
         }
-        return TaskMovePermissions.of(facts(host, ship, ship), region(host, ship, ship), request);
+        Entity body = taskBody(ship);
+        return TaskMovePermissions.of(facts(host, ship, ship, body != ship && engaged(body)), region(host, ship, ship), request,
+                body == ship ? MovementBody.SELF : MovementBody.VEHICLE);
+    }
+
+    /** Work uses the ship's own mount, never an unrelated vehicle that happens to carry it. */
+    public static Entity taskBody(BasicEntityShip ship) {
+        return ship.getVehicle() instanceof BasicEntityMount mount && mount.getHost() == ship ? mount : ship;
     }
 
     /** The region the host's current intent lets it move in. */
@@ -208,6 +216,11 @@ public final class ShipMovementGate {
     }
 
     private static MovementFacts facts(Entity host, IShipAttackBase base, BasicEntityShip ship) {
+        return facts(host, base, ship, false);
+    }
+
+    /** Only task movement adds engagement of the working body; other callers read the host alone. */
+    private static MovementFacts facts(Entity host, IShipAttackBase base, BasicEntityShip ship, boolean bodyEngaged) {
         ShipCommandState command = ship.getCommandState();
         LivingEntity owner = resolveOwner(ship);
         boolean ownerPresent = owner != null && owner.isAlive() && owner.level() == ship.level();
@@ -228,7 +241,7 @@ public final class ShipMovementGate {
                 craneBusy(base),
                 ship.fishHook != null,
                 settings(ship).pickItem(),
-                engaged(host));
+                engaged(host) || bodyEngaged);
     }
 
     /**

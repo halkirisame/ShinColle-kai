@@ -1,11 +1,21 @@
 package com.lulan.shincolle.client.gui;
 
+import com.lulan.shincolle.equip.ShipEquipSlots;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GuiShipInventoryTextTest {
+
+    @Test
+    void rightColumnAlignsWithTheModelPanel() {
+        int[] button = GuiShipInventory.aiSettingsButtonRelBounds();
+        assertEquals(250, button[0] + button[2] - 1);
+        assertEquals(17, ShipEquipSlots.slotY(0) - 4);
+        assertEquals(262, ShipEquipSlots.slotX());
+        assertEquals(18, ShipEquipSlots.slotY(1) - ShipEquipSlots.slotY(0));
+    }
 
     @Test
     void marriageAndUnmarriedMoveOntoSeparateLinesWithinExistingRow() {

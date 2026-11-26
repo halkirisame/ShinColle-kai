@@ -31,8 +31,8 @@ public class CapaShipSavedValues {
     public static void saveNBTData(CompoundTag nbt, BasicEntityShip ship) {
         // mark the save with the version of the build writing it
         nbt.putInt(AiDataVersion.KEY, AiDataVersion.CURRENT);
+        ship.saveCommandData(nbt);
 
-        // save state minor array
         nbt.putIntArray("StateMinor", ship.getStateMinorArray());
 
         int remainder = ship.getPersistentData().getInt(TrainingRemainder.KEY);
@@ -45,7 +45,6 @@ public class CapaShipSavedValues {
             if (data.isEmpty()) nbt.remove("ForgeData");
         }
 
-        // save state flags as byte array
         boolean[] flags = ship.getStateFlagArray();
         byte[] flagBytes = new byte[flags.length];
         for (int i = 0; i < flags.length; i++) {
@@ -53,19 +52,18 @@ public class CapaShipSavedValues {
         }
         nbt.putByteArray("StateFlag", flagBytes);
 
-        // save state emotion
         nbt.putIntArray("StateEmotion", ship.getStateEmotionArray());
 
-        // save attrs bonus
         nbt.putByteArray("AttrsBonus", ship.getAttrs().getAttrsBonus());
 
         // save owner name
         nbt.putString("OwnerName", ship.ownerName != null ? ship.ownerName : "");
 
+        NBTHelper.saveStringTagArrayList(nbt, "UnitNames", ship.unitNames);
+
         // save texture ID
         nbt.putInt("TextureID", ship.getTextureID());
 
-        // Save custom name
         if (ship.hasCustomName()) {
             nbt.putString("CustomName", Component.Serializer.toJson(ship.getCustomName()));
         }
@@ -76,6 +74,7 @@ public class CapaShipSavedValues {
      */
     public static void loadNBTData(CompoundTag nbt, BasicEntityShip ship) {
         checkDataVersion(nbt);
+        ship.loadCommandData(nbt);
 
         // The independent root key owns restoration, including saves without any training data.
         TrainingRemainder remainder = TrainingRemainder.loaded(nbt.contains(TrainingRemainder.KEY, Tag.TAG_INT),
@@ -122,6 +121,11 @@ public class CapaShipSavedValues {
                     nbt.contains("CustomName", Tag.TAG_STRING));
         }
 
+        // A present current list, including an empty one, takes precedence over legacy names.
+        if (nbt.contains("UnitNames", Tag.TAG_LIST)) {
+            ship.unitNames = NBTHelper.loadStringTagArrayList(nbt, "UnitNames");
+        }
+
         // A crane session belongs to the live crane, not to the saved ship or its old elapsed time.
         ship.setStateMinor(ID.M.CraneState, 0);
         ship.setStateTimer(ID.T.CraneTime, 0);
@@ -136,7 +140,6 @@ public class CapaShipSavedValues {
             }
         }
 
-        // load attrs bonus
         if (nbt.contains("AttrsBonus")) {
             byte[] bonus = nbt.getByteArray("AttrsBonus");
             ship.getAttrs().setAttrsBonus(bonus);
@@ -147,7 +150,6 @@ public class CapaShipSavedValues {
             ship.ownerName = nbt.getString("OwnerName");
         }
 
-        // Load custom name
         if (nbt.contains("CustomName")) {
             try {
                 ship.setCustomName(Component.Serializer.fromJson(nbt.getString("CustomName")));
@@ -161,17 +163,13 @@ public class CapaShipSavedValues {
             ship.setTextureID(nbt.getInt("TextureID"));
         }
 
-        // set exp next value
         ship.setExpNext();
         ShipConsumptionDefaults.restore(ship);
         ShipClassAttackGate.restoreCapabilities(ship);
         com.lulan.shincolle.ai.RuBurstAttackGate.loaded(ship);
     }
 
-    /**
-     * Every version so far is read the same way, so the mark only decides whether to warn: a save
-     * from a newer build or with an unusable mark is still read key by key.
-     */
+    /** Report unsupported marks; command-data migration belongs to the shared command boundary. */
     private static void checkDataVersion(CompoundTag nbt) {
         boolean integer = nbt.contains(AiDataVersion.KEY, Tag.TAG_INT);
         AiDataVersion.Read read = AiDataVersion.read(nbt.contains(AiDataVersion.KEY), integer,

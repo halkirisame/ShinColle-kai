@@ -40,7 +40,6 @@ public class EntityDestroyerInazumaMob extends BasicEntityShipHostile implements
         this.StateMinor[ID.M.NumGrudge] = 999;
         this.setAmmoConsumption(1);
 
-        // boss bar color
         this.bossBarColor = BossEvent.BossBarColor.PINK;
 
         // model display

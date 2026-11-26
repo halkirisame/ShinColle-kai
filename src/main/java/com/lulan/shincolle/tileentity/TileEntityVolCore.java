@@ -1,6 +1,7 @@
 package com.lulan.shincolle.tileentity;
 
 import com.lulan.shincolle.client.gui.inventory.ContainerVolCore;
+import com.lulan.shincolle.client.gui.inventory.SlotVolCore;
 import com.lulan.shincolle.client.particle.VolCoreClientEffects;
 import com.lulan.shincolle.entity.BasicEntityAirplane;
 import com.lulan.shincolle.entity.BasicEntityMount;
@@ -12,9 +13,12 @@ import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.network.S2CSpawnParticlePacket;
 import com.lulan.shincolle.reference.ID;
+import com.lulan.shincolle.server.ServerDataManager;
 import com.lulan.shincolle.utility.BlockHelper;
 import com.lulan.shincolle.utility.EntityHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
@@ -31,8 +35,14 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.items.IItemHandler;
 
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Block entity for the Volcano Structure Core block.
@@ -43,6 +53,29 @@ import java.util.List;
 public class TileEntityVolCore extends BasicTileInventory implements MenuProvider, ITileFurnace {
 
     public static final int SLOT_COUNT = 9;
+    private UUID ownerUUID;
+    private int ownerPlayerUID;
+    private final LazyOptional<IItemHandler> itemHandlerCapability =
+            LazyOptional.of(VolCoreAutomationItemHandler::new);
+
+    public void setOwner(Player owner) {
+        ownerUUID = owner.getUUID();
+        ownerPlayerUID = TeamHelper.getPlayerUID(owner);
+        setChanged();
+    }
+
+    public boolean canRemove(Player player) {
+        return ownerUUID == null || ownerUUID.equals(player.getUUID())
+                || player.isCreative() || ServerDataManager.checkOP(player);
+    }
+
+    public boolean canUse(Player player) {
+        if (canRemove(player)) return true;
+        int ownerUid = ServerDataManager.getKnownPlayerUID(ownerUUID);
+        if (ownerUid <= 0) ownerUid = ownerPlayerUID;
+        return ownerUid > 0 && TeamHelper.checkIsAlly(ownerUid, TeamHelper.getPlayerUID(player));
+    }
+
     /**
      * AOE effect range (blocks)
      */
@@ -358,6 +391,10 @@ public class TileEntityVolCore extends BasicTileInventory implements MenuProvide
     @Override
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
+        if (ownerUUID != null) {
+            tag.putUUID("OwnerUUID", ownerUUID);
+            tag.putInt("OwnerPlayerUID", ownerPlayerUID);
+        }
         tag.putBoolean("CanWork", canWork);
         tag.putBoolean("BtnActive", btnActive);
         tag.putInt("RemainedPower", remainedPower);
@@ -366,6 +403,8 @@ public class TileEntityVolCore extends BasicTileInventory implements MenuProvide
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
+        ownerUUID = tag.hasUUID("OwnerUUID") ? tag.getUUID("OwnerUUID") : null;
+        ownerPlayerUID = ownerUUID == null ? 0 : Math.max(0, tag.getInt("OwnerPlayerUID"));
         canWork = tag.getBoolean("CanWork");
         btnActive = tag.getBoolean("BtnActive");
         remainedPower = tag.getInt("RemainedPower");
@@ -387,6 +426,53 @@ public class TileEntityVolCore extends BasicTileInventory implements MenuProvide
     public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
         if (pkt.getTag() != null) {
             load(pkt.getTag());
+        }
+    }
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
+        if (capability == ForgeCapabilities.ITEM_HANDLER) {
+            return itemHandlerCapability.cast();
+        }
+        return super.getCapability(capability, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        itemHandlerCapability.invalidate();
+    }
+
+    private class VolCoreAutomationItemHandler implements IItemHandler {
+        @Override
+        public int getSlots() {
+            return SLOT_COUNT;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return inventory.getStackInSlot(slot);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (!isItemValid(slot, stack)) return stack;
+            return inventory.insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return inventory.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return inventory.getSlotLimit(slot);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return SlotVolCore.isValidFuel(stack);
         }
     }
 }

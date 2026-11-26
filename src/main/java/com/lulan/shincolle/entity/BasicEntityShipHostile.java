@@ -32,12 +32,14 @@ import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -109,9 +111,7 @@ public abstract class BasicEntityShipHostile extends Mob
     protected MissileData[] MissileData;
     // model render
     protected float[] rotateAngle;
-    // texture
     protected int textureID;
-    // riding state
     protected int ridingState;
     // Transient pose state used by local previews; intentionally not saved or synchronized.
     private boolean sitting;
@@ -158,7 +158,6 @@ public abstract class BasicEntityShipHostile extends Mob
         this.ridingState = 0;
         this.scaleLevel = 0;
 
-        // init
         this.initAI = false;
         this.revengeTime = 0;
     }
@@ -326,6 +325,8 @@ public abstract class BasicEntityShipHostile extends Mob
 
     @Override
     public boolean isInvulnerableTo(DamageSource source) {
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
+            return false;
         if (source == damageSources().fellOutOfWorld())
             return false;
         if (StateTimer[ID.T.ImmuneTime] > 0)
@@ -702,7 +703,6 @@ public abstract class BasicEntityShipHostile extends Mob
             if ((flag & 2) == 2) {
                 this.calcShipAttributesAddEquip();
             }
-            // apply buffs and finalize
             BuffHelper.applyBuffOnAttrs(this);
             this.calcShipAttributesAdd();
         }
@@ -880,7 +880,6 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         EntityAbyssMissile missile = new EntityAbyssMissile(
                 ModEntities.ABYSS_MISSILE.get(), this.level());
-        // 2026/04/07・哦itHub Copilot縺ｫ繧医▲縺ｦ遒ｺ隱肴ｸ医∩
         missile.initMissile(this, md.type, moveType,
                 atk, kbValue, launchPos, tarX, tarY, tarZ,
                 160, 0.25F, md.vel0, md.accY1, md.accY2);
@@ -896,6 +895,9 @@ public abstract class BasicEntityShipHostile extends Mob
         if (this.level().isClientSide())
             return false;
 
+        if (source.is(DamageTypes.GENERIC_KILL))
+            return super.hurt(source, amount);
+
         // damage disabled
         if (source == this.damageSources().inWall() || source == this.damageSources().starve()
                 || source == this.damageSources().cactus() || source == this.damageSources().fall()) {
@@ -907,6 +909,15 @@ public abstract class BasicEntityShipHostile extends Mob
         }
         if (this.isInvulnerableTo(source)) {
             return false;
+        }
+
+        Entity attacker = source.getEntity();
+        if (attacker != null) {
+            if (attacker == this)
+                return false;
+            float distSq = (float) this.distanceToSqr(attacker);
+            if (CombatHelper.canDodge(this, distSq))
+                return false;
         }
 
         // apply defense

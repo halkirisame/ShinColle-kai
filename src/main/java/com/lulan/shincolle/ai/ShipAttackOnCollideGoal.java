@@ -82,7 +82,6 @@ public class ShipAttackOnCollideGoal extends Goal {
             return;
         }
 
-        // look at target
         this.entity.getLookControl().setLookAt(this.target, 30.0F, 30.0F);
 
         // calculate melee range: width^2 * 16 (matching original)

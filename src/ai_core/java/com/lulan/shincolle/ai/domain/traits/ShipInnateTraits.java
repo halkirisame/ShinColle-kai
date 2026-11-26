@@ -21,8 +21,8 @@ public final class ShipInnateTraits {
         public int postAttackDelay(WeaponChannel channel, int delay) {
             if (this != YUKIKAZE || channel == WeaponChannel.AIR) return delay;
             int minimum = switch (channel) {
-                case LIGHT -> 5;
-                case HEAVY -> 10;
+                case LIGHT -> 1;
+                case HEAVY -> 1;
                 case MELEE -> 1;
                 case AIR -> throw new IllegalArgumentException("Aircraft intervals are not ordinary attacks");
             };

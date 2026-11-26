@@ -17,6 +17,30 @@ public final class TargetCandidateSelector {
     private TargetCandidateSelector() {
     }
 
+    /** Held authority may select only a newly observed, eligible anti-air target. */
+    public static TargetState selectAutomatic(
+            long observedAtTick,
+            TargetHandle source,
+            List<TargetCandidate> candidates,
+            TargetPredicateKind kind,
+            TargetPredicatePolicy policy,
+            Optional<TargetLock> currentLock,
+            AiRandom boundedIndexSource) {
+        if (currentLock.isPresent()) {
+            candidates = candidates.stream()
+                    .filter(candidate -> !candidate.handle().equals(source)
+                            && candidate.handle().dimension().equals(source.dimension()))
+                    .filter(candidate -> TargetEligibilityEvaluator.test(kind, candidate.observation(), policy))
+                    .filter(candidate -> TargetPriorityClassifier.classify(kind, candidate.observation(), policy)
+                            == TargetPriorityTier.ANTI_AIR)
+                    .toList();
+            if (candidates.isEmpty()) {
+                return TargetState.empty(observedAtTick, source);
+            }
+        }
+        return select(observedAtTick, source, candidates, kind, policy, boundedIndexSource);
+    }
+
     public static TargetState select(
             long observedAtTick,
             TargetHandle source,

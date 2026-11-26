@@ -136,7 +136,7 @@ public final class KaitaiHammerLeftClickGameTests {
         Vec3 hatchPos = new Vec3(2.5D, 2D, 5.5D);
         GameTestEntities entities = GameTestEntities.open(helper);
         GameTestEntities.whenPositionsTicking(helper, () -> {
-            BasicEntityShip ship = entities.add(ModEntities.HARBOUR_HIME.get().create(helper.getLevel()));
+            BasicEntityShip ship = entities.allowDamage(ModEntities.HARBOUR_HIME.get().create(helper.getLevel()));
             helper.assertTrue(ship != null, "fixture must create Harbour Hime");
             ship.moveTo(helper.absoluteVec(deathPos));
             ship.setNoGravity(true);

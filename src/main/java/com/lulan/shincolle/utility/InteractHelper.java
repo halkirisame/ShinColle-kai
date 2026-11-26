@@ -253,10 +253,10 @@ public class InteractHelper {
             // 1. check 2 signs
             if (ida > 0 && idb > 0) {
                 // 2. check owner is A or B
-                if (ida == ship.getPlayerUID()) {
+                if (TeamHelper.checkSameOwner(ida, ship.getPlayerUID())) {
                     // A is owner
                     idtarget = idb;
-                } else if (idb == ship.getPlayerUID()) {
+                } else if (TeamHelper.checkSameOwner(idb, ship.getPlayerUID())) {
                     // B is owner
                     idtarget = ida;
                 } else {

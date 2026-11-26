@@ -46,7 +46,6 @@ public class EntityCARi extends BasicEntityShipSmall {
     public void setAIList() {
         super.setAIList();
 
-        // range attack
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
 
         // pick item
@@ -79,10 +78,10 @@ public class EntityCARi extends BasicEntityShipSmall {
         super.calcShipAttributesAddRaw();
 
         if (!this.level().isDay()) {
-            this.shipAttrs.setAttrsBuffed(ID.Attrs.CRI,
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.CRI) + 0.15F);
-            this.shipAttrs.setAttrsBuffed(ID.Attrs.MISS,
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.MISS) + 0.15F);
+            this.shipAttrs.setAttrsRaw(ID.Attrs.CRI,
+                    this.shipAttrs.getAttrsRaw(ID.Attrs.CRI) + 0.15F);
+            this.shipAttrs.setAttrsRaw(ID.Attrs.MISS,
+                    this.shipAttrs.getAttrsRaw(ID.Attrs.MISS) + 0.15F);
         }
     }
 

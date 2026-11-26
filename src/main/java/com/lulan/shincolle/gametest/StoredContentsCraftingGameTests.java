@@ -79,6 +79,8 @@ public final class StoredContentsCraftingGameTests {
             if (large) {
                 TileMultiGrudgeHeavy tile = new TileMultiGrudgeHeavy(pos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState());
                 tile.setLevel(helper.getLevel());
+                tile.setCorePos(tile.getBlockPos());
+                helper.assertTrue(tile.hasCorePos(), "Intake fixture must represent a formed core");
                 tile.getInventory().setStackInSlot(1, stack);
                 TileMultiGrudgeHeavy.serverTick(helper.getLevel(), pos, tile.getBlockState(), tile);
                 helper.assertTrue(before.equals(tile.getInventory().getStackInSlot(1).save(new CompoundTag())),

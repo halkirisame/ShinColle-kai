@@ -10,7 +10,11 @@ public sealed interface ShipCommand {
     record Move(DimensionKey dimension, CommandPos position,
                 boolean releaseOnArrival) implements ShipCommand { }
     record GuardPosition(DimensionKey dimension, CommandPos position,
-                         boolean releaseOnArrival) implements ShipCommand { }
+                         boolean releaseOnArrival, boolean fishingStation) implements ShipCommand {
+        public GuardPosition(DimensionKey dimension, CommandPos position, boolean releaseOnArrival) {
+            this(dimension, position, releaseOnArrival, false);
+        }
+    }
     record FormationMove(DimensionKey dimension, CommandPos position,
                          int formationId) implements ShipCommand { }
     record Follow() implements ShipCommand { }

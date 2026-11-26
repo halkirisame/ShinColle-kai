@@ -1,6 +1,7 @@
 package com.lulan.shincolle.entity.other;
 
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.handler.ConfigHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -170,6 +171,8 @@ public class EntityShipFishingHook extends Entity {
 
     private void tickTaskFloat() {
         if (this.host == null || this.host.isRemoved() || !this.host.isAlive()
+                || this.host instanceof BasicEntityShip ship
+                && (ship.getStateMinor(ID.M.Task) != 2 || !ConfigHandler.enableTask[1])
                 || this.host.level() != this.level() || this.distanceToSqr(this.host) > 1024D
                 || this.tickCount > ConfigHandler.tickFishing[0] + ConfigHandler.tickFishing[1]) {
             this.discard();

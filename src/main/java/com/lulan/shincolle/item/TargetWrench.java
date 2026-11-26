@@ -194,7 +194,6 @@ public class TargetWrench extends BasicItem {
                 chestPos = point0;
             }
 
-            // send pairing request to server
             ModNetworking.sendToServer(new C2SInputPacket(C2SInputPacket.Request_ChestSet,
                     uid, wpPos.getX(), wpPos.getY(), wpPos.getZ(),
                     chestPos.getX(), chestPos.getY(), chestPos.getZ()));
@@ -202,7 +201,6 @@ public class TargetWrench extends BasicItem {
             resetPos(stack);
             return true;
         }
-        // waypoint + waypoint pairing
         else if (tiles[0] instanceof ITileWaypoint && tiles[1] instanceof ITileWaypoint) {
             int pid = getPointID(stack);
             BlockPos posF = pid == 0 ? point0 : point1;
@@ -210,7 +208,6 @@ public class TargetWrench extends BasicItem {
             pid = getPointID(stack);
             BlockPos posT = pid == 0 ? point0 : point1;
 
-            // send pairing request to server
             ModNetworking.sendToServer(new C2SInputPacket(C2SInputPacket.Request_WpSet,
                     uid, posF.getX(), posF.getY(), posF.getZ(),
                     posT.getX(), posT.getY(), posT.getZ()));

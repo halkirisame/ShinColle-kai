@@ -275,7 +275,7 @@ public final class VerticalSeparationRecallGameTests {
                 });
             }
             helper.runAtTickTime(begun + 97, () -> {
-                ship.setNoAi(true);
+                GameTestEntities.removeAllGoalsEachTick(helper, ship);
                 ship.setNoGravity(true);
                 ship.setDeltaMovement(Vec3.ZERO);
                 ship.setPos(owner.getX(), owner.getY(), owner.getZ());

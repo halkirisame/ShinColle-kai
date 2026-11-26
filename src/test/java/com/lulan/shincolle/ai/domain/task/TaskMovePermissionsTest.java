@@ -3,6 +3,7 @@ package com.lulan.shincolle.ai.domain.task;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.command.MovementOrder;
 import com.lulan.shincolle.ai.domain.movement.ConstraintSource;
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
 import com.lulan.shincolle.ai.domain.movement.MovementConstraint;
 import com.lulan.shincolle.ai.domain.movement.MovementFacts;
 import com.lulan.shincolle.ai.domain.movement.MovementInhibitReason;
@@ -10,6 +11,7 @@ import com.lulan.shincolle.ai.domain.movement.MovementPermission;
 import com.lulan.shincolle.ai.domain.movement.MovementPoint;
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,5 +94,34 @@ class TaskMovePermissionsTest {
         assertTrue(TaskMovePermissions.of(idle(), tight, SPOT).allowed());
         assertTrue(TaskMovePermissions.of(idle(), new MovementConstraint.NoCombatMovement(ConstraintSource.SIT),
                 BACK).allowed());
+    }
+
+    @Test
+    void theOwnMountExceptionKeepsSittingCraneGrudgeAndLeashInhibitions() {
+        MovementFacts blocked = facts(true, true, true, false, true, false);
+        Set<MovementInhibitReason> expected = Set.of(MovementInhibitReason.SITTING, MovementInhibitReason.CRANE,
+                MovementInhibitReason.NO_GRUDGE, MovementInhibitReason.LEASHED);
+        for (TaskMoveRequest request : new TaskMoveRequest[] {BACK, SPOT, SHUFFLE}) {
+            MovementPermission permission = TaskMovePermissions.of(blocked, FREE, request, MovementBody.VEHICLE);
+            Set<MovementInhibitReason> reasons = EnumSet.copyOf(expected);
+            if (request instanceof TaskMoveRequest.MiningShuffle) reasons.add(MovementInhibitReason.RIDING);
+            assertEquals(reasons, permission.reasons());
+            assertTrue(TaskMovePlanner.plan(request, permission, MovementBody.VEHICLE).isEmpty());
+        }
+    }
+
+    @Test
+    void miningFromTheOwnMountStillWaitsForEngagementAndStaysInsideItsRegion() {
+        MovementFacts engaged = facts(false, true, false, true, false, true);
+        MovementConstraint tight = new MovementConstraint.Within(new MovementPoint(0D, 0D, 0D), 2.99D,
+                ConstraintSource.GUARD_POSITION);
+        MovementPermission permission = TaskMovePermissions.of(engaged, tight, SHUFFLE, MovementBody.VEHICLE);
+        assertEquals(Set.of(MovementInhibitReason.RIDING, MovementInhibitReason.ENGAGED, MovementInhibitReason.OUTSIDE_REGION),
+                permission.reasons());
+        assertTrue(TaskMovePlanner.plan(SHUFFLE, permission, MovementBody.VEHICLE).isEmpty());
+        assertEquals(Set.of(MovementInhibitReason.ENGAGED),
+                TaskMovePermissions.of(engaged, tight, BACK, MovementBody.VEHICLE).reasons());
+        assertEquals(Set.of(MovementInhibitReason.ENGAGED),
+                TaskMovePermissions.of(engaged, tight, SPOT, MovementBody.VEHICLE).reasons());
     }
 }

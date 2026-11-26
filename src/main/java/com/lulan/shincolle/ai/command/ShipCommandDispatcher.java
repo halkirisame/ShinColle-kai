@@ -15,6 +15,7 @@ import com.lulan.shincolle.ai.domain.command.CommandRejectReason;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.RecipientSelection;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
+import com.lulan.shincolle.ai.domain.command.FishingStationPolicy;
 import com.lulan.shincolle.ai.domain.command.MovementOrder;
 import com.lulan.shincolle.ai.domain.command.ShipCommandState;
 import com.lulan.shincolle.ai.domain.command.FormationGate;
@@ -30,6 +31,7 @@ import com.lulan.shincolle.ai.domain.command.SlotObservation;
 import com.lulan.shincolle.capability.CapaTeitoku;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.reference.ID;
@@ -261,7 +263,8 @@ public final class ShipCommandDispatcher {
         if (formationMove) return new ShipCommand.FormationMove(dimension, position, formatId);
         boolean release = request instanceof RequestedCommand.Move move ? move.releaseOnArrival()
                 : ((RequestedCommand.GuardPosition) request).releaseOnArrival();
-        release = CommandDecision.releaseOnArrival(mode, ship.getStateMinor(ID.M.Task) == 2,
+        release = CommandDecision.releaseOnArrival(mode,
+                ship.getStateMinor(ID.M.Task) == 2 && ConfigHandler.enableTask[1],
                 request instanceof RequestedCommand.GuardPosition, release);
         boolean explicit = request instanceof RequestedCommand.Move move ? move.explicitArrivalMode()
                 : ((RequestedCommand.GuardPosition) request).explicitArrivalMode();
@@ -291,7 +294,9 @@ public final class ShipCommandDispatcher {
         Map<BasicEntityShip, AcceptedShipCommand> formationCommands = new HashMap<>();
         for (AcceptedEntry entry : result.accepted()) {
             BasicEntityShip ship = resolved.get(entry.recipient());
-            ShipCommand command = entry.command().command();
+            ShipCommand command = FishingStationPolicy.accepted(
+                    entry.command().command(),
+                    ship.getStateMinor(ID.M.Task) == 2 && ConfigHandler.enableTask[1]);
             CommandIssuer issuer = new CommandIssuer.Player(entry.command().issuer());
             long sequence = entry.command().serverSequence();
             if (command instanceof ShipCommand.SetSitting sit) {

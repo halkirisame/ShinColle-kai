@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class AiDataVersionTest {
 
     @Test
-    void currentVersionIsOne() {
-        assertEquals(1, AiDataVersion.CURRENT);
+    void currentVersionIsTwo() {
+        assertEquals(2, AiDataVersion.CURRENT);
         assertEquals("AiDataVersion", AiDataVersion.KEY);
     }
 
@@ -22,6 +22,7 @@ class AiDataVersionTest {
     @Test
     void currentMarkIsKnown() {
         assertEquals(new AiDataVersion.Known(), AiDataVersion.read(true, true, 1));
+        assertEquals(new AiDataVersion.Known(), AiDataVersion.read(true, true, 2));
     }
 
     @Test
@@ -34,7 +35,7 @@ class AiDataVersionTest {
 
     @Test
     void newerMarksAreFutureVersions() {
-        assertEquals(new AiDataVersion.Future(2), AiDataVersion.read(true, true, 2));
+        assertEquals(new AiDataVersion.Future(3), AiDataVersion.read(true, true, 3));
         assertEquals(new AiDataVersion.Future(Integer.MAX_VALUE),
                 AiDataVersion.read(true, true, Integer.MAX_VALUE));
     }
@@ -44,5 +45,15 @@ class AiDataVersionTest {
         assertEquals(new AiDataVersion.Invalid("not an integer"), AiDataVersion.read(true, false, 0));
         // a non-integer never counts as a version, whatever number sits beside it
         assertEquals(new AiDataVersion.Invalid("not an integer"), AiDataVersion.read(true, false, 1));
+    }
+
+    @Test
+    void olderVersionsMigrateWithoutFishingOwnership() {
+        for (int version : new int[]{0, 1}) {
+            assertEquals(false, AiDataVersion.migrateFishingStation(version, true));
+            assertEquals(false, AiDataVersion.migrateFishingStation(version, false));
+        }
+        assertEquals(true, AiDataVersion.migrateFishingStation(2, true));
+        assertEquals(false, AiDataVersion.migrateFishingStation(2, false));
     }
 }

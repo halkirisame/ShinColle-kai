@@ -24,6 +24,9 @@ public class ModelMidwayHime extends ShipModelBaseAdv<Entity> {
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(
             new ResourceLocation(Reference.MOD_ID, "midway_hime"), "main");
 
+    public boolean renderTako;
+    public float takoyakiHeight;
+
     private final ModelPart BodyMain;
     private final ModelPart Neck;
     private final ModelPart Butt;
@@ -746,7 +749,7 @@ public class ModelMidwayHime extends ShipModelBaseAdv<Entity> {
         if (this.Collar01 != null)
             this.Collar01.visible = !flag;
 
-        // this.renderTako = false;
+        this.renderTako = false;
     }
 
     @Override
@@ -1107,10 +1110,8 @@ public class ModelMidwayHime extends ShipModelBaseAdv<Entity> {
                     this.LegRight02.zRot = -0.0175F;
                     this.setLegacyPartOffsetZ(this.LegRight02, 0.375F);
                     // tako
-                    // this.renderTako = true;
-                    // tako1 = this.miscModelList.get(0);
-                    // tako1.entity.ticksExisted = ent.getTickExisted();
-                    // tako1.entity.posY = 0.34F;
+                    this.renderTako = true;
+                    this.takoyakiHeight = 0.34F;
                 } else {
                     // Body
                     this.translateLegacyPose(0F, 0.43F, 0F);
@@ -1195,10 +1196,8 @@ public class ModelMidwayHime extends ShipModelBaseAdv<Entity> {
                         this.LegRight02.zRot = -0.0175F;
                         this.setLegacyPartOffsetZ(this.LegRight02, 0.375F);
                         // tako
-                        // this.renderTako = true;
-                        // tako1 = this.miscModelList.get(0);
-                        // tako1.entity.ticksExisted = ent.getTickExisted();
-                        // tako1.entity.posY = -1.12F;
+                        this.renderTako = true;
+                        this.takoyakiHeight = -1.12F;
                     } else {
 
                         // Body
@@ -1339,10 +1338,8 @@ public class ModelMidwayHime extends ShipModelBaseAdv<Entity> {
                         this.LegRight02.zRot = -0.0175F;
                         this.setLegacyPartOffsetZ(this.LegRight02, 0.375F);
                         // tako
-                        // this.renderTako = true;
-                        // tako1 = this.miscModelList.get(0);
-                        // tako1.entity.ticksExisted = ent.getTickExisted();
-                        // tako1.entity.posY = 0.34F;
+                        this.renderTako = true;
+                        this.takoyakiHeight = 0.34F;
                     } else {
 
                         // Body

@@ -5,6 +5,7 @@ package com.lulan.shincolle.ai.domain;
  *
  * <p>Version 0 is a save without the mark. Version 1 has the same contents as version 0 plus the
  * mark itself, so both are read the same way.
+ * Version 2 adds a fishing-station ownership mark; older guards migrate without ownership.
  *
  * <p>Rules for raising {@link #CURRENT}:
  * <ul>
@@ -25,9 +26,14 @@ public final class AiDataVersion {
     public static final String KEY = "AiDataVersion";
 
     /** The version this build writes. */
-    public static final int CURRENT = 1;
+    public static final int CURRENT = 2;
 
     private AiDataVersion() {
+    }
+
+    /** Versions 0 and 1 had no fishing-station ownership; never infer it from the selected task. */
+    public static boolean migrateFishingStation(int storedVersion, boolean savedStation) {
+        return storedVersion >= 2 && savedStation;
     }
 
     /** What a stored mark means to this build. */

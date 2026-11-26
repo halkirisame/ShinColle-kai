@@ -771,14 +771,12 @@ public class BuffHelper {
 
         int level = 1;
 
-        // get potion level from thrown potion entity
         if (source.getDirectEntity() instanceof ThrownPotion potion) {
             ItemStack pot = potion.getItem();
 
             level = getPotionLevel(PotionUtils.getMobEffects(pot), 7); // 7 = Instant Damage
         }
 
-        // from area effect cloud entity
         else if (source.getDirectEntity() instanceof AreaEffectCloud) {
             // area effect clouds don't easily expose their potion effects in 1.20.1
             // use level 1 as default (matches most common case)

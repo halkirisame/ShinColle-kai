@@ -49,7 +49,7 @@ public final class ShortRangeRevengeGameTests {
             helper.assertTrue(helper.getLevel().addFreshEntity(hostile), "Hostile registration failed");
             GameTestEntities.removeGoalsEachTick(helper, hostile, goal -> goal instanceof ShipHostileWanderGoal);
 
-            ObservedFriendly friendly = entities.add(new ObservedFriendly(helper.getLevel()));
+            ObservedFriendly friendly = entities.allowDamage(new ObservedFriendly(helper.getLevel()));
             friendly.attacker = hostile;
             friendly.setPlayerUID(9503);
             friendly.setStateMinor(ID.M.NumGrudge, 100_000);

@@ -5,6 +5,7 @@ import com.lulan.shincolle.item.PointerItem;
 import com.lulan.shincolle.tileentity.TileEntityCrane;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
 import com.lulan.shincolle.utility.ParticleHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -63,8 +64,8 @@ public final class BlockWaypointVisuals {
         String name = "";
         for (var player : level.players()) {
             boolean owner = ownerUUID != null ? ownerUUID.equals(player.getUUID())
-                    : ownerUID > 0 && player.getCapability(CapaTeitokuProvider.CAPABILITY)
-                            .map(capa -> capa.getPlayerUID() == ownerUID).orElse(false);
+                    : player.getCapability(CapaTeitokuProvider.CAPABILITY)
+                            .map(capa -> TeamHelper.checkSameOwner(ownerUID, capa.getPlayerUID())).orElse(false);
             if (owner) {
                 name = ChatFormatting.GREEN + player.getName().getString();
                 break;

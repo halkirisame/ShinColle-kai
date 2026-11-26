@@ -27,8 +27,8 @@ public final class HimeEyeHeightGameTests {
         BasicEntityShip hime = entities.add(ModEntities.NORTHERN_HIME.get().create(helper.getLevel()));
         kongou.moveTo(helper.absoluteVec(new Vec3(1.5D, 2D, 2.5D)));
         hime.moveTo(helper.absoluteVec(new Vec3(2.5D, 2D, 2.5D)));
-        kongou.setNoAi(true);
-        hime.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, kongou);
+        GameTestEntities.removeAllGoalsEachTick(helper, hime);
         helper.getLevel().addFreshEntity(kongou);
         helper.getLevel().addFreshEntity(hime);
         GameTestEntities.assertRegistered(helper, kongou);

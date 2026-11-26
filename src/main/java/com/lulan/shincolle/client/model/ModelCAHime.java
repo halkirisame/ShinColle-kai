@@ -510,7 +510,7 @@ public class ModelCAHime extends ShipModelBaseAdv<Entity> {
         boolean ft1 = EmotionHelper.checkModelState(0, state);
         boolean ft2 = EmotionHelper.checkModelState(1, state);
 
-        this.TailBase.visible = !(ft1 || ft2);
+        this.TailBase.visible = ft1 || ft2;
 
         // hat state
         boolean fh1 = EmotionHelper.checkModelState(2, state);

@@ -360,6 +360,52 @@ public final class GenericShipReloadGameTests {
         return place(helper, entities, ModEntities.GENERIC_SHIP.get().create(helper.getLevel()));
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_generic_fishing_save")
+    public static void fishingStationSurvivesDefinitionLossDormantSaveAndResume(GameTestHelper helper) {
+        fixture(helper, entities -> {
+            publish();
+            GenericShipEntity original = friendly(helper, entities);
+            original.setNoAi(true);
+            original.setStateMinor(ID.M.Task, 2);
+            helper.assertTrue(com.lulan.shincolle.handler.ConfigHandler.enableTask[1],
+                    "Fixture: fishing is globally enabled");
+            var pos = new com.lulan.shincolle.ai.domain.command.CommandPos(
+                    original.blockPosition().getX(), original.blockPosition().getY(), original.blockPosition().getZ());
+            var dimension = ShipCommandStateAdapter.handle(original).dimension();
+            original.applyCommandState(new CommandIssuer.Ship(
+                    com.lulan.shincolle.ai.domain.command.ShipTransitionReason.HELPER_COMMAND),
+                    new CommandStateOp.Apply(new ShipCommand.GuardPosition(dimension, pos, false, true)));
+            helper.assertTrue(original.saveWithoutId(new CompoundTag()).getBoolean("FishingStation"),
+                    "Fixture: live generic ship has a saved station");
+            new ShipDefinitionLoader().apply(Map.of(), null, null);
+            advance(original, 1);
+            helper.assertTrue(original.definitionState().dormant(), "Missing definition must enter dormancy");
+            CompoundTag dormant = original.saveWithoutId(new CompoundTag());
+            helper.assertTrue(dormant.getBoolean("FishingStation"), "Dormant snapshot must retain the station");
+            GenericShipEntity reloaded = entities.add(ModEntities.GENERIC_SHIP.get().create(helper.getLevel()));
+            helper.assertTrue(reloaded != null, "Fixture: dormant reload entity exists");
+            reloaded.load(dormant);
+            reloaded.setNoAi(true);
+            helper.assertTrue(reloaded.definitionState().dormant()
+                            && reloaded.saveWithoutId(new CompoundTag()).getBoolean("FishingStation"),
+                    "Dormant reload and save before the first tick must retain the snapshot mark");
+            publish();
+            for (GenericShipEntity ship : List.of(original, reloaded)) {
+                advance(ship, 1);
+                helper.assertTrue(!ship.definitionState().dormant()
+                                && ship.getCommandState().movement()
+                                instanceof com.lulan.shincolle.ai.domain.command.MovementOrder.GuardPosition guard
+                                && guard.fishingStation() && guard.position().equals(pos),
+                        "Definition recovery must restore the same station command");
+                ship.applyCommandState(new CommandIssuer.Ship(
+                        com.lulan.shincolle.ai.domain.command.ShipTransitionReason.HELPER_COMMAND),
+                        new CommandStateOp.EndMovement());
+                helper.assertTrue(!ship.saveWithoutId(new CompoundTag()).getBoolean("FishingStation"),
+                        "A resumed command that ends must not retain the old snapshot mark");
+            }
+        });
+    }
+
     private static GenericHostileShipEntity hostile(GameTestHelper helper, GameTestEntities entities) {
         return place(helper, entities, ModEntities.GENERIC_SHIP_HOSTILE.get().create(helper.getLevel()));
     }

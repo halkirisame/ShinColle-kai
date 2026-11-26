@@ -84,7 +84,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
                         .addBox(0.0F, 0.0F, 0.0F, 5, 5, 17),
                 PartPose.offsetAndRotation(-8.3F, 6.0F, -2.0F, 0.0873F, 0.0F, 0.0F));
 
-        // EquipBaseL
         PartDefinition equipBaseL = bodyMain.addOrReplaceChild("EquipBaseL",
                 CubeListBuilder.create().texOffs(0, 10)
                         .addBox(-6.0F, 0.0F, -10.0F, 11, 6, 21),
@@ -100,7 +99,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
                         .addBox(-6.5F, 0.0F, -9.0F, 11, 4, 23),
                 PartPose.offsetAndRotation(0.0F, -3.0F, 0.0F, 0.0524F, 0.0F, 0.0F));
 
-        // EquipBaseR
         PartDefinition equipBaseR = bodyMain.addOrReplaceChild("EquipBaseR",
                 CubeListBuilder.create().texOffs(0, 10)
                         .addBox(-6.0F, 0.0F, -10.0F, 11, 6, 21),
@@ -116,7 +114,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
                         .addBox(-5.5F, 0.0F, -9.0F, 11, 4, 23),
                 PartPose.offsetAndRotation(0.0F, -3.0F, 0.0F, 0.0524F, 0.0F, 0.0F));
 
-        // Neck
         PartDefinition neck = bodyMain.addOrReplaceChild("Neck",
                 CubeListBuilder.create().texOffs(70, 58)
                         .addBox(-7.5F, -15.0F, -3.0F, 15, 15, 14),
@@ -191,7 +188,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
                         .addBox(-6.5F, 0.0F, 0.0F, 13, 14, 2),
                 PartPose.offset(0.0F, -14.0F, -5.0F));
 
-        // GlowHead
         PartDefinition glowHead = glowNeck.addOrReplaceChild("GlowHead",
                 CubeListBuilder.create(),
                 PartPose.offsetAndRotation(0.0F, -15.0F, 7.0F, -0.2094F, 0.0F, 0.0F));
@@ -206,7 +202,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
                         .addBox(-8.0F, 0.0F, -14.0F, 16, 3, 14),
                 PartPose.offsetAndRotation(0.0F, 3.6F, -6.5F, 0.1745F, 0.0F, 0.0F));
 
-        // GlowJaw
         PartDefinition glowJaw = glowNeck.addOrReplaceChild("GlowJaw",
                 CubeListBuilder.create(),
                 PartPose.offset(0.0F, -3.0F, 0.5F));
@@ -314,7 +309,6 @@ public class ModelMountAfH extends ShipModelBaseAdv<Entity> {
         this.EquipCannon01_1.xRot = -angleX * 0.12F - 0.18F;
         this.EquipCannon02_1.xRot = angleX * 0.08F + 0.18F;
 
-        // Sync glow jaw
         this.GlowJaw.xRot = this.Jaw.xRot;
     }
 

@@ -9,6 +9,7 @@ import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.tileentity.TileEntityCrane;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
@@ -66,7 +67,7 @@ public final class ShipCraneStateAdapter {
         Entity body = mount ? ship.getVehicle() : ship;
         boolean owned = crane != null && (crane.getOwnerUUID() != null
                 ? crane.getOwnerUUID().equals(ship.getOwnerUUID())
-                : crane.getPlayerUID() > 0 && crane.getPlayerUID() == ship.getPlayerUID());
+                : TeamHelper.checkSameOwner(crane.getPlayerUID(), ship.getPlayerUID()));
         double distance = crane == null ? 0D : body.distanceToSqr(new Vec3(crane.getBlockPos().getX() + 0.5D,
                 crane.getBlockPos().getY(), crane.getBlockPos().getZ() + 0.5D));
         return new CraneLifecycle.ArrivalFacts(ship.hasGuardDestination(), ship.isGuardedInCurrentDimension(),

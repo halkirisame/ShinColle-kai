@@ -117,7 +117,7 @@ public class BlockHelper {
     public static boolean checkBlockSafe(Entity target) {
         if (target == null)
             return false;
-        return checkBlockSafe(target.level(), Mth.floor(target.getX()), (int) target.getY(),
+        return checkBlockSafe(target.level(), Mth.floor(target.getX()), Mth.floor(target.getY()),
                 Mth.floor(target.getZ()));
     }
 
@@ -600,7 +600,7 @@ public class BlockHelper {
                     int x = rand.nextInt(rad + 1) * 2 - rad;
                     int z = rand.nextInt(rad + 1) * 2 - rad;
 
-                    pos = new BlockPos(Mth.floor(host.getX()) + x, (int) host.getY() + y,
+                    pos = new BlockPos(Mth.floor(host.getX()) + x, Mth.floor(host.getY()) + y,
                             Mth.floor(host.getZ()) + z);
                     state = host.level().getBlockState(pos);
 
@@ -620,7 +620,7 @@ public class BlockHelper {
                     if (x == 0 && z == 0)
                         continue;
 
-                    pos = new BlockPos(Mth.floor(host.getX()) + x, (int) host.getY() + y,
+                    pos = new BlockPos(Mth.floor(host.getX()) + x, Mth.floor(host.getY()) + y,
                             Mth.floor(host.getZ()) + z);
                     state = host.level().getBlockState(pos);
 
@@ -638,7 +638,7 @@ public class BlockHelper {
         // check host position
         if (checkHostPos) {
             for (int y = 1; y > -2; y--) {
-                pos = new BlockPos(Mth.floor(host.getX()), (int) host.getY() + y, Mth.floor(host.getZ()));
+                pos = new BlockPos(Mth.floor(host.getX()), Mth.floor(host.getY()) + y, Mth.floor(host.getZ()));
                 state = host.level().getBlockState(pos);
 
                 if (checkBlockIsLiquid(state, 0)) {
@@ -656,7 +656,7 @@ public class BlockHelper {
 
     /** Pump-only scan: never treats waterlogged solids or general tanks as world liquid sources. */
     public static ShipFluidTransfer.Observation findPumpSource(Entity host) {
-        BlockPos origin = new BlockPos(Mth.floor(host.getX()), (int) host.getY(), Mth.floor(host.getZ()));
+        BlockPos origin = new BlockPos(Mth.floor(host.getX()), Mth.floor(host.getY()), Mth.floor(host.getZ()));
         for (int y = 1; y >= -2; y--) {
             for (int x = -3; x <= 3; x++) {
                 for (int z = -3; z <= 3; z++) {

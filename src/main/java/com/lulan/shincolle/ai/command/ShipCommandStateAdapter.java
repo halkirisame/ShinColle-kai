@@ -1,12 +1,14 @@
 package com.lulan.shincolle.ai.command;
 
 import com.lulan.shincolle.ai.ShipMovementExecutor;
+import com.lulan.shincolle.ai.domain.AiDataVersion;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.TargetHandle;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
 import com.lulan.shincolle.ai.domain.command.CommandStateChange;
 import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.CommandStateReducer;
+import com.lulan.shincolle.ai.domain.command.FishingStationPolicy;
 import com.lulan.shincolle.ai.domain.command.LegacyCommandCodec;
 import com.lulan.shincolle.ai.domain.command.LegacyCommandFields;
 import com.lulan.shincolle.ai.domain.command.MovementOrder;
@@ -24,9 +26,12 @@ import com.lulan.shincolle.ai.domain.movement.MovementTarget;
 import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
+import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.utility.LogHelper;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -43,6 +48,7 @@ public final class ShipCommandStateAdapter {
     private ShipCommandState state;
     private CommandStateChange lastChange;
     private long sequence;
+    private boolean loadedFishingStation;
 
     public ShipCommandStateAdapter(BasicEntityShip ship) {
         this.ship = ship;
@@ -56,10 +62,30 @@ public final class ShipCommandStateAdapter {
         checkProjection = true;
     }
 
-    public void onLoad() {
+    public void onLoad(CompoundTag nbt) {
         state = null;
         lastChange = null;
         sequence = 0;
+        loadedFishingStation = AiDataVersion.migrateFishingStation(
+                nbt.contains(AiDataVersion.KEY, Tag.TAG_INT) ? nbt.getInt(AiDataVersion.KEY) : 0,
+                nbt.getBoolean("FishingStation"));
+    }
+
+    public void save(CompoundTag nbt) {
+        ShipCommandState saved = state == null
+                ? LegacyCommandCodec.decode(fields(), dimension(ship.level().dimension())) : state;
+        nbt.putBoolean("FishingStation", LegacyCommandCodec.encode(saved).fishingStation());
+    }
+
+    /** Reconcile task/config/load changes before the goals can execute an old station's plan. */
+    public void reconcileFishing() {
+        if (!FishingStationPolicy.shouldEnd(state.movement(),
+                ship.getStateMinor(ID.M.Task) == 2 && ConfigHandler.enableTask[1])) return;
+        apply(new CommandIssuer.Ship(ShipTransitionReason.FISHING_DISABLED), new CommandStateOp.EndMovement());
+        ShipMovementExecutor.run(ship, ShipMovementExecutor.GOAL_STOPPED);
+        if (ship.getVehicle() instanceof BasicEntityMount mount) {
+            ShipMovementExecutor.run(mount, ShipMovementExecutor.GOAL_STOPPED);
+        }
     }
 
     /**
@@ -275,7 +301,9 @@ public final class ShipCommandStateAdapter {
                 ship.getGuardedPos(2), ship.getGuardedPos(3), ship.getGuardedPos(4),
                 guarded == null ? null : dimension(guarded), ship.getGuardedEntityUuid(),
                 ship.getStateFlag(ID.F.CanFollow), ship.shouldReleaseGuardOnArrival(),
-                ship.isOrderedToSit(), ship.getStateMinor(ID.M.GuardID));
+                ship.isOrderedToSit(), ship.getStateMinor(ID.M.GuardID),
+                state == null ? loadedFishingStation
+                        : state.movement() instanceof MovementOrder.GuardPosition guard && guard.fishingStation());
     }
 
     private Entity resolve(TargetHandle target) {

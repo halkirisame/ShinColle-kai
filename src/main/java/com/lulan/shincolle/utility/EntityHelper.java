@@ -334,9 +334,9 @@ public class EntityHelper {
             return;
         }
 
-        // sitting ships sink slightly
+        // sitting ships keep their depth without vertical buoyancy
         if (ship.isOrderedToSit()) {
-            ship.setShipFloatingDepth(Math.min(depth, 0.5D));
+            ship.setShipFloatingDepth(0D);
             return;
         }
 
@@ -345,7 +345,6 @@ public class EntityHelper {
         BlockPos pos = ship.blockPosition();
         Level level = ship.level();
 
-        // find water surface
         double targetY = findWaterSurfaceY(level, pos);
         double currentY = ship.getY();
 

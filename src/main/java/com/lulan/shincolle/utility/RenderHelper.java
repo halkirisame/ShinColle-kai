@@ -170,7 +170,6 @@ public class RenderHelper {
      * @param skillIndex the skill index (determines icon appearance)
      */
     public static void drawPlayerSkillIcon(GuiGraphics graphics, int x, int y, int skillIndex) {
-        // Draw base icon
         drawPlayerSkillIcon(graphics, x, y);
 
         // Draw skill number indicator inside the icon

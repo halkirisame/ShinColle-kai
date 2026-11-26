@@ -75,7 +75,7 @@ public final class MountSkillExtraGameTests {
         GameTestEntities.whenPositionsTicking(helper, () -> {
             try (var f = new MountSkillGameTests.Fixture(helper, false)) {
                 f.ship.setAmmoLight(0);
-                f.ship.setStateMinor(ID.M.NumGrudge, 0);
+                f.entities.allowOutOfFuel(f.ship).setStateMinor(ID.M.NumGrudge, 0);
                 f.ship.setStateFlag(ID.F.NoFuel, true);
                 f.ship.setStateFlag(ID.F.UseAmmoLight, false);
                 f.ship.setNoAi(true);

@@ -38,7 +38,6 @@ public class EntityBBHarunaMob extends BasicEntityShipHostile {
         this.StateMinor[ID.M.NumGrudge] = 999;
         this.setAmmoConsumption(1);
 
-        // boss bar color
         this.bossBarColor = BossEvent.BossBarColor.WHITE;
 
         // model display: random state 1 or 3

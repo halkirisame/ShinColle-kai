@@ -69,7 +69,6 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
     public void setAIList() {
         super.setAIList();
 
-        // range attack
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
 
         // pick item
@@ -166,7 +165,6 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
 
         triggerAttackAnimation();
 
-        // get missile data
         MissileData md = this.getMissileData(2);
         int moveType = CombatHelper.calcMissileMoveType(this, target.getY(), 2);
         if (moveType == 1) {
@@ -174,7 +172,6 @@ public class EntityDestroyerShimakaze extends BasicEntityShipSmall implements IS
         }
 
         // spawn 5 missiles in cross pattern
-        // 2026/04/07・哦itHub Copilot縺ｫ繧医▲縺ｦ遒ｺ隱肴ｸ医∩
         spawnMissile(atk, kbValue, launchPos, tarX, tarY + tarHeightOff, tarZ,
                 md, moveType);
         spawnMissile(atk, kbValue, launchPos, tarX + 3.5F, tarY + tarHeightOff, tarZ + 3.5F,

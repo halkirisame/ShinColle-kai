@@ -1,5 +1,6 @@
 package com.lulan.shincolle.client.render;
 
+import com.lulan.shincolle.client.model.ModelMidwayHime;
 import com.lulan.shincolle.entity.BasicEntityMount;
 import com.lulan.shincolle.entity.BasicEntityShip;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -28,6 +29,9 @@ public class ShipEntityRenderer<T extends BasicEntityShip> extends MobRenderer<T
         this.texture = texture;
         this.baseShadowRadius = shadowRadius;
         this.addLayer(new LayerShipHeldItem<>(this));
+        if (model instanceof ModelMidwayHime midway) {
+            this.addLayer(new LayerMidwayTakoyaki<>(this, context, midway));
+        }
     }
 
     /**

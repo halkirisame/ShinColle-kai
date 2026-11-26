@@ -652,6 +652,7 @@ public class ModelTransportWa extends ShipModelBaseAdv<Entity> {
         this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
+        this.GlowBodyMain2.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
     }
 

@@ -57,7 +57,7 @@ public final class ShipActionConstraintGameTests {
             helper.runAtTickTime(40, () -> context.stage(() -> {
                 guarding[0] = running(ship, ShipGuardingGoal.class);
                 helper.assertTrue(guarding[0] != null, "Guarding must run before fuel runs out");
-                ship.setStateMinor(ID.M.NumGrudge, 0);
+                context.entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, 0);
                 ship.decrGrudgeNum(0);
             }));
             helper.runAtTickTime(50, () -> context.stage(() -> {
@@ -99,7 +99,7 @@ public final class ShipActionConstraintGameTests {
                 ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
                         new CommandStateOp.Apply(new ShipCommand.Attack(ShipCommandStateAdapter.handle(cow))));
                 ship.setMorale(3000);
-                ship.setStateMinor(ID.M.NumGrudge, 0);
+                context.entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, 0);
                 ship.decrGrudgeNum(0);
             }));
             helper.runAtTickTime(30, () -> context.stage(() -> {
@@ -129,7 +129,7 @@ public final class ShipActionConstraintGameTests {
             helper.runAtTickTime(20, () -> context.finish(() -> {
                 WrappedGoal follow = goals(mount, "goalSelector").get(0);
                 helper.assertTrue(follow.getGoal().canUse(), "Fixture mount must want to follow its host");
-                ship.setStateMinor(ID.M.NumGrudge, 0);
+                context.entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, 0);
                 ship.decrGrudgeNum(0);
                 helper.assertTrue(!follow.getGoal().canUse(), "Mount must wait while its host is out of fuel");
             }));

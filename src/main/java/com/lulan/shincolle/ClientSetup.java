@@ -345,7 +345,6 @@ public class ClientSetup {
         event.registerEntityRenderer(ModEntities.BB_HARUNA_MOB.get(),
                 ctx -> new PlaceholderMobRenderer<>(ctx, new ModelBBHaruna(ctx.bakeLayer(ModelBBHaruna.LAYER_LOCATION)),
                         tex("EntityBBHaruna"), 0.5F));
-        // 2026/04/07：GitHub Copilotによって確認済み - hostile系はPlaceholderMobRenderer経路を維持。
         event.registerEntityRenderer(ModEntities.BB_KIRISHIMA_MOB.get(),
                 ctx -> new PlaceholderMobRenderer<>(ctx,
                         new ModelBBKirishima(ctx.bakeLayer(ModelBBKirishima.LAYER_LOCATION)), tex("EntityBBKirishima"),

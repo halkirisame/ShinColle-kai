@@ -150,6 +150,9 @@ public abstract class BasicEntitySummon extends Mob implements IShipOwner, IShip
 
     private void tickMeasured() {
         super.tick();
+        if (this.isDeadOrDying()) {
+            return;
+        }
 
         // server side only
         if (!this.level().isClientSide()) {

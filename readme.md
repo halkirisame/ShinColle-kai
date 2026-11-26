@@ -5,7 +5,7 @@
 **ShinColle-kai（深これ改）**は、Minecraft Java Edition 1.20.1 / Forge向けの
 艦隊育成・戦闘MODです。プレイヤーは深海棲艦側となり、深海棲艦を建造・育成・指揮して、
 敵として現れる艦娘と戦います。撃破した艦娘を仲間にすることもできます。
-ShinColleは日本語圏で「深これ」「艦これMOD」として知られる、艦これ風の非公式Minecraft MODです。
+ShinColleは日本語圏で「深これ」「深これMOD」として知られる、非公式のMinecraft MODです。
 
 艦娘・深海棲艦、艦隊戦、建造、レベリング、婚約、主砲・魚雷・艦載機などの装備を追加します。
 KubeJS、datapack、Javaアドオンから独自装備・艦属性を追加できる拡張基盤も備えています。
@@ -244,7 +244,7 @@ ShinColle-kai についての質問、感想、動作報告、開発の相談は
 **ShinColle-kai** is an abyssal-fleet and ship-girl combat mod for Minecraft Java
 Edition 1.20.1 with Forge. Build, raise, equip and command abyssal ships against hostile
 ship girls, then recruit defeated ship girls as allies.
-It is an unofficial, Kantai Collection-inspired continuation of the ShinColle mod.
+It is an unofficial continuation of the ShinColle mod.
 
 It adds fleet construction, leveling, marriage, cannons, torpedoes, aircraft and other
 equipment. Datapacks, KubeJS scripts and Java addons can define custom equipment and

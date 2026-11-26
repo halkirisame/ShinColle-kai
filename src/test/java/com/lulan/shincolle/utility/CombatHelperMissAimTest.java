@@ -111,14 +111,28 @@ class CombatHelperMissAimTest {
     }
 
     @Test
-    void aTargetWiderThanTheLimitKeepsTheEarlierFormulaWithTheSameThreeRollsInTheSameOrder() {
+    void aTargetWiderThanTheLimitUsesItsWidthWithTheSameThreeRollsInTheSameOrder() {
         for (double width : new double[]{0.99D, 1.4D, 1.95D, 2.5D}) {
             for (double[] shooter : SHOOTERS) {
                 for (float f1 : ROLLS) {
                     for (float f2 : ROLLS) {
                         for (float f3 : ROLLS) {
-                            assertArrayEquals(earlierAim(f1, f2, f3), aim(shooter, width, f1, f2, f3),
-                                    "width " + width + " rolls=" + f1 + "," + f2 + "," + f3);
+                            double ux = shooter[0];
+                            double uz = shooter[1];
+                            double length = Math.hypot(ux, uz);
+                            if (length < 0.01D) {
+                                ux = 1D;
+                                uz = 0D;
+                            } else {
+                                ux /= length;
+                                uz /= length;
+                            }
+                            double side = f1 < 0.5F ? -1D : 1D;
+                            double lateral = Math.sqrt(2D) * (3.75D + width / 2D) + 0.25D + f2;
+                            double along = (f3 - 0.5D) * 2D;
+                            assertArrayEquals(new double[]{TARGET_X - uz * side * lateral + ux * along,
+                                    TARGET_Y, TARGET_Z + ux * side * lateral + uz * along},
+                                    aim(shooter, width, f1, f2, f3), 1e-12D);
                         }
                     }
                 }
@@ -127,11 +141,66 @@ class CombatHelperMissAimTest {
     }
 
     @Test
-    void theLimitItselfStillUsesTheNewFormulaAndJustAboveItTheEarlierOne() {
+    void theLimitItselfStillUsesSixBlocksAndJustAboveItUsesTheWidth() {
         double[] shooter = SHOOTERS[0];
         assertEquals(6.5D, Math.abs(aim(shooter, 0.98D, 0.1F, 0.5F, 0.5F)[2] - TARGET_Z), 1e-4D);
-        assertArrayEquals(earlierAim(0.1F, 0.5F, 0.5F), aim(shooter, 0.981D, 0.1F, 0.5F, 0.5F));
+        assertEquals(Math.sqrt(2D) * (3.75D + 0.981D / 2D) + 0.25D + 0.5D,
+                Math.abs(aim(shooter, 0.981D, 0.1F, 0.5F, 0.5F)[2] - TARGET_Z), 1e-12D);
         assertEquals(6.5D, Math.abs(aim(shooter, 0D, 0.1F, 0.5F, 0.5F)[2] - TARGET_Z), 1e-4D);
+    }
+
+    @Test
+    void wideMissPointsStayOutsideTheSplashAtBothSidesAndRollExtremes() {
+        double[][] shooters = {{10D, 0D}, {10D, 10D}};
+        for (double width : new double[]{1.95D, 4D, 16D}) {
+            for (double[] shooter : shooters) {
+                for (float side : new float[]{0F, 0.5F, 0.999F}) {
+                    for (float along : new float[]{0F, 0.5F, 0.999F}) {
+                        double[] aim = aim(shooter, width, side, 0F, along);
+                        assertTrue(!insideSplash(aim, width), "inside splash: width=" + width
+                                + " side=" + side + " along=" + along);
+                        assertEquals(TARGET_Y, aim[1]);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void wideMissFlightSegmentsDoNotIntersectTheExpandedTargetBox() {
+        for (double width : new double[]{1.95D, 4D, 8D}) {
+            for (double angle : new double[]{0D, Math.PI / 4D}) {
+                double distance = 3.5D + width;
+                double[] shooter = {distance * Math.cos(angle), distance * Math.sin(angle)};
+                for (float side : new float[]{0F, 0.999F}) {
+                    for (float along : new float[]{0F, 0.5F, 1F}) {
+                        double[] aim = aim(shooter, width, side, 0F, along);
+                        assertTrue(!intersectsBox(shooter, new double[]{aim[0] - TARGET_X, aim[2] - TARGET_Z},
+                                1.25D + width / 2D), "flight intersects box: width=" + width
+                                + " angle=" + angle + " side=" + side + " along=" + along);
+                    }
+                }
+            }
+        }
+    }
+
+    /** Slab intersection of a closed segment and the target-centred horizontal square. */
+    private static boolean intersectsBox(double[] start, double[] end, double halfWidth) {
+        double enter = 0D;
+        double exit = 1D;
+        for (int axis = 0; axis < 2; axis++) {
+            double delta = end[axis] - start[axis];
+            if (delta == 0D) {
+                if (Math.abs(start[axis]) > halfWidth) return false;
+            } else {
+                double first = (-halfWidth - start[axis]) / delta;
+                double last = (halfWidth - start[axis]) / delta;
+                enter = Math.max(enter, Math.min(first, last));
+                exit = Math.min(exit, Math.max(first, last));
+                if (enter > exit) return false;
+            }
+        }
+        return true;
     }
 
     /** A width of 1.95 (a ravager) with the shooter at 45 degrees and rolls that put the earlier miss outside. */
@@ -216,8 +285,7 @@ class CombatHelperMissAimTest {
     }
 
     /**
-     * The height is a float and comes back the same float: unchanged beside a narrow target, and with the
-     * earlier float offset for a wide one. A value that is not exact in a double sum shows a double detour.
+     * The height is a float and comes back unchanged for narrow and wide targets alike.
      */
     @Test
     void theHeightComesBackAsTheFloatItWentInAs() {
@@ -233,7 +301,7 @@ class CombatHelperMissAimTest {
             for (double width : new double[]{0.99D, 1.95D}) {
                 for (float f2 : ROLLS) {
                     double[] aim = farAim(100.5D, y, -20.5D, SHOOTERS[1], width, 0.25F, f2, 0.75F);
-                    assertEquals(y + f2 * 5F, aim[1], "wide target adds the offset in float, width " + width);
+                    assertEquals(y, aim[1], "wide target keeps the height, width " + width);
                     assertTrue((float) aim[1] == aim[1], "the height is the value of a float");
                 }
             }

@@ -38,7 +38,8 @@ public final class LegacyCommandCodec {
             release = guard.releaseOnArrival();
         }
         return new LegacyCommandFields(pos.x(), pos.y(), pos.z(), legacyDimension(dimension), type,
-                dimension, null, false, release, state.sitting(), -1);
+                dimension, null, false, release, state.sitting(), -1,
+                movement instanceof MovementOrder.GuardPosition guard && guard.fishingStation());
     }
 
     public static ShipCommandState decode(LegacyCommandFields fields) {
@@ -61,7 +62,7 @@ public final class LegacyCommandCodec {
             CommandPos pos = new CommandPos(fields.guardX(), fields.guardY(), fields.guardZ());
             movement = fields.guardType() <= 0
                     ? new MovementOrder.MoveTo(dimension, pos, fields.releaseOnArrival())
-                    : new MovementOrder.GuardPosition(dimension, pos, fields.releaseOnArrival());
+                    : new MovementOrder.GuardPosition(dimension, pos, fields.releaseOnArrival(), fields.fishingStation());
         }
         return new ShipCommandState(movement, fields.orderedToSit(), Optional.empty());
     }

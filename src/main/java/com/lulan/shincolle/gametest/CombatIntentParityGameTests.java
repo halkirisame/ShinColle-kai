@@ -230,7 +230,7 @@ public final class CombatIntentParityGameTests {
         ship.setAmmoHeavy(1_000);
         ship.getAttrs().setAttrsBuffed(ID.Attrs.MOV, 0F);
         add(helper, ship, new Vec3(1.5D, 2D, 1.5D));
-        BasicEntityShip target = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
+        BasicEntityShip target = entities.allowOutOfFuel(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
         helper.assertTrue(target != null, "failed to create target ship");
         GameTestEntities.removeAllGoalsEachTick(helper, target);
         target.setInvulnerable(true);
@@ -263,7 +263,7 @@ public final class CombatIntentParityGameTests {
                     CombatFixturePreparation.holdAtCrane(helper, ship);
                 }
                 case "noFuel" -> {
-                    ship.setStateMinor(ID.M.NumGrudge, 0);
+                    entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, 0);
                     ship.decrGrudgeNum(0);
                 }
                 default -> { }

@@ -465,12 +465,12 @@ public final class ShipKillCreditGameTests {
             result.tame(player);
             result.setStateMinor(ID.M.NumGrudge, 100_000);
             result.setStateFlag(ID.F.NoFuel, false);
-            result.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(this.helper, result);
             result.setInvulnerable(true);
             this.spawn(result, SHIP_POSITION);
             this.helper.assertTrue(result.isTame() && result.getOwner() == player && result.getGrudge() > 0
-                            && !result.getStateFlag(ID.F.NoFuel) && result.isNoAi(),
-                    "Fixture: tame ship owner, fuel or no-AI setup failed");
+                            && !result.getStateFlag(ID.F.NoFuel),
+                    "Fixture: tame ship owner or fuel setup failed");
             return result;
         }
 

@@ -90,7 +90,7 @@ class ShipInnateTraitsTest {
         assertEquals(155, profile.postAttackDelay(WeaponChannel.HEAVY, 170));
         assertEquals(36, profile.postAttackDelay(WeaponChannel.MELEE, 40));
         assertEquals(5, profile.postAttackDelay(WeaponChannel.LIGHT, 5));
-        assertEquals(10, profile.postAttackDelay(WeaponChannel.HEAVY, 10));
+        assertEquals(9, profile.postAttackDelay(WeaponChannel.HEAVY, 10));
         assertEquals(1, profile.postAttackDelay(WeaponChannel.MELEE, 0));
         assertEquals(170, profile.postAttackDelay(WeaponChannel.AIR, 170));
         for (var other : new ShipInnateTraits.Profile[]{ShipInnateTraits.Profile.NONE,
@@ -101,6 +101,18 @@ class ShipInnateTraitsTest {
             assertEquals(0.2F, other.rawDodge(0.2F));
         }
         assertEquals(0.35F, profile.rawDodge(0.2F), 0.00001F);
+    }
+
+    @Test
+    void yukikazeCannonWaitHasAOneTickFloorAndKeepsNormalIntervals() {
+        var profile = ShipInnateTraits.Profile.YUKIKAZE;
+        for (var channel : new WeaponChannel[]{WeaponChannel.LIGHT, WeaponChannel.HEAVY}) {
+            for (int delay : new int[]{1, 0, -1}) {
+                assertEquals(1, profile.postAttackDelay(channel, delay), channel + " delay=" + delay);
+            }
+        }
+        assertEquals(22, profile.postAttackDelay(WeaponChannel.LIGHT, 24));
+        assertEquals(50, profile.postAttackDelay(WeaponChannel.HEAVY, 55));
     }
 
     @Test

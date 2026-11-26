@@ -9,7 +9,6 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
-import net.minecraftforge.common.ForgeConfigSpec.DoubleValue;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -97,23 +96,25 @@ public final class EggDropChanceGameTests {
     }
 
     private static void withEggDropChances(GameTestHelper helper, double[] chances, Runnable assertion) {
-        DoubleValue[] settings = {ConfigHandler.COMMON.eggDropChanceMobSmall, ConfigHandler.COMMON.eggDropChanceMobLarge,
-                ConfigHandler.COMMON.eggDropChanceBossSmall, ConfigHandler.COMMON.eggDropChanceBossLarge};
-        double[] previous = new double[settings.length];
-        for (int scale = 0; scale < settings.length; scale++) {
-            previous[scale] = settings[scale].get();
-        }
+        double[] previous = {ConfigHandler.eggDropChanceMobSmall, ConfigHandler.eggDropChanceMobLarge,
+                ConfigHandler.eggDropChanceBossSmall, ConfigHandler.eggDropChanceBossLarge};
         try {
-            for (int scale = 0; scale < settings.length; scale++) {
-                settings[scale].set(chances[scale]);
-                helper.assertTrue(settings[scale].get() == chances[scale], "Chance fixture was not applied at scale " + scale);
+            setEggDropChances(chances);
+            for (int scale = 0; scale < chances.length; scale++) {
+                helper.assertTrue(ConfigHandler.eggDropChance(scale) == chances[scale],
+                        "Chance fixture was not applied at scale " + scale);
             }
             assertion.run();
         } finally {
-            for (int scale = 0; scale < settings.length; scale++) {
-                settings[scale].set(previous[scale]);
-            }
+            setEggDropChances(previous);
         }
+    }
+
+    private static void setEggDropChances(double[] chances) {
+        ConfigHandler.eggDropChanceMobSmall = chances[0];
+        ConfigHandler.eggDropChanceMobLarge = chances[1];
+        ConfigHandler.eggDropChanceBossSmall = chances[2];
+        ConfigHandler.eggDropChanceBossLarge = chances[3];
     }
 
     private static final class FixedRandom extends LegacyRandomSource {

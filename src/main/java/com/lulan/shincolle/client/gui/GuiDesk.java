@@ -70,7 +70,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
     private static final ResourceLocation TEX_ICON2 = new ResourceLocation(Reference.MOD_ID,
             "textures/gui/guinameicon2.png");
 
-    private static final int CLICKCD = 60;
+    static final int CLICKCD = 20;
     private static final int LISTCLICK_RADAR = 0;
     private static final int LISTCLICK_TEAM = 1;
     private static final int LISTCLICK_TARGET = 2;
@@ -212,7 +212,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         strHostile = Component.translatable("gui.shincolle_kai.team.hostile").getString();
         strRemove = Component.translatable("gui.shincolle_kai.target.remove").getString();
 
-        // Build target list
         updateTargetClassList();
 
         // Request full data sync from server
@@ -315,7 +314,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                     int cirY = 25 + listClicked[LISTCLICK_RADAR] * 32;
                     g.blit(TEX_RADAR, leftPos + 142, topPos + cirY, 68, 192, 108, 31);
                 }
-                // Draw radar icons
                 drawRadarIcons(g);
                 break;
             case 2: // Book
@@ -525,7 +523,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             RadarShip rs = new RadarShip();
             rs.ship = entity;
 
-            // Name
             if (entity.hasCustomName()) {
                 rs.name = Objects.requireNonNull(entity.getCustomName()).getString();
             } else {
@@ -541,7 +538,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             rs.pixelX = leftPos + 69 + px;
             rs.pixelZ = topPos + 88 + pz;
             rs.posX = Mth.ceil(entity.getX());
-            rs.posY = (int) entity.getY();
+            rs.posY = Mth.floor(entity.getY());
             rs.posZ = Mth.ceil(entity.getZ());
 
             if (entity instanceof BasicEntityShip ship) {
@@ -554,7 +551,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             // Draw icon (animated dot)
             int absP = Math.max(Math.abs((int) px), Math.abs((int) pz));
             int phase = absP > 48 ? 6 : absP > 32 ? 4 : absP > 16 ? 2 : 0;
-            int sIcon = (int) (this.tickGUI * 0.125F + phase) % 8 * 3;
+            int sIcon = radarIconTextureX(this.tickGUI, this.minecraft.getFrameTime(), phase);
 
             // Selected ship = red, others = pink
             int idx = shipList.size() - 1;
@@ -568,6 +565,14 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         }
     }
 
+    static int radarIconTextureX(int tick, float partialTick, int phase) {
+        return (int) ((tick + partialTick) * 0.375F + phase) % 8 * 3;
+    }
+
+    static String teamCooldownSeconds(int ticks) {
+        return String.valueOf((ticks + 19) / 20);
+    }
+
     // ==================== Radar Drawing ====================
 
     private void drawRadarText(GuiGraphics g) {
@@ -578,7 +583,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             if (rs == null)
                 continue;
 
-            // Name
             g.drawString(this.font, rs.name, 147, texty, Enums.EnumColors.WHITE.getValue(), false);
             texty += 12;
 
@@ -603,7 +607,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
             texty += 11;
         }
 
-        // Draw morale icons
         drawMoraleIcons(g);
     }
 
@@ -634,7 +637,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         if ((bookChapNum == 4 || bookChapNum == 5) && bookPageNum > 0) {
             drawEntityGallery(g);
         } else {
-            // Draw book content using GuiBook helper
             GuiBook.drawBookContent(g, this.font, this.bookChapNum, this.bookPageNum, mouseX, mouseY, bookRightPageOffset());
         }
         bookBackLink().ifPresent(link -> GuiBook.drawLink(g, this.font, link, mouseX, mouseY));
@@ -723,7 +725,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 : Enums.EnumColors.CYAN.getValue();
         g.drawString(this.font, pageStr, 22, 36, pageColor, true);
 
-        // Draw ship name icon
         drawShipNameIcon(g);
 
         // Draw right page text (description)
@@ -797,7 +798,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
      * Draw ship type icon (DD, CL, CA, etc.).
      */
     private void drawShipTypeIcon(GuiGraphics g) {
-        // Look up ship type from class
         Byte shipType = Values.ShipTypeMap.get(galleryShipClass);
         if (shipType == null)
             return;
@@ -851,7 +851,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
         switch (this.teamState) {
             case TEAMSTATE_ALLY:
                 if (tempCD > 0) {
-                    strLT = String.valueOf((int) (tempCD * 0.05F));
+                    strLT = teamCooldownSeconds(tempCD);
                     colorLT = Enums.EnumColors.GRAY_LIGHT.getValue();
                 } else {
                     strLT = strAlly;
@@ -861,7 +861,7 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
                 break;
             case TEAMSTATE_BAN:
                 if (tempCD > 0) {
-                    strLT = String.valueOf((int) (tempCD * 0.05F));
+                    strLT = teamCooldownSeconds(tempCD);
                     colorLT = Enums.EnumColors.GRAY_LIGHT.getValue();
                 } else {
                     strLT = strBan;
@@ -996,7 +996,6 @@ public class GuiDesk extends AbstractContainerScreen<ContainerDesk> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Text field focus
         if (this.textField != null && this.textField.isVisible()) {
             this.textField.mouseClicked(mouseX, mouseY, button);
         }

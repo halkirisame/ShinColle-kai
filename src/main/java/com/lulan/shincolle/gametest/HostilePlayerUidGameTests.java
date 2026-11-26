@@ -151,7 +151,7 @@ public final class HostilePlayerUidGameTests {
                 helper.assertTrue(contact.impacts == 0, "Hostile missile exploded on allied aircraft contact");
                 contact.discard();
 
-                BasicEntityShip opponent = friendly(helper, entities, 11D, 9214);
+                BasicEntityShip opponent = entities.allowDamage(friendly(helper, entities, 11D, 9214));
                 opponent.getAttrs().setAttrsBuffed(ID.Attrs.DODGE, 0F);
                 CountingMissile enemyContact = entities.add(new CountingMissile(
                         ModEntities.ABYSS_MISSILE.get(), helper.getLevel()));
@@ -192,7 +192,7 @@ public final class HostilePlayerUidGameTests {
                 EntityAirplaneTMob plane = aircraft(helper, entities, host, 4D);
                 plane.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000D);
                 plane.setHealth(1000F);
-                BasicEntityShip opponent = friendly(helper, entities, 4D, 9215);
+                BasicEntityShip opponent = entities.allowDamage(friendly(helper, entities, 4D, 9215));
                 opponent.getAttrs().setAttrsBuffed(ID.Attrs.DODGE, 0F);
                 float planeHealth = plane.getHealth();
                 float opponentHealth = opponent.getHealth();

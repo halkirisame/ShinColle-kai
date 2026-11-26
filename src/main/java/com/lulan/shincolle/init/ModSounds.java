@@ -1,8 +1,10 @@
 package com.lulan.shincolle.init;
 
+import com.lulan.shincolle.config.ConfigSound;
 import com.lulan.shincolle.reference.Reference;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.util.RandomSource;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -150,17 +152,24 @@ public class ModSounds {
 
     /**
      * Get custom sound for a specific ship class and sound type.
-     * Falls back to default sound if no custom sound is registered.
+     * Falls back to the default sound when the custom voice rate or registration does not select it.
      *
      * @param type      sound type (0=idle, 1=hit, 2=hurt, 3=dead, 4=marry,
      *                  5=knockback, 6=item, 7=feed)
      * @param shipClass the ship class ID
+     * @param random    the owning ship's random source
      * @return the SoundEvent, or null if no default exists for the type
      */
-    public static @Nullable SoundEvent getCustomSound(int type, int shipClass) {
-        int key = CustomSoundKey.forShipClass(type, shipClass);
-        RegistryObject<SoundEvent> obj = CUSTOM_SOUNDS.get(key);
-        return obj != null ? obj.get() : getDefaultSound(type);
+    public static @Nullable SoundEvent getCustomSound(int type, int shipClass, RandomSource random) {
+        int rateType = type >= 10 && type <= 33 ? 8 : type;
+        float rate = ConfigSound.getSoundRate(CustomSoundKey.voiceId(shipClass), rateType);
+        if (rate > 0.01F) {
+            RegistryObject<SoundEvent> obj = CUSTOM_SOUNDS.get(CustomSoundKey.forShipClass(type, shipClass));
+            if (obj != null && random.nextFloat() < rate) {
+                return obj.get();
+            }
+        }
+        return getDefaultSound(type);
     }
 
     /**

@@ -26,7 +26,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.configurations.DiskConfiguration;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.config.ConfigTracker;
@@ -62,25 +61,32 @@ public final class ConfigConsumerGameTests {
 
     private static void verifyCount(GameTestHelper helper, boolean gravel, int defaultCount) {
         String name = gravel ? "polymetal_gravel" : "polymetal_ore";
-        String key = gravel ? "polymetalGravel" : "polymetalOre";
-        ForgeConfigSpec.IntValue value = ConfigHandler.COMMON_SPEC.getValues().get("world." + key + "Clusters");
-        int original = value.get();
+        int original = gravel ? ConfigHandler.polymetalGravelClusters : ConfigHandler.polymetalOreClusters;
+        int configuredDefault = gravel ? ConfigHandler.COMMON.polymetalGravelClusters.getDefault()
+                : ConfigHandler.COMMON.polymetalOreClusters.getDefault();
         var placed = helper.getLevel().registryAccess().registryOrThrow(Registries.PLACED_FEATURE)
                 .get(new ResourceLocation(Reference.MOD_ID, name));
         helper.assertTrue(placed != null, "Production placed feature must load: " + name);
         var count = placed.placement().get(0);
         try {
             for (int expected : new int[]{0, 3, defaultCount}) {
-                value.set(expected);
-                helper.assertTrue(value.get() == expected, "Worldgen count fixture must apply");
+                setClusters(gravel, expected);
                 long actual = count.getPositions(null, RandomSource.create(19), BlockPos.ZERO).count();
                 helper.assertTrue(actual == expected, name + " live count expected " + expected + ", got " + actual);
             }
-            helper.assertTrue(value.getDefault() == defaultCount, "Worldgen effective default must be preserved");
+            helper.assertTrue(configuredDefault == defaultCount, "Worldgen effective default must be preserved");
         } finally {
-            value.set(original);
+            setClusters(gravel, original);
         }
         helper.succeed();
+    }
+
+    private static void setClusters(boolean gravel, int count) {
+        if (gravel) {
+            ConfigHandler.polymetalGravelClusters = count;
+        } else {
+            ConfigHandler.polymetalOreClusters = count;
+        }
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
@@ -253,16 +259,13 @@ public final class ConfigConsumerGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
     public static void smallShipyardReloadChangesExistingAndNewBuildTicks(GameTestHelper helper) {
-        var value = ConfigHandler.COMMON.tileShipyardSmallConfig;
-        var original = value.get();
         BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
         var state = ModBlocks.SMALL_SHIPYARD.get().defaultBlockState();
         var existing = new TileEntitySmallShipyard(pos, state);
         existing.setLevel(helper.getLevel());
         try {
-            value.set(List.of(600000D, 96D, 2D));
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileShipyardSmall[1] == 96, "Reload must sync the config array");
+            setCached(ConfigHandler.tileShipyardSmall, 600000D, 96D, 2D);
+            TileEntitySmallShipyard.reloadConfig();
             var fresh = new TileEntitySmallShipyard(pos, state);
             fresh.setLevel(helper.getLevel());
             for (var tile : List.of(existing, fresh)) {
@@ -279,52 +282,51 @@ public final class ConfigConsumerGameTests {
                         "Shipyard capacity and fuel multiplier must also refresh");
             }
         } finally {
-            value.set(original);
             fireReload();
-            TileEntitySmallShipyard.reloadConfig();
         }
+        var restored = new TileEntitySmallShipyard(pos, state);
+        helper.assertTrue(restored.getPowerMax() == ConfigHandler.COMMON.tileShipyardSmallConfig.get().get(0).intValue(),
+                "The production reload event must restore the configured shipyard values");
         helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
     public static void heavyShipyardReloadRefreshesAllEffectiveValues(GameTestHelper helper) throws Exception {
-        var value = ConfigHandler.COMMON.tileShipyardLargeConfig;
-        var original = value.get();
         // Force class initialization before the reload under test.
         TileMultiGrudgeHeavy.reloadConfig();
         try {
-            value.set(List.of(1600000D, 97D, 3D));
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileShipyardLarge[1] == 97, "Heavy config fixture must sync");
+            setCached(ConfigHandler.tileShipyardLarge, 1600000D, 97D, 3D);
+            TileMultiGrudgeHeavy.reloadConfig();
             assertStatic(helper, TileMultiGrudgeHeavy.class, "POWER_MAX", 1600000);
             assertStatic(helper, TileMultiGrudgeHeavy.class, "BUILD_SPEED", 97);
             assertStatic(helper, TileMultiGrudgeHeavy.class, "FUEL_MAGN", 3);
         } finally {
-            value.set(original);
             fireReload();
-            TileMultiGrudgeHeavy.reloadConfig();
         }
+        assertStatic(helper, TileMultiGrudgeHeavy.class, "POWER_MAX",
+                ConfigHandler.COMMON.tileShipyardLargeConfig.get().get(0));
         helper.succeed();
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
     public static void volcanoReloadRefreshesAllEffectiveValues(GameTestHelper helper) throws Exception {
-        var value = ConfigHandler.COMMON.tileVolCoreConfig;
-        var original = value.get();
         TileEntityVolCore.reloadConfig();
         try {
-            value.set(List.of(700000D, 17D, 2000D));
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileVolCore[1] == 17, "Volcano config fixture must sync");
+            setCached(ConfigHandler.tileVolCore, 700000D, 17D, 2000D);
+            TileEntityVolCore.reloadConfig();
             assertStatic(helper, TileEntityVolCore.class, "POWER_MAX", 700000);
             assertStatic(helper, TileEntityVolCore.class, "CONSUMED_SPEED", 17);
             assertStatic(helper, TileEntityVolCore.class, "FUEL_VALUE", 2000);
         } finally {
-            value.set(original);
             fireReload();
-            TileEntityVolCore.reloadConfig();
         }
+        assertStatic(helper, TileEntityVolCore.class, "POWER_MAX", ConfigHandler.COMMON.tileVolCoreConfig.get().get(0));
         helper.succeed();
+    }
+
+    /** Writes the cached copy only; ConfigValue#set would save the file and reload it under other tests. */
+    static void setCached(double[] target, double... values) {
+        System.arraycopy(values, 0, target, 0, values.length);
     }
 
     private static void assertStatic(GameTestHelper helper, Class<?> type, String name, double expected) throws Exception {

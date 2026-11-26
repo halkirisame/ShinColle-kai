@@ -171,15 +171,15 @@ public class TeamHelper {
      * Check if two entities have the same owner UID
      */
     public static boolean checkSameOwner(Entity enta, Entity entb) {
-        int ida = getPlayerUID(enta);
-        int idb = getPlayerUID(entb);
+        return checkSameOwner(getPlayerUID(enta), getPlayerUID(entb));
+    }
 
-        // Both must be valid (>0 or <-1, not 0 or -1)
-        if ((ida > 0 || ida < -1) && (idb > 0 || idb < -1)) {
-            return ida == idb;
-        }
-
-        return false;
+    /**
+     * Check if two owner UIDs name the same owner. Players own positive UIDs and enemy ships
+     * negative ones below -1; 0 and -1 mean no owner.
+     */
+    public static boolean checkSameOwner(int ida, int idb) {
+        return (ida > 0 || ida < -1) && ida == idb;
     }
 
     /**

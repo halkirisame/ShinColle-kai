@@ -52,7 +52,6 @@ public class ShinColle {
     public ShinColle() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // Register DeferredRegisters to the mod event bus
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModEntities.ENTITIES.register(modEventBus);
@@ -69,7 +68,6 @@ public class ShinColle {
         ShinColleLootModifiers.register(modEventBus);
         ModWorldGen.register(modEventBus);
 
-        // Register config
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ConfigHandler.COMMON_SPEC,
                 Reference.MOD_ID + "-common.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, UpdateNotificationConfig.CLIENT_SPEC,
@@ -91,7 +89,6 @@ public class ShinColle {
         // Register ourselves for server and other game events
         MinecraftForge.EVENT_BUS.register(this);
 
-        // Register command handler for Brigadier commands
         MinecraftForge.EVENT_BUS.register(new CommandHandler());
 
         // Third-party equipment slots (see com.lulan.shincolle.equip) are

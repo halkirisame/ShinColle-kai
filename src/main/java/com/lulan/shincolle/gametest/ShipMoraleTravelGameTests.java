@@ -396,7 +396,7 @@ public final class ShipMoraleTravelGameTests {
             try (GameTestEntities entities = GameTestEntities.open(helper)) {
                 for (boolean alreadyEmpty : new boolean[]{false, true}) {
                     TestShip ship = periodicShip(helper, entities);
-                    ship.setStateMinor(ID.M.NumGrudge, alreadyEmpty ? 0 : ship.getGrudgeConsumption());
+                    entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, alreadyEmpty ? 0 : ship.getGrudgeConsumption());
                     ship.setStateFlag(ID.F.NoFuel, alreadyEmpty);
                     ship.setMorale(alreadyEmpty ? 0 : 1000);
                     helper.assertTrue(ship.getGrudge() == (alreadyEmpty ? 0 : ship.getGrudgeConsumption())

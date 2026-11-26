@@ -63,10 +63,10 @@ public class EntityCAHime extends BasicEntityShipSmall implements IShipRiderType
 
         // Night bonus: +0.1 CRI and +0.2 THIT
         if (!this.level().isDay()) {
-            this.shipAttrs.setAttrsBuffed(ID.Attrs.CRI,
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.CRI) + 0.1F);
-            this.shipAttrs.setAttrsBuffed(ID.Attrs.THIT,
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.THIT) + 0.2F);
+            this.shipAttrs.setAttrsRaw(ID.Attrs.CRI,
+                    this.shipAttrs.getAttrsRaw(ID.Attrs.CRI) + 0.1F);
+            this.shipAttrs.setAttrsRaw(ID.Attrs.THIT,
+                    this.shipAttrs.getAttrsRaw(ID.Attrs.THIT) + 0.2F);
         }
     }
 

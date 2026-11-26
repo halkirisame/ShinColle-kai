@@ -131,7 +131,6 @@ public class GuiSmallShipyard extends AbstractContainerScreen<ContainerSmallShip
             graphics.drawString(this.font, controls[i], x + 3, MATERIAL_CONTROL_Y + 2, 0xFFFFFF, false);
         }
 
-        // Player inventory label
         graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0x404040,
                 false);
     }

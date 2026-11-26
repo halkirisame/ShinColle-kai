@@ -75,7 +75,7 @@ public final class ShipSeparationGate {
         executor.separation = Optional.of(separation.state());
         if (separation.notifyOwner()) notifyOwner(ship, owner);
         var falling = VoidRescue.observe(executor.voidRescue.orElseGet(VoidRescue.State::empty), new VoidRescue.Facts(
-                ConfigHandler.COMMON.voidRescueDimensions.get().contains(ship.level().dimension().location().toString()),
+                ConfigHandler.voidRescueDimensions.contains(ship.level().dimension().location().toString()),
                 ship.getY(), ship.getDeltaMovement().y, ship.onGround(), ship.isInWater(), ship.onClimbable(),
                 ship.isPassenger(), ship.isNoGravity() || ship.isFallFlying(), true, owner.onGround()), now);
         executor.voidRescue = Optional.of(falling.state());

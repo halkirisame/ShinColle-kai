@@ -5,6 +5,7 @@ import com.lulan.shincolle.entity.other.EntityAirplaneTMob;
 import com.lulan.shincolle.entity.other.EntityAirplaneZeroMob;
 import com.lulan.shincolle.init.ModEntities;
 
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
@@ -102,9 +103,9 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
 
         if (!level().getBlockState(
                 new net.minecraft.core.BlockPos(
-                        (int) this.getX(),
-                        (int) (this.getY() + launchHeight),
-                        (int) this.getZ())).isAir()) {
+                        Mth.floor(this.getX()),
+                        Mth.floor(this.getY() + launchHeight),
+                        Mth.floor(this.getZ()))).isAir()) {
             summonHeight = (float) this.getY() + 1F;
         }
 
@@ -132,9 +133,9 @@ public abstract class BasicEntityShipHostileCV extends BasicEntityShipHostile im
 
         if (!level().getBlockState(
                 new net.minecraft.core.BlockPos(
-                        (int) this.getX(),
-                        (int) (this.getY() + launchHeight),
-                        (int) this.getZ())).isAir()) {
+                        Mth.floor(this.getX()),
+                        Mth.floor(this.getY() + launchHeight),
+                        Mth.floor(this.getZ()))).isAir()) {
             summonHeight = (float) this.getY() + 0.5F;
         }
 

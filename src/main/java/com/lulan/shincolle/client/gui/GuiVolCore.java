@@ -63,8 +63,7 @@ public class GuiVolCore extends AbstractContainerScreen<ContainerVolCore> {
         graphics.fill(barX, barTopY, barX + barWidth, barBottomY, 0xFF303030);
 
         // Draw fuel fill (from bottom up)
-        int fuelPercent = this.menu.getFuelPercent(); // 0-1000
-        int fillHeight = fuelPercent * maxBarHeight / 1000;
+        int fillHeight = this.menu.getPowerRemainingScaled(maxBarHeight);
         if (fillHeight > 0) {
             int fillColor = working ? 0xFF00CC00 : 0xFF008800;
             graphics.fill(barX, barBottomY - fillHeight, barX + barWidth, barBottomY, fillColor);
@@ -105,7 +104,6 @@ public class GuiVolCore extends AbstractContainerScreen<ContainerVolCore> {
         String fuelStr = String.format("%.1f%%", fuelPercent / 10.0);
         graphics.drawString(this.font, fuelStr, 36, 72, 0x666666, false);
 
-        // Player inventory label
         graphics.drawString(this.font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 0x404040,
                 false);
     }
@@ -137,5 +135,10 @@ public class GuiVolCore extends AbstractContainerScreen<ContainerVolCore> {
         this.renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         this.renderTooltip(graphics, mouseX, mouseY);
+        if (mouseX > this.leftPos + 36 && mouseX < this.leftPos + 52
+                && mouseY > this.topPos + 27 && mouseY < this.topPos + 61) {
+            graphics.renderTooltip(this.font, Component.literal(Integer.toString(this.menu.getPowerRemained())),
+                    mouseX, mouseY);
+        }
     }
 }

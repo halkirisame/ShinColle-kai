@@ -139,7 +139,7 @@ public final class RensouhouFriendlyFireGameTests {
                         && victim.getEntityRevengeTarget() == null, "Rejected shot entered ship hurt side effects");
                 EntityRensouhou control = f.turret(small, victim);
                 victim.invulnerableTime = 0;
-                victim.hurt(control.damageSources().mobAttack(control), 1F);
+                f.entities.allowDamage(victim).hurt(control.damageSources().mobAttack(control), 1F);
                 helper.assertTrue(victim.damage.calls == 1 && !victim.isOrderedToSit()
                         && victim.getMorale() == 5995 && victim.getEntityRevengeTarget() == control,
                         "Positive control must expose standing, morale and revenge side effects");
@@ -149,27 +149,23 @@ public final class RensouhouFriendlyFireGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 120,
             batch = "isolated_rensouhou_ff_compatibility")
-    public static void legacyAndNewInputsStillRegisterNewAndProtectOwner(GameTestHelper helper) {
+    public static void targetAuthorityRegistersNewAndProtectsOwner(GameTestHelper helper) {
         synchronous(helper, f -> {
-            for (ConfigHandler.ShipAiTargetAuthority input : new ConfigHandler.ShipAiTargetAuthority[]{
-                    ConfigHandler.ShipAiTargetAuthority.LEGACY, ConfigHandler.ShipAiTargetAuthority.NEW}) {
-                ConfigHandler.COMMON.shipAiTargetAuthority.set(input);
-                ProbeShip host = f.ship(f.owner, false);
-                host.setAIList();
-                helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW
-                        && host.hasTargetAuthority() && host.newFireControlRegistered(),
-                        "Compatibility input must register NEW authority and fire control: " + input);
-                for (boolean ff : new boolean[]{false, true}) {
-                    f.ff(ff);
-                    for (boolean small : new boolean[]{false, true}) {
-                        EntityRensouhou turret = f.turret(small, f.owner);
-                        turret.setHost(host);
-                        helper.assertTrue(!TeamHelper.doFriendlyFire(turret, f.owner), "Owner helper rejection");
-                        f.owner.damage.reset();
-                        turret.attackTarget(f.owner);
-                        helper.assertTrue(f.owner.damage.calls == 0 && turret.getNumAmmoLight() == 5,
-                                "Compatibility input bypassed owner protection");
-                    }
+            ProbeShip host = f.ship(f.owner, false);
+            host.setAIList();
+            helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW
+                    && host.hasTargetAuthority() && host.newFireControlRegistered(),
+                    "Ship must register NEW authority and fire control");
+            for (boolean ff : new boolean[]{false, true}) {
+                f.ff(ff);
+                for (boolean small : new boolean[]{false, true}) {
+                    EntityRensouhou turret = f.turret(small, f.owner);
+                    turret.setHost(host);
+                    helper.assertTrue(!TeamHelper.doFriendlyFire(turret, f.owner), "Owner helper rejection");
+                    f.owner.damage.reset();
+                    turret.attackTarget(f.owner);
+                    helper.assertTrue(f.owner.damage.calls == 0 && turret.getNumAmmoLight() == 5,
+                            "Turret bypassed owner protection");
                 }
             }
         });
@@ -433,7 +429,6 @@ public final class RensouhouFriendlyFireGameTests {
         private final GameTestHelper helper;
         private final GameTestEntities entities;
         private final boolean oldFf = ConfigHandler.friendlyFire();
-        private final ConfigHandler.ShipAiTargetAuthority oldAuthority = ConfigHandler.COMMON.shipAiTargetAuthority.get();
         private final ProbePlayer owner;
         private final ProbePlayer stranger;
         private final int ownerUid;
@@ -503,7 +498,10 @@ public final class RensouhouFriendlyFireGameTests {
         private void add(Entity entity, Vec3 position) {
             entity.moveTo(this.helper.absoluteVec(position));
             entity.setNoGravity(true);
-            if (entity instanceof net.minecraft.world.entity.Mob mob && !(entity instanceof ProbeShip)) {
+            if (entity instanceof ProbeHostile hostile) {
+                // a hostile ship sets noAi back every tick
+                GameTestEntities.removeAllGoalsEachTick(this.helper, hostile);
+            } else if (entity instanceof net.minecraft.world.entity.Mob mob && !(entity instanceof ProbeShip)) {
                 mob.setNoAi(!(entity instanceof EntityRensouhou));
             }
             if (entity instanceof ProbeHostile enemy) {
@@ -515,7 +513,7 @@ public final class RensouhouFriendlyFireGameTests {
         }
 
         private void ff(boolean enabled) {
-            ConfigHandler.COMMON.friendlyFire.set(enabled);
+            ConfigHandler.friendlyFire = enabled;
             this.helper.assertTrue(ConfigHandler.friendlyFire() == enabled, "Friendly-fire config fixture");
         }
 
@@ -569,8 +567,7 @@ public final class RensouhouFriendlyFireGameTests {
         public void close() {
             if (this.closed) return;
             this.closed = true;
-            ConfigHandler.COMMON.friendlyFire.set(this.oldFf);
-            ConfigHandler.COMMON.shipAiTargetAuthority.set(this.oldAuthority);
+            ConfigHandler.friendlyFire = this.oldFf;
             for (ProbePlayer player : new ProbePlayer[]{this.owner, this.stranger}) {
                 if (player == null) continue;
                 int uid = TeamHelper.getPlayerUID(player);

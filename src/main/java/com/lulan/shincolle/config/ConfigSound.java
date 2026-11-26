@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * Custom sound rate configuration.
  * <p>
- * Maps ship class ID to an array of sound play rates (0.0 ~ 1.0).
+ * Maps voice ID (ship class ID + 2) to an array of sound play rates (0.0 ~ 1.0).
  * Rate indices: 0:idle, 1:attack, 2:hurt, 3:dead, 4:marry, 5:knockback, 6:item,
  * 7:feed, 8:timekeep
  * <p>
@@ -16,7 +16,7 @@ import java.util.Map;
 public class ConfigSound {
 
     /**
-     * Custom sound rates: map(shipClassID -> float[9] rates)
+     * Custom sound rates: map(voiceID -> float[9] rates)
      */
     public static final Map<Integer, float[]> SOUND_RATE = new HashMap<>();
 
@@ -29,33 +29,17 @@ public class ConfigSound {
     }
 
     /**
-     * Get the custom sound play rate for a specific ship class and sound type.
+     * Get the custom sound play rate for a specific voice ID and sound type.
      *
-     * @param shipClass ship class ID
+     * @param voiceId   voice ID (ship class ID + 2)
      * @param soundType sound type index (0-8)
      * @return play rate (0.0 ~ 1.0), 0 if no entry exists
      */
-    public static float getSoundRate(int shipClass, int soundType) {
-        float[] rates = SOUND_RATE.get(shipClass);
+    public static float getSoundRate(int voiceId, int soundType) {
+        float[] rates = SOUND_RATE.get(voiceId);
         if (rates != null && soundType >= 0 && soundType < rates.length) {
             return rates[soundType];
         }
         return 0F;
-    }
-
-    /**
-     * Check if a custom sound should play based on its rate.
-     *
-     * @param shipClass ship class ID
-     * @param soundType sound type index (0-8)
-     * @return true if custom sound should be played this time
-     */
-    public static boolean shouldPlayCustomSound(int shipClass, int soundType) {
-        float rate = getSoundRate(shipClass, soundType);
-        if (rate <= 0F)
-            return false;
-        if (rate >= 1F)
-            return true;
-        return Math.random() < rate;
     }
 }

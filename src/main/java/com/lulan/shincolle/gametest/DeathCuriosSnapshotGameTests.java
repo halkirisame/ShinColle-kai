@@ -167,7 +167,7 @@ public final class DeathCuriosSnapshotGameTests {
     }
 
     private static BasicEntityShip fixture(GameTestHelper helper, GameTestEntities entities) {
-        BasicEntityShip ship = entities.add(ModEntities.DESTROYER_I.get().create(helper.getLevel()));
+        BasicEntityShip ship = entities.allowDamage(ModEntities.DESTROYER_I.get().create(helper.getLevel()));
         helper.assertTrue(ship != null, "ship fixture must exist");
         ship.moveTo(helper.absoluteVec(POSITION));
         ship.setNoGravity(true);

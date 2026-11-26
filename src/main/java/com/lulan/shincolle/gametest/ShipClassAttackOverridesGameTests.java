@@ -300,7 +300,7 @@ public final class ShipClassAttackOverridesGameTests {
                                         && wd.hasAmmoLight() && wd.hasAmmoHeavy(), "Natural fixture ran out of resources");
                                 for (Entity entity : helper.getLevel().getAllEntities()) {
                                     if (entity instanceof BasicEntityAirplane plane && plane.getHost() == wd) {
-                                        scene.entities.add(plane);
+                                        scene.entities.allowTravel(plane);
                                         aircraft[0] = true;
                                     }
                                     if (entity instanceof EntityAbyssMissile missile && missile.getHostEntity() == wd) {

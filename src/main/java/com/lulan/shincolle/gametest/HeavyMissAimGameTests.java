@@ -6,6 +6,7 @@ import com.lulan.shincolle.entity.destroyer.EntityDestroyerRo;
 import com.lulan.shincolle.entity.other.EntityAbyssMissile;
 import com.lulan.shincolle.init.ModEntities;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.MissileData;
 import com.lulan.shincolle.utility.CombatHelper;
 
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
  * A heavy shot that misses moves its aim point, and the missile is then started from that point. These
  * tests fire the real shot methods and compare the missile they launch with one started by hand from
  * the inputs the earlier code gave: the height is a float and is added to in float arithmetic, the
- * horizontal position is a double. The trajectory of a wide target must not change, and a rolled miss
+ * horizontal position is a double. Wide misses must not splash the target, and a rolled miss
  * must use the three random values in the order side, distance to the side, position along the line of
  * fire.
  */
@@ -52,11 +53,11 @@ public final class HeavyMissAimGameTests {
 
     /**
      * A destroyer 4.568326 blocks from a standing ravager (width 1.95, height 2.2), both at height 64, and
-     * a miss rolled at 0.5, 0, 0.5: the earlier point is the target itself. The missile goes straight
-     * (move type 0) with the earlier float height; a double sum of the height tipped it into a parabola.
+     * a miss rolled at 0.5, 0, 0.5: the earlier point is the target itself. Run the real missile until
+     * impact or expiry and verify the ravager loses no health.
      */
     @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_heavy_miss_wide_trajectory")
-    public static void heavyMissOfAWideTargetKeepsItsEarlierTrajectory(GameTestHelper helper) {
+    public static void heavyMissOfAWideTargetDoesNotSplashTheTarget(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> verifyWideFriendly(helper),
                 new Vec3(0D, 4D, 0D), new Vec3(4.568326D, 4D, 0D));
     }
@@ -66,7 +67,11 @@ public final class HeavyMissAimGameTests {
             Vec3 shooterAt = absolute(helper, 4.568326D, 64D, 0D);
             Vec3 targetAt = absolute(helper, 0D, 64D, 0D);
             EntityDestroyerRo ship = friendly(helper, entities, shooterAt);
-            Entity ravager = ravager(helper, entities, targetAt);
+            Mob ravager = (Mob) ravager(helper, entities, targetAt);
+            ravager.setInvulnerable(false);
+            ship.getAttrs().setAttrsBuffed(ID.Attrs.ATK_H, 10F);
+            check(helper, !ravager.isInvulnerable() && ship.getAttackBaseDamage(2, ravager) > 0F,
+                    "The splash fixture must be able to damage the ravager");
             ScriptedRandom random = scriptRandom(helper, ship, MISS, 0.5F, 0F, 0.5F);
             MissileData md = ship.getMissileData(2);
             check(helper, md.movetype < 0, "Fixture must use the automatic move type: " + md.movetype);
@@ -77,19 +82,16 @@ public final class HeavyMissAimGameTests {
             check(helper, random.drawn.equals(List.of(MISS, 0.5F, 0F, 0.5F)),
                     "The floats drawn in the shot were " + random.drawn);
 
-            // the inputs the earlier code gave: floats throughout, the earlier point from three float sums
-            float x = (float) ravager.getX();
-            float y = (float) ravager.getY();
-            float z = (float) ravager.getZ();
-            float aimX = x - 5F + 0.5F * 10F;
-            float aimY = y + 0F * 5F;
-            float aimZ = z - 5F + 0.5F * 10F;
-            EntityAbyssMissile earlier = startedAsBefore(helper, ship, md, aimX, aimY, aimZ, ravager.getBbHeight());
-
-            check(helper, real.moveType == 0, "A straight shot became move type " + real.moveType
-                    + " velocity " + real.velX + "," + real.velY + "," + real.velZ);
-            check(helper, Math.abs(real.velY + 0.0576215D) < 1.0E-4D, "Vertical start velocity " + real.velY);
-            sameTrajectory(helper, "wide target, friendly", real, earlier);
+            // The splash rolls independently; do not let a second miss hide an unsafe trajectory.
+            scriptRandom(helper, ship, 0.999F);
+            float health = ravager.getHealth();
+            for (int tick = 0; tick < 150 && !real.isRemoved(); tick++) {
+                real.tickCount++;
+                real.tick();
+            }
+            check(helper, real.isRemoved(), "The real missile must explode before the check");
+            check(helper, ravager.getHealth() == health, "A missed heavy shot splashed the ravager: "
+                    + health + " -> " + ravager.getHealth());
             helper.succeed();
         }
     }
@@ -119,14 +121,11 @@ public final class HeavyMissAimGameTests {
             check(helper, random.drawn.equals(List.of(MISS, 0.5F, 0F, 0.5F)),
                     "The floats drawn in the shot were " + random.drawn);
 
-            float x = (float) ravager.getX();
             float y = (float) ravager.getY() + ravager.getBbHeight() * 0.1F;
-            float z = (float) ravager.getZ();
-            float aimX = x - 5F + 0.5F * 10F;
-            float aimY = y + 0F * 5F;
-            float aimZ = z - 5F + 0.5F * 10F;
-            EntityAbyssMissile earlier = startedHostileAsBefore(helper, ship, md, ravager, aimX, aimY, aimZ);
-            sameTrajectory(helper, "wide target, hostile", real, earlier);
+            double lateral = Math.sqrt(2D) * (3.75D + ravager.getBbWidth() / 2D) + 0.25D;
+            EntityAbyssMissile expected = startedHostileAsBefore(helper, ship, md, ravager,
+                    ravager.getX(), y, ravager.getZ() + lateral);
+            sameTrajectory(helper, "wide target, hostile", real, expected);
             helper.succeed();
         }
     }
@@ -299,6 +298,8 @@ public final class HeavyMissAimGameTests {
         ship.setNoGravity(true);
         ship.setInvulnerable(true);
         ship.setAmmoHeavy(1_000);
+        ship.setStateMinor(ID.M.NumGrudge, 100_000);
+        ship.setStateFlag(ID.F.NoFuel, false);
         ship.setShipDepth(0D);
         place(helper, ship, at);
         return ship;

@@ -139,7 +139,7 @@ public final class CombatFireControlGameTests {
             });
             s.end(ship, () -> {
                 List<Call> light = ship.calls.stream().filter(c -> c.weapon.equals("light")).toList();
-                int delay = Math.max(5, (int) (ConfigHandler.baseAttackSpeed[1]
+                int delay = Math.max(1, (int) (ConfigHandler.baseAttackSpeed[1]
                         / Math.max(ship.getAttrs().getAttackSpeed(), 0.01F)) + ConfigHandler.fixedAttackDelay[1]);
                 s.expect(light.stream().anyMatch(c -> c.moving.equals("guard")),
                         "No shot while guarding: " + light + " " + ship.probe(cow));
@@ -151,6 +151,80 @@ public final class CombatFireControlGameTests {
                 }
             });
         });
+    }
+
+    /** Short configured waits apply to both cannons without a five- or ten-tick floor. */
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "isolated_fire_control_one_tick",
+            timeoutTicks = 200)
+    public static void configuredCannonsFireAgainAfterOneTick(GameTestHelper helper) {
+        Vec3 ownerPosition = new Vec3(0.5D, 0D, -3.5D);
+        Vec3 shipPosition = new Vec3(0.5D, 0D, 2.5D);
+        Vec3 targetPosition = new Vec3(6.5D, 0D, 2.5D);
+        GameTestEntities.whenPositionsTicking(helper, () -> {
+            int lightBase = ConfigHandler.baseAttackSpeed[1];
+            int heavyBase = ConfigHandler.baseAttackSpeed[2];
+            int lightFixed = ConfigHandler.fixedAttackDelay[1];
+            int heavyFixed = ConfigHandler.fixedAttackDelay[2];
+            GameTestEntities.onCompletion(helper, () -> {
+                ConfigHandler.baseAttackSpeed[1] = lightBase;
+                ConfigHandler.baseAttackSpeed[2] = heavyBase;
+                ConfigHandler.fixedAttackDelay[1] = lightFixed;
+                ConfigHandler.fixedAttackDelay[2] = heavyFixed;
+            }, "cannon delay restoration");
+            ConfigHandler.baseAttackSpeed[1] = 0;
+            ConfigHandler.baseAttackSpeed[2] = 0;
+            ConfigHandler.fixedAttackDelay[1] = 1;
+            ConfigHandler.fixedAttackDelay[2] = 1;
+
+            Scene s = new Scene(helper);
+            GameTestEntities.onCompletion(helper, s::close, "one tick cannon scene");
+            UUID ownerId = UUID.randomUUID();
+            Recorder ship = s.ship(shipPosition, ownerId);
+            CombatFixturePreparation.pin(helper, ship);
+            Goal initial = CombatFixturePreparation.authority(ship);
+            s.cannons(ship);
+            helper.startSequence().thenWaitUntil(() -> s.expect(ship.tickCount >= 24,
+                    "Waiting for cannon fixture AI: " + CombatFixturePreparation.probe(helper, ship, null)))
+                    .thenExecute(GameTestVerification.namedFailure(() -> {
+                        CombatFixturePreparation.assertReady(helper, ship, initial);
+                        s.expect(ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                                "Cannon fixture needs fuel");
+                        s.expect(ship.useAmmoLight() && ship.hasAmmoLight()
+                                        && ship.useAmmoHeavy() && ship.hasAmmoHeavy(),
+                                "Cannon fixture needs both loaded weapons");
+                        s.expect(ConfigHandler.baseAttackSpeed[1] == 0 && ConfigHandler.baseAttackSpeed[2] == 0
+                                        && ConfigHandler.fixedAttackDelay[1] == 1
+                                        && ConfigHandler.fixedAttackDelay[2] == 1,
+                                "Cannon fixture needs base zero and fixed one");
+                        s.owner(ownerPosition, ownerId);
+                        GameTestEntities.assertRegistered(helper, s.owner);
+                        s.expect(ship.getOwner() == s.owner, "Cannon fixture owner must resolve");
+                        Mob target = s.cow(targetPosition);
+                        CombatFixturePreparation.pin(helper, target);
+                        GameTestEntities.assertRegistered(helper, target);
+                        s.expect(ship.calls.isEmpty(), "Combat began before the command");
+                        s.attack(ship, target);
+                    })).thenWaitUntil(() -> s.expect(
+                            ship.calls.stream().filter(c -> c.weapon.equals("light")).count() >= 2
+                                    && ship.calls.stream().filter(c -> c.weapon.equals("heavy")).count() >= 2,
+                            "Waiting for two shots from each cannon: " + ship.calls + " "
+                                    + CombatFixturePreparation.probe(helper, ship, ship.getEntityTarget())))
+                    .thenExecute(GameTestVerification.namedFailure(() -> {
+                        List<Call> light = ship.calls.stream().filter(c -> c.weapon.equals("light")).toList();
+                        List<Call> heavy = ship.calls.stream().filter(c -> c.weapon.equals("heavy")).toList();
+                        int lightWait = light.get(1).tick - light.get(0).tick;
+                        int heavyWait = heavy.get(1).tick - heavy.get(0).tick;
+                        s.expect(ship.shipCombatState().timing(ship.tickCount).aimTicks()
+                                        >= ShipAiCompatibilityRules.aimTime(ship.getLevel()),
+                                "Cannon fixture must stay aimed");
+                        s.expect(ship.calls.stream().allMatch(c -> c.target == ship.getEntityTarget()),
+                                "Cannon fixture must keep the same target: " + ship.calls);
+                        s.expect(lightWait == 1 && heavyWait == 1,
+                                "Configured cannon waits must both be one tick, light=" + lightWait
+                                        + " heavy=" + heavyWait + " calls=" + ship.calls);
+                        helper.succeed();
+                    }));
+        }, ownerPosition, shipPosition, targetPosition);
     }
 
     /**

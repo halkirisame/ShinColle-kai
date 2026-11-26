@@ -36,9 +36,11 @@ public final class ShipEquipSlots {
     /** X of the strip, just past ShinColle's 256-wide screen. */
     public static final int STRIP_X = 262;
     /** Y of the first slot. */
-    public static final int STRIP_Y = 18;
+    public static final int STRIP_Y = 21;
     /** Width of the drawn panel. */
     public static final int PANEL_WIDTH = 26;
+    /** Vertical distance between slots, which is also the height of one panel row. */
+    public static final int SLOT_PITCH = 18;
 
     public static int slotCount() {
         return Math.min(ConfigHandler.shipEquipSlotsCurios(), MAX_SLOTS);
@@ -49,7 +51,7 @@ public final class ShipEquipSlots {
     }
 
     public static int slotY(int index) {
-        return STRIP_Y + index * 18;
+        return STRIP_Y + index * SLOT_PITCH;
     }
 
     public static boolean accepts(ItemStack stack) {
@@ -60,7 +62,7 @@ public final class ShipEquipSlots {
     public static boolean isOurSlot(Slot slot) {
         return slot.x == STRIP_X
                 && slot.y >= STRIP_Y
-                && slot.y < STRIP_Y + slotCount() * 18
-                && (slot.y - STRIP_Y) % 18 == 0;
+                && slot.y < STRIP_Y + slotCount() * SLOT_PITCH
+                && (slot.y - STRIP_Y) % SLOT_PITCH == 0;
     }
 }

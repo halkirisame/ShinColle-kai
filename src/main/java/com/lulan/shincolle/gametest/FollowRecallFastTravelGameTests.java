@@ -16,6 +16,7 @@ import com.lulan.shincolle.handler.RecallLoadObservation;
 import com.lulan.shincolle.handler.ShipFollowRecallHandler;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
+import com.lulan.shincolle.utility.LogHelper;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -83,6 +84,7 @@ public final class FollowRecallFastTravelGameTests {
         long[] loadAt = {-1L};
         boolean[] released = {false};
         boolean[] issued = {false};
+        boolean[] restorationLogged = {false};
         com.lulan.shincolle.ai.domain.movement.RecallRequestKey[] original = {null};
         ChunkPos[] recordedChunk = {null};
         Consumer<EntityJoinLevelEvent> listener = event -> {
@@ -123,8 +125,17 @@ public final class FollowRecallFastTravelGameTests {
                 return;
             }
             long waited = rig.now() - loadAt[0];
+            if (!pending.isEmpty() && !restorationLogged[0]) {
+                restorationLogged[0] = true;
+                LogHelper.info("Delayed registration disk restoration: ending=" + ending + ", waited=" + waited);
+            }
+            if (ending != DelayEnd.CANCEL && pending.isEmpty()) {
+                helper.assertTrue(waited < 400, "Real disk restoration did not reach the registration barrier");
+            }
             if (waited == 220) {
-                helper.assertTrue(!pending.isEmpty(), "Real disk restoration did not reach the registration barrier");
+                if (ending == DelayEnd.CANCEL) {
+                    helper.assertTrue(!pending.isEmpty(), "Real disk restoration did not reach the registration barrier");
+                }
                 helper.assertTrue(helper.getLevel().getEntity(rig.identities.get(0)) == null, "Follower already registered");
                 helper.assertTrue(!roster.isEmpty(), "Pending registration was dropped after 200 ticks");
                 if (ending == DelayEnd.CANCEL) {
@@ -146,7 +157,7 @@ public final class FollowRecallFastTravelGameTests {
                 }
                 return;
             }
-            if (waited >= 260 && !released[0]) {
+            if (waited >= 260 && !released[0] && (ending == DelayEnd.CANCEL || !pending.isEmpty())) {
                 released[0] = true;
                 closeBarrier(barrier);
                 if (ending == DelayEnd.CANCEL) rig.reload(recordedChunk[0]);
@@ -345,7 +356,7 @@ public final class FollowRecallFastTravelGameTests {
         long[] arrivedAt = {-1L};
         helper.onEachTick(() -> rig.poll(elapsed -> {
             if (elapsed == UNLOADED_BY) rig.assertSourceUnloaded();
-            if (elapsed >= LAND_AT && elapsed < LAND_AT + 400 && elapsed % 20 == 0) rig.trace(elapsed);
+            if (elapsed >= LAND_AT && elapsed < LAND_AT + 500 && elapsed % 20 == 0) rig.trace(elapsed);
             if (arrivedAt[0] < 0 && elapsed > LAND_AT && rig.allFollowersWithin(NEAR_SQ)) {
                 rig.assertIdentity();
                 rig.assertRestoredFollowers();
@@ -623,7 +634,7 @@ public final class FollowRecallFastTravelGameTests {
             BasicEntityShip sitting = ship();
             sitting.setEntitySit(true);
             this.excluded.add(sitting);
-            BasicEntityShip empty = ship();
+            BasicEntityShip empty = this.entities.allowOutOfFuel(ship());
             empty.setStateMinor(ID.M.NumGrudge, 0);
             empty.setStateFlag(ID.F.NoFuel, true);
             this.excluded.add(empty);
@@ -656,7 +667,8 @@ public final class FollowRecallFastTravelGameTests {
 
         private BasicEntityShip ship() {
             Vec3 relative = this.helper.relativeVec(this.sourcePoint);
-            BasicEntityShip ship = MovementPlanParityGameTests.friendly(this.helper, this.entities, relative);
+            BasicEntityShip ship = this.entities.allowTravel(
+                    MovementPlanParityGameTests.friendly(this.helper, this.entities, relative));
             ship.setOwnerUUID(this.owner.getUUID());
             ship.getCapaShipInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 17));
             return ship;
@@ -730,7 +742,11 @@ public final class FollowRecallFastTravelGameTests {
         String describe() {
             var level = this.helper.getLevel();
             StringBuilder text = new StringBuilder("settled=" + ShipFollowRecallHandler.isSettled(this.owner.getUUID())
-                    + ", sourceLoaded=" + level.hasChunk(this.source.x, this.source.z) + ", owner=" + this.owner.position());
+                    + ", sourceLoaded=" + level.hasChunk(this.source.x, this.source.z)
+                    + ", sourceTicking=" + level.isPositionEntityTicking(BlockPos.containing(this.sourcePoint))
+                    + ", loadTickets=" + ShipFollowRecallHandler.loadTicketCount(this.owner.getUUID())
+                    + ", roster=" + ShipFollowRecallHandler.rosterSnapshot(this.owner.getUUID())
+                    + ", owner=" + this.owner.position());
             for (UUID id : this.identities) {
                 Entity found = level.getEntity(id);
                 text.append(" [");
@@ -738,8 +754,12 @@ public final class FollowRecallFastTravelGameTests {
                     text.append("alive=").append(ship.isAlive()).append(", uid=").append(ship.getShipUID())
                             .append(", eligible=").append(ShipMovementGate.recallEligible(ship, this.owner))
                             .append(", distSq=").append((int) ship.distanceToSqr(this.owner))
-                            .append(", remaining=").append(ship.shipMovementExecutor().followRecallRemaining(
-                                    ShipCommandStateAdapter.handle(this.owner), this.now()))
+                            .append(", remaining=").append(ship.shipMovementExecutor().followRecallRequest()
+                                    .map(request -> request.remaining(ShipCommandStateAdapter.handle(this.owner), this.now())))
+                            .append(", chunk=").append(ship.chunkPosition())
+                            .append(", ticking=").append(level.isPositionEntityTicking(ship.blockPosition()))
+                            .append(", last=").append(ship.shipMovementExecutor().last())
+                            .append(", denials=").append(ship.shipMovementExecutor().lastDenials())
                             .append(", intent=").append(ShipMovementGate.decision(ship));
                 } else {
                     text.append(found == null ? "absent" : found.toString());

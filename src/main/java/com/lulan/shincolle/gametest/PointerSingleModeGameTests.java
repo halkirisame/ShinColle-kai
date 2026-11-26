@@ -299,7 +299,6 @@ public final class PointerSingleModeGameTests {
         if (entityGuard) {
             ship.setStateFlag(com.lulan.shincolle.reference.ID.F.PickItem, false);
         }
-        ship.setNoAi(false);
         BlockPos destination = helper.absolutePos(new BlockPos(9, 1, 4));
         boolean[] reached = {false};
         boolean[] guardRanBeforeArrival = {false};
@@ -1027,7 +1026,6 @@ public final class PointerSingleModeGameTests {
         if (ship == null) {
             throw new AssertionError("Failed to create ship for pointer mode test.");
         }
-        ship.setNoAi(true);
         ship.setPlayerUID(context.capa().getPlayerUID());
         ship.setShipUID(shipUid);
         ship.moveTo(worldPos.x, worldPos.y, worldPos.z, 0F, 0F);

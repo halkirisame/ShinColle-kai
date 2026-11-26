@@ -155,7 +155,7 @@ public final class FormationPartialMoveGameTests {
                     Vec3 start = helper.absoluteVec(new Vec3(2.5D + slot * 1.5D, 1D, 2.5D));
                     if (excluded(scenario, slot)) {
                         GameTestEntities.removeAllGoalsEachTick(helper, ship);
-                        if (scenario == Scenario.NO_FUEL) ship.setStateFlag(ID.F.NoFuel, true);
+                        if (scenario == Scenario.NO_FUEL) context.entities().allowOutOfFuel(ship).setStateFlag(ID.F.NoFuel, true);
                         else start = helper.absoluteVec(new Vec3(20.5D, 70D, 10.5D));
                     }
                     ship.moveTo(start.x, start.y, start.z, 0F, 0F);

@@ -37,8 +37,9 @@ final class FormationGameTestTeam implements AutoCloseable {
         for (int slot = 0; slot < 6 && count < 4; slot++) {
             if (slot == hostSlot) continue;
             BasicEntityShip member = entities.add(ModEntities.BB_KONGOU.get().create(host.level()));
-            member.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(entities.helper(), member);
             member.setNoGravity(true);
+            member.setStateMinor(ID.M.NumGrudge, 100_000);
             member.setPlayerUID(base);
             member.setShipUID(base + 2 + slot);
             member.moveTo(host.getX(), host.getY() + 20D, host.getZ(), 0F, 0F);

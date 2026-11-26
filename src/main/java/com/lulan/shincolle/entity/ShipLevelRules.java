@@ -27,8 +27,9 @@ public final class ShipLevelRules {
         return currentLevel != naturalCap && currentLevel < absoluteCap;
     }
 
-    public static boolean canUseTrainingBook(int currentLevel, int absoluteCap) {
-        return currentLevel < absoluteCap;
+    public static boolean canUseTrainingBook(int currentLevel, boolean married,
+                                             int unmarriedCap, int absoluteCap) {
+        return currentLevel < naturalLevelCap(married, unmarriedCap, absoluteCap);
     }
 
     public static int trainingBookResult(int currentLevel, int gainedLevels, boolean married,

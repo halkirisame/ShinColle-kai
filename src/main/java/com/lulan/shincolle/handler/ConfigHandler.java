@@ -190,6 +190,26 @@ public class ConfigHandler {
      */
     public static boolean[] polyGravelBaseBlock = new boolean[]{true, true, false, false};
 
+    /*
+     * Values the game reads while running. Readers use these copies, never COMMON.x.get():
+     * a config file save reloads COMMON on another thread at any moment, and only
+     * syncConfig() is held back while GameTests own the settings.
+     */
+    public static volatile int chunkLoaderMode = 2;
+    public static volatile int deathTime = 400;
+    public static volatile int despawnEgg = 12000;
+    public static volatile boolean friendlyFire = true;
+    public static volatile boolean canSearchlight = true;
+    public static volatile List<String> voidRescueDimensions = List.of("minecraft:the_end");
+    public static volatile double dropRateGrudge = 1.0D;
+    public static volatile boolean lootingAffectsGrudge = false;
+    public static volatile double eggDropChanceMobSmall = 0.2D;
+    public static volatile double eggDropChanceMobLarge = 1.0D / 3.0D;
+    public static volatile double eggDropChanceBossSmall = 0.9D;
+    public static volatile double eggDropChanceBossLarge = 1.0D;
+    public static volatile int polymetalOreClusters = 20;
+    public static volatile int polymetalGravelClusters = 4;
+
     // ========== ForgeConfigSpec ==========
 
     static {
@@ -253,6 +273,21 @@ public class ConfigHandler {
         // Sync boolean arrays
         syncBooleanArray(enableTask, COMMON.enableTaskConfig.get());
         syncBooleanArray(polyGravelBaseBlock, COMMON.polyGravelBaseBlockConfig.get());
+
+        chunkLoaderMode = COMMON.chunkLoaderMode.get();
+        deathTime = COMMON.deathTime.get();
+        despawnEgg = COMMON.despawnEgg.get();
+        friendlyFire = COMMON.friendlyFire.get();
+        canSearchlight = COMMON.canSearchlight.get();
+        voidRescueDimensions = List.copyOf(COMMON.voidRescueDimensions.get());
+        dropRateGrudge = COMMON.dropRateGrudge.get();
+        lootingAffectsGrudge = COMMON.lootingAffectsGrudge.get();
+        eggDropChanceMobSmall = COMMON.eggDropChanceMobSmall.get();
+        eggDropChanceMobLarge = COMMON.eggDropChanceMobLarge.get();
+        eggDropChanceBossSmall = COMMON.eggDropChanceBossSmall.get();
+        eggDropChanceBossLarge = COMMON.eggDropChanceBossLarge.get();
+        polymetalOreClusters = COMMON.polymetalOreClusters.get();
+        polymetalGravelClusters = COMMON.polymetalGravelClusters.get();
     }
 
     /** Completes named-limit validation after the code-defined attribute registry is frozen. */
@@ -314,7 +349,7 @@ public class ConfigHandler {
     }
 
     public static boolean friendlyFire() {
-        return COMMON.friendlyFire.get();
+        return friendlyFire;
     }
 
     public static boolean alwaysShowTeamCircle() {
@@ -323,10 +358,6 @@ public class ConfigHandler {
 
     public static boolean showNameTag() {
         return COMMON.showNameTag.get();
-    }
-
-    public static boolean polymetalAsMn() {
-        return COMMON.polymetalAsMn.get();
     }
 
     public static boolean mobShipsAttackPlayer() {
@@ -354,7 +385,7 @@ public class ConfigHandler {
     }
 
     public static boolean canSearchlight() {
-        return COMMON.canSearchlight.get();
+        return canSearchlight;
     }
 
     public static boolean canTeleport() {
@@ -383,11 +414,11 @@ public class ConfigHandler {
     }
 
     public static int chunkLoaderMode() {
-        return COMMON.chunkLoaderMode.get();
+        return chunkLoaderMode;
     }
 
     public static int deathTime() {
-        return COMMON.deathTime.get();
+        return deathTime;
     }
 
     public static int despawnBoss() {
@@ -399,7 +430,7 @@ public class ConfigHandler {
     }
 
     public static int despawnEgg() {
-        return COMMON.despawnEgg.get();
+        return despawnEgg;
     }
 
     public static int recycleSmall() {
@@ -475,28 +506,28 @@ public class ConfigHandler {
     }
 
     public static int polymetalOreClusters() {
-        return COMMON.polymetalOreClusters.get();
+        return polymetalOreClusters;
     }
 
     public static int polymetalGravelClusters() {
-        return COMMON.polymetalGravelClusters.get();
+        return polymetalGravelClusters;
     }
 
     public static double dropRateGrudge() {
-        return COMMON.dropRateGrudge.get();
+        return dropRateGrudge;
     }
 
     public static double eggDropChance(int scaleLevel) {
         return switch (scaleLevel) {
-            case 0 -> COMMON.eggDropChanceMobSmall.get();
-            case 1 -> COMMON.eggDropChanceMobLarge.get();
-            case 2 -> COMMON.eggDropChanceBossSmall.get();
-            default -> COMMON.eggDropChanceBossLarge.get();
+            case 0 -> eggDropChanceMobSmall;
+            case 1 -> eggDropChanceMobLarge;
+            case 2 -> eggDropChanceBossSmall;
+            default -> eggDropChanceBossLarge;
         };
     }
 
     public static boolean lootingAffectsGrudge() {
-        return COMMON.lootingAffectsGrudge.get();
+        return lootingAffectsGrudge;
     }
 
     public static double volumeTimekeeping() {
@@ -543,7 +574,6 @@ public class ConfigHandler {
         public final BooleanValue friendlyFire;
         public final BooleanValue alwaysShowTeamCircle;
         public final BooleanValue showNameTag;
-        public final BooleanValue polymetalAsMn;
         public final BooleanValue mobShipsAttackPlayer;
         public final BooleanValue depthHadalVortex;
         public final BooleanValue useWakamoto;
@@ -666,10 +696,6 @@ public class ConfigHandler {
             showNameTag = builder
                     .comment("Always show custom name tag above ships")
                     .define("showNameTag", true);
-
-            polymetalAsMn = builder
-                    .comment("true: Polymetallic Nodules = Manganese Dust, Polymetallic Ore = Manganese Ore")
-                    .define("polymetalAsMn", false);
 
             mobShipsAttackPlayer = builder
                     .comment("For mob ships, true: attack player automatically")

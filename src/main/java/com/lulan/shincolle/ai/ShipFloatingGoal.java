@@ -71,7 +71,6 @@ public class ShipFloatingGoal extends Goal {
         if (!(host instanceof Entity ent))
             return false;
 
-        // if the block above is air, allow floating
         if (ent.level().getBlockState(ent.blockPosition().above()).isAir()) {
             return false;
         }
@@ -95,7 +94,6 @@ public class ShipFloatingGoal extends Goal {
             float fMin = host.getStateMinor(ID.M.FollowMin) + ent.getBbWidth() * 0.5F;
             float fMinSq = fMin * fMin;
 
-            // guarding entity
             if (host.getGuardedEntity() != null) {
                 double distSq = ent.distanceToSqr(host.getGuardedEntity());
                 return distSq < fMinSq;

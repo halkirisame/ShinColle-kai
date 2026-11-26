@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -177,44 +178,56 @@ class ShipDefinitionTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void positiveMaterialWeightRemainsReachableBelowLegacyFloatGuard() throws ReflectiveOperationException {
+    void positiveMaterialWeightRemainsReachableBelowLegacyFloatGuard() {
         JsonObject json = minimum();
         json.add("construction", JsonParser.parseString(
                 "{\"enabled\":true,\"tier\":\"small\",\"material_mean\":106,\"weight\":1}"));
         ShipDefinition ship = validate(json);
+        assertTrue(com.lulan.shincolle.utility.CalcHelper.getNormDist(0) / 100F < 0.0125F,
+                "fixture must be below the inherited float guard");
         int[] mats = {16, 20, 30, 40};
-        var method = com.lulan.shincolle.crafting.ShipCalc.class.getDeclaredMethod(
-                "materialTable", int.class, int[].class, List.class);
-        method.setAccessible(true);
-        Map<ShipChoice, Float> table = (Map<ShipChoice, Float>) method.invoke(null, 0, mats, List.of(ship));
         ShipChoice choice = new ShipChoice.Defined(ID);
-        float total = 0;
-        float before = 0;
-        boolean found = false;
-        for (var entry : table.entrySet()) {
-            total += entry.getValue();
-            if (entry.getKey().equals(choice)) found = true;
-            else if (!found) before += entry.getValue();
-        }
-        float probability = table.get(choice);
-        assertTrue(probability > 0 && probability < 0.0125F, "fixture must be below the inherited float guard");
-        float roll = (before + 0.0125F + probability / 2) / total;
-        assertTrue(roll >= 0 && roll < 1, "positive material candidate has no reachable random interval");
         ShipDefinitionRegistry registry = ShipDefinitionRegistry.server();
         Map<ShipDefinitionId, ShipDefinition> previous = registry.all();
         registry.reload(() -> Map.of(ID, ship));
         try {
-            var random = new net.minecraft.world.level.levelgen.LegacyRandomSource(731) {
-                @Override
-                public float nextFloat() {
-                    return roll;
+            Set<ShipChoice> reached = new HashSet<>();
+            int samples = 1000;
+            float low = 0F;
+            ShipChoice lowChoice = rollAt(mats, low);
+            reached.add(lowChoice);
+            for (int i = 1; i <= samples; i++) {
+                float high = i == samples ? Math.nextDown(1F) : (float) i / samples;
+                ShipChoice highChoice = rollAt(mats, high);
+                // Every outcome owns one contiguous range of rolls; bisect each change down to the float.
+                while (!lowChoice.equals(highChoice)) {
+                    int below = Float.floatToIntBits(low);
+                    int above = Float.floatToIntBits(high);
+                    while (above - below > 1) {
+                        int middle = (below + above) >>> 1;
+                        if (rollAt(mats, Float.intBitsToFloat(middle)).equals(lowChoice)) below = middle;
+                        else above = middle;
+                    }
+                    low = Float.intBitsToFloat(above);
+                    lowChoice = rollAt(mats, low);
+                    reached.add(lowChoice);
                 }
-            };
-            assertEquals(choice, com.lulan.shincolle.crafting.ShipCalc.rollShipType(0, mats, random));
+                low = high;
+            }
+            assertTrue(reached.contains(choice), "positive material candidate has no reachable random interval: " + reached);
         } finally {
             registry.reload(() -> previous);
         }
+    }
+
+    private static ShipChoice rollAt(int[] mats, float value) {
+        return com.lulan.shincolle.crafting.ShipCalc.rollShipType(0, mats,
+                new net.minecraft.world.level.levelgen.LegacyRandomSource(731) {
+                    @Override
+                    public float nextFloat() {
+                        return value;
+                    }
+                });
     }
 
     @Test

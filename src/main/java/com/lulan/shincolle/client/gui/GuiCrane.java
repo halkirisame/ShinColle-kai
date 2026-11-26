@@ -2,6 +2,7 @@ package com.lulan.shincolle.client.gui;
 
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.client.gui.inventory.ContainerCrane;
+import com.lulan.shincolle.client.gui.inventory.SlotCrane;
 import com.lulan.shincolle.network.C2SGUIInputPacket;
 import com.lulan.shincolle.network.ModNetworking;
 import com.lulan.shincolle.reference.ID;
@@ -15,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -209,6 +211,22 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
                 new int[]{0, pos.getX(), pos.getY(), pos.getZ(), buttonId, value}));
     }
 
+    @Override
+    protected List<Component> getTooltipFromContainerItem(ItemStack stack) {
+        List<Component> lines = super.getTooltipFromContainerItem(stack);
+        if (this.hoveredSlot instanceof SlotCrane slot) {
+            lines = new ArrayList<>(lines);
+            addFilterTooltip(lines, slot.getSlotIndex());
+        }
+        return lines;
+    }
+
+    private void addFilterTooltip(List<Component> lines, int slot) {
+        lines.add(Component.translatable(this.menu.getItemMode(slot)
+                ? "gui.shincolle_kai.crane.excluded" : "gui.shincolle_kai.crane.included"));
+        lines.add(Component.translatable("gui.shincolle_kai.crane.filter_controls"));
+    }
+
     private void renderHoveringText(GuiGraphics graphics, int mouseX, int mouseY) {
         int mx = mouseX - this.leftPos;
         int my = mouseY - this.topPos;
@@ -225,11 +243,10 @@ public class GuiCrane extends AbstractContainerScreen<ContainerCrane> {
                         number(this.menu.getEnergyAmount()), number(this.menu.getEnergyCapacity())));
             }
         }
-        if (mx >= 7 && mx < 169 && (my >= 64 && my < 82 || my >= 95 && my < 113)) {
+        if (mx >= 7 && mx < 169 && (my >= 64 && my < 82 || my >= 95 && my < 113)
+                && !(this.menu.getCarried().isEmpty() && this.hoveredSlot != null && this.hoveredSlot.hasItem())) {
             int slot = (mx - 7) / 18 + (my >= 95 ? 9 : 0);
-            lines.add(Component.translatable(this.menu.getItemMode(slot)
-                    ? "gui.shincolle_kai.crane.excluded" : "gui.shincolle_kai.crane.included"));
-            lines.add(Component.translatable("gui.shincolle_kai.crane.filter_controls"));
+            addFilterTooltip(lines, slot);
         }
 
         if (my > 21 && my < 34) {

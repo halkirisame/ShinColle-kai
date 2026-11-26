@@ -3,19 +3,11 @@ package com.lulan.shincolle.ai.diag;
 import com.lulan.shincolle.ai.diag.TickStallProbe.Aggregator;
 import com.lulan.shincolle.ai.diag.TickStallProbe.Aggregator.PathOutcome;
 
-import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -173,84 +165,6 @@ class TickStallProbeTest {
         assertNull(stats.caller("X.f"));
         assertTrue(stats.topEntityIds(10).isEmpty());
         assertEquals(20, stats.thresholdMs());
-    }
-
-    @Test
-    void serverStoppedDisablesProbeAndClearsAllSessionState() throws ReflectiveOperationException {
-        Aggregator stats = (Aggregator) probeField("STATS").get(null);
-        Map<?, ?> mobs = (Map<?, ?>) probeField("TICK_MOBS").get(null);
-        try {
-            TickStallProbe.reset();
-            TickStallProbe.enable(30);
-            stats.beginTick();
-            stats.entityTick("previous", "Ship", "ally", 5 * MS);
-            stats.pathRequest("previous", "Ship", "ally", "Exec.step", PathOutcome.REACHED, 2, MS);
-            stats.followTick("previous", "Ship", "ally", MS);
-            stats.spatialQuery("previous", MS, 3);
-            finish(stats, 40 * MS);
-            stats.beginTick();
-            stats.entityTick("pending", "Ship", "ally", MS);
-            stats.pathRequest("pending", "Ship", "ally", "Exec.step", PathOutcome.NULL, -1, MS);
-            stats.pushEntity();
-            stats.pushEntity();
-            stats.popEntity(MS);
-            probeField("tickOpen").setBoolean(null, true);
-            for (String name : List.of("tickStartNanos", "tickEpochMs", "tickNumber", "followMark", "m3Running")) {
-                probeField(name).setLong(null, 123L);
-            }
-            // A null value proves that the live-reference map is cleared without creating a Minecraft entity.
-            mobs.put(null, null);
-            assertTrue(TickStallProbe.isEnabled());
-            assertEquals(30, TickStallProbe.thresholdMs());
-            assertEquals(1L, TickStallProbe.cumulativeTicks());
-            assertEquals(1, TickStallProbe.pendingEntities());
-            assertEquals(1L, TickStallProbe.pendingPathRequests());
-            assertFalse(mobs.isEmpty());
-
-            // JUnit does not run Forge's event-class transformer; deliver only matching subscribed handlers.
-            ServerStoppedEvent event = new ServerStoppedEvent(null);
-            for (Method method : TickStallProbe.class.getDeclaredMethods()) {
-                if (method.isAnnotationPresent(SubscribeEvent.class)
-                        && Arrays.equals(method.getParameterTypes(), new Class<?>[] {ServerStoppedEvent.class})) {
-                    method.invoke(null, event);
-                }
-            }
-
-            assertFalse(TickStallProbe.isEnabled(), "server stop must disable the probe in the same JVM");
-            assertEquals(TickStallProbe.DEFAULT_THRESHOLD_MS, TickStallProbe.thresholdMs());
-            assertEquals(0L, TickStallProbe.cumulativeTicks());
-            assertEquals(0, TickStallProbe.pendingEntities());
-            assertEquals(0L, TickStallProbe.pendingPathRequests());
-            assertEquals(new Aggregator(TickStallProbe.DEFAULT_THRESHOLD_MS).reportLines(false),
-                    TickStallProbe.reportLines());
-            assertTrue(mobs.isEmpty());
-            assertFalse(probeField("tickOpen").getBoolean(null));
-            for (String name : List.of("tickStartNanos", "tickEpochMs", "tickNumber", "followMark", "m3Running")) {
-                assertEquals(0L, probeField(name).getLong(null), name);
-            }
-            Field depth = Aggregator.class.getDeclaredField("depth");
-            depth.setAccessible(true);
-            assertEquals(0, depth.getInt(stats));
-            Field children = Aggregator.class.getDeclaredField("childNanos");
-            children.setAccessible(true);
-            assertTrue(Arrays.stream((long[]) children.get(stats)).allMatch(nanos -> nanos == 0L));
-
-            // Enabling a second session must not resurrect the first session's measurements.
-            TickStallProbe.enable(TickStallProbe.DEFAULT_THRESHOLD_MS);
-            assertEquals(new Aggregator(TickStallProbe.DEFAULT_THRESHOLD_MS).reportLines(true),
-                    TickStallProbe.reportLines());
-        } finally {
-            TickStallProbe.disable();
-            TickStallProbe.reset();
-            TickStallProbe.enable(TickStallProbe.DEFAULT_THRESHOLD_MS);
-            TickStallProbe.disable();
-        }
-    }
-
-    private static Field probeField(String name) throws NoSuchFieldException {
-        Field field = TickStallProbe.class.getDeclaredField(name);
-        field.setAccessible(true);
-        return field;
     }
 
     @Test

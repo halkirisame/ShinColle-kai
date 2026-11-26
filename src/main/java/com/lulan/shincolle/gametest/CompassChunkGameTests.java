@@ -30,10 +30,10 @@ public final class CompassChunkGameTests {
         int mode = ConfigHandler.chunkLoaderMode();
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = fixture(helper, entities);
-            ConfigHandler.COMMON.chunkLoaderMode.set(1);
+            ConfigHandler.chunkLoaderMode = 1;
             ship.updateChunkLoader();
             assertRange(helper, ship, 0);
-            ConfigHandler.COMMON.chunkLoaderMode.set(2);
+            ConfigHandler.chunkLoaderMode = 2;
             ship.updateChunkLoader();
             assertRange(helper, ship, 1);
             ship.setPos(ship.getX() + 16D, ship.getY(), ship.getZ());
@@ -45,17 +45,17 @@ public final class CompassChunkGameTests {
             ship.setStateMinor(ID.M.LevelChunkLoader, 3);
             ship.updateChunkLoader();
             assertRange(helper, ship, 1);
-            ConfigHandler.COMMON.chunkLoaderMode.set(0);
+            ConfigHandler.chunkLoaderMode = 0;
             ship.updateChunkLoader();
             helper.assertTrue(tickets(helper, ship).isEmpty(), "Mode zero must release every chunk.");
-            ConfigHandler.COMMON.chunkLoaderMode.set(2);
+            ConfigHandler.chunkLoaderMode = 2;
             ship.updateChunkLoader();
             ship.setStateFlag(ID.F.NoFuel, true);
             ship.updateChunkLoader();
             helper.assertTrue(tickets(helper, ship).isEmpty(), "Losing fuel must release every chunk.");
             checkStartupCallback(helper);
         } finally {
-            ConfigHandler.COMMON.chunkLoaderMode.set(mode);
+            ConfigHandler.chunkLoaderMode = mode;
         }
         helper.succeed();
     }
@@ -64,7 +64,7 @@ public final class CompassChunkGameTests {
     public static void compassReleasesTicketsAtEveryRemovalBoundary(GameTestHelper helper) {
         int mode = ConfigHandler.chunkLoaderMode();
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            ConfigHandler.COMMON.chunkLoaderMode.set(2);
+            ConfigHandler.chunkLoaderMode = 2;
             for (int boundary = 0; boundary < 4; boundary++) {
                 BasicEntityShip ship = fixture(helper, entities);
                 ship.updateChunkLoader();
@@ -86,7 +86,7 @@ public final class CompassChunkGameTests {
                 helper.assertTrue(tickets(helper, ship).isEmpty(), "Removal boundary " + boundary + " leaked tickets.");
             }
         } finally {
-            ConfigHandler.COMMON.chunkLoaderMode.set(mode);
+            ConfigHandler.chunkLoaderMode = mode;
         }
         helper.succeed();
     }

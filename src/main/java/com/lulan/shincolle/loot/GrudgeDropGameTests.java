@@ -145,13 +145,13 @@ public final class GrudgeDropGameTests {
 
     @GameTest(template = "empty", templateNamespace = "minecraft")
     public static void enabledLootingKeepsExplodedBlockLootUntouched(GameTestHelper helper) {
-        boolean previous = ConfigHandler.COMMON.lootingAffectsGrudge.get();
+        boolean previous = ConfigHandler.lootingAffectsGrudge;
         try {
-            ConfigHandler.COMMON.lootingAffectsGrudge.set(true);
+            ConfigHandler.lootingAffectsGrudge = true;
             helper.assertTrue(ConfigHandler.lootingAffectsGrudge(), "Looting option must be enabled");
             explodedBlockLootKeepsNoGrudge(helper);
         } finally {
-            ConfigHandler.COMMON.lootingAffectsGrudge.set(previous);
+            ConfigHandler.lootingAffectsGrudge = previous;
         }
     }
 
@@ -169,11 +169,11 @@ public final class GrudgeDropGameTests {
 
     private static void assertDeathLoot(GameTestHelper helper, boolean enabled, double rate, int lootingLevel,
                                        int min, int max) {
-        boolean previousEnabled = ConfigHandler.COMMON.lootingAffectsGrudge.get();
-        double previousRate = ConfigHandler.COMMON.dropRateGrudge.get();
+        boolean previousEnabled = ConfigHandler.lootingAffectsGrudge;
+        double previousRate = ConfigHandler.dropRateGrudge;
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            ConfigHandler.COMMON.lootingAffectsGrudge.set(enabled);
-            ConfigHandler.COMMON.dropRateGrudge.set(rate);
+            ConfigHandler.lootingAffectsGrudge = enabled;
+            ConfigHandler.dropRateGrudge = rate;
             helper.assertTrue(ConfigHandler.lootingAffectsGrudge() == enabled, "Looting option was not applied");
             helper.assertTrue(ConfigHandler.dropRateGrudge() == rate, "Grudge rate was not applied");
             Creeper victim = entities.add(helper.spawn(EntityType.CREEPER, 1, 2, 1));
@@ -190,17 +190,17 @@ public final class GrudgeDropGameTests {
                                 + " grudge, but seed " + seed + " dropped " + count);
             }
         } finally {
-            ConfigHandler.COMMON.lootingAffectsGrudge.set(previousEnabled);
-            ConfigHandler.COMMON.dropRateGrudge.set(previousRate);
+            ConfigHandler.lootingAffectsGrudge = previousEnabled;
+            ConfigHandler.dropRateGrudge = previousRate;
         }
     }
 
     private static void assertEventLoot(GameTestHelper helper, int eventLevel, int expected) {
-        boolean previousEnabled = ConfigHandler.COMMON.lootingAffectsGrudge.get();
-        double previousRate = ConfigHandler.COMMON.dropRateGrudge.get();
+        boolean previousEnabled = ConfigHandler.lootingAffectsGrudge;
+        double previousRate = ConfigHandler.dropRateGrudge;
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            ConfigHandler.COMMON.lootingAffectsGrudge.set(true);
-            ConfigHandler.COMMON.dropRateGrudge.set(1.0D);
+            ConfigHandler.lootingAffectsGrudge = true;
+            ConfigHandler.dropRateGrudge = 1.0D;
             helper.assertTrue(ConfigHandler.lootingAffectsGrudge(), "Looting option must be enabled");
             helper.assertTrue(ConfigHandler.dropRateGrudge() == 1.0D, "Grudge rate must be 1.0");
             Creeper victim = entities.add(helper.spawn(EntityType.CREEPER, 1, 2, 1));
@@ -225,8 +225,8 @@ public final class GrudgeDropGameTests {
                 MinecraftForge.EVENT_BUS.unregister(listener);
             }
         } finally {
-            ConfigHandler.COMMON.lootingAffectsGrudge.set(previousEnabled);
-            ConfigHandler.COMMON.dropRateGrudge.set(previousRate);
+            ConfigHandler.lootingAffectsGrudge = previousEnabled;
+            ConfigHandler.dropRateGrudge = previousRate;
         }
     }
 
