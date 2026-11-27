@@ -53,7 +53,6 @@ public class EntityCLTatsuta extends BasicEntityShipSmall {
         GoalSelectorHelper.stopAndRemove(this.goalSelector, goal -> goal instanceof ShipSkillAttackGoal);
         this.goalSelector.addGoal(0, new ShipSkillAttackGoal(this));
 
-        // range attack
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
 
         // pick item
@@ -87,10 +86,10 @@ public class EntityCLTatsuta extends BasicEntityShipSmall {
         super.calcShipAttributesAddRaw();
 
         if (!this.level().isDay()) {
-            this.shipAttrs.setAttrsBuffed(ID.Attrs.CRI,
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.CRI) + 0.15F);
-            this.shipAttrs.setAttrsBuffed(ID.Attrs.DODGE,
-                    this.shipAttrs.getAttrsBuffed(ID.Attrs.DODGE) + 0.15F);
+            this.shipAttrs.setAttrsRaw(ID.Attrs.CRI,
+                    this.shipAttrs.getAttrsRaw(ID.Attrs.CRI) + 0.15F);
+            this.shipAttrs.setAttrsRaw(ID.Attrs.DODGE,
+                    this.shipAttrs.getAttrsRaw(ID.Attrs.DODGE) + 0.15F);
         }
     }
 

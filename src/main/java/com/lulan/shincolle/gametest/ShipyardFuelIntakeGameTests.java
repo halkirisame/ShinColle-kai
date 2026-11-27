@@ -4,6 +4,7 @@ import com.lulan.shincolle.client.gui.inventory.ContainerLargeShipyard;
 import com.lulan.shincolle.client.gui.inventory.ContainerSmallShipyard;
 import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.init.ModBlocks;
+import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.tileentity.TileEntitySmallShipyard;
 import com.lulan.shincolle.tileentity.TileMultiGrudgeHeavy;
@@ -18,6 +19,7 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.config.ConfigTracker;
@@ -26,7 +28,6 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
-import java.util.List;
 import java.util.UUID;
 
 @GameTestHolder(Reference.MOD_ID)
@@ -277,6 +278,126 @@ public final class ShipyardFuelIntakeGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void largeAcceptsOnlySingleWholeLavaFuelContainers(GameTestHelper helper) {
+        var tile = large(helper, 0);
+        helper.assertTrue(tile.isItemValidForSlot(1, filledShipTank(helper, Fluids.LAVA, 2500)),
+                "Large input must accept a single tank with at least one lava bucket");
+        helper.assertTrue(!tile.isItemValidForSlot(1, filledShipTank(helper, Fluids.LAVA, 500))
+                        && !tile.isItemValidForSlot(1, filledShipTank(helper, Fluids.WATER, 2000)),
+                "Partial lava and water must not be accepted as fuel containers");
+        var stacked = filledShipTank(helper, Fluids.LAVA, 2000);
+        stacked.setCount(2);
+        helper.assertTrue(!tile.isItemValidForSlot(1, stacked), "Stacked fuel containers must be rejected");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
+    public static void largeLavaContainerDrainsOneBucketPerTickAndKeepsRemainder(GameTestHelper helper) {
+        withFuelValues(helper, 1, 1, () -> {
+            var tile = large(helper, 0);
+            tile.getInventory().setStackInSlot(1, filledShipTank(helper, Fluids.LAVA, 2500));
+            tick(helper, tile);
+            helper.assertTrue(tile.getPowerRemained() == (int) (20000 * tile.getFuelMagni())
+                            && remainingFluid(tile, 1) == 1500
+                            && tile.getInventory().getStackInSlot(1).is(ModItems.SHIP_TANK.get()),
+                    "First tick must consume 1000mB and retain the tank with 1500mB");
+            tick(helper, tile);
+            helper.assertTrue(tile.getPowerRemained() == 40000 && remainingFluid(tile, 1) == 500,
+                    "Second tick must consume exactly one more bucket");
+            tick(helper, tile);
+            helper.assertTrue(tile.getPowerRemained() == 40000 && remainingFluid(tile, 1) == 500,
+                    "Sub-bucket remainder must not be consumed");
+        });
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
+    public static void largeFullFuelRetainsLavaContainerContents(GameTestHelper helper) {
+        withFuelValues(helper, 1, 1, () -> {
+            for (int excess : new int[]{0, 1}) {
+                var tile = large(helper, 1382400 + excess);
+                tile.getInventory().setStackInSlot(1, filledShipTank(helper, Fluids.LAVA, 2500));
+                tick(helper, tile);
+                helper.assertTrue(tile.getPowerRemained() == 1382400 + excess && remainingFluid(tile, 1) == 2500,
+                        "Full or overflow storage must not drain the lava container");
+            }
+        });
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft")
+    public static void largeAutomationExtractsSpentContainersButRetainsFuelAndResources(GameTestHelper helper) {
+        var tile = large(helper, 0);
+        var inventory = tile.getInventory();
+        inventory.setStackInSlot(1, filledShipTank(helper, Fluids.LAVA, 500));
+        inventory.setStackInSlot(2, new ItemStack(Items.BUCKET));
+        inventory.setStackInSlot(3, filledShipTank(helper, Fluids.LAVA, 2500));
+        inventory.setStackInSlot(4, new ItemStack(Items.COAL));
+        inventory.setStackInSlot(5, new ItemStack(ModItems.GRUDGE.get()));
+        inventory.setStackInSlot(6, new ItemStack(ModItems.SHIP_SPAWN_EGG.get()));
+        inventory.setStackInSlot(7, new ItemStack(ModItems.INSTANT_CON_MAT.get()));
+        var automation = tile.getCapability(ForgeCapabilities.ITEM_HANDLER).orElseThrow(IllegalStateException::new);
+        helper.assertTrue(automation.extractItem(1, 1, true).is(ModItems.SHIP_TANK.get())
+                        && remainingFluid(tile, 1) == 500,
+                "Simulated extraction must expose but not mutate a spent tank");
+        helper.assertTrue(automation.extractItem(1, 1, false).is(ModItems.SHIP_TANK.get())
+                        && automation.extractItem(2, 1, false).is(Items.BUCKET)
+                        && inventory.getStackInSlot(1).isEmpty() && inventory.getStackInSlot(2).isEmpty(),
+                "Recycle mode must let automation remove partial tanks and empty buckets");
+        for (int slot = 3; slot <= 7; slot++) {
+            helper.assertTrue(automation.extractItem(slot, 64, false).isEmpty(),
+                    "Automation must retain usable fuel, resources, eggs and construction material in slot " + slot);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "config_consumers")
+    public static void largeLavaContainersRespectFuelMultiplierAndSaturation(GameTestHelper helper) {
+        withFuelValues(helper, 1, 1, () -> {
+            var tile = large(helper, 1382399);
+            tile.getInventory().setStackInSlot(1, filledShipTank(helper, Fluids.LAVA, 2000));
+            tick(helper, tile);
+            helper.assertTrue(tile.getPowerRemained() == 1402399 && remainingFluid(tile, 1) == 1000,
+                    "One unit of capacity must permit a full bucket's fuel value to overflow");
+            tick(helper, tile);
+            helper.assertTrue(tile.getPowerRemained() == 1402399 && remainingFluid(tile, 1) == 1000,
+                    "Overflow must prevent further container intake");
+        });
+        withFuelValues(helper, 1, 1e9, () -> {
+            var tile = large(helper, 1);
+            tile.getInventory().setStackInSlot(1, filledShipTank(helper, Fluids.LAVA, 1000));
+            tick(helper, tile);
+            helper.assertTrue(tile.getPowerRemained() == Integer.MAX_VALUE && remainingFluid(tile, 1) == 0,
+                    "Extreme multiplier must saturate without wrapping and retain the empty tank");
+        });
+        for (double multiplier : new double[]{0, -1}) {
+            withFuelValues(helper, 1, multiplier, () -> {
+                var tile = large(helper, 0);
+                tile.getInventory().setStackInSlot(1, filledShipTank(helper, Fluids.LAVA, 1000));
+                tick(helper, tile);
+                helper.assertTrue(tile.getPowerRemained() == 0 && remainingFluid(tile, 1) == 1000,
+                        "Nonpositive fuel value must not consume a container's contents");
+            });
+        }
+        helper.succeed();
+    }
+
+    private static ItemStack filledShipTank(GameTestHelper helper,
+                                           net.minecraft.world.level.material.Fluid fluid, int amount) {
+        var handler = FluidUtil.getFluidHandler(new ItemStack(ModItems.SHIP_TANK.get()))
+                .orElseThrow(IllegalStateException::new);
+        helper.assertTrue(handler.fill(new FluidStack(fluid, amount), IFluidHandler.FluidAction.EXECUTE) == amount
+                        && handler.getFluidInTank(0).getAmount() == amount,
+                "Ship-tank fixture must contain the requested fluid amount");
+        return handler.getContainer();
+    }
+
+    private static int remainingFluid(TileMultiGrudgeHeavy tile, int slot) {
+        return FluidUtil.getFluidHandler(tile.getInventory().getStackInSlot(slot)).orElseThrow(IllegalStateException::new)
+                .getFluidInTank(0).getAmount();
+    }
+
     private static TileEntitySmallShipyard small(GameTestHelper helper, int fuel) {
         var tile = new TileEntitySmallShipyard(helper.absolutePos(new BlockPos(1, 2, 1)),
                 ModBlocks.SMALL_SHIPYARD.get().defaultBlockState());
@@ -292,6 +413,8 @@ public final class ShipyardFuelIntakeGameTests {
         var tile = new TileMultiGrudgeHeavy(helper.absolutePos(new BlockPos(2, 2, 2)),
                 ModBlocks.GRUDGE_HEAVY.get().defaultBlockState());
         tile.setLevel(helper.getLevel());
+        tile.setCorePos(tile.getBlockPos());
+        helper.assertTrue(tile.hasCorePos(), "Large fuel-intake fixture must represent a formed core");
         tile.setPowerRemained(fuel);
         helper.assertTrue(tile.getPowerRemained() == fuel && tile.getPowerMax() == 1382400
                         && tile.getBuildType() == 0 && tile.getInvMode() == 0,
@@ -320,28 +443,18 @@ public final class ShipyardFuelIntakeGameTests {
     }
 
     private static void withFuelValues(GameTestHelper helper, double smallValue, double largeValue, Runnable checks) {
-        var smallConfig = ConfigHandler.COMMON.tileShipyardSmallConfig;
-        var largeConfig = ConfigHandler.COMMON.tileShipyardLargeConfig;
-        var oldSmall = smallConfig.get();
-        var oldLarge = largeConfig.get();
-        TileEntitySmallShipyard.reloadConfig();
-        TileMultiGrudgeHeavy.reloadConfig();
         try {
-            smallConfig.set(List.of(460800D, 48D, smallValue));
-            largeConfig.set(List.of(1382400D, 48D, largeValue));
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileShipyardSmall[2] == smallValue
-                            && ConfigHandler.tileShipyardLarge[2] == largeValue
-                            && small(helper, 0).getFuelMagni() == (float) smallValue
-                            && large(helper, 0).getFuelMagni() == (float) largeValue,
-                    "Fuel-value fixture must reach both config cache and tile statics through production reload");
-            checks.run();
-        } finally {
-            smallConfig.set(oldSmall);
-            largeConfig.set(oldLarge);
-            fireReload();
+            ConfigConsumerGameTests.setCached(ConfigHandler.tileShipyardSmall, 460800D, 48D, smallValue);
+            ConfigConsumerGameTests.setCached(ConfigHandler.tileShipyardLarge, 1382400D, 48D, largeValue);
             TileEntitySmallShipyard.reloadConfig();
             TileMultiGrudgeHeavy.reloadConfig();
+            helper.assertTrue(small(helper, 0).getFuelMagni() == (float) smallValue
+                            && large(helper, 0).getFuelMagni() == (float) largeValue,
+                    "Fuel-value fixture must reach the tile statics");
+            checks.run();
+        } finally {
+            // The production reload event restores the cache from the config and reloads the tiles.
+            fireReload();
         }
     }
 

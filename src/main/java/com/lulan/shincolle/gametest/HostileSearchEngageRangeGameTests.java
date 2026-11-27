@@ -152,6 +152,15 @@ public final class HostileSearchEngageRangeGameTests {
             batch = "isolated_hostile_search_cost")
     public static void thirtyTwoHostileAutomaticSearchCost(GameTestHelper helper) {
         Vec3 relative = new Vec3(0D, 8D, 3072D);
+        Vec3[] ring = new Vec3[64];
+        for (int i = 0; i < ring.length; i++) {
+            double angle = i * Math.PI / 32D;
+            ring[i] = relative.add(22D * Math.cos(angle), 0D, 22D * Math.sin(angle));
+        }
+        Vec3[] ticking = Arrays.copyOf(ring, ring.length + 3);
+        ticking[ring.length] = relative;
+        ticking[ring.length + 1] = relative.add(26D, 0D, 26D);
+        ticking[ring.length + 2] = relative.add(-26D, 0D, -26D);
         GameTestEntities.whenPositionsTicking(helper, () -> {
             try (GameTestEntities entities = GameTestEntities.open(helper)) {
                 CountingHostile[] ships = new CountingHostile[32];
@@ -165,10 +174,9 @@ public final class HostileSearchEngageRangeGameTests {
                     helper.assertTrue(helper.getLevel().addFreshEntity(ships[i]), "Benchmark ship registration failed");
                     goals[i] = new ShipTargetAuthorityGoal(ships[i]);
                 }
-                for (int i = 0; i < 64; i++) {
+                for (Vec3 at : ring) {
                     Entity cow = entities.add(EntityType.COW.create(helper.getLevel()));
-                    double angle = i * Math.PI / 32D;
-                    cow.moveTo(origin.add(22D * Math.cos(angle), 0D, 22D * Math.sin(angle)));
+                    cow.moveTo(helper.absoluteVec(at));
                     cow.setNoGravity(true);
                     helper.assertTrue(helper.getLevel().addFreshEntity(cow), "Benchmark background registration failed");
                 }
@@ -192,7 +200,7 @@ public final class HostileSearchEngageRangeGameTests {
                 }
                 helper.succeed();
             }
-        }, relative, relative.add(26D, 0D, 26D), relative.add(-26D, 0D, -26D));
+        }, ticking);
     }
 
     private static final class CountingFriendly extends EntityDestroyerInazuma {

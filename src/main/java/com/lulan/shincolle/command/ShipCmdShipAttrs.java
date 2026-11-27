@@ -186,7 +186,6 @@ public class ShipCmdShipAttrs {
             return 0;
         }
 
-        // Set ship level
         ship.setShipLevel(level, false);
 
         // Set bonus attrs

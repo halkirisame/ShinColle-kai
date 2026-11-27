@@ -26,7 +26,6 @@ import org.jetbrains.annotations.NotNull;
  * destroyed by a hostile mob's explosion drop grudge instead of their own drops.</p>
  */
 public class AddItemModifier extends LootModifier {
-    // CODEC：Java <-> JSONへの変換をするための機能
     public static final Codec<AddItemModifier> CODEC = RecordCodecBuilder.create(
             instance -> codecStart(instance).apply(instance, AddItemModifier::new)
     );

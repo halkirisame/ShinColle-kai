@@ -21,6 +21,8 @@ import com.lulan.shincolle.ai.domain.TargetLockReducer;
 import com.lulan.shincolle.ai.domain.TargetObservationProfiler;
 import com.lulan.shincolle.ai.domain.TargetPredicateKind;
 import com.lulan.shincolle.ai.domain.TargetPredicatePolicy;
+import com.lulan.shincolle.ai.domain.TargetPriorityClassifier;
+import com.lulan.shincolle.ai.domain.TargetPriorityTier;
 import com.lulan.shincolle.ai.domain.TargetSource;
 import com.lulan.shincolle.ai.domain.TargetState;
 import com.lulan.shincolle.ai.observation.MinecraftEntityObservationAdapter;
@@ -109,10 +111,9 @@ public final class ShipTargetAuthorityGoal extends Goal {
                 tick, this.state, gate, manual, revenge, current, Optional.empty(), assist);
         TargetAuthorityDecision decision = TargetLockReducer.reduce(withoutScan);
 
-        if (decision.next().lock().isEmpty()
-                && TargetLockReducer.autoScanDue(decision.next(), gate, tick)) {
+        if (TargetLockReducer.autoScanDue(decision.next(), gate, tick, current)) {
             this.autoRange = searchRange();
-            TargetState scan = scan(level, tick);
+            TargetState scan = scan(level, tick, decision.next().lock());
             decision = TargetLockReducer.reduce(new TargetAuthorityInput(
                     tick, this.state, gate, manual, revenge, current, Optional.of(scan), assist));
         }
@@ -154,7 +155,8 @@ public final class ShipTargetAuthorityGoal extends Goal {
                 this.friendly == null || !this.friendly.getStateFlag(ID.F.PassiveAI),
                 this.host.getIsSitting(),
                 ShipMovementGate.craneBusy(this.host),
-                this.host.getStateFlag(ID.F.NoFuel));
+                this.host.getStateFlag(ID.F.NoFuel),
+                this.friendly != null && this.friendly.getStateFlag(ID.F.AntiAir));
     }
 
     private Optional<ManualOrderObservation> observeManual() {
@@ -196,14 +198,24 @@ public final class ShipTargetAuthorityGoal extends Goal {
                 this.host.getAttrs().getAttackRange());
         double range = ShipSkillAttackGate.targetRetentionRange(this.entity,
                 ordinaryRange, true);
+        TargetPriorityTier priority = TargetPriorityTier.NORMAL;
+        if (resolved != null) {
+            TargetPredicateKind kind = this.friendly == null
+                    ? TargetPredicateKind.HOSTILE_AUTOMATIC : TargetPredicateKind.FRIENDLY_AUTOMATIC;
+            TargetPredicatePolicy policy = targetPolicy(this.host);
+            var classified = MinecraftTargetClassificationAdapter.classify(
+                    this.entity, resolved, kind, policy, this.host.getTickExisted(), TargetObservationProfiler.NOOP);
+            priority = TargetPriorityClassifier.classify(kind, classified.classification().value(), policy);
+        }
         return Optional.of(new CurrentLockObservation(
                 resolved != null,
                 resolved != null && resolved.isAlive() && !resolved.isRemoved(),
                 resolved != null && this.entity.distanceToSqr(resolved) <= range * range,
-                resolved instanceof Player player && player.getAbilities().invulnerable));
+                resolved instanceof Player player && player.getAbilities().invulnerable,
+                priority));
     }
 
-    private TargetState scan(ServerLevel level, int tick) {
+    private TargetState scan(ServerLevel level, int tick, Optional<TargetLock> currentLock) {
         RawEntityObservation self = MinecraftEntityObservationAdapter.observe(this.entity);
         SpatialQuery query = new SpatialQuery(
                 self.handle(), self.position(), MinecraftEntityObservationAdapter.boundsOf(this.entity),
@@ -227,8 +239,9 @@ public final class ShipTargetAuthorityGoal extends Goal {
             candidates.add(new TargetCandidate(
                     raw.handle(), classified.classification().value(), x * x + y * y + z * z));
         }
-        return TargetCandidateSelector.select(
+        return TargetCandidateSelector.selectAutomatic(
                 tick, self.handle(), candidates, kind, policy,
+                currentLock,
                 AiRandomSource.forEntity(this.entity, AiRandomStream.TARGET_SELECTION));
     }
 

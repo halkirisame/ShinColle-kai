@@ -154,7 +154,7 @@ public final class CraneLifecycleGameTests {
                 goal.tick();
                 helper.assertTrue(request.equals(ship.shipMovementExecutor().last()),
                         "Repeated calls in the same tick must not issue unconditional paths.");
-                ship.setStateMinor(ID.M.NumGrudge, 0);
+                entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, 0);
                 ship.setStateFlag(ID.F.NoFuel, true);
                 helper.assertTrue(!goal.canUse(), "The docking goal must still obey fuel and action constraints.");
                 helper.succeed();

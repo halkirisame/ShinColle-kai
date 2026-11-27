@@ -137,7 +137,6 @@ public final class ShinColleEntityRegistryGameTests {
         }).thenExecute(GameTestVerification.namedFailure(verification)).thenSucceed();
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void criticalEntityTypesCreate(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -152,7 +151,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void criticalItemsServerSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -165,7 +163,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void allRegisteredItemsTooltipServerSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -180,7 +177,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void allRegisteredEntityTypesCreate(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -196,7 +192,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void pointerAndRingServerInteractionSafe(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -229,7 +224,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void pointerModeNbtAndInvalidModeGuard(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -253,7 +247,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void pointerOpenItemGuiOpensFormationMenu(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -275,7 +268,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void formationSetUnitNamePacketUpdatesTeamName(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -303,7 +295,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void formationSwapShipPacketSwapsSelectedTeamSlots(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -343,7 +334,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void deskBreakPacketSupportsTeamIdPayload(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -379,7 +369,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void deskUnbanPacketSupportsTeamIdPayload(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -418,7 +407,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void syncTeamDataPacketIncludesKnownTeamIds(GameTestHelper helper) {
         CapaTeitoku capa = new CapaTeitoku();
@@ -460,7 +448,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void craneTileBtnAppliesExplicitValues(GameTestHelper helper) {
         TileEntityCrane tile = new TileEntityCrane(BlockPos.ZERO, Blocks.AIR.defaultBlockState());
@@ -523,7 +510,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipInvPagePacketUpdatesOpenedContainerPage(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -730,7 +716,7 @@ public final class ShinColleEntityRegistryGameTests {
             if (ship.getStateMinor(ID.M.FollowMin) != 1 || ship.getStateMinor(ID.M.FollowMax) != 2
                     || ship.getStateMinor(ID.M.FleeHP) != 100 || ship.getStateMinor(ID.M.WpStay) != 0
                     || ship.getStateMinor(ID.M.Task) != 4
-                    || ship.getStateMinor(ID.M.TaskSide) != 0x17FFFF
+                    || ship.getStateMinor(ID.M.TaskSide) != 0x1FFFFF
                     || ship.getStateFlag(ID.F.NoFuel)) {
                 throw new AssertionError("Ship AI packet values were not clamped to server-owned ranges.");
             }
@@ -774,7 +760,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void clientRuntimeHelperServerGuardSafe(GameTestHelper helper) {
         if (ClientRuntimeHelper.getClientPlayer() != null) {
@@ -787,7 +772,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void tooltipFallbackAndHideFlagsServerBehavior(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -837,7 +821,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena", batch = "isolated_critical_entity_spawn_and_tick_server_safe")
     public static void criticalEntitySpawnAndTickServerSafe(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -852,7 +835,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena", batch = "isolated_black_hole_special_effect_spawns_static_projectile")
     public static void blackHoleSpecialEffectSpawnsStaticProjectile(GameTestHelper helper) {
         Vec3 hostPosition = new Vec3(0.5D, helper.getLevel().getSharedSpawnPos().getY() + 1D, 0.5D);
@@ -889,7 +871,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/07：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void floatingFortHeavyAttackDetonatesAndDespawns(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -932,7 +913,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightPlacesLightOnlyAtNight(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -973,7 +953,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightSkipsWhenNoFuel(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1009,7 +988,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightSkipsWhenNotAlive(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1047,7 +1025,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileSearchlightNightWindowBoundaries(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1103,7 +1080,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena", batch = "isolated_ship_pick_item_goal_respects_fuel_and_pick_flag")
     public static void shipPickItemGoalRespectsFuelAndPickFlag(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1248,7 +1224,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipFollowOwnerGoalRespectsCoreGuards(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1321,7 +1296,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void lightCruiserSkillAttackGoalUsesLegacyPriority(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1334,7 +1308,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     /**
      * A mount that its host is not riding is an orphan and removes itself.
@@ -1393,7 +1366,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void mountFollowHostBlockedWhenRidden(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1450,7 +1422,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipSpawnEggSpecificClassPriorityAndLegacyTypeConversion(GameTestHelper helper) {
         ItemStack classOnly = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
@@ -1494,7 +1465,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipSpawnEggIconMappingMatchesLegacyCategories(GameTestHelper helper) {
         ItemStack smallBuild = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
@@ -1527,7 +1497,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipSpawnEggModelLayerAssignmentsMatchLegacy(GameTestHelper helper) {
         // [PORT] 1.10.2 -> 1.20.1: lock legacy icon->texture assignment to avoid silent
@@ -1547,7 +1516,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void hostileGoalListContainsWanderAndOpenDoor(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1589,7 +1557,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/15：GitHub Copilotによって追加
     @GameTest(template = "arena")
     public static void hostileTargetSelectorHoldsOnlyTheAuthorityGoal(GameTestHelper helper) {
         withEntities(helper, entities -> {
@@ -1660,7 +1627,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/20：GitHub Copilotによって追加
     @GameTest(template = "arena", batch = "isolated_hostile_range_target_goal_acquires_friendly_ship")
     public static void hostileTargetAuthorityAcquiresFriendlyShip(GameTestHelper helper) {
         double entityY = helper.getLevel().getSharedSpawnPos().getY() + 1D;
@@ -1724,7 +1690,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/20：GitHub Copilotによって追加
     @GameTest(template = "arena", batch = "isolated_friendly_range_target_goal_acquires_hostile_ship")
     public static void friendlyTargetAuthorityAcquiresHostileShip(GameTestHelper helper) {
         Vec3 friendlyPos = helper.absoluteVec(new Vec3(0.5D, 1.0D, 0.5D));
@@ -1802,7 +1767,6 @@ public final class ShinColleEntityRegistryGameTests {
         });
     }
 
-    // 2026/04/11：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void shipCalcRollTablesExcludeRemovedKanmusuClasses(GameTestHelper helper) {
         Set<Integer> forbiddenSmall = new HashSet<>();
@@ -1857,7 +1821,6 @@ public final class ShinColleEntityRegistryGameTests {
         helper.succeed();
     }
 
-    // 2026/04/12：GitHub Copilotによって確認済み
     @GameTest(template = "arena")
     public static void largeShipyardMultiblockReformsAfterStaleCoreCleanup(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -1933,6 +1896,8 @@ public final class ShinColleEntityRegistryGameTests {
         if (!(level.getBlockEntity(largePos) instanceof TileMultiGrudgeHeavy large)) {
             throw new AssertionError("Large shipyard tile was not created.");
         }
+        large.setCorePos(large.getBlockPos());
+        helper.assertTrue(large.hasCorePos(), "Construction fixture must represent a formed large core");
         large.setBuildType(1);
         large.setPowerGoal(1); // Simulates stale saved state from an earlier valid recipe.
         for (int i = 0; i < 4; i++) {
@@ -2160,6 +2125,8 @@ public final class ShinColleEntityRegistryGameTests {
         if (!(level.getBlockEntity(largePos) instanceof TileMultiGrudgeHeavy large)) {
             throw new AssertionError("Large shipyard tile was not created for fluid test.");
         }
+        large.setCorePos(large.getBlockPos());
+        helper.assertTrue(large.hasCorePos(), "Fluid fixture must represent a formed large core");
         IFluidHandler largeFluid = large.getCapability(ForgeCapabilities.FLUID_HANDLER).orElseThrow(
                 () -> new AssertionError("Large shipyard did not expose a fluid handler."));
         assertLavaFuelConversion(largeFluid, large.getPowerRemained(), large.getFuelMagni(),
@@ -2177,6 +2144,8 @@ public final class ShinColleEntityRegistryGameTests {
         if (!(level.getBlockEntity(shipyardPos) instanceof TileMultiGrudgeHeavy shipyard)) {
             throw new AssertionError("Large shipyard tile was not created for spawn egg recycling.");
         }
+        shipyard.setCorePos(shipyard.getBlockPos());
+        helper.assertTrue(shipyard.hasCorePos(), "Egg recycling fixture must represent a formed core");
 
         ItemStack egg = new ItemStack(ModItems.SHIP_SPAWN_EGG.get());
         ShipSpawnEgg.setShipClass(egg, ID.ShipClass.DDI);
@@ -2281,6 +2250,8 @@ public final class ShinColleEntityRegistryGameTests {
         if (!(level.getBlockEntity(shipyardPos) instanceof TileMultiGrudgeHeavy shipyard)) {
             throw new AssertionError("Large shipyard tile was not created for inventory mode test.");
         }
+        shipyard.setCorePos(shipyard.getBlockPos());
+        helper.assertTrue(shipyard.hasCorePos(), "Inventory mode fixture must represent a formed core");
 
         boolean originalEasyMode = ConfigHandler.easyMode;
         try {
@@ -2479,6 +2450,8 @@ public final class ShinColleEntityRegistryGameTests {
         if (!(level.getBlockEntity(absolutePos) instanceof TileMultiGrudgeHeavy shipyard)) {
             throw new AssertionError("Large shipyard tile was not created for " + scenario + ".");
         }
+        shipyard.setCorePos(shipyard.getBlockPos());
+        helper.assertTrue(shipyard.hasCorePos(), "Resource fixture must represent a formed large core");
         shipyard.setInvMode(0);
         return shipyard;
     }
@@ -4169,6 +4142,10 @@ public final class ShinColleEntityRegistryGameTests {
             Entity entity = entities.add(type.create(level));
             if (entity == null) {
                 throw new AssertionError("EntityType#create returned null: " + id);
+            }
+            if (entity instanceof BasicEntityShip ship) {
+                // only spawning and one tick are under test, not what a fueled ship would do
+                entities.allowOutOfFuel(ship);
             }
 
             entity.moveTo(0.5D, level.getSharedSpawnPos().getY() + 1D, 0.5D, 0F, 0F);

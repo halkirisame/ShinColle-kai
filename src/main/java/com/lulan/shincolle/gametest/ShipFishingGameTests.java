@@ -31,6 +31,9 @@ public final class ShipFishingGameTests {
     @GameTest(template = "arena", batch = "isolated_ship_fishing")
     public static void taskFloatStaysAtTheSurfaceWithoutGeneratingItsOwnLoot(GameTestHelper helper) {
         fixture(helper, (ship, entities) -> {
+            ship.setStateMinor(ID.M.Task, 2);
+            helper.assertTrue(ConfigHandler.enableTask[1] && ship.getStateMinor(ID.M.Task) == 2,
+                    "Fixture: fishing is selected and globally enabled while the float waits");
             TaskHelper.onUpdateFishing(ship);
             EntityShipFishingHook hook = entities.add(ship.fishHook);
             helper.assertTrue(hook != null, "Fixture: a deep pond must produce a float");

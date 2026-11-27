@@ -163,7 +163,7 @@ public final class RepeatedDeathCuriosGameTests {
         BasicEntityShip ship = entities.add(ModEntities.DESTROYER_I.get().create(helper.getLevel()));
         ship.moveTo(helper.absoluteVec(POSITION));
         ship.setNoGravity(true);
-        ship.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, ship);
         ship.setStateMinor(ID.M.NumGrudge, 100_000);
         ship.setStateFlag(ID.F.NoFuel, false);
         ship.setStateFlag(ID.F.CanDrop, true);
@@ -176,7 +176,7 @@ public final class RepeatedDeathCuriosGameTests {
         BasicEntityShip ship = fixture(helper, entities);
         ShipCuriosIntegration.loadEquipped(ship, equipment);
         helper.assertTrue(equipment.equals(ShipCuriosIntegration.saveEquipped(ship)), "real equipment must be worn");
-        helper.assertTrue(ship.hurt(ship.damageSources().magic(), ship.getMaxHealth() * 2F)
+        helper.assertTrue(entities.allowDamage(ship).hurt(ship.damageSources().magic(), ship.getMaxHealth() * 2F)
                         && ship.isDeadOrDying() && ship.isPickable() && ship.deathTime == 0,
                 "magic must start death waiting while leaving a pickable victim");
         helper.assertTrue(snapshot(ship).equals(equipment) && ShipCuriosIntegration.saveEquipped(ship).isEmpty()

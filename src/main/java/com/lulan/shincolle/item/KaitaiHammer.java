@@ -66,7 +66,7 @@ public class KaitaiHammer extends BasicItem {
 
         if (!player.level().isClientSide()
                 && (TeamHelper.checkSameOwner(player, ship) || ServerDataManager.checkOP(player))) {
-            ship.hurt(player.damageSources().playerAttack(player), ship.getMaxHealth() * 1.1F);
+            ship.dismantleWithHammer(player);
 
             if (!player.getAbilities().instabuild) {
                 stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(p.getUsedItemHand()));

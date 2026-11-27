@@ -291,7 +291,6 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
             }
         }
 
-        // Draw formation buff header
         String fpHeader = I18n.get("gui.shincolle_kai.formation.buffs");
         graphics.drawString(this.font, fpHeader, 10, 40, 0xCC88FF, true);
 
@@ -302,7 +301,6 @@ public class GuiFormation extends AbstractContainerScreen<ContainerFormation> {
             int barY = barStartY + i * 15;
             int labelX = 9;
 
-            // Label
             graphics.drawString(this.font, ATTR_LABELS[i], labelX, barY, ATTR_COLORS[i], true);
 
             int barBgX = labelX + 40;

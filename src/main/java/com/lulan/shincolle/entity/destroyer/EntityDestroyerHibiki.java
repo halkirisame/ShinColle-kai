@@ -65,7 +65,6 @@ public class EntityDestroyerHibiki extends BasicEntityShipSmall implements IShip
     public void setAIList() {
         super.setAIList();
 
-        // range attack
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
 
         // pick item
@@ -74,8 +73,9 @@ public class EntityDestroyerHibiki extends BasicEntityShipSmall implements IShip
 
     @Override
     public void calcShipAttributesAddRaw() {
+        super.calcShipAttributesAddRaw();
         // add 30% dodge
-        this.shipAttrs.setAttrsBuffed(ID.Attrs.DODGE, this.shipAttrs.getAttrsBuffed(ID.Attrs.DODGE) + 0.3F);
+        this.shipAttrs.setAttrsRaw(ID.Attrs.DODGE, this.shipAttrs.getAttrsRaw(ID.Attrs.DODGE) + 0.3F);
     }
 
     @Override

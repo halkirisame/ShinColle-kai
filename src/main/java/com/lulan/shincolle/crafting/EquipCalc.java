@@ -322,7 +322,6 @@ public class EquipCalc {
             }
         }
 
-        // Apply enchantments to the item
         net.minecraft.world.item.enchantment.EnchantmentHelper.setEnchantments(enchMap, stack);
     }
 

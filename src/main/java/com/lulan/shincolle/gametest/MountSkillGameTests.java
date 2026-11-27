@@ -68,7 +68,7 @@ public final class MountSkillGameTests {
     }
 
     static final class Fixture implements AutoCloseable {
-        private final GameTestEntities entities;
+        final GameTestEntities entities;
         final FakePlayer player;
         final BasicEntityShip ship;
         final BasicEntityMount mount;

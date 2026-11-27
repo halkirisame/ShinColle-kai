@@ -53,21 +53,14 @@ public final class PointerKeyMappings {
         }
         KeyMapping mapping = MAPPINGS.get(action);
         if (mapping.isDefault()) {
+            if (action == Action.GUARD_ENTITY) {
+                return player.isSprinting() || SprintKeyInput.isDown(mc.options.keySprint);
+            }
             // Preserve toggle sneak, remapped vanilla sneak/sprint, double-tap sprint,
             // the vanilla sneak/sprint state until customized.
             return action == Action.FORMATION_GUI ? player.isShiftKeyDown()
                     : PointerInputModifiers.legacyState(action, player);
         }
-        if (mapping.isUnbound() || !mapping.isConflictContextAndModifierActive()) {
-            return false;
-        }
-        InputConstants.Key key = mapping.getKey();
-        long window = mc.getWindow().getWindow();
-        return switch (key.getType()) {
-            case KEYSYM -> InputConstants.isKeyDown(window, key.getValue());
-            case MOUSE -> GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
-            // Unknown key symbols are tracked by the vanilla keyboard callback.
-            case SCANCODE -> mapping.isDown();
-        };
+        return HeldKeyInput.isDown(mapping);
     }
 }

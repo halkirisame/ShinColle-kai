@@ -16,7 +16,7 @@ public final class ProjectileParticleVisuals {
         if (!airplane.level().isClientSide()) {
             return;
         }
-        if (airplane.deathTime >= 19) {
+        if (airplane.deathTime >= 89) {
             // final burst: lava sparks and explosions around the wreck
             for (int i = 0; i < 12; i++) {
                 double ran1 = airplane.getBbWidth() * (airplane.getRandom().nextFloat() - 0.5F);

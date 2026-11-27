@@ -3,6 +3,7 @@ package com.lulan.shincolle.block;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
 import com.lulan.shincolle.init.ModItems;
 import com.lulan.shincolle.tileentity.TileEntityWaypoint;
+import com.lulan.shincolle.utility.TeamHelper;
 import com.lulan.shincolle.utility.WaypointStayTime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
@@ -68,7 +69,7 @@ public class BlockWaypoint extends BasicBlockContainer {
         boolean owned = waypoint.getOwnerUUID() != null
                 && waypoint.getOwnerUUID().equals(player.getUUID())
                 && player.getCapability(CapaTeitokuProvider.CAPABILITY)
-                .map(capa -> capa.getPlayerUID() > 0 && capa.getPlayerUID() == waypoint.getPlayerUID())
+                .map(capa -> TeamHelper.checkSameOwner(capa.getPlayerUID(), waypoint.getPlayerUID()))
                 .orElse(false);
         if (!owned) {
             return InteractionResult.PASS;

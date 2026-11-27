@@ -56,7 +56,6 @@ public class RenderSmallShipyard implements BlockEntityRenderer<TileEntitySmallS
         boolean active = state.hasProperty(BlockSmallShipyard.ACTIVE) && state.getValue(BlockSmallShipyard.ACTIVE);
         ResourceLocation texture = active ? TEXTURE_ON : TEXTURE_OFF;
 
-        // Determine facing angle
         float angle = getFacingAngle(state);
 
         poseStack.pushPose();

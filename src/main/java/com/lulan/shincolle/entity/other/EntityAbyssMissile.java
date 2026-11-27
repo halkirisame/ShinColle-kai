@@ -64,6 +64,8 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
     // velocity
     public double velX, velY, velZ;
     public double vel0;
+    /** Client-local presentation latch; neither saved nor synchronized. */
+    public boolean clientEnteredLiquidForTrail;
     public double accY1, accY2;
     public double t0, t1;
     protected IShipAttackBase host;
@@ -465,7 +467,6 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
         }
 
         if (!this.level().isClientSide()) {
-            // 2026/04/07・哦itHub Copilot縺ｫ繧医▲縺ｦ遒ｺ隱肴ｸ医∩
             CombatHelper.specialAttackEffect(this.host, this.type,
                     new float[]{(float) this.getX(), (float) this.getY(), (float) this.getZ()});
 
@@ -523,7 +524,6 @@ public class EntityAbyssMissile extends Entity implements IShipOwner, IShipAttrs
                 double px = this.getX();
                 double py = this.getY();
                 double pz = this.getZ();
-                // large explosion particle
                 serverLevel.sendParticles(ParticleTypes.EXPLOSION,
                         px, py, pz, 1, 0D, 0D, 0D, 0D);
                 // smoke particles surrounding the impact

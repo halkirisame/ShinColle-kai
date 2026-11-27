@@ -29,6 +29,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fml.ModList;
@@ -42,7 +43,7 @@ import java.util.Objects;
  * <p>
  * Features:
  * - Entity preview rendering in the top-right area
- * - Info page tabs (3 pages): kills/exp, ATK/DEF stats, marriage/formation
+ * - Scrollable information: kills/exp, ATK/DEF stats, marriage/formation
  * - 8-page AI settings system with toggle buttons and slider bars
  * - Morale icon indicator
  * - C2S packet sync for all AI controls
@@ -59,10 +60,9 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             "textures/gui/guinameicon2.png");
 
     // ========== State ==========
-    /**
-     * Current info page: 0=Kills/EXP, 1=ATK/DEF/SPD, 2=Marriage/Formation
-     */
-    private int infoPage = 0;
+    private int scrollRow = 0;
+    private boolean draggingInfoScroll;
+    private final List<InfoRowHit> infoRowHits = new ArrayList<>();
     /**
      * Attribute display on info page: false=surface attack, true=air attack.
      */
@@ -70,6 +70,12 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     private final List<TextHint> textHints = new ArrayList<>();
 
     private record TextHint(int x, int y, int width, int height, List<Component> lines) {
+    }
+
+    private record InfoRowHit(int row, int y) {
+        boolean contains(int x, int mouseY, int right) {
+            return x >= 73 && x <= right && mouseY >= y - 2 && mouseY <= y + 20;
+        }
     }
 
     // ========== Constructor ==========
@@ -160,7 +166,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         BasicEntityShip ship = this.menu.getShip();
         if (ship != null) {
             renderInventoryPageIndicators(graphics, ship);
-            renderInfoPageTabIndicator(graphics);
+            renderInfoScrollbar(graphics, ship);
             renderEntityPreview(graphics, mouseX, mouseY, ship);
             renderMoraleIcon(graphics, ship);
             renderShipIdentityIcons(graphics, ship);
@@ -180,7 +186,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             "textures/gui/ship_equip_panel.png");
     private static final int EQUIP_PANEL_SHEET = 26;
     private static final int EQUIP_PANEL_CAP = 4;
-    private static final int EQUIP_PANEL_ROW = 18;
+    private static final int EQUIP_PANEL_ROW = ShipEquipSlots.SLOT_PITCH;
     /** Horizontal inset of the slot well within the panel. */
     private static final int EQUIP_PANEL_INSET = 4;
     /** Height of the "view traits" button drawn just below the equip panel. */
@@ -199,8 +205,9 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             return;
         }
 
-        int x = this.leftPos + ShipEquipSlots.slotX() - EQUIP_PANEL_INSET;
-        int y = this.topPos + ShipEquipSlots.slotY(0) - EQUIP_PANEL_CAP;
+        int[] panel = equipPanelRelBounds();
+        int x = this.leftPos + panel[0];
+        int y = this.topPos + panel[1];
 
         // top cap
         graphics.blit(EQUIP_PANEL_TEXTURE, x, y, 0, 0,
@@ -219,6 +226,17 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     }
 
     /**
+     * Bounds of the equip panel, relative to the GUI's own top-left like
+     * {@link #equipDetailButtonRelBounds}. The JEI exclusion zone reads the
+     * same rectangle, so the drawn panel and the zone cannot drift apart.
+     */
+    public static int[] equipPanelRelBounds() {
+        int count = ShipEquipSlots.slotCount();
+        return new int[]{ShipEquipSlots.slotX() - EQUIP_PANEL_INSET, ShipEquipSlots.slotY(0) - EQUIP_PANEL_CAP,
+                ShipEquipSlots.PANEL_WIDTH, EQUIP_PANEL_CAP + count * EQUIP_PANEL_ROW + EQUIP_PANEL_CAP};
+    }
+
+    /**
      * Bounds (relative to the GUI's own top-left, matching {@code relX}/{@code
      * relY} in {@link #mouseClicked}) of the small button below the equip
      * panel that opens {@link GuiShipEquipDetail}. Public and static so
@@ -227,10 +245,8 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * drifting apart.
      */
     public static int[] equipDetailButtonRelBounds() {
-        int count = ShipEquipSlots.slotCount();
-        int x = ShipEquipSlots.slotX() - EQUIP_PANEL_INSET;
-        int panelBottom = ShipEquipSlots.slotY(0) + count * EQUIP_PANEL_ROW + EQUIP_PANEL_CAP;
-        return new int[]{x, panelBottom + 2, ShipEquipSlots.PANEL_WIDTH, DETAIL_BUTTON_HEIGHT};
+        int[] panel = equipPanelRelBounds();
+        return new int[]{panel[0], panel[1] + panel[3] + 2, panel[2], DETAIL_BUTTON_HEIGHT};
     }
 
     private void renderEquipDetailButton(GuiGraphics graphics) {
@@ -253,7 +269,7 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * way it already does for the equipment-detail button.
      */
     public static int[] aiSettingsButtonRelBounds() {
-        return new int[]{172, 131, 82, 16};
+        return new int[]{172, 131, 79, 16};
     }
 
     /**
@@ -270,11 +286,9 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         // Player inventory starts at x=8 with nine 18px columns, so it ends at
         // x=170. Blanking must not start left of that or it paints over the last
         // inventory column.
-        // Preserve the texture's one-pixel outer frame on the top, right and
-        // bottom edges. Painting through x=256/y=212 erased that frame and
-        // made the lower-right corner look clipped.
+        // Preserve both shadow pixels and the black outer frame.
         graphics.fill(this.leftPos + 171, this.topPos + 129,
-                this.leftPos + 254, this.topPos + 212, 0xFFC6C6C6);
+                this.leftPos + 253, this.topPos + 211, 0xFFC6C6C6);
 
         graphics.fill(x, y, x + b[2], y + b[3], 0xFF8B8B8B);
         graphics.fill(x + 1, y + 1, x + b[2] - 1, y + b[3] - 1, 0xFFA6A6A6);
@@ -343,13 +357,12 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int heldY = this.topPos + appearanceHeldRelY(ship);
         drawToggleSprite(graphics, this.leftPos + APPEAR_X, heldY,
                 ship.getStateFlag(ID.F.ShowHeldItem));
-        // Keep the label inside the 256px panel whatever the locale: 8 CJK glyphs
-        // already reach the edge from here.
         String heldLabel = tr("gui.shincolle_kai.showhelditem", "Show Held Item");
-        int labelX = Math.max(APPEAR_X + APPEAR_CELL + 1,
-                Math.min(APPEAR_X + APPEAR_CELL + 2, this.imageWidth - this.font.width(heldLabel) - 2));
-        graphics.drawString(this.font, heldLabel,
-                this.leftPos + labelX, heldY + 2, 0x404040, false);
+        List<FormattedCharSequence> heldLines = this.font.split(Component.literal(heldLabel), 67);
+        for (int i = 0; i < Math.min(2, heldLines.size()); i++) {
+            graphics.drawString(this.font, heldLines.get(i),
+                    this.leftPos + 184, heldY + 2 + i * 9, 0x404040, false);
+        }
     }
 
     /** Rows the grid occupies for this ship; 0 when it has no model parts. */
@@ -458,12 +471,39 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         }
     }
 
-    /**
-     * Render the selected info page tab indicator
-     */
-    private void renderInfoPageTabIndicator(GuiGraphics graphics) {
-        int tabY = this.topPos + 18 + infoPage * 36;
-        graphics.blit(TEXTURE, this.leftPos + 135, tabY, 74, 214, 6, 34);
+    private void renderInfoScrollbar(GuiGraphics graphics, BasicEntityShip ship) {
+        int count = infoRowCount(ship);
+        int y = this.topPos + infoThumbTop(scrollRow, count);
+        int height = infoThumbHeight(count);
+        graphics.fill(this.leftPos + 135, this.topPos + 18,
+                this.leftPos + 141, this.topPos + 124, 0xFFA6A6A6);
+        graphics.fill(this.leftPos + 135, y, this.leftPos + 141, y + height, 0xFF8B8B8B);
+        graphics.fill(this.leftPos + 136, y + 1, this.leftPos + 140, y + height - 1, 0xFFC6C6C6);
+    }
+
+    private static int infoRowCount(BasicEntityShip ship) {
+        return ship instanceof BasicEntityShipCV ? 14 : 12;
+    }
+
+    static int clampInfoScroll(int row, int count) {
+        return Math.max(0, Math.min(row, Math.max(0, count - 5)));
+    }
+
+    static int scrollInfoWheel(int row, int count, double delta) {
+        return clampInfoScroll(row - (int) (Math.signum(delta) * Math.ceil(Math.abs(delta))), count);
+    }
+
+    static int infoThumbHeight(int count) {
+        return count <= 5 ? 106 : Math.max(8, 106 * 5 / count);
+    }
+
+    static int infoThumbTop(int row, int count) {
+        int max = Math.max(0, count - 5);
+        return 18 + (max == 0 ? 0 : (106 - infoThumbHeight(count)) * clampInfoScroll(row, count) / max);
+    }
+
+    static int infoScrollAtY(double y, int count) {
+        return clampInfoScroll((int) Math.round((y - 18) * Math.max(0, count - 5) / 105), count);
     }
 
     /**
@@ -561,13 +601,13 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         this.textHints.clear();
+        this.infoRowHits.clear();
         BasicEntityShip ship = this.menu.getShip();
         if (ship == null) {
             graphics.drawString(this.font, this.title, this.titleLabelX, this.titleLabelY, 0x404040, false);
             return;
         }
 
-        // Ship Name
         String shipName = ship.hasCustomName() ? Objects.requireNonNull(ship.getCustomName()).getString() : ship.getName().getString();
         int nameWidth = 145 - this.font.width("HP") - 4 - 8;
         String displayedName = fitText(shipName, nameWidth);
@@ -584,21 +624,10 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
         int levelColor = caps.isAbsoluteCapReached(level) ? 0xFFD700 : 0xFFFFFF;
         graphics.drawString(this.font, levelStr, this.imageWidth - 6 - this.font.width(levelStr), 6, levelColor, true);
 
-        // HP Text
         renderHPText(graphics, ship);
 
-        // Info Page Content
-        switch (infoPage) {
-            case 0:
-                renderInfoPage0(graphics, ship);
-                break;
-            case 1:
-                renderInfoPage1(graphics, ship);
-                break;
-            case 2:
-                renderInfoPage2(graphics, ship);
-                break;
-        }
+        scrollRow = clampInfoScroll(scrollRow, infoRowCount(ship));
+        renderInfoRows(graphics, ship);
 
     }
 
@@ -622,44 +651,23 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
 
     // ========== AI Page Label Rendering ==========
 
-    /**
-     * Page 0: Kills, EXP, Ammo, Grudge, Morale
-     */
-    private void renderInfoPage0(GuiGraphics graphics, BasicEntityShip ship) {
-        int textX = 75;
-        int textY = 20;
+    private void renderInfoRows(GuiGraphics graphics, BasicEntityShip ship) {
+        List<StatRow> rows = new ArrayList<>();
         int lc = 0x404040;
         int vc = 0xFFFFFF;
 
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.kills", "Kills") + ":",
-                String.valueOf(ship.getStateMinor(ID.M.Kills)), lc, vc);
-        textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.exp", "EXP") + ":",
-                ship.getStateMinor(ID.M.ExpCurrent) + "/" + ship.getExpNextValue(), lc, vc);
-        textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.ammolight", "Ammo(L)") + ":",
-                String.valueOf(ship.getStateMinor(ID.M.NumAmmoLight)), lc, vc);
-        textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.ammoheavy", "Ammo(H)") + ":",
-                String.valueOf(ship.getStateMinor(ID.M.NumAmmoHeavy)), lc, vc);
-        textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.grudge", "Grudge") + ":",
-                String.valueOf(ship.getStateMinor(ID.M.NumGrudge)), lc, vc);
-    }
-
-    /**
-     * Page 1: ATK, DEF, SPD, MOV, HIT
-     */
-    private void renderInfoPage1(GuiGraphics graphics, BasicEntityShip ship) {
+        rows.add(new StatRow(tr("gui.shincolle_kai.kills", "Kills") + ":",
+                String.valueOf(ship.getStateMinor(ID.M.Kills)), vc, 0));
+        rows.add(new StatRow(tr("gui.shincolle_kai.exp", "EXP") + ":",
+                ship.getStateMinor(ID.M.ExpCurrent) + "/" + ship.getExpNextValue(), vc, 0));
+        rows.add(new StatRow(tr("gui.shincolle_kai.ammolight", "Ammo(L)") + ":",
+                String.valueOf(ship.getStateMinor(ID.M.NumAmmoLight)), vc, 0));
+        rows.add(new StatRow(tr("gui.shincolle_kai.ammoheavy", "Ammo(H)") + ":",
+                String.valueOf(ship.getStateMinor(ID.M.NumAmmoHeavy)), vc, 0));
+        rows.add(new StatRow(tr("gui.shincolle_kai.grudge", "Grudge") + ":",
+                String.valueOf(ship.getStateMinor(ID.M.NumGrudge)), vc, 0));
         Attrs attrs = ship.getAttrs();
-        if (attrs == null)
-            return;
         ShipAttributeValues buffed = ship.shipAttributes(ShipAttributeLayer.BUFFED);
-
-        int textX = 75;
-        int textY = 20;
-        int lc = 0x404040;
-        int vc = 0xFFFFFF;
 
         String atkKey = showAirAttack ? "gui.shincolle_kai.firepower2" : "gui.shincolle_kai.firepower1";
         float atkVal = showAirAttack ? buffed.get(CoreShipAttributes.ATK_AL)
@@ -668,52 +676,42 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
                 : buffed.get(CoreShipAttributes.ATK_H);
         String atkText = String.format("%.1f / %.1f", atkVal, torpedoVal);
 
-        drawStatLine(graphics, textX, textY, I18n.get(atkKey),
-                atkText, lc, GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.ATK)),
-                VALUE_ROW_OFFSET);
-        textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.armor"),
-                String.format("%.1f%%", buffed.get(CoreShipAttributes.DEF) * 100F), lc,
-                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.DEF)));
-        textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.attackspeed"),
-                String.format("%.2f", buffed.get(CoreShipAttributes.SPD)), lc,
-                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.SPD)));
-        textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.movespeed"),
-                String.format("%.2f", buffed.get(CoreShipAttributes.MOV)), lc,
-                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.MOV)));
-        textY += 21;
-        drawStatLine(graphics, textX, textY, I18n.get("gui.shincolle_kai.range"),
-                String.format("%.1f", buffed.get(CoreShipAttributes.HIT)), lc,
-                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.HIT)));
-    }
-
-    /**
-     * Page 2: Marriage, Ring, Formation, Ship type, UID
-     */
-    private void renderInfoPage2(GuiGraphics graphics, BasicEntityShip ship) {
-        int textX = 75;
-        int textY = 20;
-        int lc = 0x404040;
-        int vc = 0xFFFFFF;
-
+        rows.add(new StatRow(I18n.get(atkKey), atkText,
+                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.ATK)), VALUE_ROW_OFFSET));
+        rows.add(new StatRow(I18n.get("gui.shincolle_kai.armor"),
+                String.format("%.1f%%", buffed.get(CoreShipAttributes.DEF) * 100F),
+                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.DEF)), 0));
+        rows.add(new StatRow(I18n.get("gui.shincolle_kai.attackspeed"),
+                String.format("%.2f", buffed.get(CoreShipAttributes.SPD)),
+                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.SPD)), 0));
+        rows.add(new StatRow(I18n.get("gui.shincolle_kai.movespeed"),
+                String.format("%.2f", buffed.get(CoreShipAttributes.MOV)),
+                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.MOV)), 0));
+        rows.add(new StatRow(I18n.get("gui.shincolle_kai.range"),
+                String.format("%.1f", buffed.get(CoreShipAttributes.HIT)),
+                GuiHelper.getBonusPointColor(attrs.getAttrsBonus(ID.AttrsBase.HIT)), 0));
         boolean isMarried = ship.getStateFlag(ID.F.IsMarried);
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.marriage", "Marriage") + ":",
+        rows.add(new StatRow(tr("gui.shincolle_kai.marriage", "Marriage") + ":",
                 isMarried ? tr("gui.shincolle_kai.married", "Married") : tr("gui.shincolle_kai.unmarried", "Unmarried"),
-                lc, 0xFFFF00);
-        textY += 21;
-        drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.formation.formation", "Formation") + ":",
-                getFormationName(ship.getStateMinor(ID.M.FormatType)), lc, vc);
+                0xFFFF00, 0));
+        rows.add(new StatRow(tr("gui.shincolle_kai.formation.formation", "Formation") + ":",
+                getFormationName(ship.getStateMinor(ID.M.FormatType)), vc, 0));
 
         if (ship instanceof BasicEntityShipCV cvShip) {
-            textY += 42;
-            drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.airplanelight", "Light Aircraft") + ":",
-                    String.valueOf(cvShip.getNumAircraftLight()), lc, 0xFFFF00);
-            textY += 21;
-            drawStatLine(graphics, textX, textY, tr("gui.shincolle_kai.airplaneheavy", "Heavy Aircraft") + ":",
-                    String.valueOf(cvShip.getNumAircraftHeavy()), lc, 0xFFFF00);
+            rows.add(new StatRow(tr("gui.shincolle_kai.airplanelight", "Light Aircraft") + ":",
+                    String.valueOf(cvShip.getNumAircraftLight()), 0xFFFF00, 0));
+            rows.add(new StatRow(tr("gui.shincolle_kai.airplaneheavy", "Heavy Aircraft") + ":",
+                    String.valueOf(cvShip.getNumAircraftHeavy()), 0xFFFF00, 0));
         }
+        for (int i = scrollRow; i < Math.min(rows.size(), scrollRow + 5); i++) {
+            StatRow row = rows.get(i);
+            int y = 20 + (i - scrollRow) * 21;
+            drawStatLine(graphics, 75, y, row.label(), row.value(), lc, row.color(), row.valueOffset());
+            this.infoRowHits.add(new InfoRowHit(i, y));
+        }
+    }
+
+    private record StatRow(String label, String value, int color, int valueOffset) {
     }
 
     /**
@@ -766,18 +764,11 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
             int relX = (int) mouseX - this.leftPos;
             int relY = (int) mouseY - this.topPos;
 
-            // Info page tab clicks (x=133-142)
-            if (relX >= 133 && relX <= 142) {
-                if (relY >= 18 && relY <= 52) {
-                    infoPage = 0;
-                    return true;
-                } else if (relY >= 53 && relY <= 88) {
-                    infoPage = 1;
-                    return true;
-                } else if (relY >= 89 && relY <= 125) {
-                    infoPage = 2;
-                    return true;
-                }
+            if (relX >= 133 && relX <= 142 && relY >= 18 && relY <= 125
+                    && this.menu.getShip() != null) {
+                draggingInfoScroll = true;
+                scrollRow = infoScrollAtY(mouseY - this.topPos, infoRowCount(this.menu.getShip()));
+                return true;
             }
 
             // Equipment traits detail button, below the third-party equip panel
@@ -820,10 +811,11 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
      * Handle clicks inside info-page controls.
      */
     private boolean handleInfoPageClick(int relX, int relY) {
-        // [PORT] 1.10.2 -> 1.20.1: keep the attack/air view toggle on attribute page.
-        if (infoPage == 1 && relX >= 73 && relX <= 132 && relY >= 18 && relY <= 40) {
-            showAirAttack = !showAirAttack;
-            return true;
+        for (InfoRowHit hit : infoRowHits) {
+            if (hit.row() == 5 && hit.contains(relX, relY, 132)) {
+                showAirAttack = !showAirAttack;
+                return true;
+            }
         }
         return false;
     }
@@ -861,6 +853,36 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     }
 
     // ========== Slider Drag Handling ==========
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        BasicEntityShip ship = this.menu.getShip();
+        double x = mouseX - this.leftPos;
+        double y = mouseY - this.topPos;
+        if (ship != null && x >= 73 && x <= 142 && y >= 18 && y <= 125) {
+            scrollRow = scrollInfoWheel(scrollRow, infoRowCount(ship), delta);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0 && draggingInfoScroll && this.menu.getShip() != null) {
+            scrollRow = infoScrollAtY(mouseY - this.topPos, infoRowCount(this.menu.getShip()));
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && draggingInfoScroll) {
+            draggingInfoScroll = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
 
     // ========== Main Render ==========
 
@@ -902,7 +924,12 @@ public class GuiShipInventory extends AbstractContainerScreen<ContainerShipInven
     private boolean isHoveringAttributePanel(int mouseX, int mouseY) {
         int relX = mouseX - this.leftPos;
         int relY = mouseY - this.topPos;
-        return this.infoPage == 1 && relX >= 73 && relX <= 133 && relY >= 18 && relY <= 125;
+        for (InfoRowHit hit : infoRowHits) {
+            if (hit.row() >= 5 && hit.row() <= 9 && hit.contains(relX, relY, 133)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void renderCustomAttributeTooltip(GuiGraphics graphics, BasicEntityShip ship,

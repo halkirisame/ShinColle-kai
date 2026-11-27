@@ -2,6 +2,7 @@ package com.lulan.shincolle.server;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 
 /**
@@ -39,9 +40,9 @@ public class CacheDataShip {
         this.dimension = dimension;
         this.classID = cid;
         this.isDead = isDead;
-        this.posX = (int) posX;
-        this.posY = (int) posY;
-        this.posZ = (int) posZ;
+        this.posX = Mth.floor(posX);
+        this.posY = Mth.floor(posY);
+        this.posZ = Mth.floor(posZ);
         this.entityNBT = nbt;
         this.sunk = sunk;
         this.sunkDimension = sunkDimension;

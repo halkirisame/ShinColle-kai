@@ -43,7 +43,7 @@ class MountModelBaseTransformTest {
             expected.scale(scale, scale, scale);
             expected.translate((Float) row[2], (Float) row[3], (Float) row[4]);
             List<Double> expectedVertices = new ArrayList<>();
-            List<String> parts = row[0].equals("CaWD")
+            List<String> parts = row[0].equals("CaWD") || row[0].equals("CaH")
                     ? List.of("BodyMain", "GlowBodyMain", "GlowBodyMain2") : List.of("BodyMain", "GlowBodyMain");
             for (String part : parts) {
                 root.getChild(part).render(expected, sink(expectedVertices), 0, 0);

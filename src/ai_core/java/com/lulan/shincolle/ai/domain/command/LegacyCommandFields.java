@@ -6,4 +6,11 @@ import java.util.UUID;
 public record LegacyCommandFields(int guardX, int guardY, int guardZ, int guardDim, int guardType,
                                   DimensionKey guardedDimension, UUID guardedEntityUuid,
                                   boolean canFollow, boolean releaseOnArrival, boolean orderedToSit,
-                                  int guardId) { }
+                                  int guardId, boolean fishingStation) {
+    public LegacyCommandFields(int guardX, int guardY, int guardZ, int guardDim, int guardType,
+                               DimensionKey guardedDimension, UUID guardedEntityUuid,
+                               boolean canFollow, boolean releaseOnArrival, boolean orderedToSit, int guardId) {
+        this(guardX, guardY, guardZ, guardDim, guardType, guardedDimension, guardedEntityUuid,
+                canFollow, releaseOnArrival, orderedToSit, guardId, false);
+    }
+}

@@ -156,8 +156,6 @@ public final class ShipMovementIntentGameTests {
         };
         try {
             BasicEntityShip ship = ship(helper, entities);
-            // the target authority only locks while the target goals tick
-            ship.setNoAi(false);
             ship.setStateFlag(ID.F.UseMelee, false);
             ship.setStateFlag(ID.F.UseAmmoLight, false);
             ship.setStateFlag(ID.F.UseAmmoHeavy, false);
@@ -248,7 +246,6 @@ public final class ShipMovementIntentGameTests {
     private static BasicEntityShip ship(GameTestHelper helper, GameTestEntities entities) {
         BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(helper.getLevel()));
         helper.assertTrue(ship != null, "Failed to create a friendly ship");
-        ship.setNoAi(true);
         ship.setEntitySit(false);
         ship.setStateMinor(ID.M.FormatType, 0);
         ship.setStateMinor(ID.M.FollowMin, 1);

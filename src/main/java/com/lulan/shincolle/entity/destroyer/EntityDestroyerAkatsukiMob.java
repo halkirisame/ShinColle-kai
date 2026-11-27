@@ -38,7 +38,6 @@ public class EntityDestroyerAkatsukiMob extends BasicEntityShipHostile implement
         this.StateMinor[ID.M.NumGrudge] = 999;
         this.setAmmoConsumption(1);
 
-        // boss bar color
         this.bossBarColor = BossEvent.BossBarColor.PURPLE;
 
         // model display

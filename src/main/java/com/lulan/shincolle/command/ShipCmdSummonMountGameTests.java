@@ -84,7 +84,7 @@ public final class ShipCmdSummonMountGameTests {
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             BasicEntityShip ship = supportedShip(helper, entities);
             ship.setStateEmotion(ID.S.State, 6, false);
-            ship.setStateFlag(ID.F.NoFuel, true);
+            entities.allowOutOfFuel(ship).setStateFlag(ID.F.NoFuel, true);
 
             ShipCmdSummonMount.SummonResult result = ShipCmdSummonMount.summon(ship);
 

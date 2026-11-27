@@ -15,6 +15,8 @@ import com.lulan.shincolle.item.ShipSpawnEgg;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.Reference;
 import com.lulan.shincolle.reference.Values;
+import com.lulan.shincolle.shipdata.LegacyShipDefinitionIds;
+import com.lulan.shincolle.shipdata.ShipDefinitionId;
 import com.lulan.shincolle.utility.BuffHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -61,10 +63,12 @@ public final class ShipRegistrationConsistencyGameTests {
             List<String> problems = new ArrayList<>();
             Map<Integer, String> friendlyOwners = new HashMap<>();
             Map<Integer, String> hostileOwners = new HashMap<>();
+            Map<LegacyShipDefinitionIds.Key, ShipDefinitionId> legacyIds = new HashMap<>();
 
             for (RegistryObject<EntityType<?>> typeObject : ModEntities.ENTITIES.getEntries()) {
                 EntityType<?> type = typeObject.get();
                 String path = typeObject.getId().getPath();
+                ShipDefinitionId registeredId = ShipDefinitionId.parse(typeObject.getId().toString());
                 Entity entity = type.create(level);
                 if (entity == null) {
                     continue;
@@ -81,6 +85,8 @@ public final class ShipRegistrationConsistencyGameTests {
                 } else if (entity instanceof BasicEntityShip ship) {
                     int shipClass = ship.getShipClass();
                     checkUnique(problems, friendlyOwners, shipClass, path);
+                    checkLegacyId(problems, legacyIds, path, registeredId,
+                            new LegacyShipDefinitionIds.Key(shipClass, LegacyShipDefinitionIds.Registration.FRIENDLY));
                     if (!Values.ShipAttrMap.containsKey(shipClass)) {
                         problems.add(path + ": ship class " + shipClass + " has no Values.ShipAttrMap row");
                     }
@@ -92,6 +98,8 @@ public final class ShipRegistrationConsistencyGameTests {
                 } else if (entity instanceof BasicEntityShipHostile hostile) {
                     int shipClass = hostile.getShipClass();
                     checkUnique(problems, hostileOwners, shipClass, path);
+                    checkLegacyId(problems, legacyIds, path, registeredId,
+                            new LegacyShipDefinitionIds.Key(shipClass, LegacyShipDefinitionIds.Registration.HOSTILE));
                     if (!Values.HostileShipAttrMap.containsKey(shipClass)) {
                         problems.add(path + ": ship class " + shipClass + " has no Values.HostileShipAttrMap row");
                     }
@@ -106,6 +114,10 @@ public final class ShipRegistrationConsistencyGameTests {
 
             if (friendlyOwners.isEmpty() || hostileOwners.isEmpty()) {
                 throw new AssertionError("No ship entity types were inspected");
+            }
+            if (!legacyIds.equals(LegacyShipDefinitionIds.all())) {
+                problems.add("legacy ship definition IDs without a registered ship: "
+                        + LegacyShipDefinitionIds.all().keySet().stream().filter(key -> !legacyIds.containsKey(key)).toList());
             }
             if (!problems.isEmpty()) {
                 throw new AssertionError(problems.size() + " ship registration problem(s):\n  "
@@ -212,6 +224,15 @@ public final class ShipRegistrationConsistencyGameTests {
         if (previous != null) {
             problems.add(path + ": ship class " + shipClass + " is already used by " + previous);
         }
+    }
+
+    private static void checkLegacyId(List<String> problems, Map<LegacyShipDefinitionIds.Key, ShipDefinitionId> seen,
+                                      String path, ShipDefinitionId registeredId, LegacyShipDefinitionIds.Key key) {
+        ShipDefinitionId legacy = LegacyShipDefinitionIds.get(key.shipClass(), key.registration());
+        if (!registeredId.equals(legacy)) {
+            problems.add(path + ": legacy ship definition ID for " + key + " is " + legacy);
+        }
+        seen.put(key, registeredId);
     }
 
     private static void checkEgg(List<String> problems, String path, int eggClass, EntityType<?> type) {

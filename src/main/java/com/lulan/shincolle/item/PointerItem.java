@@ -16,6 +16,7 @@ import com.lulan.shincolle.utility.PointerInputModifiers.Action;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
@@ -370,7 +371,6 @@ public class PointerItem extends BasicItem {
         if (capa == null) {
             return;
         }
-        // Ray trace for entities at 64 blocks
         EntityHitResult entityHit = rayTraceEntities(player, 64.0);
 
         if (entityHit != null) {
@@ -479,7 +479,7 @@ public class PointerItem extends BasicItem {
             ModNetworking.sendToServer(new C2SGUIInputPacket(
                     C2SGUIInputPacket.SetMove,
                     new int[]{player.getId(), 0, mode, 0,
-                            (int) target.getX(), (int) target.getY(), (int) target.getZ()}));
+                            Mth.floor(target.getX()), Mth.floor(target.getY()), Mth.floor(target.getZ())}));
             ParticleHelper.spawnMovingTargetMarker(target);
         }
     }

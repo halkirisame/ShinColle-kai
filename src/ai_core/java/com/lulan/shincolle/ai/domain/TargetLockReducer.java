@@ -61,6 +61,18 @@ public final class TargetLockReducer {
         if (existing != null && existing.source() == TargetSource.AUTO
                 && gate.autoEnabled()
                 && input.current().map(CurrentLockObservation::valid).orElse(false)) {
+            TargetState scan = input.autoScan().orElse(null);
+            if (scan != null && autoScanDue(previous, gate, input.tickExisted(), input.current())) {
+                Optional<TargetLock> selected = scan.selectedCandidate()
+                        .filter(candidate -> candidate.observation().traits()
+                                .hasTrait(TargetTraitKind.ANTI_AIR_ELIGIBLE))
+                        .map(candidate -> new TargetLock(
+                                candidate.handle(), TargetSource.AUTO, input.tickExisted()));
+                TargetScanSchedule advanced = previous.autoScan().advanceFrom(
+                        input.tickExisted(), AUTO_SCAN_INTERVAL);
+                return decision(previous, selected.isPresent() ? selected : remaining, advanced,
+                        previous.lastConsumedRevengeTick(), false, true);
+            }
             return decision(previous, remaining, previous.autoScan(),
                     previous.lastConsumedRevengeTick(), false, false);
         }
@@ -82,9 +94,19 @@ public final class TargetLockReducer {
 
     public static boolean autoScanDue(
             ShipTargetAuthorityState state, SourceGate gate, int tickExisted) {
+        return autoScanDue(state, gate, tickExisted, Optional.empty());
+    }
+
+    public static boolean autoScanDue(
+            ShipTargetAuthorityState state, SourceGate gate, int tickExisted,
+            Optional<CurrentLockObservation> current) {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(gate, "gate");
-        return state.lock().isEmpty()
+        boolean preemption = gate.antiAirEnabled()
+                && state.lock().filter(lock -> lock.source() == TargetSource.AUTO).isPresent()
+                && current.filter(CurrentLockObservation::valid)
+                        .filter(observation -> observation.priority() != TargetPriorityTier.ANTI_AIR).isPresent();
+        return (state.lock().isEmpty() || preemption)
                 && autoGateOpen(gate)
                 && state.autoScan().isDue(tickExisted);
     }

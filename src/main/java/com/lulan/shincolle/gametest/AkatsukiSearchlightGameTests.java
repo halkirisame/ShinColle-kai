@@ -126,7 +126,7 @@ public final class AkatsukiSearchlightGameTests {
         BlockPos position = BlockPos.containing(helper.absoluteVec(ShipConsumptionDefaultsGameTests.SPAWN)).above(2);
         BlockState previous = helper.getLevel().getBlockState(position);
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            ConfigHandler.COMMON.canSearchlight.set(true);
+            ConfigHandler.canSearchlight = true;
             BasicEntityShip ship = akatsuki(helper, entities);
             ship.setPos(helper.absoluteVec(ShipConsumptionDefaultsGameTests.SPAWN));
             ship.setStateMinor(ID.M.NumGrudge, 500);
@@ -168,7 +168,7 @@ public final class AkatsukiSearchlightGameTests {
         } finally {
             helper.getLevel().setBlockAndUpdate(position, previous);
             helper.getLevel().setDayTime(dayTime);
-            ConfigHandler.COMMON.canSearchlight.set(enabled);
+            ConfigHandler.canSearchlight = enabled;
         }
     }
 

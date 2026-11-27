@@ -59,7 +59,6 @@ public class ModelRensouhou extends ShipModelBaseAdv<Entity> {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // BodyMain
         PartDefinition bodyMain = partdefinition.addOrReplaceChild("BodyMain",
                 CubeListBuilder.create().texOffs(0, 0)
                         .addBox(-5.0F, -6.0F, -5.0F, 10, 11, 10),
@@ -188,7 +187,6 @@ public class ModelRensouhou extends ShipModelBaseAdv<Entity> {
             netHeadYaw -= 360F;
         }
 
-        // Scale level
         switch (ent.getScaleLevel()) {
             case 3:
                 this.scale = 1.08F;

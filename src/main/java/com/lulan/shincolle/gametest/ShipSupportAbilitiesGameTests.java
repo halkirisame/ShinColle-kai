@@ -115,7 +115,7 @@ public final class ShipSupportAbilitiesGameTests {
                     health(helper, boundary, threshold, "HP threshold equality must be excluded");
                     health(helper, source, 100F, "Source must not count as a target");
                     List<BasicEntityShip> injured = fixture.injured(4);
-                    fixture.fuel(source, cost(profile) * 2);
+                    fixture.fuel(fixture.entities.allowOutOfFuel(source), cost(profile) * 2);
                     ShipSupportAbilities.tickHealing(source, profile);
                     helper.assertTrue(healed(injured) == 2, "Two base costs must permit exactly two targets");
                     helper.assertTrue(source.getGrudge() == 0, "Fuel must be exhausted after two targets");
@@ -267,7 +267,7 @@ public final class ShipSupportAbilitiesGameTests {
                 ShipSupportAbilities.tickTransport(source);
                 fixture.assertResources(target, 2699, 269, 134);
                 source.tickCount = 256;
-                source.setStateFlag(ID.F.NoFuel, true);
+                fixture.entities.allowOutOfFuel(source).setStateFlag(ID.F.NoFuel, true);
                 ShipSupportAbilities.tickTransport(source);
                 fixture.assertResources(target, 2699, 269, 134);
                 source.setStateFlag(ID.F.NoFuel, false);
@@ -496,6 +496,7 @@ public final class ShipSupportAbilitiesGameTests {
         }
 
         private void fuel(BasicEntityShip ship, int grudge) {
+            if (grudge <= 0) entities.allowOutOfFuel(ship);
             ship.setStateMinor(ID.M.NumGrudge, grudge);
             ship.setStateFlag(ID.F.NoFuel, grudge <= 0);
             helper.assertTrue(ship.getGrudge() == grudge && ship.getStateFlag(ID.F.NoFuel) == (grudge <= 0),

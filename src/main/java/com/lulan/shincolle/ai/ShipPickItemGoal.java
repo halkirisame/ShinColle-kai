@@ -105,7 +105,6 @@ public class ShipPickItemGoal extends Goal {
         if (scan) {
             updateShipParms();
 
-            // find nearby items
             this.entItem = getNearbyItemEntity();
 
             if (this.entItem != null && this.entItem.isAlive()) {
@@ -136,7 +135,6 @@ public class ShipPickItemGoal extends Goal {
                                         ShipCommandStateAdapter.handle(this.entItem), now);
                         if (picked) {
 
-                            // play pickup sound
                             this.ship.level().playSound(null,
                                     this.ship.getX(), this.ship.getY(), this.ship.getZ(),
                                     SoundEvents.ITEM_PICKUP, this.ship.getSoundSource(),

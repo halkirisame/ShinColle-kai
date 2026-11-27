@@ -186,7 +186,7 @@ public final class TargetHoldRangeGameTests {
                     helper.succeed();
                 }
             });
-        }, relativeHost, relativeTarget);
+        }, relativeHost, relativeHost.add(16D, 0D, 0D), relativeTarget);
     }
 
     private static final class StationaryInazuma extends EntityDestroyerInazumaMob {

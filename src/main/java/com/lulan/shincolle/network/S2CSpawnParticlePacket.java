@@ -61,6 +61,11 @@ public class S2CSpawnParticlePacket {
         return new S2CSpawnParticlePacket(type, entityId, buf.array());
     }
 
+    /** The red "could not take the order" mark at a position. */
+    public static S2CSpawnParticlePacket orderRejected(int entityId, double x, double y, double z) {
+        return new S2CSpawnParticlePacket(ParticlePacketRoute.ORDER_REJECTED_TYPE, entityId, parameters(x, y, z));
+    }
+
     private static byte[] parameters(double... values) {
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(values.length * Double.BYTES);
         for (double value : values) {

@@ -32,6 +32,8 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.IItemHandler;
@@ -363,7 +365,19 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         return stack.getItem() instanceof ShipSpawnEgg
                 || stack.getItem() instanceof IShipResourceItem
                 || stack.is(ModItems.INSTANT_CON_MAT.get())
-                || ForgeHooks.getBurnTime(stack, null) > 0;
+                || ForgeHooks.getBurnTime(stack, null) > 0
+                || isLavaFuelContainer(stack);
+    }
+
+    private boolean isLavaFuelContainer(ItemStack stack) {
+        return stack.getCount() == 1 && FluidUtil.getFluidHandler(stack.copy())
+                .map(TileMultiGrudgeHeavy::canDrainLavaBucket).orElse(false);
+    }
+
+    private static boolean canDrainLavaBucket(IFluidHandler handler) {
+        FluidStack drained = handler.drain(new FluidStack(Fluids.LAVA, LAVA_BUCKET_MB),
+                IFluidHandler.FluidAction.SIMULATE);
+        return drained.getFluid() == Fluids.LAVA && drained.getAmount() == LAVA_BUCKET_MB;
     }
 
     private boolean hasInstantConstructionMaterial() {
@@ -423,7 +437,11 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
                     setChanged();
                 }
             } else if (!stack.is(ModItems.INSTANT_CON_MAT.get())) {
-                consumeFuelItem(slot, stack);
+                if (ForgeHooks.getBurnTime(stack, null) > 0) {
+                    consumeFuelItem(slot, stack);
+                } else if (isLavaFuelContainer(stack)) {
+                    consumeLavaContainer(slot, stack);
+                }
             }
         }
     }
@@ -510,6 +528,25 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
         setChanged();
     }
 
+    private void consumeLavaContainer(int slot, ItemStack stack) {
+        if (powerRemained >= POWER_MAX) {
+            return;
+        }
+        int fuelValue = (int) (LAVA_BUCKET_BURN_TIME * FUEL_MAGN);
+        if (fuelValue <= 0) {
+            return;
+        }
+        FluidUtil.getFluidHandler(stack.copy()).ifPresent(handler -> {
+            if (!canDrainLavaBucket(handler)) {
+                return;
+            }
+            handler.drain(new FluidStack(Fluids.LAVA, LAVA_BUCKET_MB), IFluidHandler.FluidAction.EXECUTE);
+            powerRemained = (int) Math.min(Integer.MAX_VALUE, (long) powerRemained + fuelValue);
+            inventory.setStackInSlot(slot, handler.getContainer());
+            setChanged();
+        });
+    }
+
     // ==================== Tick Logic ====================
 
     private void buildComplete() {
@@ -566,6 +603,14 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
     }
 
     private void tickServer() {
+        if (!hasCorePos()) {
+            if (isActive) {
+                isActive = false;
+                setChanged();
+            }
+            return;
+        }
+
         boolean sendUpdate = false;
         syncTime++;
 
@@ -750,9 +795,21 @@ public class TileMultiGrudgeHeavy extends BasicTileInventory implements MenuProv
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot != SLOT_OUTPUT
-                    && !(invMode == 1 && slot >= SLOT_INPUT_START && slot <= SLOT_INPUT_END)) {
-                return ItemStack.EMPTY;
+            if (slot != SLOT_OUTPUT) {
+                if (slot < SLOT_INPUT_START || slot > SLOT_INPUT_END) {
+                    return ItemStack.EMPTY;
+                }
+                if (invMode != 1) {
+                    ItemStack stack = inventory.getStackInSlot(slot);
+                    if (stack.getItem() instanceof ShipSpawnEgg
+                            || stack.getItem() instanceof IShipResourceItem
+                            || stack.is(ModItems.INSTANT_CON_MAT.get())
+                            || ForgeHooks.getBurnTime(stack, null) > 0
+                            || !FluidUtil.getFluidHandler(stack.copy())
+                                    .map(handler -> !canDrainLavaBucket(handler)).orElse(false)) {
+                        return ItemStack.EMPTY;
+                    }
+                }
             }
             return inventory.extractItem(slot, amount, simulate);
         }

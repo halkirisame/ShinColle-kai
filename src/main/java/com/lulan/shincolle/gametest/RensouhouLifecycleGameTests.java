@@ -103,7 +103,7 @@ public final class RensouhouLifecycleGameTests {
             helper.assertTrue(original != null && replacement != null && summon != null,
                     "Failed to create retarget fixture");
             summon.initAttrs(host, original, 0);
-            host.setEntityTarget(replacement);
+            GameTestTargetWrites.beforeAuthority(helper, host, replacement);
             original.setHealth(0F);
 
             summon.tick();

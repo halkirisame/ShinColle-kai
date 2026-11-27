@@ -36,8 +36,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkHooks;
 
-import io.netty.buffer.Unpooled;
-
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -312,8 +310,8 @@ public class C2SGUIInputPacket {
                 ship.setStateMinor(ID.M.Task, Mth.clamp(value, 0, 4));
                 break;
             case ID.B.ShipInv_TaskSide:
-                // Direction bits 0..17 plus crafting options 18 and 20.
-                ship.setStateMinor(ID.M.TaskSide, value & 0x17FFFF);
+                // Direction bits 0..17 plus metadata, ore tag and NBT options 18..20.
+                ship.setStateMinor(ID.M.TaskSide, value & 0x1FFFFF);
                 break;
             case ID.B.ShipInv_NoFuel:
                 // Server-owned derived state; clients may not force it.
@@ -412,9 +410,6 @@ public class C2SGUIInputPacket {
         return null;
     }
 
-    /** Particle type for the red "this ship could not take the order" mark. */
-    private static final byte OutOfFuelParticle = ParticlePacketRoute.ORDER_REJECTED_TYPE;
-
     /**
      * Mark ships that were dropped from an order because they are out of fuel, and mark the
      * destination they could not take.
@@ -433,30 +428,14 @@ public class C2SGUIInputPacket {
 
         for (BasicEntityShip ship : outOfFuel) {
             ModNetworking.sendToAllTracking(
-                    new S2CSpawnParticlePacket(OutOfFuelParticle, ship.getId(),
-                            positionPayload(ship.getX(), ship.getY() + ship.getBbHeight() * 0.5D,
-                                    ship.getZ())),
+                    S2CSpawnParticlePacket.orderRejected(ship.getId(),
+                            ship.getX(), ship.getY() + ship.getBbHeight() * 0.5D, ship.getZ()),
                     ship);
         }
 
         ModNetworking.sendToPlayer(
-                new S2CSpawnParticlePacket(OutOfFuelParticle, player.getId(),
-                        positionPayload(destX, destY, destZ)),
+                S2CSpawnParticlePacket.orderRejected(player.getId(), destX, destY, destZ),
                 player);
-    }
-
-    private static byte[] positionPayload(double x, double y, double z) {
-        FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer(24));
-        try {
-            buf.writeDouble(x);
-            buf.writeDouble(y);
-            buf.writeDouble(z);
-            byte[] payload = new byte[buf.readableBytes()];
-            buf.readBytes(payload);
-            return payload;
-        } finally {
-            buf.release();
-        }
     }
 
     /**

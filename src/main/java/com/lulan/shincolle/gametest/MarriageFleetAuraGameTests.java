@@ -491,7 +491,7 @@ public final class MarriageFleetAuraGameTests {
 
                 // the water demon keeps its own night vision however the ring is set
                 Case demon = fleetShips().get(9);
-                BasicEntityShip water = scene.source(demon);
+                BasicEntityShip water = scene.entities.allowOutOfFuel(scene.source(demon));
                 scene.prepare(water, 120, false, false, 0);
                 scene.fire(water);
                 MobEffectInstance sight = water.getEffect(MobEffects.NIGHT_VISION);
@@ -512,6 +512,7 @@ public final class MarriageFleetAuraGameTests {
                 reloaded.setPos(scene.at.add(0D, 0D, 8D));
                 helper.getLevel().addFreshEntity(reloaded);
                 reloaded.setNoAi(true);
+                scene.spawned.add(reloaded);
                 reloaded.setInvulnerable(true);
                 scene.prepareTarget(target);
                 reloaded.setGrudgeConsumption(0);
@@ -529,6 +530,7 @@ public final class MarriageFleetAuraGameTests {
                 helper.assertTrue(target.hasEffect(MobEffects.DAMAGE_BOOST), "Level 1 effect was not given");
                 source.setStateFlag(ID.F.UseRingEffect, false);
                 helper.assertTrue(!source.getStateFlag(ID.F.UseRingEffect), "Ring switch fixture was ignored");
+                scene.stillWhileTicking();
                 helper.runAfterDelay(40, () -> {
                     try {
                         helper.assertTrue(!target.hasEffect(MobEffects.DAMAGE_BOOST),
@@ -551,7 +553,7 @@ public final class MarriageFleetAuraGameTests {
     public static void midwaySelfHealingAddsOneAndRequiresFuel(GameTestHelper helper) {
         GameTestEntities.whenPositionsTicking(helper, () -> ShipConsumptionDefaultsGameTests.guarded(helper, () -> {
             try (Scene scene = new Scene(helper)) {
-                BasicEntityShip midway = scene.source(fleetShips().get(13));
+                BasicEntityShip midway = scene.entities.allowOutOfFuel(scene.source(fleetShips().get(13)));
                 for (int level : new int[]{1, 75, 150}) {
                     // grudge 1, hurt: the heal input is 9% of the maximum health plus one
                     for (boolean nearlyFull : new boolean[]{false, true}) {
@@ -838,6 +840,7 @@ public final class MarriageFleetAuraGameTests {
         final FakePlayer owner;
         final FakePlayer other;
         final Vec3 at;
+        private final List<BasicEntityShip> spawned = new ArrayList<>();
         private boolean playersJoined;
 
         Scene(GameTestHelper helper) {
@@ -861,7 +864,9 @@ public final class MarriageFleetAuraGameTests {
                                       Vec3 position) {
             BasicEntityShip ship = this.entities.add(type.get().create(this.helper.getLevel()));
             this.helper.assertTrue(ship != null, "Could not create " + name);
+            // fire() calls aiStep directly; noAi skips its AI step until the ship's own tick sets it back
             ship.setNoAi(true);
+            this.spawned.add(ship);
             ship.setInvulnerable(true);
             ship.setPos(position);
             ship.setOwnerUUID(this.ownerId);
@@ -871,13 +876,23 @@ public final class MarriageFleetAuraGameTests {
             return ship;
         }
 
+        /** A ship's own tick sets its noAi back, so ships that will tick stop through their goals instead. */
+        void stillWhileTicking() {
+            for (BasicEntityShip ship : this.spawned) {
+                ship.setNoAi(false);
+                GameTestEntities.removeAllGoalsEachTick(this.helper, ship);
+            }
+        }
+
         BasicEntityShip source(Case entry) {
             return this.spawn(entry.type(), entry.name(), this.at);
         }
 
         /** An ordinary ship of the same owner {@code distance} blocks east of the source. */
         BasicEntityShip target(double distance) {
-            return this.spawn(ModEntities.DD_HIME, "target ship", this.at.add(distance, 0D, 0D));
+            BasicEntityShip target = this.spawn(ModEntities.DD_HIME, "target ship", this.at.add(distance, 0D, 0D));
+            target.setStateMinor(ID.M.NumGrudge, 100_000);
+            return target;
         }
 
         /** Sets every input, reads it back and clears all effects. */

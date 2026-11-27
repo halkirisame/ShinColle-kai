@@ -477,7 +477,6 @@ public class ParticleHelper {
     @OnlyIn(Dist.CLIENT)
     private static void spawnStickyLightningParticleClient(Entity entity, float scale, int life, int type) {
         ClientLevel level = (ClientLevel) entity.level();
-        // 2026/04/07：GitHub Copilotによって確認済み
         // Keep legacy visual density: railgun beam emitted 4 sticky-lightning strips
         // per tick.
         for (int i = 0; i < 4; i++) {

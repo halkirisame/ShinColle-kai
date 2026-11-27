@@ -13,6 +13,8 @@ import com.lulan.shincolle.ai.observation.MinecraftTargetResolver;
 import com.lulan.shincolle.ai.path.ShipMoveControl;
 import com.lulan.shincolle.api.equipment.ShipAttackEffect;
 import com.lulan.shincolle.equip.ShipOnHitEffects;
+import com.lulan.shincolle.handler.ConfigHandler;
+import com.lulan.shincolle.init.ModSounds;
 import com.lulan.shincolle.reference.ID;
 import com.lulan.shincolle.reference.unitclass.Attrs;
 import com.lulan.shincolle.reference.unitclass.MissileData;
@@ -187,6 +189,10 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
     @Override
     public void tick() {
+        if (this.isDeadOrDying()) {
+            super.tick();
+            return;
+        }
         // server side airplane logic (before super.tick which handles host/lifetime
         // checks)
         if (!this.level().isClientSide()) {
@@ -243,7 +249,6 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
                     }
                 }
 
-                // target finding every 16 ticks
                 if (this.tickCount % 16 == 0 && this.canFindTarget() && !this.backHome) {
                     this.priorityTarget = ShipOwnerAssistGate.aircraft(this);
                     if (this.level() instanceof ServerLevel level) {
@@ -374,10 +379,18 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
 
     @Override
     protected void tickDeath() {
+        ++this.deathTime;
         if (this.level().isClientSide()) {
             com.lulan.shincolle.client.particle.ProjectileParticleVisuals.airplaneDeath(this);
+        } else {
+            this.setDeltaMovement(this.getDeltaMovement().add(0D, -0.08D, 0D));
+            if (this.deathTime == 90) {
+                this.playSound(ModSounds.SHIP_EXPLODE.get(), (float) ConfigHandler.volumeAttack(),
+                        0.7F / (this.random.nextFloat() * 0.4F + 0.8F));
+                this.level().broadcastEntityEvent(this, (byte) 60);
+                this.remove(RemovalReason.KILLED);
+            }
         }
-        super.tickDeath();
     }
 
     // ========== Damage Source ==========
@@ -456,13 +469,11 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         if (numAmmoHeavy > 0)
             numAmmoHeavy--;
 
-        // get heavy attack value
         float atk = this.shipAttrs.getAttackDamageAirHeavy();
 
         // calc distance for combat rate
         float dist = (float) Math.sqrt(this.distanceToSqr(target));
 
-        // apply combat rate
         atk = CombatHelper.applyCombatRateToDamage(this, target, false, dist, atk);
         atk = CombatHelper.applyDamageReduceOnPlayer(target, atk);
 
@@ -530,7 +541,6 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
         // set spawn position
         this.setPos(ship.getX(), launchY, ship.getZ());
 
-        // copy and modify attrs from host ship
         this.shipAttrs = Attrs.copyAttrs(ship.getAttrs());
         this.shipAttrs.setAttrsBuffed(ID.Attrs.HP,
                 ship.getLevel() + ship.getAttrs().getAttrsBuffed(ID.Attrs.HP) * 0.1F);
@@ -730,7 +740,6 @@ public abstract class BasicEntityAirplane extends BasicEntitySummon
     @Override
     public MissileData getMissileData(int type) {
         if (this.host != null) {
-            // 2026/04/07・哦itHub Copilot縺ｫ繧医▲縺ｦ遒ｺ隱肴ｸ医∩
             return this.host.getMissileData(type);
         }
         return new MissileData();

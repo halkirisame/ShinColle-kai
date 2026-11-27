@@ -40,7 +40,6 @@ public class EntitySubmU511Mob extends BasicEntityShipHostile implements IShipIn
         this.StateMinor[ID.M.NumGrudge] = 999;
         this.setAmmoConsumption(1);
 
-        // boss bar color
         this.bossBarColor = BossEvent.BossBarColor.BLUE;
 
         // model display

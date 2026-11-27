@@ -219,7 +219,7 @@ public final class ShipTargetAuthorityGameTests {
             ship.setEntitySit(true);
             check(ship.getTarget() == null && goal.currentLock().isEmpty(), "Sitting did not clear the lock");
             ship.setEntitySit(false);
-            ship.setEntityTarget(target);
+            GameTestTargetWrites.ignoredByAuthority(helper, ship, ship, target);
             check(ship.getTarget() == null && goal.currentLock().isEmpty(),
                     "External non-null write changed NEW authority");
         });
@@ -248,7 +248,7 @@ public final class ShipTargetAuthorityGameTests {
                             "Living missile lock was dropped on the next authority tick");
                 });
                 helper.runAfterDelay(65, () -> {
-                    survivor[0] = friendlyUnconfigured(helper, entities, 12D, 7106);
+                    survivor[0] = entities.allowOutOfFuel(friendlyUnconfigured(helper, entities, 12D, 7106));
                 });
                 helper.runAfterDelay(88, () -> {
                     try {
@@ -275,6 +275,74 @@ public final class ShipTargetAuthorityGameTests {
             missile(helper, entities, ship, 3D, -2);
             tick(authorityGoal(ship), ship, 100);
             helper.assertTrue(ship.getEntityTarget() == null, "AntiAir OFF acquired a hostile missile");
+        });
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 90,
+            batch = "isolated_target_authority_anti_air_preempts_held_auto")
+    public static void antiAirPreemptsHeldAutoAndReturnsAfterAircraftDisappears(GameTestHelper helper) {
+        verifyHeldAutoAntiAir(helper, true);
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", timeoutTicks = 90,
+            batch = "isolated_target_authority_anti_air_off_keeps_held_auto")
+    public static void antiAirOffKeepsHeldAutoWhenAircraftArrives(GameTestHelper helper) {
+        verifyHeldAutoAntiAir(helper, false);
+    }
+
+    private static void verifyHeldAutoAntiAir(GameTestHelper helper, boolean antiAir) {
+        waitForFixtureChunks(helper, () -> {
+            GameTestEntities entities = GameTestEntities.open(helper);
+            BasicEntityShip ship = friendly(helper, entities, 1D, 7121);
+            ship.setStateMinor(ID.M.NumGrudge, 100_000);
+            ship.setStateFlag(ID.F.NoFuel, false);
+            ship.setStateFlag(ID.F.AntiAir, antiAir);
+            ship.setNoGravity(true);
+            ship.setHealth(ship.getMaxHealth());
+            GameTestEntities.removeGoalsEachTick(helper, ship,
+                    goal -> !(goal instanceof ShipTargetAuthorityGoal));
+            BasicEntityShipHostile enemy = hostile(helper, entities, 5D);
+            enemy.setNoGravity(true);
+            enemy.setHealth(enemy.getMaxHealth());
+            GameTestEntities.removeAllGoalsEachTick(helper, enemy);
+            EntityAirplaneTMob[] aircraft = {null};
+            helper.onEachTick(() -> {
+                ship.setDeltaMovement(Vec3.ZERO);
+                enemy.setDeltaMovement(Vec3.ZERO);
+                if (aircraft[0] != null && aircraft[0].isAlive()) {
+                    aircraft[0].moveTo(helper.absoluteVec(new Vec3(3D, 4D, 1D)));
+                    aircraft[0].setDeltaMovement(Vec3.ZERO);
+                }
+            });
+            helper.runAfterDelay(25, () -> {
+                helper.assertTrue(ship.tickCount >= 24, "Fixture must pass goal re-registration");
+                helper.assertTrue(ship.getStateFlag(ID.F.AntiAir) == antiAir
+                                && ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                        "AntiAir and fuel fixture values were not applied");
+                helper.assertTrue(ship.getEntityTarget() == enemy
+                                && ship.currentTargetLock().filter(lock -> lock.source() == TargetSource.AUTO).isPresent(),
+                        "Fixture must hold the ordinary enemy through AUTO, not revenge");
+                aircraft[0] = entities.add(ModEntities.AIRPLANE_T_MOB.get().create(helper.getLevel()));
+                helper.assertTrue(aircraft[0] != null, "Failed to create the hostile aircraft");
+                aircraft[0].initAttrs(enemy, null, 1, (float) ship.getY());
+                aircraft[0].setNoAi(true);
+                aircraft[0].setNoGravity(true);
+                GameTestEntities.removeAllGoalsEachTick(helper, aircraft[0]);
+                add(helper, aircraft[0], 3D);
+            });
+            helper.runAfterDelay(41, () -> {
+                helper.assertTrue(aircraft[0] != null && aircraft[0].isAlive(), "Aircraft disappeared before observation");
+                helper.assertTrue(ship.getEntityTarget() == (antiAir ? aircraft[0] : enemy),
+                        "Held AUTO did not respect AntiAir within sixteen natural ticks");
+                helper.assertTrue(ship.currentTargetLock().filter(lock -> lock.source() == TargetSource.AUTO).isPresent(),
+                        "AntiAir fixture must not enter revenge");
+                aircraft[0].discard();
+            });
+            helper.runAfterDelay(57, () -> {
+                helper.assertTrue(ship.getEntityTarget() == enemy,
+                        "Disappearing aircraft must return to ordinary automatic acquisition");
+                helper.succeed();
+            });
         });
     }
 
@@ -350,7 +418,7 @@ public final class ShipTargetAuthorityGameTests {
             try {
                 TestAuthorityHostile host = entities.add(new TestAuthorityHostile(
                         ModEntities.BB_KIRISHIMA_MOB.get(), helper.getLevel()));
-                host.setNoAi(true);
+                GameTestEntities.removeAllGoalsEachTick(helper, host);
                 host.setStateMinor(ID.M.CraneState, 1);
                 add(helper, host, 1D);
                 rebuildAuthority(host);
@@ -594,43 +662,32 @@ public final class ShipTargetAuthorityGameTests {
     @GameTest(template = "empty", templateNamespace = "minecraft",
             batch = "isolated_target_authority_legacy_setting")
     public static void compatibilitySettingsRegisterOnlyTheTargetAuthority(GameTestHelper helper) {
-        var previous = ConfigHandler.COMMON.shipAiTargetAuthority.get();
-        boolean previousMarker = ConfigHandler.COMMON.shipAiNewDefaultApplied.get();
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            ConfigHandler.COMMON.shipAiTargetAuthority.set(ConfigHandler.ShipAiTargetAuthority.LEGACY);
             BasicEntityShip friendly = friendlyUnconfigured(helper, entities, 1D, 7119);
             BasicEntityShipHostile hostile = (BasicEntityShipHostile) entities.add(
                     ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
             helper.assertTrue(hostile != null, "Failed to create the hostile compatibility fixture");
             add(helper, hostile, 12D);
-            for (var stored : ConfigHandler.ShipAiTargetAuthority.values()) {
-                ConfigHandler.COMMON.shipAiTargetAuthority.set(stored);
-                for (boolean marker : new boolean[]{false, true}) {
-                    ConfigHandler.COMMON.shipAiNewDefaultApplied.set(marker);
-                    for (var override : ConfigHandler.ShipAiTargetAuthority.values()) {
-                        try (var scope = ShipAiAuthorityOverride.use(override)) {
-                            helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
-                                    "Compatibility inputs must still run NEW");
-                            for (Mob ship : List.of(friendly, hostile)) {
-                                rebuildAuthority(ship);
-                                var goals = targetSelector(ship).getAvailableGoals();
-                                helper.assertTrue(goals.size() == 1
-                                                && goals.iterator().next().getGoal() instanceof ShipTargetAuthorityGoal,
-                                        "Compatibility input registered another target authority: " + goals);
-                                helper.assertTrue(ship instanceof BasicEntityShip s ? s.hasTargetAuthority()
-                                                : ((BasicEntityShipHostile) ship).hasTargetAuthority(),
-                                        "Compatibility input left the ship without a target authority");
-                            }
-                        }
-                        helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
-                                "Closing a compatibility scope must still run NEW");
+            for (var override : ConfigHandler.ShipAiTargetAuthority.values()) {
+                try (var scope = ShipAiAuthorityOverride.use(override)) {
+                    helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                            "Compatibility inputs must still run NEW");
+                    for (Mob ship : List.of(friendly, hostile)) {
+                        rebuildAuthority(ship);
+                        var goals = targetSelector(ship).getAvailableGoals();
+                        helper.assertTrue(goals.size() == 1
+                                        && goals.iterator().next().getGoal() instanceof ShipTargetAuthorityGoal,
+                                "Compatibility input registered another target authority: " + goals);
+                        helper.assertTrue(ship instanceof BasicEntityShip s ? s.hasTargetAuthority()
+                                        : ((BasicEntityShipHostile) ship).hasTargetAuthority(),
+                                "Compatibility input left the ship without a target authority");
                     }
                 }
+                helper.assertTrue(ConfigHandler.shipAiTargetAuthority() == ConfigHandler.ShipAiTargetAuthority.NEW,
+                        "Closing a compatibility scope must still run NEW");
             }
             helper.succeed();
         } finally {
-            ConfigHandler.COMMON.shipAiTargetAuthority.set(previous);
-            ConfigHandler.COMMON.shipAiNewDefaultApplied.set(previousMarker);
             ConfigHandler.setShipAiTargetAuthorityForTest(null);
         }
     }
@@ -690,7 +747,7 @@ public final class ShipTargetAuthorityGameTests {
         BasicEntityShipHostile ship = (BasicEntityShipHostile) entities.add(
                 ModEntities.BB_KIRISHIMA_MOB.get().create(helper.getLevel()));
         check(ship != null, "Hostile ship creation failed");
-        ship.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, ship);
         add(helper, ship, x);
         rebuildAuthority(ship);
         return ship;

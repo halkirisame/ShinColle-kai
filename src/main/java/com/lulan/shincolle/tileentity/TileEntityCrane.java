@@ -20,6 +20,7 @@ import com.lulan.shincolle.utility.EnchantHelper;
 import com.lulan.shincolle.item.BasicEquip;
 import com.lulan.shincolle.item.EquipDrum;
 import com.lulan.shincolle.utility.LogHelper;
+import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -530,7 +531,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider,
         }
         int uid = player.getCapability(CapaTeitokuProvider.CAPABILITY)
                 .map(CapaTeitoku::getPlayerUID).orElse(-1);
-        boolean verified = playerUID > 0 && uid == playerUID;
+        boolean verified = TeamHelper.checkSameOwner(playerUID, uid);
         String reason = playerUID <= 0 ? "uid_uninitialized" : "uid_mismatch";
         LogHelper.diag("DIAG: crane owner check player=" + player.getName().getString()
                 + " result=" + (verified ? "verified" : "rejected:" + reason));
@@ -541,7 +542,7 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider,
         if (ownerUUID != null) {
             return ownerUUID.equals(ship.getOwnerUUID());
         }
-        return playerUID > 0 && ship.getPlayerUID() == playerUID;
+        return TeamHelper.checkSameOwner(playerUID, ship.getPlayerUID());
     }
 
     public String getModeName() {
@@ -630,10 +631,8 @@ public class TileEntityCrane extends BasicTileInventory implements MenuProvider,
             return false;
 
         if (loading && enabLoad) {
-            // Move from chest to ship
             return transferItems(chest, dockedShip);
         } else if (!loading && enabUnload) {
-            // Move from ship to chest
             return transferItemsFromShip(dockedShip, chest);
         }
         return false;

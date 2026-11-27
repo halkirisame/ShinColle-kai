@@ -53,7 +53,6 @@ public class MarriageRing extends BasicItem {
             boolean newState = !isActive;
             tag.putBoolean("isActive", newState);
 
-            // update player capability
             CapaTeitoku capa = player.getCapability(CapaTeitokuProvider.CAPABILITY).orElse(null);
             if (capa == null) {
                 return InteractionResultHolder.fail(stack);

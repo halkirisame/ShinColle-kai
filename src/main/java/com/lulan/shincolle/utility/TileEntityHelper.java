@@ -60,7 +60,6 @@ public class TileEntityHelper {
             return;
         }
 
-        // Set next waypoint on source
         wpFrom.setNextWaypoint(posTo);
 
         // Set last waypoint on target (unless it would create a 2-node cycle)
@@ -122,8 +121,7 @@ public class TileEntityHelper {
     private static boolean isOwnedBy(ServerPlayer player, int playerUID, ITileWaypoint waypoint) {
         java.util.UUID owner = waypoint instanceof TileEntityWaypoint tile ? tile.getOwnerUUID()
                 : waypoint instanceof TileEntityCrane crane ? crane.getOwnerUUID() : null;
-        return playerUID > 0
-                && waypoint.getPlayerUID() == playerUID
+        return TeamHelper.checkSameOwner(playerUID, waypoint.getPlayerUID())
                 && player.getUUID().equals(owner);
     }
 

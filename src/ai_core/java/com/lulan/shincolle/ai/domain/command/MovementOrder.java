@@ -16,7 +16,11 @@ public sealed interface MovementOrder {
     record Follow() implements MovementOrder { }
     record MoveTo(DimensionKey dimension, CommandPos position, boolean releaseOnArrival)
             implements MovementOrder { }
-    record GuardPosition(DimensionKey dimension, CommandPos position, boolean releaseOnArrival)
-            implements MovementOrder { }
+    record GuardPosition(DimensionKey dimension, CommandPos position, boolean releaseOnArrival,
+                         boolean fishingStation) implements MovementOrder {
+        public GuardPosition(DimensionKey dimension, CommandPos position, boolean releaseOnArrival) {
+            this(dimension, position, releaseOnArrival, false);
+        }
+    }
     record GuardEntity(TargetHandle target) implements MovementOrder { }
 }

@@ -21,18 +21,22 @@ import net.minecraftforge.items.ItemStackHandler;
  * 9 fuel input slots (3x3 grid) + player inventory.
  * <p>
  * ContainerData layout:
- * 0: fuelPercent (0-1000)
- * 1: btnActive (0/1)
- * 2: canWork (0/1)
+ * 0-1: remaining fuel (low/high 16 bits)
+ * 2-3: maximum fuel (low/high 16 bits)
+ * 4: btnActive (0/1)
+ * 5: canWork (0/1)
  */
 public class ContainerVolCore extends AbstractContainerMenu {
 
     public static final int INPUT_SLOT_COUNT = 9;
 
-    public static final int DATA_FUEL_PERCENT = 0;
-    public static final int DATA_BTN_ACTIVE = 1;
-    public static final int DATA_CAN_WORK = 2;
-    public static final int DATA_COUNT = 3;
+    public static final int DATA_FUEL_LOW = 0;
+    public static final int DATA_FUEL_HIGH = 1;
+    public static final int DATA_MAX_LOW = 2;
+    public static final int DATA_MAX_HIGH = 3;
+    public static final int DATA_BTN_ACTIVE = 4;
+    public static final int DATA_CAN_WORK = 5;
+    public static final int DATA_COUNT = 6;
 
     private final TileEntityVolCore tile;
     private final ContainerData data;
@@ -79,9 +83,10 @@ public class ContainerVolCore extends AbstractContainerMenu {
             @Override
             public int get(int index) {
                 return switch (index) {
-                    case DATA_FUEL_PERCENT -> tile.getPowerMax() > 0
-                            ? (int) ((long) tile.getPowerRemained() * 1000 / tile.getPowerMax())
-                            : 0;
+                    case DATA_FUEL_LOW -> tile.getPowerRemained() & 0xFFFF;
+                    case DATA_FUEL_HIGH -> tile.getPowerRemained() >>> 16;
+                    case DATA_MAX_LOW -> tile.getPowerMax() & 0xFFFF;
+                    case DATA_MAX_HIGH -> tile.getPowerMax() >>> 16;
                     case DATA_BTN_ACTIVE -> tile.isBtnActive() ? 1 : 0;
                     case DATA_CAN_WORK -> tile.isWorking() ? 1 : 0;
                     default -> 0;
@@ -118,10 +123,11 @@ public class ContainerVolCore extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        if (tile == null)
+        if (tile == null || tile.isRemoved() || tile.getLevel() == null)
             return false;
         BlockPos pos = tile.getBlockPos();
-        return player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
+        return tile.getLevel().getBlockEntity(pos) == tile && tile.canUse(player)
+                && player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
     }
 
     @Override
@@ -134,11 +140,19 @@ public class ContainerVolCore extends AbstractContainerMenu {
             result = slotStack.copy();
 
             if (index < INPUT_SLOT_COUNT) {
-                if (!this.moveItemStackTo(slotStack, INPUT_SLOT_COUNT, INPUT_SLOT_COUNT + 36, true)) {
+                if (!this.moveItemStackTo(slotStack, INPUT_SLOT_COUNT, INPUT_SLOT_COUNT + 36, false)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (index < INPUT_SLOT_COUNT + 27) {
+                if (!this.moveItemStackTo(slotStack, 0, INPUT_SLOT_COUNT, true)) {
                     return ItemStack.EMPTY;
                 }
             } else {
-                if (!this.moveItemStackTo(slotStack, 0, INPUT_SLOT_COUNT, false)) {
+                boolean moved = this.moveItemStackTo(slotStack, 0, INPUT_SLOT_COUNT, false);
+                if (!slotStack.isEmpty()) {
+                    moved = this.moveItemStackTo(slotStack, INPUT_SLOT_COUNT, INPUT_SLOT_COUNT + 27, false) || moved;
+                }
+                if (!moved) {
                     return ItemStack.EMPTY;
                 }
             }
@@ -158,7 +172,21 @@ public class ContainerVolCore extends AbstractContainerMenu {
     }
 
     public int getFuelPercent() {
-        return data.get(DATA_FUEL_PERCENT);
+        int maximum = getPowerMax();
+        return maximum > 0 ? (int) ((long) getPowerRemained() * 1000 / maximum) : 0;
+    }
+
+    public int getPowerRemained() {
+        return (data.get(DATA_FUEL_LOW) & 0xFFFF) | ((data.get(DATA_FUEL_HIGH) & 0xFFFF) << 16);
+    }
+
+    public int getPowerMax() {
+        return (data.get(DATA_MAX_LOW) & 0xFFFF) | ((data.get(DATA_MAX_HIGH) & 0xFFFF) << 16);
+    }
+
+    public int getPowerRemainingScaled(int pixels) {
+        int maximum = getPowerMax();
+        return maximum > 0 ? (int) ((long) getPowerRemained() * pixels / maximum) : 0;
     }
 
     public boolean isBtnActive() {

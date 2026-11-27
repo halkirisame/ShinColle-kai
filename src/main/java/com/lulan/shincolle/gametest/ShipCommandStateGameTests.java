@@ -142,7 +142,7 @@ public final class ShipCommandStateGameTests {
             FakePlayer player = owner(helper, ship);
             ship.applyCommandState(new CommandIssuer.Player(player.getUUID()),
                     new CommandStateOp.Apply(new ShipCommand.SetSitting(true)));
-            ship.hurt(player.damageSources().playerAttack(player), 1F);
+            entities.allowDamage(ship).hurt(player.damageSources().playerAttack(player), 1F);
             helper.assertTrue(!ship.getCommandState().sitting(), "Owner damage should make the ship stand");
             check(ship);
             helper.succeed();
@@ -462,7 +462,7 @@ public final class ShipCommandStateGameTests {
             ship.setStateFlag(ID.F.NoFuel, false);
             ship.applyCommandState(new CommandIssuer.Player(UUID.randomUUID()),
                     new CommandStateOp.Apply(new ShipCommand.Attack(ShipCommandStateAdapter.handle(cow))));
-            ship.setStateMinor(ID.M.NumGrudge, 0);
+            entities.allowOutOfFuel(ship).setStateMinor(ID.M.NumGrudge, 0);
             ship.decrGrudgeNum(0);
             ship.aiStep();
             helper.assertTrue(ship.getCommandState().manualAttack().isEmpty(),
@@ -659,8 +659,7 @@ public final class ShipCommandStateGameTests {
                                 && flagship.getCommandState().movement() instanceof MovementOrder.MoveTo,
                         "The first formation move must reach all five ships");
                 Zombie target = PointerSingleModeGameTests.addTarget(context, new Vec3(2.5D, 2D, 4.5D));
-                flagship.setTarget(target);
-                flagship.setEntityTarget(target);
+                GameTestTargetWrites.beforeAuthority(helper, flagship, target);
                 helper.assertTrue(flagship.getTarget() == target && flagship.getEntityTarget() == target,
                         "The flagship needs a target before repeating the move");
                 var second = ShipCommandDispatcher.dispatch(context.player(), CommandKind.MOVE, values,

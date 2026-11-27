@@ -411,7 +411,7 @@ public final class OwnerAssistGameTests {
                 rig.after(4, () -> {
                     helper.assertTrue(!ShipCombatGate.engagement(rig.ship).engaged(), "Sitting ship could fire");
                     rig.ship.setEntitySit(false);
-                    rig.ship.setStateMinor(ID.M.NumGrudge, 0);
+                    rig.entities.allowOutOfFuel(rig.ship).setStateMinor(ID.M.NumGrudge, 0);
                     rig.ship.setStateFlag(ID.F.NoFuel, true);
                     helper.assertTrue(rig.ship.getStateFlag(ID.F.NoFuel), "NoFuel fixture was not applied");
                     rig.after(4, () -> {
@@ -594,7 +594,8 @@ public final class OwnerAssistGameTests {
                 rig.c = rig.target(14D);
                 scenario.accept(rig);
             });
-        }, new Vec3(0D, 4D, 1D), new Vec3(14D, 4D, 1D), new Vec3(80D, 4D, 1D));
+        }, new Vec3(0D, 4D, 1D), new Vec3(14D, 4D, 1D), new Vec3(63.99D, 4D, 1D), new Vec3(64D, 4D, 1D),
+                new Vec3(64.01D, 4D, 1D), new Vec3(80D, 4D, 1D));
     }
 
     private static final class Rig {

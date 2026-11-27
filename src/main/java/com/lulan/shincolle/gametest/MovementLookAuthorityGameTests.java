@@ -1,6 +1,7 @@
 package com.lulan.shincolle.gametest;
 
 import com.lulan.shincolle.ai.ShipCombatGate;
+import com.lulan.shincolle.ai.ShipFollowOwnerGoal;
 import com.lulan.shincolle.ai.command.ShipCommandStateAdapter;
 import com.lulan.shincolle.ai.domain.DimensionKey;
 import com.lulan.shincolle.ai.domain.command.CommandIssuer;
@@ -9,6 +10,11 @@ import com.lulan.shincolle.ai.domain.command.CommandStateOp;
 import com.lulan.shincolle.ai.domain.command.ShipCommand;
 import com.lulan.shincolle.ai.domain.movement.LookReason;
 import com.lulan.shincolle.ai.domain.movement.LookRequest;
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
+import com.lulan.shincolle.ai.domain.movement.MovementReason;
+import com.lulan.shincolle.ai.domain.movement.MovementStep;
+import com.lulan.shincolle.ai.domain.movement.MovementTarget;
+import com.lulan.shincolle.ai.domain.movement.PathOutcome;
 import com.lulan.shincolle.ai.ShipWanderGoal;
 import com.lulan.shincolle.ai.ShipWatchClosestGoal;
 import com.lulan.shincolle.capability.CapaTeitokuProvider;
@@ -28,7 +34,10 @@ import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
@@ -36,7 +45,9 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -134,6 +145,7 @@ public final class MovementLookAuthorityGameTests {
                             LookReason expected) {
         GameTestEntities.whenPositionsTicking(helper, () -> {
             Scene scene = new Scene(helper, follow, engage, watch, ration);
+            if (watch) GameTestEntities.onCompletion(helper, scene::close, "watch lane cleanup");
             int start = (int) helper.getTick() + 1;
             helper.runAtTickTime(start, () -> scene.guard(scene::setup));
             for (int tick = start + 1; tick < start + 100; tick++) {
@@ -148,12 +160,190 @@ public final class MovementLookAuthorityGameTests {
                         + "): " + report);
                 helper.succeed();
             }));
-        }, ROUTE);
+        }, watch ? WatchLane.tickingPositions(helper) : ROUTE);
     }
 
     /** The yaw a head at {@code from} must have to face {@code to}. */
     private static float bearing(Vec3 from, Vec3 to) {
         return (float) (Mth.atan2(to.z - from.z, to.x - from.x) * (180D / Math.PI)) - 90F;
+    }
+
+    /** A wide, empty-sky straightaway used only by the watch/follow scene. */
+    private static final class WatchLane {
+        private static final int LIFT = 60;
+        private static final int BACK = 16;
+        private static final int FRONT = 128;
+        private static final int HALF_WIDTH = 12;
+        private static final int CLEAR_HEIGHT = 4;
+        private static final double FORWARD_EPSILON = 0.000001D;
+        private static final double MIN_WALK_DISTANCE = 0.1D;
+        private final GameTestHelper helper;
+        private final BlockPos origin;
+        private final Map<BlockPos, BlockState> replaced = new LinkedHashMap<>();
+        private double previousX;
+        private double dx;
+        private double maxSide;
+        private double overlapDistance;
+        private double overlapStartX;
+        private int previousTick = -1;
+        private int startedAt = -1;
+        private int overlapFrom = -1;
+        private int overlapTo = -1;
+        private int lastJudgedAt = -1;
+        private int requestTick = -1;
+        private int walking;
+        private final List<String> displacements = new ArrayList<>();
+
+        WatchLane(GameTestHelper helper) {
+            this.helper = helper;
+            this.origin = BlockPos.containing(helper.absoluteVec(SHIP)).above(LIFT);
+            this.previousX = this.origin.getX() + 0.5D;
+        }
+
+        /** Every chunk intersecting the world-axis-aligned floor, not just its corners. */
+        static Vec3[] tickingPositions(GameTestHelper helper) {
+            BlockPos origin = BlockPos.containing(helper.absoluteVec(SHIP)).above(LIFT);
+            List<Vec3> positions = new ArrayList<>();
+            for (int cx = (origin.getX() - BACK) >> 4; cx <= (origin.getX() + FRONT) >> 4; cx++) {
+                for (int cz = (origin.getZ() - HALF_WIDTH) >> 4;
+                     cz <= (origin.getZ() + HALF_WIDTH) >> 4; cz++) {
+                    positions.add(helper.relativeVec(new Vec3(cx * 16 + 8D, origin.getY(), cz * 16 + 8D)));
+                }
+            }
+            return positions.toArray(Vec3[]::new);
+        }
+
+        void build() {
+            // Check the whole occupied volume before changing any block; never clear another fixture.
+            for (BlockPos pos : BlockPos.betweenClosed(this.origin.offset(-BACK, -1, -HALF_WIDTH),
+                    this.origin.offset(FRONT, CLEAR_HEIGHT, HALF_WIDTH))) {
+                this.helper.assertTrue(this.helper.getLevel().getBlockState(pos).isAir(),
+                        "watch lane is not empty at " + pos);
+            }
+            AABB occupied = new AABB(this.origin.offset(-BACK, -1, -HALF_WIDTH),
+                    this.origin.offset(FRONT + 1, CLEAR_HEIGHT + 1, HALF_WIDTH + 1));
+            this.helper.assertTrue(this.helper.getLevel().getEntities((Entity) null, occupied).isEmpty(),
+                    "watch lane contains another fixture's entities");
+            for (BlockPos pos : BlockPos.betweenClosed(this.origin.offset(-BACK, -1, -HALF_WIDTH),
+                    this.origin.offset(FRONT, -1, HALF_WIDTH))) {
+                BlockPos fixed = pos.immutable();
+                this.replaced.put(fixed, this.helper.getLevel().getBlockState(fixed));
+                this.helper.getLevel().setBlock(fixed, Blocks.STONE.defaultBlockState(), 2);
+            }
+        }
+
+        void check(Entity entity) {
+            AABB box = entity.getBoundingBox();
+            this.helper.assertTrue(box.minX >= this.origin.getX() - BACK + 1D
+                            && box.maxX <= this.origin.getX() + FRONT
+                            && box.minZ >= this.origin.getZ() - HALF_WIDTH + 1D
+                            && box.maxZ <= this.origin.getZ() + HALF_WIDTH,
+                    "watch fixture left its flat lane: " + entity.position());
+            this.helper.assertTrue(Math.abs(entity.getY() - this.origin.getY()) < 0.001D,
+                    "watch fixture left its fixed feet Y: " + entity.position());
+            this.helper.assertTrue(this.helper.getLevel().isPositionEntityTicking(entity.blockPosition()),
+                    "watch fixture is outside entity-ticking chunks: " + entity.position());
+        }
+
+        void checkSpace(BasicEntityShip ship, Entity owner, Entity foe, Entity bystander) {
+            for (BlockPos pos : BlockPos.betweenClosed(this.origin.offset(-BACK, -1, -HALF_WIDTH),
+                    this.origin.offset(FRONT, CLEAR_HEIGHT, HALF_WIDTH))) {
+                boolean floor = pos.getY() == this.origin.getY() - 1;
+                BlockState state = this.helper.getLevel().getBlockState(pos);
+                this.helper.assertTrue(floor ? state.is(Blocks.STONE) : state.isAir(),
+                        "watch lane terrain changed at " + pos + ": " + state);
+            }
+            AABB occupied = new AABB(this.origin.offset(-BACK, -1, -HALF_WIDTH),
+                    this.origin.offset(FRONT + 1, CLEAR_HEIGHT + 1, HALF_WIDTH + 1));
+            this.helper.assertTrue(this.helper.getLevel().getEntities(ship, occupied,
+                            entity -> entity != owner && entity != foe && entity != bystander).isEmpty(),
+                    "another entity entered the watch lane");
+            this.check(ship);
+            if (owner != null) this.check(owner);
+            if (foe != null) this.check(foe);
+            if (bystander != null) this.check(bystander);
+        }
+
+        void observe(BasicEntityShip ship, Zombie foe, boolean judge) {
+            this.check(ship);
+            this.dx = ship.getX() - this.previousX;
+            double side = Math.abs(ship.getZ() - (this.origin.getZ() + 0.5D));
+            this.maxSide = Math.max(this.maxSide, side);
+            var request = ship.shipMovementExecutor().last();
+            var path = ship.getNavigation().getPath();
+            boolean followPath = request.isPresent() && request.get().outcome() == PathOutcome.ISSUED
+                    && request.get().step() instanceof MovementStep.PathTo move
+                    && move.body() == MovementBody.SELF && move.reason() == MovementReason.FOLLOW_OWNER
+                    && move.target() instanceof MovementTarget.Point point
+                    && path != null && !path.isDone() && path.canReach()
+                    && path.getTarget().equals(BlockPos.containing(point.point().x(), point.point().y(), point.point().z()))
+                    && MovementPlanParityGameTests.selector(ship).getRunningGoals()
+                            .anyMatch(goal -> goal.getGoal() instanceof ShipFollowOwnerGoal);
+            this.requestTick = request.map(value -> value.tick()).orElse(-1);
+            boolean forward = this.dx > FORWARD_EPSILON;
+            String state = "tick=" + ship.tickCount + " at=" + ship.position() + " dx=" + this.dx
+                    + " side=" + side + " request=" + request + " path=" + path + " started=" + this.startedAt;
+            this.helper.assertTrue(side < 0.5D, "watch fixture left its straight row: " + state);
+            if (this.startedAt < 0 && forward && followPath) this.startedAt = ship.tickCount;
+            if (this.startedAt >= 0) {
+                this.helper.assertTrue(forward && followPath
+                                && (this.previousTick < 0 || ship.tickCount == this.previousTick + 1),
+                        "watch fixture lost continuous natural forward walking: " + state);
+                boolean sameTarget = foe != null && ShipCombatGate.engagedTarget(ship)
+                        .filter(ShipCommandStateAdapter.handle(foe)::equals).isPresent();
+                this.helper.assertTrue(this.overlapFrom < 0 || judge && sameTarget,
+                        "watch fixture lost its walking/engagement/look overlap: " + state);
+                if (judge) {
+                    this.helper.assertTrue(sameTarget, "watch fixture engaged a different target: " + state);
+                    if (this.overlapFrom < 0) {
+                        this.overlapFrom = ship.tickCount;
+                        this.overlapStartX = this.previousX;
+                    }
+                    this.overlapTo = ship.tickCount;
+                    this.walking++;
+                    this.overlapDistance = ship.getX() - this.overlapStartX;
+                    this.displacements.add(ship.tickCount + ":" + this.dx);
+                }
+            } else {
+                this.helper.assertTrue(!forward, "watch fixture moved without its own follow path: " + state);
+            }
+            if (judge) this.lastJudgedAt = ship.tickCount;
+            this.previousX = ship.getX();
+            this.previousTick = ship.tickCount;
+        }
+
+        void recordLook(BasicEntityShip ship, Zombie foe, float off, boolean wrong) {
+            LogHelper.info("Movement watch observation tick=" + ship.tickCount + " dx=" + this.dx
+                    + " walking=" + (this.overlapTo == ship.tickCount) + " requestTick=" + this.requestTick
+                    + " judge=true engagedSame=" + ShipCombatGate.engagedTarget(ship)
+                            .filter(ShipCommandStateAdapter.handle(foe)::equals).isPresent()
+                    + " shipX=" + ship.getX() + " foe=" + foe.getUUID() + " foeX=" + foe.getX()
+                    + " head=" + ship.yHeadRot + " off=" + off + " wrongHead=" + wrong
+                    + " wantedX=" + ship.getLookControl().getWantedX());
+        }
+
+        void verify(List<String> problems, int minimumSamples) {
+            if (this.walking < minimumSamples || this.overlapDistance < MIN_WALK_DISTANCE
+                    || this.overlapTo != this.lastJudgedAt || this.overlapTo != this.previousTick) {
+                problems.add("insufficient continuous walking/engagement/look overlap: " + this.report());
+            }
+        }
+
+        String report() {
+            return "started=" + this.startedAt + " overlap=" + this.overlapFrom + ".." + this.overlapTo
+                    + " walking=" + this.walking + " netDx=" + this.overlapDistance + " maxSide=" + this.maxSide
+                    + " lastJudged=" + this.lastJudgedAt + " lastObserved=" + this.previousTick
+                    + " perTickDx=" + this.displacements;
+        }
+
+        void close() {
+            if (this.replaced.isEmpty()) return;
+            int count = this.replaced.size();
+            this.replaced.forEach((pos, state) -> this.helper.getLevel().setBlock(pos, state, 2));
+            this.replaced.clear();
+            LogHelper.info("Movement watch lane restored " + count + " blocks at " + this.origin
+                    + "; " + this.report());
+        }
     }
 
     private static final class Scene {
@@ -164,6 +354,7 @@ public final class MovementLookAuthorityGameTests {
         private final boolean ration;
         private final ShipAiAuthorityOverride authority;
         private final GameTestEntities entities;
+        private final WatchLane lane;
         private final List<String> samples = new ArrayList<>();
         private final List<String> late = new ArrayList<>();
         private BasicEntityShip ship;
@@ -194,10 +385,13 @@ public final class MovementLookAuthorityGameTests {
             this.ration = ration;
             this.authority = ShipAiAuthorityOverride.use(ConfigHandler.ShipAiTargetAuthority.NEW);
             this.entities = GameTestEntities.open(helper);
+            this.lane = watch ? new WatchLane(helper) : null;
         }
 
         void setup() {
+            if (this.lane != null) this.lane.build();
             this.ship = MovementPlanParityGameTests.friendly(this.helper, this.entities, SHIP);
+            if (this.lane != null) this.lane.checkSpace(this.ship, null, null, null);
             if (this.engage && !this.watch) this.spawnFoe();
             this.destination = MovementPlanParityGameTests.ground(this.helper, AWAY);
         }
@@ -211,11 +405,13 @@ public final class MovementLookAuthorityGameTests {
             this.helper.assertTrue(this.helper.getLevel().addFreshEntity(this.foe), "failed to add the target");
         }
 
-        /** Standing on the ground at {@code x} in the ship's row. */
+        /** Standing at {@code x} in the ship's row, on the fixed floor in the watch scene. */
         private void place(Entity entity, double x) {
-            int y = this.helper.getLevel().getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x),
-                    (int) Math.floor(this.ship.getZ()));
+            int y = this.lane != null ? this.lane.origin.getY()
+                    : this.helper.getLevel().getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x),
+                            (int) Math.floor(this.ship.getZ()));
             entity.moveTo(x, y, this.ship.getZ(), 0F, 0F);
+            if (this.lane != null) this.lane.check(entity);
         }
 
         void release() {
@@ -297,6 +493,7 @@ public final class MovementLookAuthorityGameTests {
         void poll() {
             // wander draws from the entity random and would walk the ship off on its own
             MovementPlanParityGameTests.selector(this.ship).removeAllGoals(goal -> goal instanceof ShipWanderGoal);
+            if (this.lane != null) this.lane.checkSpace(this.ship, this.owner, this.foe, this.bystander);
             if (this.releasedAt < 0) {
                 if (this.ship.tickCount >= RELEASE_AT) this.release();
                 return;
@@ -308,7 +505,16 @@ public final class MovementLookAuthorityGameTests {
             if (this.bystander != null) this.place(this.bystander, this.ship.getX() + BYSTANDER);
             if (this.watching != null && !this.attacked) {
                 // before the attack: the watch goal must be able to run in this fixture
-                if (this.watching.isRunning()) this.watchRan++;
+                if (this.watching.isRunning()) {
+                    if (this.lane != null) {
+                        this.helper.assertTrue(Math.abs(this.ship.getLookControl().getWantedX()
+                                                - this.bystander.getX()) < 1D
+                                        && Math.abs(this.ship.getLookControl().getWantedZ()
+                                                - this.bystander.getZ()) < 0.001D,
+                                "the real watch goal must look at the bystander ahead");
+                    }
+                    this.watchRan++;
+                }
                 if (ShipCombatGate.engagedTarget(this.ship).isPresent()) this.engagedEarly++;
                 if (this.ship.tickCount >= this.releasedAt + WATCH_PROOF) this.attack();
             }
@@ -316,6 +522,7 @@ public final class MovementLookAuthorityGameTests {
             this.engagedFor = engaged ? this.engagedFor + 1 : 0;
             this.lastLook = this.ship.shipMovementExecutor().lastLook();
             boolean judge = this.engage ? this.engagedFor >= SETTLE : this.ship.tickCount >= this.releasedAt + SETTLE;
+            if (this.lane != null) this.lane.observe(this.ship, this.foe, judge);
             if (judge && this.ration) this.rationTick();
             if (!judge) return;
             Vec3 where = this.ship.position();
@@ -329,6 +536,7 @@ public final class MovementLookAuthorityGameTests {
                     this.late.add(this.ship.tickCount + ":off=" + MovementPlanParityGameTests.fmt(off));
                 }
             }
+            if (this.lane != null) this.lane.recordLook(this.ship, this.foe, off, off > this.maxOff());
             if (this.samples.size() < 8 && this.checked % 4 == 1) {
                 this.samples.add(this.ship.tickCount + ":off=" + MovementPlanParityGameTests.fmt(off) + ":dist="
                         + MovementPlanParityGameTests.fmt(where.distanceTo(toward)));
@@ -365,6 +573,7 @@ public final class MovementLookAuthorityGameTests {
             if (this.lastLook.isEmpty() || this.lastLook.get().reason() != expected) {
                 problems.add("the last look was " + this.lastLook + ", not " + expected);
             }
+            if (this.lane != null) this.lane.verify(problems, 10);
             return problems;
         }
 
@@ -389,7 +598,11 @@ public final class MovementLookAuthorityGameTests {
                     this.helper.getLevel().removePlayerImmediately(this.bystander, Entity.RemovalReason.DISCARDED);
                 }
             } finally {
-                this.authority.close();
+                try {
+                    if (this.lane != null) this.lane.close();
+                } finally {
+                    this.authority.close();
+                }
             }
         }
 

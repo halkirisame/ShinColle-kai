@@ -530,6 +530,7 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
         this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
         this.GlowBodyMain.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
+        this.GlowBodyMain2.render(poseStack, buffer, 0xF000F0, packedOverlay, red, green, blue, alpha);
         poseStack.popPose();
     }
 
@@ -542,8 +543,8 @@ public class ModelCarrierHime extends ShipModelBaseAdv<Entity> {
 
         if (f1 || f2) {
             this.GlowBodyMain2.visible = true;
-            this.GlowArmLeft01.visible = !f1;
-            this.GlowArmRight01.visible = !f2;
+            this.GlowArmLeft01.visible = f1;
+            this.GlowArmRight01.visible = f2;
         } else {
             this.GlowBodyMain2.visible = false;
         }

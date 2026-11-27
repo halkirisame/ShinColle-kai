@@ -31,7 +31,7 @@ public final class CommandStateReducer {
         }
         if (command instanceof ShipCommand.GuardPosition guard) {
             return new ShipCommandState(new MovementOrder.GuardPosition(guard.dimension(), guard.position(),
-                    guard.releaseOnArrival()), false, state.manualAttack());
+                    guard.releaseOnArrival(), guard.fishingStation()), false, state.manualAttack());
         }
         if (command instanceof ShipCommand.Follow) {
             return new ShipCommandState(new MovementOrder.Follow(), state.sitting(), state.manualAttack());

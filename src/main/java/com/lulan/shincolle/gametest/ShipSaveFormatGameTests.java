@@ -112,8 +112,8 @@ public final class ShipSaveFormatGameTests {
 
             CompoundTag plain = new CompoundTag();
             CapaShipSavedValues.saveNBTData(plain, ship);
-            assertKeys(helper, plain, Set.of("AiDataVersion", "StateMinor", "StateFlag", "StateEmotion",
-                    "AttrsBonus", "OwnerName", "TextureID"), "unnamed ship");
+            assertKeys(helper, plain, Set.of("AiDataVersion", "FishingStation", "StateMinor", "StateFlag", "StateEmotion",
+                    "AttrsBonus", "OwnerName", "UnitNames", "TextureID"), "unnamed ship");
             helper.assertTrue(plain.contains("StateMinor", Tag.TAG_INT_ARRAY)
                             && plain.getIntArray("StateMinor").length == MINOR_LENGTH,
                     "StateMinor must be an int array of " + MINOR_LENGTH);
@@ -127,12 +127,15 @@ public final class ShipSaveFormatGameTests {
                             && plain.contains("OwnerName", Tag.TAG_STRING)
                             && plain.contains("TextureID", Tag.TAG_INT),
                     "AttrsBonus, OwnerName and TextureID changed their saved types");
+            helper.assertTrue(plain.contains("UnitNames", Tag.TAG_LIST)
+                            && plain.getList("UnitNames", Tag.TAG_STRING).isEmpty(),
+                    "An unnamed ship must save an explicit empty unit-name list");
 
             ship.setCustomName(Component.literal("Verniy"));
             CompoundTag named = new CompoundTag();
             CapaShipSavedValues.saveNBTData(named, ship);
-            assertKeys(helper, named, Set.of("AiDataVersion", "StateMinor", "StateFlag", "StateEmotion",
-                    "AttrsBonus", "OwnerName", "TextureID", "CustomName"), "named ship");
+            assertKeys(helper, named, Set.of("AiDataVersion", "FishingStation", "StateMinor", "StateFlag", "StateEmotion",
+                    "AttrsBonus", "OwnerName", "UnitNames", "TextureID", "CustomName"), "named ship");
             helper.assertTrue(named.contains("CustomName", Tag.TAG_STRING), "CustomName must be a string");
 
             CompoundTag idle = new CompoundTag();
@@ -673,8 +676,8 @@ public final class ShipSaveFormatGameTests {
     }
 
     private static void assertMarked(GameTestHelper helper, CompoundTag nbt, String label) {
-        helper.assertTrue(nbt.contains(VERSION_KEY, Tag.TAG_INT) && nbt.getInt(VERSION_KEY) == 1,
-                label + ": expected the integer version mark 1, found " + nbt.get(VERSION_KEY));
+        helper.assertTrue(nbt.contains(VERSION_KEY, Tag.TAG_INT) && nbt.getInt(VERSION_KEY) == 2,
+                label + ": expected the integer version mark 2, found " + nbt.get(VERSION_KEY));
     }
 
     /** Two ships loaded from saves that differ only in the mark hold the same command and settings. */

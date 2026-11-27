@@ -39,7 +39,6 @@ public class ModelFloatingFort extends ShipModelBaseAdv<Entity> {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // BodyMain
         PartDefinition bodyMain = partdefinition.addOrReplaceChild("BodyMain",
                 CubeListBuilder.create().texOffs(76, 43)
                         .addBox(-6.5F, -6.4F, -6.5F, 13, 8, 13),

@@ -181,21 +181,11 @@ public class ShinColleJeiPlugin implements IModPlugin {
                     return Collections.emptyList();
                 }
 
-                int count = ShipEquipSlots.slotCount();
-                if (count <= 0) {
+                if (ShipEquipSlots.slotCount() <= 0) {
                     return Collections.emptyList();
                 }
 
-                // Mirrors the panel geometry GuiShipInventory itself draws:
-                // a 26px-wide strip starting just past the 256px main screen,
-                // one cap above/below plus one 18px row per slot.
-                int inset = 4;
-                int cap = 4;
-                int row = 18;
-                int x = screen.getGuiLeft() + ShipEquipSlots.slotX() - inset;
-                int y = screen.getGuiTop() + ShipEquipSlots.slotY(0) - cap;
-                int width = ShipEquipSlots.PANEL_WIDTH;
-                int height = cap + count * row + cap;
+                int[] panel = GuiShipInventory.equipPanelRelBounds();
 
                 // Also exclude the "view traits" button drawn just below the
                 // panel (see GuiShipInventory#equipDetailButtonRelBounds) -
@@ -208,7 +198,8 @@ public class ShinColleJeiPlugin implements IModPlugin {
                 // panel it sits inside the 256px main screen rect, which JEI
                 // already avoids on its own.
                 List<Rect2i> areas = new ArrayList<>();
-                areas.add(new Rect2i(x, y, width, height));
+                areas.add(new Rect2i(screen.getGuiLeft() + panel[0], screen.getGuiTop() + panel[1],
+                        panel[2], panel[3]));
                 areas.add(new Rect2i(buttonX, buttonY, buttonBounds[2], buttonBounds[3]));
                 return areas;
             }

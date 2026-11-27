@@ -534,7 +534,6 @@ public class TileEntitySmallShipyard extends BasicTileInventory implements MenuP
         ItemStack result = SmallRecipes.calculateResult(grudge, abyssium, ammo, polymetal, buildShip, level.random);
 
         if (!result.isEmpty()) {
-            // Place result in output slot
             inventory.setStackInSlot(SLOT_OUTPUT, result);
 
             for (int i = 0; i < matsStock.length; i++) {

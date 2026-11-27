@@ -544,7 +544,6 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
                 CubeListBuilder.create(),
                 PartPose.offset(0.0F, -8.5F, 4.0F));
 
-        // Glow decoration on tail head
         glowTailHead1.addOrReplaceChild("TailHeadT01",
                 CubeListBuilder.create().texOffs(141, 29)
                         .addBox(-6.0F, 0.0F, 0.0F, 12.0F, 5.0F, 12.0F),
@@ -554,7 +553,6 @@ public class ModelBattleshipRe extends ShipModelBaseAdv<Entity> {
                 CubeListBuilder.create(),
                 PartPose.offset(0.0F, 3.0F, 5.0F));
 
-        // Glow decoration on tail jaw
         glowTailJaw1.addOrReplaceChild("TailJawT01",
                 CubeListBuilder.create().texOffs(143, 46)
                         .addBox(-5.5F, 0.0F, 0.0F, 11.0F, 5.0F, 11.0F),

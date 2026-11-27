@@ -808,7 +808,7 @@ public class ModelNorthernHime extends ShipModelBaseAdv<Entity> {
                                float red, float green, float blue, float alpha) {
         poseStack.pushPose();
         this.applyLegacyPoseTranslation(poseStack);
-        poseStack.scale(scale, scale, scale);
+        poseStack.scale(0.36F, scale, 0.36F);
         poseStack.translate(offsetX, offsetY, offsetZ);
         this.applyLegacyPoseTranslation(poseStack);
         this.BodyMain.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);

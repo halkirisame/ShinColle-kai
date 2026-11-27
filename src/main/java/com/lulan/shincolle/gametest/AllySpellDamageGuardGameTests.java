@@ -67,7 +67,7 @@ public final class AllySpellDamageGuardGameTests {
             helper.assertTrue(bystander.getEntityRevengeTarget() == null,
                     "A blocked spell hit still made the owner's other ships take a revenge target");
 
-            control.hurt(spellSource(stranger, "fire_magic"), 1F);
+            entities.allowDamage(control).hurt(spellSource(stranger, "fire_magic"), 1F);
             helper.assertTrue(control.getEntityRevengeTarget() == stranger,
                     "Fixture: a stranger's spell damage must still reach the ship and set its revenge target");
             helper.succeed();
@@ -155,7 +155,7 @@ public final class AllySpellDamageGuardGameTests {
             helper.assertFalse(ally.hasEffect(MobEffects.MOVEMENT_SLOWDOWN),
                     "A blocked spell hit still slowed the allied caster");
 
-            atago.hurt(spellSource(stranger, "fire_magic"), 1F);
+            entities.allowDamage(atago).hurt(spellSource(stranger, "fire_magic"), 1F);
             helper.assertTrue(stranger.hasEffect(MobEffects.MOVEMENT_SLOWDOWN),
                     "Fixture: a stranger's spell must still be answered with the slowdown");
             helper.succeed();
@@ -182,7 +182,7 @@ public final class AllySpellDamageGuardGameTests {
             helper.assertTrue(hime.getVehicle() == owner && ssnh.getVehicle() == owner,
                     "A blocked spell hit still made a riding ship dismount");
 
-            hime.hurt(spellSource(stranger, "fire_magic"), 1F);
+            entities.allowDamage(hime).hurt(spellSource(stranger, "fire_magic"), 1F);
             helper.assertTrue(hime.getVehicle() == null,
                     "Fixture: a stranger's spell must still make a riding ship dismount");
             helper.succeed();

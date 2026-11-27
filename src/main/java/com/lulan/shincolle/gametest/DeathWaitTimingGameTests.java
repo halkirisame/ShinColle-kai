@@ -51,7 +51,7 @@ public final class DeathWaitTimingGameTests {
                     "waiting beyond the shorter duration")).thenExecute(() -> {
                 helper.assertTrue(!ship.isRemoved() && eggs(helper).isEmpty(), "longer wait must still be active");
                 changedAt[0] = ship.deathTime;
-                ConfigHandler.COMMON.deathTime.set(2);
+                ConfigHandler.deathTime = 2;
                 helper.assertTrue(ConfigHandler.deathTime() == 2, "shorter duration must really be configured");
             }).thenWaitUntil(() -> helper.assertTrue(ship.deathTime > changedAt[0],
                     "waiting for next natural death tick after shortening")).thenExecute(() -> {
@@ -83,14 +83,14 @@ public final class DeathWaitTimingGameTests {
 
     private static void configure(GameTestHelper helper, int ticks) {
         int previous = ConfigHandler.deathTime();
-        GameTestEntities.onCompletion(helper, () -> ConfigHandler.COMMON.deathTime.set(previous),
+        GameTestEntities.onCompletion(helper, () -> ConfigHandler.deathTime = previous,
                 "death duration restoration");
-        ConfigHandler.COMMON.deathTime.set(ticks);
+        ConfigHandler.deathTime = ticks;
         helper.assertTrue(ConfigHandler.deathTime() == ticks, "death duration fixture must be applied");
     }
 
     private static BasicEntityShip killedShip(GameTestHelper helper, GameTestEntities entities) {
-        BasicEntityShip ship = entities.add(ModEntities.DESTROYER_HIBIKI.get().create(helper.getLevel()));
+        BasicEntityShip ship = entities.allowDamage(ModEntities.DESTROYER_HIBIKI.get().create(helper.getLevel()));
         helper.assertTrue(ship != null, "ship fixture must exist");
         ship.moveTo(helper.absoluteVec(POSITION));
         ship.setNoGravity(true);

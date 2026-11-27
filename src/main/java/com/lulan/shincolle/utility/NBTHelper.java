@@ -42,7 +42,6 @@ public class NBTHelper {
         return nameList;
     }
 
-    // save string tag array list
     public static CompoundTag saveStringTagArrayList(CompoundTag nbt, String tagName, ArrayList<String> strs) {
         if (strs != null) {
             ListTag tagList = new ListTag();

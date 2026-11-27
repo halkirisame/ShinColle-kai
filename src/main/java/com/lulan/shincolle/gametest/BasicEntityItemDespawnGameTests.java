@@ -28,7 +28,7 @@ public final class BasicEntityItemDespawnGameTests {
         GameTestEntities.whenPositionsTicking(helper, () -> {
             int previous = ConfigHandler.despawnEgg();
             try (GameTestEntities entities = GameTestEntities.open(helper)) {
-                ConfigHandler.COMMON.despawnEgg.set(-1);
+                ConfigHandler.despawnEgg = -1;
                 helper.assertTrue(ConfigHandler.despawnEgg() == -1, "Despawn disabling fixture was not applied.");
                 BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
                 helper.getLevel().setBlock(pos, ModBlocks.SMALL_SHIPYARD.get().defaultBlockState(), 3);
@@ -52,7 +52,7 @@ public final class BasicEntityItemDespawnGameTests {
                 helper.assertTrue(drop.getEntityItem().getCount() == 1 && !drop.getEntityItem().hasTag(),
                         "Disabled despawn must retain the original untagged item.");
             } finally {
-                ConfigHandler.COMMON.despawnEgg.set(previous);
+                ConfigHandler.despawnEgg = previous;
             }
             helper.succeed();
         }, new Vec3(2.5, 2.5, 2.5));
@@ -63,7 +63,7 @@ public final class BasicEntityItemDespawnGameTests {
         int previous = ConfigHandler.despawnEgg();
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
             for (int expiry : new int[] {0, 2}) {
-                ConfigHandler.COMMON.despawnEgg.set(expiry);
+                ConfigHandler.despawnEgg = expiry;
                 helper.assertTrue(ConfigHandler.despawnEgg() == expiry, "Finite despawn fixture was not applied.");
                 BasicEntityItem untagged = entities.add(new BasicEntityItem(ModEntities.BASIC_ENTITY_ITEM.get(),
                         helper.getLevel(), 0, 0, 0, new ItemStack(ModBlocks.SMALL_SHIPYARD.get())));
@@ -83,7 +83,7 @@ public final class BasicEntityItemDespawnGameTests {
                         "Finite expiry must preserve tagged drops and their contents.");
             }
         } finally {
-            ConfigHandler.COMMON.despawnEgg.set(previous);
+            ConfigHandler.despawnEgg = previous;
         }
         helper.succeed();
     }
@@ -92,7 +92,7 @@ public final class BasicEntityItemDespawnGameTests {
     public static void disabledDespawnStillRemovesEmptyStack(GameTestHelper helper) {
         int previous = ConfigHandler.despawnEgg();
         try (GameTestEntities entities = GameTestEntities.open(helper)) {
-            ConfigHandler.COMMON.despawnEgg.set(-1);
+            ConfigHandler.despawnEgg = -1;
             helper.assertTrue(ConfigHandler.despawnEgg() == -1, "Despawn disabling fixture was not applied.");
             BasicEntityItem empty = entities.add(new BasicEntityItem(ModEntities.BASIC_ENTITY_ITEM.get(), helper.getLevel()));
             helper.assertTrue(empty.getEntityItem().isEmpty(), "Empty-stack fixture was not applied.");
@@ -100,7 +100,7 @@ public final class BasicEntityItemDespawnGameTests {
             empty.tick();
             helper.assertTrue(empty.isRemoved(), "Disabling expiry must not retain invalid empty drops.");
         } finally {
-            ConfigHandler.COMMON.despawnEgg.set(previous);
+            ConfigHandler.despawnEgg = previous;
         }
         helper.succeed();
     }

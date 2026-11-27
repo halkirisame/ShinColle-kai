@@ -145,4 +145,17 @@ public final class ShipAuraClient {
         PARTICLES.forEach(ShipAuraParticle::remove);
         PARTICLES.clear();
     }
+
+    /** The state {@link #reset()} disposes, for lifecycle tests in this package. */
+    static ShipAuraSelection selection() {
+        return SELECTION;
+    }
+
+    static ShipAuraBudget budget() {
+        return BUDGET;
+    }
+
+    static List<ShipAuraParticle> particles() {
+        return PARTICLES;
+    }
 }

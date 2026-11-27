@@ -390,7 +390,6 @@ public class ShipSpawnEgg extends BasicItem {
             ship.setShipLevel(1, true);
         }
 
-        // set can drop flag
         ship.setStateFlag(ID.F.CanDrop, true);
         ship.tickCount = 0;
         return overflow;
@@ -672,14 +671,12 @@ public class ShipSpawnEgg extends BasicItem {
         entity.moveTo(x, y, z, player.getYRot(), 0F);
 
         if (entity instanceof BasicEntityShip ship) {
-            // init ship from egg data
             List<ItemStack> overflow = initShipFromEgg(ship, stack, player);
 
             // [PORT] Preserve legacy priority: renamed egg hover-name first, explicit NBT
             // name overrides afterward.
             applyEggHoverName(ship, stack);
 
-            // set custom name if present
             applyEggCustomName(ship, nbt);
 
             // [PORT] Keep fresh-spawn ships combat-capable by seeding baseline resources

@@ -42,6 +42,28 @@ import java.util.function.BiConsumer;
 public final class ShipSpecialAttackGameTests {
     private static final Vec3 HOME = new Vec3(2.5D, 3D, 2.5D);
     private static final Vec3 TARGET = new Vec3(6.5D, 3D, 2.5D);
+    /**
+     * Slashes teleport within six blocks of the target, boundary checks move it up to ten more, and the finished
+     * sequence moves it four past the attack range.
+     */
+    private static final double REACH_MIN_X = -4D;
+    private static final double REACH_MAX_X = 40D;
+    private static final double REACH_MIN_Z = -4D;
+    private static final double REACH_MAX_Z = 9D;
+    /** Points no more than a chunk apart, so every chunk the fixture can reach is held ticking. */
+    private static final Vec3[] REACH = reach();
+
+    private static Vec3[] reach() {
+        java.util.List<Vec3> points = new java.util.ArrayList<>();
+        for (double x = REACH_MIN_X; ; x = Math.min(x + 16D, REACH_MAX_X)) {
+            for (double z = REACH_MIN_Z; ; z = Math.min(z + 16D, REACH_MAX_Z)) {
+                points.add(new Vec3(x, 3D, z));
+                if (z == REACH_MAX_Z) break;
+            }
+            if (x == REACH_MAX_X) break;
+        }
+        return points.toArray(Vec3[]::new);
+    }
 
     private ShipSpecialAttackGameTests() { }
 
@@ -193,7 +215,7 @@ public final class ShipSpecialAttackGameTests {
                     "Sequence must complete");
             helper.assertTrue(host.getDeltaMovement().equals(Vec3.ZERO), "Finished sequence must release velocity");
             helper.assertTrue(ship.getAttrs().getAttackRange() == initialRange, "Skill must not mutate ordinary attack range");
-            target.moveTo(host.position().add(Math.ceil(initialRange) + 4D, 0D, 0D));
+            moveWithinReach(helper, target, host.position().add(Math.ceil(initialRange) + 4D, 0D, 0D));
             authority(host).tick();
             helper.assertTrue(!ShipCombatGate.engagement(host).engaged(), "Finished skill must restore ordinary lock range");
             helper.assertTrue(slashCount == slashes, "Unexpected slash count: " + slashCount + " " + transitions);
@@ -217,7 +239,7 @@ public final class ShipSpecialAttackGameTests {
             ShipSkillAttackGate.tick(host);
             helper.assertTrue(ShipSkillAttackGate.running(host) && ShipCombatGate.engagement(host).target() == target,
                     "Slash must retain its current target within ten blocks");
-            target.moveTo(host.position().add(10.01D, 0D, 0D));
+            moveWithinReach(helper, target, host.position().add(10.01D, 0D, 0D));
             host.tickCount++;
             authority(host).tick();
             ShipSkillAttackGate.tick(host);
@@ -241,13 +263,13 @@ public final class ShipSpecialAttackGameTests {
             helper.assertTrue(((IShipCannonAttack) host).getAttrs().getAttackRange() == 4F,
                     "Boundary fixture must have ordinary range four before authority construction");
             start(helper, host, target);
-            target.moveTo(host.position().add(8D, 0D, 0D));
+            moveWithinReach(helper, target, host.position().add(8D, 0D, 0D));
             host.tickCount++;
             authority(host).tick();
             ShipSkillAttackGate.tick(host);
             helper.assertTrue(ShipSkillAttackGate.running(host) && ShipCombatGate.engagement(host).target() == target,
                     "Tatsuta must retain the current lock at eight blocks");
-            target.moveTo(host.position().add(8.01D, 0D, 0D));
+            moveWithinReach(helper, target, host.position().add(8.01D, 0D, 0D));
             host.tickCount++;
             authority(host).tick();
             ShipSkillAttackGate.tick(host);
@@ -265,7 +287,7 @@ public final class ShipSpecialAttackGameTests {
             helper.assertTrue(ship.currentTargetLock().orElseThrow().source()
                     == com.lulan.shincolle.ai.domain.TargetSource.MANUAL, "Fixture must hold a manual lock");
             start(helper, host, target);
-            target.moveTo(host.position().add(10D, 0D, 0D));
+            moveWithinReach(helper, target, host.position().add(10D, 0D, 0D));
             authority(host).tick();
             helper.assertTrue(ShipCombatGate.engagement(host).target() == target, "Held manual lock must survive at ten");
             authority(host).clearLock();
@@ -350,7 +372,16 @@ public final class ShipSpecialAttackGameTests {
                         e -> e instanceof EntityAbyssMissile).isEmpty(), "Skill heavy must not also launch an ordinary missile");
             }
             helper.succeed();
-        }, HOME, TARGET);
+        }, REACH);
+    }
+
+    /** Moves the target, failing instead of leaving it in a chunk that may not tick entities yet. */
+    private static void moveWithinReach(GameTestHelper helper, Mob target, Vec3 destination) {
+        Vec3 relative = helper.relativeVec(destination);
+        helper.assertTrue(relative.x >= REACH_MIN_X && relative.x <= REACH_MAX_X
+                        && relative.z >= REACH_MIN_Z && relative.z <= REACH_MAX_Z,
+                "Target destination " + relative + " is outside the held fixture chunks");
+        target.moveTo(destination);
     }
 
     private static ShipTargetAuthorityGoal authority(Mob host) {

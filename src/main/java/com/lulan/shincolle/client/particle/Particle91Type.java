@@ -68,7 +68,6 @@ public class Particle91Type extends Particle {
         float pitch = camera.getXRot() * Mth.DEG_TO_RAD;
         float cosPitch = Mth.cos(pitch);
 
-        // Set up rendering
         RenderSystem.setShaderTexture(0, TEXTURE);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         RenderSystem.enableBlend();

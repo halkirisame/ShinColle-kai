@@ -47,6 +47,8 @@ public class EntityBattleshipRe extends BasicEntityShipCV {
         super.calcShipAttributesAddRaw();
         this.maxAircraftLight += this.getLevel() * 0.1F;
         this.maxAircraftHeavy += this.getLevel() * 0.05F;
+        this.shipAttrs.setAttrsRaw(ID.Attrs.DHIT, this.shipAttrs.getAttrsRaw(ID.Attrs.DHIT) + 0.1F);
+        this.shipAttrs.setAttrsRaw(ID.Attrs.THIT, this.shipAttrs.getAttrsRaw(ID.Attrs.THIT) + 0.1F);
     }
 
     /**

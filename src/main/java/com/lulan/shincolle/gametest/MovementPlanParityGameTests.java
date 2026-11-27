@@ -381,7 +381,7 @@ public final class MovementPlanParityGameTests {
             BasicEntityShipHostile target = this.entities.add(
                     ModEntities.BB_KIRISHIMA_MOB.get().create(this.helper.getLevel()));
             this.helper.assertTrue(target != null, "failed to create target");
-            target.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(this.helper, target);
             target.setInvulnerable(true);
             target.setPersistenceRequired();
             Vec3 at = ground(this.helper, new Vec3(10.5D, 0D, 2.5D));

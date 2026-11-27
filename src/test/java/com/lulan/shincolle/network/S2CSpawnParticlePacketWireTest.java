@@ -4,8 +4,6 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -13,21 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class S2CSpawnParticlePacketWireTest {
     @Test
-    void actualOutOfFuelSenderPayloadRoutesToRedRejectionAtShipAndDestination() throws ReflectiveOperationException {
-        Method positionPayload = C2SGUIInputPacket.class.getDeclaredMethod(
-                "positionPayload", double.class, double.class, double.class);
-        positionPayload.setAccessible(true);
-        Field particleType = C2SGUIInputPacket.class.getDeclaredField("OutOfFuelParticle");
-        particleType.setAccessible(true);
-        byte type = particleType.getByte(null);
-        assertEquals(ParticlePacketRoute.ORDER_REJECTED_TYPE, type);
-
+    void orderRejectedMarkRoutesToRedRejectionWithItsPosition() {
         double[][] positions = {{12.5D, 65.8D, -3D}, {0D, -60D, 128D}};
         for (double[] position : positions) {
-            byte[] payload = (byte[]) positionPayload.invoke(null, position[0], position[1], position[2]);
-            assertEquals(ParticlePacketRoute.ORDER_REJECTED,
-                    ParticlePacketRoute.resolve(Byte.toUnsignedInt(type), payload.length));
-            S2CSpawnParticlePacket received = roundTrip(new S2CSpawnParticlePacket(type, 42, payload));
+            S2CSpawnParticlePacket received = roundTrip(
+                    S2CSpawnParticlePacket.orderRejected(42, position[0], position[1], position[2]));
             assertEquals(ParticlePacketRoute.ORDER_REJECTED, received.route());
             ByteBuffer values = ByteBuffer.wrap(received.getPayload());
             for (double expected : position) {

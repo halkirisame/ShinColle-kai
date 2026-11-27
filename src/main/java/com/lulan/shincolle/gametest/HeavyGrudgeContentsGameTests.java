@@ -86,6 +86,8 @@ public final class HeavyGrudgeContentsGameTests {
         BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
         helper.getLevel().setBlock(pos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState(), 3);
         TileMultiGrudgeHeavy tile = (TileMultiGrudgeHeavy) helper.getLevel().getBlockEntity(pos);
+        tile.setCorePos(tile.getBlockPos());
+        helper.assertTrue(tile.hasCorePos(), "Lava conversion fixture must represent a formed core");
         for (int i = 0; i < 4; i++) tile.setMatStock(i, STOCK[i]);
         tile.setPowerRemained(1234);
         IFluidHandler tank = tile.getCapability(ForgeCapabilities.FLUID_HANDLER).orElseThrow(

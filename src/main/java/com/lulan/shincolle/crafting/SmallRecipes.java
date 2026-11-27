@@ -125,9 +125,9 @@ public class SmallRecipes {
         } else {
             // Ammo path: 50% light container (11-21), 50% heavy container (2-3)
             if (random.nextInt(2) == 0) {
-                return new ItemStack(ModItems.AMMO.get(), 11 + random.nextInt(11));
+                return new ItemStack(ModItems.AMMO_1.get(), 11 + random.nextInt(11));
             } else {
-                return new ItemStack(ModItems.AMMO.get(), 2 + random.nextInt(2));
+                return new ItemStack(ModItems.AMMO_3.get(), 2 + random.nextInt(2));
             }
         }
     }

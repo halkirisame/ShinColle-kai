@@ -63,10 +63,10 @@ public final class FollowRecallGameTests {
         ChunkPos chunk = new ChunkPos(position);
         var level = helper.getLevel();
         var chunks = level.getChunkSource();
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -2; dz <= 2; dz++) level.getChunk(chunk.x + dx, chunk.z + dz);
+        for (int dx = -4; dx <= 4; dx++) {
+            for (int dz = -4; dz <= 4; dz++) level.getChunk(chunk.x + dx, chunk.z + dz);
         }
-        Pig pig = GameTestEntities.open(helper).add(EntityType.PIG.create(level));
+        Pig pig = GameTestEntities.open(helper).allowTravel(EntityType.PIG.create(level));
         helper.assertTrue(pig != null, "Could not create ticket probe");
         pig.setNoAi(true);
         pig.setNoGravity(true);
@@ -81,7 +81,7 @@ public final class FollowRecallGameTests {
             for (int dx = -2; dx <= 2; dx++) {
                 for (int dz = -2; dz <= 2; dz++) {
                     helper.assertTrue(level.isPositionEntityTicking(position.offset(dx * 16, 0, dz * 16)),
-                            "Recall did not cover the five by five entity-ticking area");
+                            "Recall did not cover the five by five entity-ticking area: dx=" + dx + ", dz=" + dz);
                 }
             }
             helper.assertTrue(!level.isPositionEntityTicking(position.offset(48, 0, 0)), "Recall area exceeded five by five");
@@ -110,7 +110,7 @@ public final class FollowRecallGameTests {
         var level = helper.getLevel();
         var entities = GameTestEntities.open(helper);
         var ship = MovementPlanParityGameTests.friendly(helper, entities, new Vec3(1.5D, 2D, 1.5D));
-        ship.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, ship);
         Vec3 source = ship.position();
         Vec3 destination = source.add(64D, 0D, 0D);
         FakePlayer oldOwner = FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "recall_previous"));
@@ -261,7 +261,7 @@ public final class FollowRecallGameTests {
             BasicEntityShip sitting = ship();
             sitting.setEntitySit(true);
             this.excluded.add(sitting);
-            BasicEntityShip empty = ship();
+            BasicEntityShip empty = this.entities.allowOutOfFuel(ship());
             empty.setStateMinor(ID.M.NumGrudge, 0);
             empty.setStateFlag(ID.F.NoFuel, true);
             this.excluded.add(empty);
@@ -274,7 +274,7 @@ public final class FollowRecallGameTests {
             BasicEntityShip foreign = ship();
             foreign.setOwnerUUID(UUID.randomUUID());
             this.excluded.add(foreign);
-            this.sourceProbe = this.entities.add(EntityType.PIG.create(level));
+            this.sourceProbe = this.entities.allowTravel(EntityType.PIG.create(level));
             this.sourceProbe.setNoAi(true);
             this.sourceProbe.setNoGravity(true);
             this.sourceProbe.setInvulnerable(true);
@@ -291,7 +291,8 @@ public final class FollowRecallGameTests {
 
         private BasicEntityShip ship() {
             Vec3 relative = this.helper.relativeVec(this.sourcePoint);
-            BasicEntityShip ship = MovementPlanParityGameTests.friendly(this.helper, this.entities, relative);
+            BasicEntityShip ship = this.entities.allowTravel(
+                    MovementPlanParityGameTests.friendly(this.helper, this.entities, relative));
             ship.setOwnerUUID(this.owner.getUUID());
             ship.getCapaShipInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 17));
             return ship;

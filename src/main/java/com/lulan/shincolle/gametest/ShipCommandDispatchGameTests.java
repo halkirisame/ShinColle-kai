@@ -128,7 +128,7 @@ public final class ShipCommandDispatchGameTests {
             BasicEntityShip ship = PointerSingleModeGameTests.addShip(context, 0, 1101000,
                     new Vec3(4.5D, 2D, 1.5D));
             PointerSingleModeGameTests.select(context.capa(), 0);
-            ship.setStateFlag(ID.F.NoFuel, true);
+            context.entities().allowOutOfFuel(ship).setStateFlag(ID.F.NoFuel, true);
             Zombie target = PointerSingleModeGameTests.addTarget(context, new Vec3(2.5D, 2D, 4.5D));
             CommandDispatchResult result = dispatch(context, CommandKind.GUARD_ENTITY,
                     new int[]{context.player().getId(), 0, PointerItem.MODE_SINGLE, target.getId()});

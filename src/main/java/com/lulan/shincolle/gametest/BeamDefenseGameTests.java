@@ -40,7 +40,7 @@ public final class BeamDefenseGameTests {
                 ally.setPlayerUID(98211);
                 ally.setStateMinor(ID.M.NumGrudge, 100);
                 ally.setStateFlag(ID.F.NoFuel, false);
-                Mob target = friendly ? ally : enemy;
+                Mob target = friendly ? entities.allowDamage(ally) : enemy;
                 Mob host = friendly ? enemy : ally;
                 IShipAttrs attrs = (IShipAttrs) target;
                 attrs.getAttrs().setAttrsBuffed(ID.Attrs.DEF, 0.5F);

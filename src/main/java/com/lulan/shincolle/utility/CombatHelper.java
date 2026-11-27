@@ -122,6 +122,8 @@ public class CombatHelper {
      * width up to 2 * (6 / sqrt(2) - 3.75) = 0.985; 0.98 is used.
      */
     static final double MISS_AIM_MAX_WIDTH = 0.98D;
+    private static final double MISS_AIM_SPLASH_REACH = 3.75D;
+    private static final double MISS_AIM_MARGIN = 0.25D;
 
     /**
      * Where a heavy shot that missed aims. A target no wider than {@link #MISS_AIM_MAX_WIDTH}: beside
@@ -129,20 +131,19 @@ public class CombatHelper {
      * seen from the shooter, and at most one block towards or away from the shooter; its height is the
      * target's. That is outside the splash box of a shot at such a target, so a miss stays a miss, and
      * the missile lands on the ground instead of flying on above the target until it times out.
-     * A wider target keeps the earlier point, up to five blocks to either side and up to five above.
+     * For wider targets the lateral distance grows with the splash reach and the target's half-width,
+     * leaving the aim point outside the splash box along at least one horizontal axis.
      * <p>
      * The horizontal coordinates are doubles, and so is the result: the margin of a miss is a few
      * thousandths of a block (4.2426 against a reach of at most 4.24), so the point must keep the
      * precision of the target's position. Rounding it to a float loses that margin from about a million
      * blocks out, where a float is a quarter of a block apart or more; in doubles the spacing at the
      * world's edge is under four billionths of a block, so the margin holds wherever the target stands.
-     * The height is a float and stays one: the beside-the-target point returns it unchanged, and the
-     * earlier point adds its offset in float arithmetic, from the target's x and z as floats, so it is
-     * the same as before. The height element holds the float's value, so {@code (float)} of it is exact.
+     * The height is a float and stays unchanged. The height element holds the float's value, so
+     * {@code (float)} of it is exact.
      * <p>
      * The three random values are {@code nextFloat()} results, taken in this order: for the
-     * beside-the-target point the side, the distance to the side and the position along the line of
-     * fire; for the earlier point the x offset, the height and the z offset.
+     * beside-the-target point the side, the distance to the side and the position along the line of fire.
      *
      * @param targetWidth the target's horizontal width, 0 when the target is a block
      * @return the aim point as {x, y, z}
@@ -150,11 +151,6 @@ public class CombatHelper {
     public static double[] calcMissAimPoint(double tarX, float tarY, double tarZ, double shooterX, double shooterZ,
                                             double targetWidth, float sideRoll, float lateralRoll,
                                             float alongRoll) {
-        if (targetWidth > MISS_AIM_MAX_WIDTH) {
-            float x = (float) tarX;
-            float z = (float) tarZ;
-            return new double[]{x - 5F + sideRoll * 10F, tarY + lateralRoll * 5F, z - 5F + alongRoll * 10F};
-        }
         // from the target to the shooter; the shooter standing on the target has no side, so take east
         double ux = shooterX - tarX;
         double uz = shooterZ - tarZ;
@@ -167,7 +163,8 @@ public class CombatHelper {
             uz /= length;
         }
         double side = sideRoll < 0.5F ? -1D : 1D;
-        double lateral = 6D + lateralRoll;
+        double lateral = (targetWidth > MISS_AIM_MAX_WIDTH
+                ? Math.sqrt(2D) * (MISS_AIM_SPLASH_REACH + targetWidth / 2D) + MISS_AIM_MARGIN : 6D) + lateralRoll;
         double along = (alongRoll - 0.5D) * 2D;
         // the side is perpendicular to the line of fire: (-uz, ux)
         return new double[]{
@@ -326,21 +323,22 @@ public class CombatHelper {
 
         float dodge = host.shipAttribute(CoreShipAttributes.DODGE);
 
-        // apply config limit
-        double limit = ConfigHandler.shipAttributeMaximum(CoreShipAttributes.DODGE);
-        if (limit > 0 && dodge > limit) {
-            dodge = (float) limit;
-        }
-
         // submarine invisible bonus: add invisible level when distance > 6
         if (host instanceof IShipInvisible invis) {
             if (distSq > 36F) { // 6*6
                 dodge += invis.getInvisibleLevel();
             }
-            // uncapped bonus at distance > 16
-            if (distSq > 256F) { // 16*16
-                dodge += 0.5F;
-            }
+        }
+
+        // apply config limit after invisibility, for every ship
+        double limit = ConfigHandler.shipAttributeMaximum(CoreShipAttributes.DODGE);
+        if (limit >= 0 && dodge > limit) {
+            dodge = (float) limit;
+        }
+
+        // uncapped submarine bonus at distance > 16
+        if (host instanceof IShipInvisible && distSq > 256F) { // 16*16
+            dodge += 0.5F;
         }
 
         if (dodge <= 0F)
@@ -396,14 +394,10 @@ public class CombatHelper {
 
         // friendly ship vs friendly ship - same owner
         if (attacker instanceof BasicEntityShip atkShip && target instanceof BasicEntityShip tgtShip) {
-            int atkOwner = atkShip.getPlayerUID();
-            int tgtOwner = tgtShip.getPlayerUID();
-
-            if (atkOwner > 0 && atkOwner == tgtOwner) {
+            if (TeamHelper.checkSameOwner(atkShip, tgtShip)) {
                 return true;
             }
 
-            // ally team check
             if (TeamHelper.checkIsAlly(atkShip, tgtShip)) {
                 return true;
             }
@@ -540,7 +534,7 @@ public class CombatHelper {
             boolean hostLiq = EntityHelper.checkEntityIsInLiquid((Entity) host);
             BlockState blockAtTargetY = target.level().getBlockState(
                     new BlockPos(Mth.floor(((Entity) host).getX()),
-                            (int) target.getY(),
+                            Mth.floor(target.getY()),
                             Mth.floor(((Entity) host).getZ())));
             boolean hostUnderLiq = BlockHelper.checkBlockIsLiquid(blockAtTargetY);
 
@@ -588,7 +582,6 @@ public class CombatHelper {
             float range = (float) (4D + host.getLevel() * 0.035D);
             effect.initEffect(host, 5, pullForce, range, life);
 
-            // 2026/04/07：GitHub Copilotによって確認済み
             hostEntity.level().addFreshEntity(effect);
         }
     }

@@ -66,6 +66,8 @@ public final class HeavyGrudgeRecycleGameTests {
         BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
         TileMultiGrudgeHeavy tile = new TileMultiGrudgeHeavy(pos, ModBlocks.GRUDGE_HEAVY.get().defaultBlockState());
         tile.setLevel(helper.getLevel());
+        tile.setCorePos(tile.getBlockPos());
+        helper.assertTrue(tile.hasCorePos(), "Recycling fixture must represent a formed core");
         tile.setMatStock(1, metal);
         ItemStack stack = new ItemStack(ModBlocks.GRUDGE_HEAVY.get());
         stack.getOrCreateTag().putIntArray("Mats", mats);

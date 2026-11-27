@@ -81,9 +81,18 @@ public final class TrainingBookExperienceGameTests {
                 "Unmarried fixture must have its distinct existing natural cap");
         useBook(helper, fixture, 1);
         helper.assertTrue(fixture.ship().getLevel() == cap, "Book must clamp to the unmarried cap");
-        useBook(helper, fixture, 2);
-        helper.assertTrue(fixture.ship().getLevel() == cap,
-                "Another book at the unmarried cap must retain the existing successful no-level-gain behavior");
+        rejectBook(helper, fixture);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "training_book_experience")
+    public static void unmarriedTrainingBookAtDefaultCapDoesNotConsumeOrSync(GameTestHelper helper) {
+        helper.assertTrue(ConfigHandler.maxLevelUnmarried == 100 && ConfigHandler.maxLevel == 150,
+                "Default-cap regression must use unmarried cap 100 and absolute cap 150");
+        Fixture fixture = fixture(helper, 100, false);
+        helper.assertTrue(fixture.ship().getShipLevelCap() == 100,
+                "Default unmarried fixture must already be at its natural cap");
+        rejectBook(helper, fixture);
         helper.succeed();
     }
 
@@ -95,14 +104,7 @@ public final class TrainingBookExperienceGameTests {
         helper.assertTrue(ship.getShipLevelCap() == cap, "Married fixture must have the existing absolute cap");
         useBook(helper, fixture, 1);
         helper.assertTrue(ship.getLevel() == cap, "Book must clamp to the married absolute cap");
-        int remainingBooks = fixture.books().getCount();
-        helper.assertTrue(ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND) == InteractionResult.PASS,
-                "A book at the absolute cap must retain its rejected result");
-        helper.assertTrue(fixture.books().getCount() == remainingBooks && ship.minorSyncs.size() == 1,
-                "Rejected use must neither consume a book nor add a minor sync");
-        helper.assertTrue(ship.getStateMinor(ID.M.ExpCurrent) == fixture.experience()
-                        && ship.getStateMinor(ID.M.ExpNext) == ship.getExpNextValue(),
-                "Rejected use must leave current experience and the threshold unchanged");
+        rejectBook(helper, fixture);
         helper.succeed();
     }
 
@@ -157,6 +159,24 @@ public final class TrainingBookExperienceGameTests {
         helper.assertTrue(sync.level() == ship.getLevel() && sync.experience() == fixture.experience()
                         && sync.threshold() == ship.getExpNextValue(),
                 "Minor sync must observe the new level, retained experience and refreshed threshold in order");
+    }
+
+    private static void rejectBook(GameTestHelper helper, Fixture fixture) {
+        RecordingShip ship = fixture.ship();
+        int remainingBooks = fixture.books().getCount();
+        int level = ship.getLevel();
+        int experience = ship.getStateMinor(ID.M.ExpCurrent);
+        int threshold = ship.getStateMinor(ID.M.ExpNext);
+        int syncs = ship.minorSyncs.size();
+        InteractionResult result = ship.mobInteract(fixture.player(), InteractionHand.MAIN_HAND);
+        helper.assertTrue(fixture.books().getCount() == remainingBooks,
+                "Rejected use at the natural cap must not consume a book");
+        helper.assertTrue(result == InteractionResult.PASS,
+                "A book at the natural cap must return PASS");
+        helper.assertTrue(ship.getLevel() == level && ship.getStateMinor(ID.M.ExpCurrent) == experience
+                         && ship.getStateMinor(ID.M.ExpNext) == threshold,
+                "Rejected use must leave level, current experience and the threshold unchanged");
+        helper.assertTrue(ship.minorSyncs.size() == syncs, "Rejected use must not add a minor sync");
     }
 
     private static void unitExperienceMultiplier(GameTestHelper helper, RecordingShip ship) {

@@ -21,7 +21,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Shows what a ship is carrying while the player sneaks and looks at it.
+ * Shows what a ship is carrying while the player holds the peek input and looks at it.
  * <p>
  * A ship's inventory lives on the server unless its screen is open, so this asks
  * for the list and draws the reply. The request repeats slowly while the player
@@ -104,7 +104,7 @@ public class ShipItemPeekHandler {
     }
 
     /**
-     * The ship the player is sneaking at, or null when the overlay should not show.
+     * The ship the player is peeking at, or null when the overlay should not show.
      */
     private static BasicEntityShip getPeekTarget() {
         Minecraft mc = Minecraft.getInstance();
@@ -112,7 +112,7 @@ public class ShipItemPeekHandler {
             return null;
         }
 
-        if (!mc.player.isShiftKeyDown() || mc.options.hideGui) {
+        if (!ShipItemPeekKeyMappings.isDown(mc) || mc.options.hideGui) {
             return null;
         }
 

@@ -19,6 +19,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -69,15 +70,15 @@ public final class VoidRescueGameTests {
 
     private static void scene(GameTestHelper helper, boolean early, boolean airborne,
                               boolean disabled, boolean overworld) {
-        List<? extends String> previous = ConfigHandler.COMMON.voidRescueDimensions.get();
-        ConfigHandler.COMMON.voidRescueDimensions.set(disabled ? List.of() : List.of("minecraft:the_end"));
-        VerticalSeparationRecallGameTests.cleanup(helper, () -> ConfigHandler.COMMON.voidRescueDimensions.set(previous));
-        helper.assertTrue(ConfigHandler.COMMON.voidRescueDimensions.get().equals(disabled ? List.of() : List.of("minecraft:the_end")),
+        List<String> previous = ConfigHandler.voidRescueDimensions;
+        ConfigHandler.voidRescueDimensions = disabled ? List.of() : List.of("minecraft:the_end");
+        VerticalSeparationRecallGameTests.cleanup(helper, () -> ConfigHandler.voidRescueDimensions = previous);
+        helper.assertTrue(ConfigHandler.voidRescueDimensions.equals(disabled ? List.of() : List.of("minecraft:the_end")),
                 "Rescue config fixture did not apply");
         ServerLevel level = helper.getLevel().getServer().getLevel(overworld ? Level.OVERWORLD : Level.END);
         helper.assertTrue(level != null, "Target dimension missing");
         Vec3 marker = helper.absoluteVec(new Vec3(8192.5D, 0D, 8192.5D));
-        BlockPos column = new BlockPos((int) marker.x, 200, (int) marker.z);
+        BlockPos column = new BlockPos(Mth.floor(marker.x), 200, Mth.floor(marker.z));
         ChunkPos chunk = new ChunkPos(column);
         UUID ticket = UUID.randomUUID();
         level.getChunkSource().addRegionTicket(FIXTURE, chunk, 3, ticket);
@@ -95,7 +96,7 @@ public final class VoidRescueGameTests {
             for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) {
                 level.setBlockAndUpdate(column.offset(x, -1, z), Blocks.STONE.defaultBlockState());
             }
-            BasicEntityShip ship = entities.add(ModEntities.BB_KONGOU.get().create(level));
+            BasicEntityShip ship = entities.allowTravel(ModEntities.BB_KONGOU.get().create(level));
             helper.assertTrue(ship != null, "Could not create falling ship");
             ship.setPlayerUID(15500);
             ship.setShipUID(1550000);

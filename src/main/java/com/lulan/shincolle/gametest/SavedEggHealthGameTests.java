@@ -71,7 +71,7 @@ public final class SavedEggHealthGameTests {
             owner.getAbilities().instabuild = false;
             owner.experienceLevel = 100;
 
-            BasicEntityShip source = entities.add(ModEntities.DESTROYER_HIBIKI.get().create(helper.getLevel()));
+            BasicEntityShip source = entities.allowDamage(ModEntities.DESTROYER_HIBIKI.get().create(helper.getLevel()));
             helper.assertTrue(source != null, "Hibiki fixture must exist");
             source.moveTo(helper.absoluteVec(HATCH));
             source.tame(owner);

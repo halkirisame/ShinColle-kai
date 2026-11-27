@@ -58,7 +58,6 @@ public class EntityCarrierWo extends BasicEntityShipCV {
     public void setAIList() {
         super.setAIList();
 
-        // carrier attack
         this.goalSelector.addGoal(11, new ShipCarrierAttackGoal(this));
     }
 

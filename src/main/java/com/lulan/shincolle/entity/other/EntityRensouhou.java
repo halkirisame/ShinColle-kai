@@ -137,7 +137,6 @@ public class EntityRensouhou extends BasicEntitySummon implements IShipEmotion {
             // position near host
             this.setPos(ship.getX(), ship.getY(), ship.getZ());
 
-            // copy attrs from host
             this.shipAttrs = Attrs.copyAttrs(ship.getAttrs());
             this.shipAttrs.setAttrsBuffed(ID.Attrs.HP,
                     10F + ship.getAttrs().getAttrsBuffed(ID.Attrs.HP) * 0.05F);

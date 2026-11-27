@@ -307,7 +307,6 @@ public class ParticleGradient extends Particle {
                         this.gradCurrent = 0;
                 }
 
-                // update grad pos
                 for (int i = 0; i < this.gradPos.length; i++) {
                     // move
                     this.gradPos[i][1] = this.gradPos[i][0]; // prev rad for interpolation

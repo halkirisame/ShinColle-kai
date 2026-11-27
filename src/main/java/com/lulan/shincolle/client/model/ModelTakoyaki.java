@@ -41,7 +41,6 @@ public class ModelTakoyaki extends ShipModelBaseAdv<Entity> {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // BodyMain
         PartDefinition bodyMain = partdefinition.addOrReplaceChild("BodyMain",
                 CubeListBuilder.create().texOffs(76, 42)
                         .addBox(-6.5F, -6.4F, -6.5F, 13, 9, 13),

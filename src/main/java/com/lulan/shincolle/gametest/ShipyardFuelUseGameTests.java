@@ -17,7 +17,6 @@ import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
-import java.util.List;
 
 @GameTestHolder(Reference.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -88,9 +87,8 @@ public final class ShipyardFuelUseGameTests {
             tick(helper, existing);
             helper.assertTrue(existing.getPowerConsumed() == 48 && existing.getPowerRemained() == 9952,
                     "Default fuel-use fixture must retain the original cost");
-            ConfigHandler.COMMON.tileShipyardSmallFuelUse.set(0.5);
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileShipyardSmallFuelUse == 0.5, "Reload must sync small fuel use");
+            ConfigHandler.tileShipyardSmallFuelUse = 0.5;
+            reloadTiles();
             tick(helper, existing);
             helper.assertTrue(existing.getPowerConsumed() == 96 && existing.getPowerRemained() == 9928,
                     "Reload must change fuel use on the already-running small shipyard");
@@ -109,9 +107,8 @@ public final class ShipyardFuelUseGameTests {
             tick(helper, existing);
             helper.assertTrue(existing.getPowerConsumed() == 48 && existing.getPowerRemained() == 9952,
                     "Default large fuel-use fixture must retain the original cost");
-            ConfigHandler.COMMON.tileShipyardLargeFuelUse.set(0.5);
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileShipyardLargeFuelUse == 0.5, "Reload must sync large fuel use");
+            ConfigHandler.tileShipyardLargeFuelUse = 0.5;
+            reloadTiles();
             tick(helper, existing);
             helper.assertTrue(existing.getPowerConsumed() == 96 && existing.getPowerRemained() == 9928,
                     "Reload must change fuel use on the already-running large shipyard");
@@ -127,12 +124,9 @@ public final class ShipyardFuelUseGameTests {
     public static void nonpositiveBuildSpeedsKeepOriginalFuelAndProgressCalculation(GameTestHelper helper) {
         withFuelUse(helper, 0.5, 0.5, () -> {
             for (int speed : new int[]{0, -48}) {
-                ConfigHandler.COMMON.tileShipyardSmallConfig.set(List.of(460800D, (double) speed, 1D));
-                ConfigHandler.COMMON.tileShipyardLargeConfig.set(List.of(1382400D, (double) speed, 1D));
-                fireReload();
-                helper.assertTrue(ConfigHandler.tileShipyardSmall[1] == speed
-                                && ConfigHandler.tileShipyardLarge[1] == speed,
-                        "Nonpositive speed fixture must apply to both shipyards");
+                ConfigConsumerGameTests.setCached(ConfigHandler.tileShipyardSmall, 460800D, speed, 1D);
+                ConfigConsumerGameTests.setCached(ConfigHandler.tileShipyardLarge, 1382400D, speed, 1D);
+                reloadTiles();
                 var small = small(helper, 10000);
                 var large = large(helper, 10000);
                 tick(helper, small);
@@ -222,6 +216,8 @@ public final class ShipyardFuelUseGameTests {
         var tile = new TileMultiGrudgeHeavy(helper.absolutePos(new BlockPos(2, 2, 2)),
                 ModBlocks.GRUDGE_HEAVY.get().defaultBlockState());
         tile.setLevel(helper.getLevel());
+        tile.setCorePos(tile.getBlockPos());
+        helper.assertTrue(tile.hasCorePos(), "Large fuel-use fixture must represent a formed core");
         tile.setBuildType(1);
         for (int i = 0; i < 4; i++) {
             tile.setMatBuild(i, 1000);
@@ -244,36 +240,22 @@ public final class ShipyardFuelUseGameTests {
     }
 
     private static void withFuelUse(GameTestHelper helper, double smallUse, double largeUse, Runnable checks) {
-        var smallConfig = ConfigHandler.COMMON.tileShipyardSmallConfig;
-        var largeConfig = ConfigHandler.COMMON.tileShipyardLargeConfig;
-        var smallFuel = ConfigHandler.COMMON.tileShipyardSmallFuelUse;
-        var largeFuel = ConfigHandler.COMMON.tileShipyardLargeFuelUse;
-        var oldSmall = smallConfig.get();
-        var oldLarge = largeConfig.get();
-        double oldSmallFuel = smallFuel.get();
-        double oldLargeFuel = largeFuel.get();
-        TileEntitySmallShipyard.reloadConfig();
-        TileMultiGrudgeHeavy.reloadConfig();
         try {
-            smallConfig.set(List.of(460800D, 48D, 1D));
-            largeConfig.set(List.of(1382400D, 48D, 1D));
-            smallFuel.set(smallUse);
-            largeFuel.set(largeUse);
-            fireReload();
-            helper.assertTrue(ConfigHandler.tileShipyardSmall[1] == 48 && ConfigHandler.tileShipyardLarge[1] == 48
-                            && ConfigHandler.tileShipyardSmallFuelUse == smallUse
-                            && ConfigHandler.tileShipyardLargeFuelUse == largeUse,
-                    "Fuel-use and default-speed fixture must sync through the production reload event");
+            ConfigConsumerGameTests.setCached(ConfigHandler.tileShipyardSmall, 460800D, 48D, 1D);
+            ConfigConsumerGameTests.setCached(ConfigHandler.tileShipyardLarge, 1382400D, 48D, 1D);
+            ConfigHandler.tileShipyardSmallFuelUse = smallUse;
+            ConfigHandler.tileShipyardLargeFuelUse = largeUse;
+            reloadTiles();
             checks.run();
         } finally {
-            smallConfig.set(oldSmall);
-            largeConfig.set(oldLarge);
-            smallFuel.set(oldSmallFuel);
-            largeFuel.set(oldLargeFuel);
+            // The production reload event restores the cache from the config and reloads the tiles.
             fireReload();
-            TileEntitySmallShipyard.reloadConfig();
-            TileMultiGrudgeHeavy.reloadConfig();
         }
+    }
+
+    private static void reloadTiles() {
+        TileEntitySmallShipyard.reloadConfig();
+        TileMultiGrudgeHeavy.reloadConfig();
     }
 
     private static void fireReload() {

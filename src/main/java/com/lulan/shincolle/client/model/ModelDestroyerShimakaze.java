@@ -125,7 +125,6 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // BodyMain
         PartDefinition bodyMain = partdefinition.addOrReplaceChild("BodyMain",
                 CubeListBuilder.create().texOffs(0, 37)
                         .addBox(-7.0F, -11.0F, -4.0F, 14, 17, 7),
@@ -337,7 +336,6 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
         PartDefinition glowHead = glowNeckCloth.addOrReplaceChild("GlowHead",
                 CubeListBuilder.create(), PartPose.offset(0.0F, -1.5F, 0.0F));
 
-        // Add face parts to glow head
         addDefaultFaceParts(glowHead);
 
         return LayerDefinition.create(meshdefinition, 128, 128);
@@ -700,7 +698,6 @@ public class ModelDestroyerShimakaze extends ShipModelBaseAdv<Entity> {
             this.EarR02.zRot = 0.5F;
         }
 
-        // Head tilt
         this.Head.zRot = EmotionHelper.getHeadTiltAngle(ent, f2);
 
         if (ent.getIsSneaking()) {

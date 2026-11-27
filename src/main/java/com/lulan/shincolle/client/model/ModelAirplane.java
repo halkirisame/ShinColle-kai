@@ -38,7 +38,6 @@ public class ModelAirplane extends ShipModelBaseAdv<Entity> {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // BodyMain
         PartDefinition bodyMain = partdefinition.addOrReplaceChild("BodyMain",
                 CubeListBuilder.create().texOffs(3, 18)
                         .addBox(-3.0F, -3.0F, -1.0F, 6, 7, 7),

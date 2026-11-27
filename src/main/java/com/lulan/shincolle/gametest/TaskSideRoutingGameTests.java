@@ -138,6 +138,33 @@ public final class TaskSideRoutingGameTests {
     }
 
     @GameTest(template = "arena")
+    public static void cookingAcceptsSameMaterialOnlyWithOreMatching(GameTestHelper helper) {
+        GameTestEntities.whenPositionsTicking(helper, () -> {
+            CookingFixture fixture = createFixture(helper);
+            try {
+                fixture.ship().getCapaShipInventory().setStackInSlot(22, new ItemStack(Items.IRON_ORE));
+                fixture.ship().getCapaShipInventory().setStackInSlot(0, new ItemStack(Items.DEEPSLATE_IRON_ORE));
+                fixture.ship().setStateMinor(ID.M.TaskSide, 1 << 1);
+                TaskHelper.onUpdateCooking(fixture.ship());
+                helper.assertTrue(fixture.furnace().getItem(0).isEmpty()
+                                && fixture.ship().getCapaShipInventory().getStackInSlot(0).is(Items.DEEPSLATE_IRON_ORE),
+                        "Ore matching OFF must not accept a different item with the same material");
+
+                fixture.ship().setStateMinor(ID.M.TaskSide, (1 << 1) | (1 << 19));
+                helper.assertTrue(fixture.ship().getStateMinor(ID.M.TaskSide) == ((1 << 1) | (1 << 19)),
+                        "Cooking fixture must retain the input face and ore-matching bit");
+                TaskHelper.onUpdateCooking(fixture.ship());
+                helper.assertTrue(fixture.furnace().getItem(0).is(Items.DEEPSLATE_IRON_ORE)
+                                && fixture.ship().getCapaShipInventory().getStackInSlot(0).isEmpty(),
+                        "Ore matching ON must move the same-material alternative into the furnace input");
+            } finally {
+                fixture.close();
+            }
+            helper.succeed();
+        }, new net.minecraft.world.phys.Vec3(3, 2, 2));
+    }
+
+    @GameTest(template = "arena")
     public static void taskItemMatchingKeepsMetadataAndNbtIndependent(GameTestHelper helper) {
         ItemStack template = new ItemStack(Items.DIAMOND_SWORD);
         template.setDamageValue(1);
@@ -147,22 +174,24 @@ public final class TaskSideRoutingGameTests {
         ItemStack differentNbt = template.copy();
         differentNbt.getOrCreateTag().putInt("TaskMarker", 2);
 
-        helper.assertTrue(InventoryHelper.matchTargetItem(differentDamage, template, false, true),
-                "NBT-only matching must ignore item damage");
-        helper.assertTrue(!InventoryHelper.matchTargetItem(differentDamage, template, true, true),
-                "Metadata matching must reject different item damage");
-        helper.assertTrue(InventoryHelper.matchTargetItem(differentNbt, template, true, false),
-                "Metadata-only matching must ignore NBT");
-        helper.assertTrue(!InventoryHelper.matchTargetItem(differentNbt, template, true, true),
-                "NBT matching must reject different tags");
-        helper.assertTrue(InventoryHelper.matchTargetItem(differentNbt, template, false, false),
-                "Disabling both options must compare item type only");
-        helper.assertTrue(!InventoryHelper.matchTargetItem(ItemStack.EMPTY, ItemStack.EMPTY, false, false),
-                "TaskSide matching must not treat two empty stacks as an item match");
-        helper.assertTrue(!InventoryHelper.matchTargetItem(ItemStack.EMPTY, template, true, true),
-                "TaskSide matching must reject an empty candidate");
-        helper.assertTrue(!InventoryHelper.matchTargetItem(template, ItemStack.EMPTY, true, true),
-                "TaskSide matching must reject an empty target");
+        for (boolean checkOreTag : new boolean[] {false, true}) {
+            helper.assertTrue(InventoryHelper.matchTargetItem(differentDamage, template, false, true, checkOreTag),
+                    "NBT-only matching must ignore item damage");
+            helper.assertTrue(!InventoryHelper.matchTargetItem(differentDamage, template, true, true, checkOreTag),
+                    "Metadata matching must reject different item damage");
+            helper.assertTrue(InventoryHelper.matchTargetItem(differentNbt, template, true, false, checkOreTag),
+                    "Metadata-only matching must ignore NBT");
+            helper.assertTrue(!InventoryHelper.matchTargetItem(differentNbt, template, true, true, checkOreTag),
+                    "NBT matching must reject different tags");
+            helper.assertTrue(InventoryHelper.matchTargetItem(differentNbt, template, false, false, checkOreTag),
+                    "Disabling both options must compare item type only");
+            helper.assertTrue(!InventoryHelper.matchTargetItem(ItemStack.EMPTY, ItemStack.EMPTY, false, false, checkOreTag),
+                    "TaskSide matching must not treat two empty stacks as an item match");
+            helper.assertTrue(!InventoryHelper.matchTargetItem(ItemStack.EMPTY, template, true, true, checkOreTag),
+                    "TaskSide matching must reject an empty candidate");
+            helper.assertTrue(!InventoryHelper.matchTargetItem(template, ItemStack.EMPTY, true, true, checkOreTag),
+                    "TaskSide matching must reject an empty target");
+        }
         helper.succeed();
     }
 
@@ -211,9 +240,9 @@ public final class TaskSideRoutingGameTests {
         try {
             Method method = TaskHelper.class.getDeclaredMethod("moveMatchingOutputToShip",
                     List.class, CapaShipInventory.class, BasicEntityShip.class,
-                    ItemStack.class, boolean.class, boolean.class);
+                    ItemStack.class, boolean.class, boolean.class, boolean.class);
             method.setAccessible(true);
-            return (boolean) method.invoke(null, List.of(handler), inventory, ship, target, true, true);
+            return (boolean) method.invoke(null, List.of(handler), inventory, ship, target, true, true, false);
         } catch (ReflectiveOperationException exception) {
             throw new AssertionError("Failed to invoke cooking output transfer", exception);
         }
@@ -244,6 +273,9 @@ public final class TaskSideRoutingGameTests {
             ship.setGuardedPos(waypointPos.getX(), waypointPos.getY(), waypointPos.getZ(),
                     level.dimension(), 1);
             ship.setStateFlag(ID.F.CanFollow, false);
+            ship.setStateMinor(ID.M.NumGrudge, 10000);
+            helper.assertTrue(ship.getStateMinor(ID.M.NumGrudge) > 0 && !ship.getStateFlag(ID.F.NoFuel),
+                    "Cooking fixture must have usable grudge fuel");
             return new CookingFixture(level, waypointPos, furnacePos, ship, furnace, entities);
         } catch (RuntimeException | Error failure) {
             entities.close();

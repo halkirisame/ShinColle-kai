@@ -68,7 +68,6 @@ public class EntityDestroyerInazuma extends BasicEntityShipSmall implements IShi
     public void setAIList() {
         super.setAIList();
 
-        // range attack
         this.goalSelector.addGoal(11, new ShipRangeAttackGoal(this));
 
         // pick item

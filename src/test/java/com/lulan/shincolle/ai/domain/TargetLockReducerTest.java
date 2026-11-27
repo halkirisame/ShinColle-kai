@@ -22,6 +22,25 @@ class TargetLockReducerTest {
             new CurrentLockObservation(true, true, true, false);
 
     @Test
+    void antiAirPreemptsValidAutomaticNormalTarget() {
+        SourceGate antiAir = new SourceGate(true, false, false, false, true);
+        ShipTargetAuthorityState previous = state(AUTO, TargetSource.AUTO, 4L, 8L, 0);
+        TargetHandle airplane = handle(5);
+        ClassifiedTargetObservation observation = new ClassifiedTargetObservation(
+                new EntityClassification(true, false, false, false, false, true, true),
+                new RelationClassification(false, false, true),
+                new TargetTraitClassification(true, false, false, false, false,
+                        false, false, false, false, false, Set.of(TargetTraitKind.ANTI_AIR_ELIGIBLE)));
+        TargetCandidate candidate = new TargetCandidate(airplane, observation, 1D);
+        TargetState scan = new TargetState(8L, SOURCE, List.of(candidate), Optional.of(airplane));
+        TargetAuthorityDecision decision = reduce(8, previous, antiAir,
+                Optional.empty(), Optional.empty(), Optional.of(VALID_CURRENT), Optional.of(scan));
+        assertLock(decision, airplane, TargetSource.AUTO, 8L);
+        assertTrue(decision.autoScanPerformed());
+        assertEquals(16L, decision.next().autoScan().nextScanTick());
+    }
+
+    @Test
     void manualWinsEverySourceCombinationAndKeepsMatchingAcquisitionTick() {
         for (TargetSource existingSource : TargetSource.values()) {
             TargetHandle existingTarget = existingSource == TargetSource.MANUAL ? MANUAL : AUTO;

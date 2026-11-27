@@ -27,6 +27,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GuiDeskTest {
 
     @Test
+    void teamClickCooldownIsOneSecondWithCeilingSeconds() {
+        assertEquals(20, GuiDesk.CLICKCD);
+        assertEquals("1", GuiDesk.teamCooldownSeconds(20));
+        assertEquals("1", GuiDesk.teamCooldownSeconds(1));
+        assertEquals("0", GuiDesk.teamCooldownSeconds(0));
+    }
+
+    @Test
+    void radarDotRunsEightFramesInTwentyOneAndOneThirdTicks() {
+        for (int tick = 0; tick <= 21; tick++) {
+            assertEquals((int) (tick * 0.375F) % 8 * 3,
+                    GuiDesk.radarIconTextureX(tick, 0, 0));
+        }
+        for (int phase : new int[]{0, 2, 4, 6}) {
+            assertEquals(phase * 3, GuiDesk.radarIconTextureX(0, 0, phase));
+            assertEquals(((7 + phase) % 8) * 3, GuiDesk.radarIconTextureX(21, 0, phase));
+            assertEquals(phase * 3, GuiDesk.radarIconTextureX(21, 1F / 3F, phase));
+        }
+        assertEquals(0, GuiDesk.radarIconTextureX(2, 0.5F, 0));
+        assertEquals(3, GuiDesk.radarIconTextureX(2, 0.75F, 0));
+    }
+
+    @Test
     void galleryNeutralBasisPreservesHorizontalAndDepthButPointsUpOnScreen() {
         Matrix4f transform = new Matrix4f().scaling(50, 50, -50)
                 .rotate(GuiDesk.galleryModelRotation(0, 0));

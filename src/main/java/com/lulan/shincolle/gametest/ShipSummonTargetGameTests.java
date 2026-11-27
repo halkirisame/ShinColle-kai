@@ -187,7 +187,7 @@ public final class ShipSummonTargetGameTests {
 
     private static TestHostShip host(GameTestHelper helper, GameTestEntities entities, double x) {
         TestHostShip host = entities.add(new TestHostShip(ModEntities.BB_KONGOU.get(), helper.getLevel()));
-        host.setNoAi(true);
+        GameTestEntities.removeAllGoalsEachTick(helper, host);
         host.setPlayerUID(8181);
         add(helper, host, x);
         return host;

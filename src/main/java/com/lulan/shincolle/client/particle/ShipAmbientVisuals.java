@@ -41,6 +41,7 @@ import com.lulan.shincolle.handler.ConfigHandler;
 import com.lulan.shincolle.utility.TeamHelper;
 import net.minecraft.ChatFormatting;
 import com.lulan.shincolle.utility.CalcHelper;
+import com.lulan.shincolle.utility.BlockHelper;
 import com.lulan.shincolle.utility.EmotionHelper;
 import com.lulan.shincolle.utility.EntityHelper;
 import com.lulan.shincolle.utility.ParticleHelper;
@@ -258,6 +259,10 @@ public final class ShipAmbientVisuals {
     }
 
     public static void tick(EntityAbyssMissile missile) {
+        if (missile.level().isClientSide() && missile.getMovementType() == 2
+                && BlockHelper.checkBlockIsLiquid(missile.level().getBlockState(missile.blockPosition()))) {
+            missile.clientEnteredLiquidForTrail = true;
+        }
         if (!missile.getTrailDelay().allowsEmission()) return;
         if (missile.level().isClientSide() && !missile.isInvisible() && missile.getMissileType() == 2) {
             // railgun: two short lightning strips on the head every tick
@@ -267,17 +272,17 @@ public final class ShipAmbientVisuals {
             }
             return;
         }
-        if (!missile.level().isClientSide() || missile.isInvisible() || missile.tickCount <= 2
+        if (!missile.level().isClientSide() || missile.isInvisible()
+                || !MissileTrailVisibility.allowsEmission(missile.getMovementType(), missile.tickCount,
+                        missile.clientEnteredLiquidForTrail)
                 || missile.getMissileType() == 2) {
             return;
         }
         if (missile.vel0 < 0.45D || missile.vel0 > 0.55D) {
-            if (missile.getMovementType() != 2) {
-                int trailType = missile.vel0 > 0.55D ? 1 : 2;
-                for (int j = 0; j < 4; j++) {
-                    Minecraft.getInstance().particleEngine.add(
-                            new ParticleSpray(missile, trailType, new double[]{missile.vel0, j}));
-                }
+            int trailType = missile.vel0 > 0.55D ? 1 : 2;
+            for (int j = 0; j < 4; j++) {
+                Minecraft.getInstance().particleEngine.add(
+                        new ParticleSpray(missile, trailType, new double[]{missile.vel0, j}));
             }
             return;
         }

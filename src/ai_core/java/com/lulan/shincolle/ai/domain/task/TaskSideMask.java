@@ -2,15 +2,17 @@ package com.lulan.shincolle.ai.domain.task;
 
 /**
  * The task side setting: six faces for each of input, output and fuel (bits 0-17), then whether a match
- * must also agree on metadata (bit 18) and on NBT (bit 20). Other bits are not this version's; they are
- * ignored here and kept in the raw value.
+ * must also agree on metadata (bit 18) and on NBT (bit 20), or accept a shared material tag for
+ * different items (bit 19). Other bits are ignored here and kept in the raw value.
  */
 public record TaskSideMask(int raw) {
     public static final int GROUPS = 3;
     public static final int FACES = 6;
     private static final int METADATA_BIT = 18;
+    private static final int ORE_TAG_BIT = 19;
     private static final int NBT_BIT = 20;
-    private static final int KNOWN = (1 << (GROUPS * FACES)) - 1 | 1 << METADATA_BIT | 1 << NBT_BIT;
+    private static final int KNOWN = (1 << (GROUPS * FACES)) - 1
+            | 1 << METADATA_BIT | 1 << ORE_TAG_BIT | 1 << NBT_BIT;
 
     public boolean face(int group, int face) {
         if (group < 0 || group >= GROUPS || face < 0 || face >= FACES) {
@@ -25,6 +27,10 @@ public record TaskSideMask(int raw) {
 
     public boolean checkNbt() {
         return (this.raw & 1 << NBT_BIT) != 0;
+    }
+
+    public boolean checkOreTag() {
+        return (this.raw & 1 << ORE_TAG_BIT) != 0;
     }
 
     public int unknownBits() {

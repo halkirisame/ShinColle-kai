@@ -72,6 +72,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
@@ -136,6 +137,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     private static final String DEATH_CURIOS_SNAPSHOT_TAG = "DeathCuriosSnapshot";
     /** Minimum final movement speed as a ratio of the ship's raw MOV. */
     public static final float MIN_MOV_RATIO = 0.1F;
+    private static final float OWNER_ACCIDENTAL_DAMAGE_LIMIT = 1.0F;
     private static final Set<String> REPORTED_INVALID_EQUIPMENT = ConcurrentHashMap.newKeySet();
     private static final Set<String> REPORTED_INVALID_EQUIPMENT_SCALE = ConcurrentHashMap.newKeySet();
     private final Set<net.minecraft.world.level.ChunkPos> forcedShipChunks = new java.util.HashSet<>();
@@ -160,7 +162,6 @@ public abstract class BasicEntityShip extends TamableAnimal
      * unit names
      */
     public ArrayList<String> unitNames;
-    // fishing hook
     public EntityShipFishingHook fishHook;
     protected CapaShipInventory itemHandler;
     private ItemStack lastSyncedMainHand = ItemStack.EMPTY;
@@ -251,11 +252,8 @@ public abstract class BasicEntityShip extends TamableAnimal
     protected MissileData[] MissileData;
     // model render
     protected float[] rotateAngle;
-    // texture
     protected int textureID;
-    // riding state
     protected int ridingState;
-    // scale level
     protected int scaleLevel;
     // initialization
     private boolean initAI, initWaitAI;
@@ -308,7 +306,6 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.ridingState = 0;
         this.scaleLevel = 0;
 
-        // init
         this.initAI = false;
         this.initWaitAI = false;
         this.isUpdated = false;
@@ -368,6 +365,8 @@ public abstract class BasicEntityShip extends TamableAnimal
 
     @Override
     public boolean isInvulnerableTo(DamageSource source) {
+        if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY))
+            return false;
         // Always allow void damage
         if (source == damageSources().fellOutOfWorld())
             return false;
@@ -422,7 +421,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     @Nullable
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        return ModSounds.getCustomSound(2, this.getShipClass());
+        return ModSounds.getCustomSound(2, this.getShipClass(), this.getRandom());
     }
 
     @Override
@@ -453,12 +452,12 @@ public abstract class BasicEntityShip extends TamableAnimal
             if (this.random.nextInt(5) == 0) {
                 sound = getCustomSound(4, this);
             } else {
-                sound = ModSounds.getCustomSound(0, this.getShipClass());
+                sound = ModSounds.getCustomSound(0, this.getShipClass(), this.getRandom());
             }
         }
         // normal ship
         else {
-            sound = ModSounds.getCustomSound(0, this.getShipClass());
+            sound = ModSounds.getCustomSound(0, this.getShipClass(), this.getRandom());
         }
 
         if (sound != null) {
@@ -612,7 +611,6 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.hasPreviousTravelSample = false;
         super.readAdditionalSaveData(nbt);
         this.setManualTarget(null);
-        this.commandState.onLoad();
         this.formationState.invalidate();
 
         // load ship attributes
@@ -690,7 +688,6 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.tickBuffMapSync();
         this.syncRotationToMount();
 
-        // update arm swing
         updateSwingTime();
 
         // client side
@@ -850,6 +847,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         // server side
         if (!level().isClientSide()) {
             this.commandState.initialize();
+            this.commandState.reconcileFishing();
             ShipSkillAttackGate.observe(this);
             RuBurstAttackGate.observe(this);
             resolveGuardedEntity();
@@ -916,7 +914,6 @@ public abstract class BasicEntityShip extends TamableAnimal
                     if (this.isAlive()) {
                         EntityHelper.updateWaypointMove(this);
 
-                        // cancel mounts if can't summon
                         if (this.hasShipMounts() && !this.canSummonMounts()) {
                             if (this.isPassenger() && this.getVehicle() instanceof BasicEntityMount mount) {
                                 if (this.getStateFlag(ID.F.NoFuel)) {
@@ -952,7 +949,6 @@ public abstract class BasicEntityShip extends TamableAnimal
                                 }
                             }
 
-                            // update mount entity summoning
                             updateMountSummon();
 
                             // update chunk loader based on compass equip
@@ -1538,10 +1534,25 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.level().addFreshEntity(missile);
     }
 
+    /** The deliberate hammer action keeps the normal virtual hurt chain, but not the owner's damage cap. */
+    public boolean dismantleWithHammer(Player player) {
+        return this.hurt(new DismantlingDamageSource(player), this.getMaxHealth() * 1.1F);
+    }
+
+    /** An action-local marker with the same damage type and attribution as the ordinary player attack. */
+    private static final class DismantlingDamageSource extends DamageSource {
+        DismantlingDamageSource(Player player) {
+            super(player.damageSources().playerAttack(player).typeHolder(), player);
+        }
+    }
+
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (this.level().isClientSide())
             return false;
+
+        if (source.is(DamageTypes.GENERIC_KILL))
+            return super.hurt(source, amount);
 
         // spell damage from the owner or an ally never reaches this ship, so it also
         // leaves no revenge target, stand-up or morale loss behind
@@ -1577,7 +1588,7 @@ public abstract class BasicEntityShip extends TamableAnimal
             return false;
         }
 
-        // check if attacker is a potion source 竊・recalculate damage, bypass DEF
+        // check if attacker is a potion source → recalculate damage, bypass DEF
         float potionAtk = BuffHelper.getPotionDamage(this, source, amount);
         if (potionAtk > 0F) {
             amount = potionAtk;
@@ -1589,7 +1600,8 @@ public abstract class BasicEntityShip extends TamableAnimal
                 TeamHelper.checkSameOwner(source.getEntity(), this)) {
             standAfterDamage();
             this.setStateEmotion(ID.S.Emotion, ID.Emotion.O_O, true);
-            return super.hurt(source, amount);
+            return super.hurt(source, source instanceof DismantlingDamageSource
+                    ? amount : Math.min(amount, OWNER_ACCIDENTAL_DAMAGE_LIMIT));
         }
 
         // invulnerable check (Repair Goddess immunity timer)
@@ -1643,7 +1655,6 @@ public abstract class BasicEntityShip extends TamableAnimal
             // cancel sitting
             standAfterDamage();
 
-            // set revenge target
             this.setEntityRevengeTarget(attacker);
             this.setEntityRevengeTime();
 
@@ -1789,7 +1800,6 @@ public abstract class BasicEntityShip extends TamableAnimal
                 }
             }
 
-            // easy mode multiplier
             if (ConfigHandler.easyMode()) {
                 addAmmo *= 10;
             }
@@ -2267,7 +2277,7 @@ public abstract class BasicEntityShip extends TamableAnimal
      * get custom sound for this entity. type index varies by entity
      */
     public SoundEvent getCustomSound(int type, BasicEntityShip ship) {
-        SoundEvent sound = ModSounds.getCustomSound(type, ship.getShipClass());
+        SoundEvent sound = ModSounds.getCustomSound(type, ship.getShipClass(), ship.getRandom());
         return sound != null ? sound : SoundEvents.GENERIC_HURT;
     }
 
@@ -2277,7 +2287,7 @@ public abstract class BasicEntityShip extends TamableAnimal
     public void flareTarget(Entity target) {
         if (target != null && !this.level().isClientSide()) {
             ModNetworking.sendToAllTracking(
-                    S2CReactPacket.flareEffect((int) target.getX(), (int) target.getY(), (int) target.getZ()),
+                    S2CReactPacket.flareEffect(Mth.floor(target.getX()), Mth.floor(target.getY()), Mth.floor(target.getZ())),
                     this);
         }
     }
@@ -3446,6 +3456,16 @@ public abstract class BasicEntityShip extends TamableAnimal
         this.commandState.apply(issuer, operation);
     }
 
+    /** Shared AI save boundary, including saves that do not serialize the whole entity. */
+    public void saveCommandData(CompoundTag nbt) {
+        this.commandState.save(nbt);
+    }
+
+    /** Drop old authority now; projection waits until all caller-owned guard fields have loaded. */
+    public void loadCommandData(CompoundTag nbt) {
+        this.commandState.onLoad(nbt);
+    }
+
     public void applyCommandState(CommandIssuer issuer, CommandStateOp operation, long sequence) {
         this.commandState.apply(issuer, operation, sequence);
     }
@@ -3840,7 +3860,8 @@ public abstract class BasicEntityShip extends TamableAnimal
                 // use training book, owner only
                 else if (stack.getItem() == ModItems.TRAINING_BOOK.get()
                         && TeamHelper.checkSameOwner(player, this)) {
-                    if (ShipLevelRules.canUseTrainingBook(this.getLevel(), ConfigHandler.maxLevel)) {
+                    if (ShipLevelRules.canUseTrainingBook(this.getLevel(), this.getStateFlag(ID.F.IsMarried),
+                            ConfigHandler.maxLevelUnmarried, ConfigHandler.maxLevel)) {
                         int gainedLevels = 5 + this.random.nextInt(6);
                         int lv = ShipLevelRules.trainingBookResult(this.getLevel(), gainedLevels,
                                 this.getStateFlag(ID.F.IsMarried),
@@ -3940,7 +3961,7 @@ public abstract class BasicEntityShip extends TamableAnimal
                 this.sendSunkLocationMessage();
                 this.updateSunkLocation(BlockPos.containing(this.getX(), this.getY(), this.getZ()));
             }
-            this.playVoice(ModSounds.getCustomSound(3, this.getShipClass()),
+            this.playVoice(ModSounds.getCustomSound(3, this.getShipClass(), this.getRandom()),
                     this.getSoundVolume(), this.getVoicePitch());
         }
         LogHelper.info("Ship died: class=" + this.getShipClass() + " source=" + source.getMsgId());
@@ -4590,7 +4611,7 @@ public abstract class BasicEntityShip extends TamableAnimal
         int hour = TimekeepingRules.hourToAnnounce(dayTime, this.lastTimeSoundDayTime);
         if (hour >= 0) {
             this.lastTimeSoundDayTime = dayTime;
-            SoundEvent sound = ModSounds.getCustomSound(hour + 10, this.getShipClass());
+            SoundEvent sound = ModSounds.getCustomSound(hour + 10, this.getShipClass(), this.getRandom());
             if (sound != null) {
                 this.playVoice(sound, (float) ConfigHandler.volumeTimekeeping(), this.getVoicePitch());
             }

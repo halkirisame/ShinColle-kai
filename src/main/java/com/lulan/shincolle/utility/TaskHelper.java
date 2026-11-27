@@ -4,6 +4,7 @@ import com.lulan.shincolle.ai.ShipMovementExecutor;
 import com.lulan.shincolle.ai.ShipMovementGate;
 import com.lulan.shincolle.ai.domain.command.CommandPos;
 import com.lulan.shincolle.ai.domain.movement.MovementPoint;
+import com.lulan.shincolle.ai.domain.movement.MovementBody;
 import com.lulan.shincolle.ai.domain.task.TaskMovePlanner;
 import com.lulan.shincolle.ai.domain.task.TaskMoveRequest;
 import com.lulan.shincolle.ai.domain.task.TaskSideMask;
@@ -36,6 +37,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.EntityType;
@@ -77,7 +79,8 @@ public class TaskHelper {
 
     /** NEW: a working ship's walk, planned by the domain and carried out by the movement executor. */
     private static void taskMove(BasicEntityShip host, TaskMoveRequest request) {
-        ShipMovementExecutor.run(host, TaskMovePlanner.plan(request, ShipMovementGate.taskMove(host, request)));
+        MovementBody body = ShipMovementGate.taskBody(host) == host ? MovementBody.SELF : MovementBody.VEHICLE;
+        ShipMovementExecutor.run(host, TaskMovePlanner.plan(request, ShipMovementGate.taskMove(host, request), body));
     }
 
     /**
@@ -144,7 +147,6 @@ public class TaskHelper {
         if (!(te instanceof TileEntityWaypoint waypoint))
             return;
 
-        // check waypoint has paired chest
         if (!waypoint.hasPairedChest())
             return;
         pos = waypoint.getPairedChest();
@@ -182,6 +184,7 @@ public class TaskHelper {
         TaskSideMask sideMask = new TaskSideMask(taskSide);
         boolean checkMetadata = sideMask.checkMetadata();
         boolean checkNbt = sideMask.checkNbt();
+        boolean checkOreTag = sideMask.checkOreTag();
         InventoryCraftingFake recipeTemp = new InventoryCraftingFake(3, 3);
         boolean canAddExp = false;
         int maxtimes = maxCraft;
@@ -205,9 +208,8 @@ public class TaskHelper {
                     continue;
                 }
 
-                // get item from chest
                 ItemStack fromChest = getAndRemoveItemFromHandler(chest, tempStack, 1,
-                        checkMetadata, checkNbt);
+                        checkMetadata, checkNbt, checkOreTag);
                 invShip.setStackInSlot(i + 12, fromChest);
                 recipeTemp.setItem(i, invShip.getStackInSlot(i + 12));
             }
@@ -219,7 +221,7 @@ public class TaskHelper {
             if (resultOpt.isPresent()) {
                 ItemStack resultTemp = resultOpt.get().assemble(recipeTemp, host.level().registryAccess());
 
-                if (!InventoryHelper.matchTargetItem(resultTemp, result, checkMetadata, checkNbt)) {
+                if (!InventoryHelper.matchTargetItem(resultTemp, result, checkMetadata, checkNbt, checkOreTag)) {
                     break;
                 }
 
@@ -231,7 +233,6 @@ public class TaskHelper {
                 maxCraft--;
                 canAddExp = true;
 
-                // move result to chest or drop
                 moveItemToHandler(chest, resultTemp);
                 if (!resultTemp.isEmpty()) {
                     dropItemOnGround(host, resultTemp);
@@ -435,19 +436,20 @@ public class TaskHelper {
             return;
 
         // move to guard point
-        if (host.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 10D) {
+        Entity body = ShipMovementGate.taskBody(host);
+        if (body.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 10D) {
             taskMove(host, new TaskMoveRequest.FishingSpot(new MovementPoint(pos.getX() + 0.5D, pos.getY(),
                     pos.getZ() + 0.5D)));
             return;
         }
 
         // not in moving
-        Vec3 motion = host.getDeltaMovement();
+        Vec3 motion = body.getDeltaMovement();
         if (Math.abs(motion.x) > 0.1F || Math.abs(motion.z) > 0.1F || motion.y > 0.1F)
             return;
 
         // check water block
-        pos = BlockHelper.getNearbyLiquid(host, false, true, 5, 3);
+        pos = BlockHelper.getNearbyLiquid(body, false, true, 5, 3);
         if (pos == null)
             return;
 
@@ -554,7 +556,6 @@ public class TaskHelper {
         if (!(te instanceof TileEntityWaypoint waypoint))
             return;
 
-        // check waypoint has paired chest
         if (!waypoint.hasPairedChest())
             return;
         pos = waypoint.getPairedChest();
@@ -586,6 +587,7 @@ public class TaskHelper {
         TaskSideMask sideMask = new TaskSideMask(taskSide);
         boolean checkMetadata = sideMask.checkMetadata();
         boolean checkNbt = sideMask.checkNbt();
+        boolean checkOreTag = sideMask.checkOreTag();
         List<IItemHandler> inputHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 0);
         List<IItemHandler> outputHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 1);
         List<IItemHandler> fuelHandlers = InventoryHelper.getItemHandlersFromSides(furnace, taskSide, 2);
@@ -595,7 +597,7 @@ public class TaskHelper {
         // int[] inSlots = InventoryHelper.getSlotsFromSide(furnace, targetStack, taskSide, 0);
         // int[] outSlots = InventoryHelper.getSlotsFromSide(furnace, null, taskSide, 1);
         // int[] fuSlots = InventoryHelper.getSlotsFromSide(furnace, fuelStack, taskSide, 2);
-        int targetSlot = findMatchingSlot(inv, mainstack, checkMetadata, checkNbt, 22, 23);
+        int targetSlot = findMatchingSlot(inv, mainstack, checkMetadata, checkNbt, checkOreTag, 22, 23);
         if (targetSlot >= 0) {
             ItemStack toMove = inv.getStackInSlot(targetSlot);
             if (moveItemToConfiguredInventory(furnace, inputHandlers, taskSide, 0, toMove)) {
@@ -607,7 +609,7 @@ public class TaskHelper {
 
         // Put fuel through the configured face-scoped handlers.
         if (!offstack.isEmpty()) {
-            int fuelSlot = findMatchingSlot(inv, offstack, checkMetadata, checkNbt, 22, 23);
+            int fuelSlot = findMatchingSlot(inv, offstack, checkMetadata, checkNbt, checkOreTag, 22, 23);
             if (fuelSlot >= 0) {
                 ItemStack fuelToMove = inv.getStackInSlot(fuelSlot);
                 if (moveItemToConfiguredInventory(furnace, fuelHandlers, taskSide, 2, fuelToMove)) {
@@ -619,7 +621,7 @@ public class TaskHelper {
         }
 
         // Take one matching output stack through the configured face-scoped handlers.
-        if (moveMatchingOutputToShip(outputHandlers, inv, host, resultStack, checkMetadata, checkNbt)) {
+        if (moveMatchingOutputToShip(outputHandlers, inv, host, resultStack, checkMetadata, checkNbt, checkOreTag)) {
             swing = true;
 
             // add exp and consume grudge
@@ -695,7 +697,6 @@ public class TaskHelper {
         if (pickaxe.isEmpty())
             return;
 
-        // check ConfigMining is loaded
         if (!ConfigMining.isLoaded()) {
             LogHelper.info("WARN: ConfigMining not loaded, skipping mining result");
             return;
@@ -721,7 +722,7 @@ public class TaskHelper {
 
         // get ship stats for filtering
         int shipLevel = ship.getLevel();
-        int yPos = (int) ship.getY();
+        int yPos = Mth.floor(ship.getY());
         int toolLevel = getPickaxeTier(pickaxe);
         int fortuneLevel = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_FORTUNE, pickaxe);
 
@@ -754,7 +755,6 @@ public class TaskHelper {
             }
         }
 
-        // get selected entry
         ConfigMining.ItemEntry selected = filtered.get(selectedIndex);
 
         // look up item by resource location
@@ -763,7 +763,6 @@ public class TaskHelper {
         if (item == null || item == Items.AIR)
             return;
 
-        // calculate stack size
         int stackSize = selected.min();
         if (selected.max() > selected.min()) {
             stackSize = selected.min() + ship.getRandom().nextInt(selected.max() - selected.min() + 1);
@@ -972,14 +971,14 @@ public class TaskHelper {
      * Find slot in ship inventory matching target item, excluding specific slots.
      */
     private static int findMatchingSlot(CapaShipInventory inv, ItemStack target, int... excludeSlots) {
-        return findMatchingSlot(inv, target, false, false, excludeSlots);
+        return findMatchingSlot(inv, target, false, false, false, excludeSlots);
     }
 
     /**
      * Find a TaskSide-configured item match, excluding specific slots.
      */
     private static int findMatchingSlot(CapaShipInventory inv, ItemStack target,
-                                        boolean checkMetadata, boolean checkNbt, int... excludeSlots) {
+                                        boolean checkMetadata, boolean checkNbt, boolean checkOreTag, int... excludeSlots) {
         for (int i = 0; i < inv.getSlots(); i++) {
             boolean excluded = false;
             for (int ex : excludeSlots) {
@@ -992,7 +991,7 @@ public class TaskHelper {
                 continue;
 
             ItemStack stack = inv.getStackInSlot(i);
-            if (InventoryHelper.matchTargetItem(stack, target, checkMetadata, checkNbt)) {
+            if (InventoryHelper.matchTargetItem(stack, target, checkMetadata, checkNbt, checkOreTag)) {
                 return i;
             }
         }
@@ -1043,10 +1042,10 @@ public class TaskHelper {
      * Get and remove matching item from IItemHandler.
      */
     private static ItemStack getAndRemoveItemFromHandler(IItemHandler handler, ItemStack target, int amount,
-                                                         boolean checkMetadata, boolean checkNbt) {
+                                                         boolean checkMetadata, boolean checkNbt, boolean checkOreTag) {
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStackInSlot(i);
-            if (InventoryHelper.matchTargetItem(stack, target, checkMetadata, checkNbt)) {
+            if (InventoryHelper.matchTargetItem(stack, target, checkMetadata, checkNbt, checkOreTag)) {
                 return handler.extractItem(i, amount, false);
             }
         }
@@ -1087,11 +1086,11 @@ public class TaskHelper {
 
     private static boolean moveMatchingOutputToShip(List<IItemHandler> handlers, CapaShipInventory inventory,
                                                     BasicEntityShip host, ItemStack target,
-                                                    boolean checkMetadata, boolean checkNbt) {
+                                                    boolean checkMetadata, boolean checkNbt, boolean checkOreTag) {
         for (IItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack visible = handler.getStackInSlot(slot);
-                if (!InventoryHelper.matchTargetItem(visible, target, checkMetadata, checkNbt))
+                if (!InventoryHelper.matchTargetItem(visible, target, checkMetadata, checkNbt, checkOreTag))
                     continue;
 
                 ItemStack simulated = handler.extractItem(slot, visible.getCount(), true);

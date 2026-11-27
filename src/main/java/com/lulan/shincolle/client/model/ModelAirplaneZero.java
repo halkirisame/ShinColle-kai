@@ -38,7 +38,6 @@ public class ModelAirplaneZero extends ShipModelBaseAdv<Entity> {
         MeshDefinition meshdefinition = new MeshDefinition();
         PartDefinition partdefinition = meshdefinition.getRoot();
 
-        // BodyMain
         PartDefinition bodyMain = partdefinition.addOrReplaceChild("BodyMain",
                 CubeListBuilder.create().texOffs(0, 17)
                         .addBox(-2.0F, -3.0F, -6.0F, 4, 4, 11),
@@ -132,7 +131,6 @@ public class ModelAirplaneZero extends ShipModelBaseAdv<Entity> {
             netHeadYaw -= 360F;
         }
 
-        // Scale level
         switch (ent.getScaleLevel()) {
             case 3:
                 this.scale = 1.6F;

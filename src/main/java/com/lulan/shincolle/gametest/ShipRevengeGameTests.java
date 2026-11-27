@@ -151,7 +151,7 @@ public final class ShipRevengeGameTests {
             BasicEntityShip otherOwner = friendly(helper, entities, null, 6102, new Vec3(5D, 4D, 1D));
             BasicEntityShip outside = friendly(helper, entities, owner, 6101, new Vec3(35D, 4D, 1D));
 
-            helper.assertTrue(attacked.hurt(attacked.damageSources().playerAttack(owner), 1F),
+            helper.assertTrue(entities.allowDamage(attacked).hurt(attacked.damageSources().playerAttack(owner), 1F),
                     "Player attack did not enter the damage pipeline");
             helper.assertTrue(sameOwner.getEntityRevengeTarget() == attacked,
                     "Same-owner ship inside 32 blocks did not receive the attacked ship");
@@ -204,7 +204,7 @@ public final class ShipRevengeGameTests {
             propagated.setStateFlag(ID.F.PassiveAI, true);
             direct.getAttrs().setAttrsBuffed(ID.Attrs.DODGE, 0F);
 
-            helper.assertTrue(direct.hurt(direct.damageSources().mobAttack(directAttacker), 1F),
+            helper.assertTrue(entities.allowDamage(direct).hurt(direct.damageSources().mobAttack(directAttacker), 1F),
                     "Passive ship attack did not enter the damage pipeline");
             helper.assertTrue(direct.getEntityRevengeTarget() == directAttacker,
                     "Passive ship did not retain its direct attacker");

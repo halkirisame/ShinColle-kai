@@ -11,8 +11,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -58,6 +62,62 @@ public final class ShipCmdTickProbeGameTests {
             TickStallProbe.disable();
             TickStallProbe.reset();
         }
+    }
+
+    @GameTest(template = "empty", templateNamespace = "minecraft", batch = "ship_tick_probe")
+    public static void tickProbeServerStopEndsSessionWithoutCarryingState(GameTestHelper helper) {
+        MinecraftServer server = helper.getLevel().getServer();
+        // Never added to the level: the probe only reads its identity.
+        Mob mob = EntityType.PIG.create(helper.getLevel());
+        helper.assertTrue(mob != null, "Failed to create the recorded mob");
+        try {
+            TickStallProbe.disable();
+            TickStallProbe.reset();
+            TickStallProbe.enable(30);
+            // One finished tick and one still open, as when the server stops mid-tick.
+            recordTick(server, mob);
+            TickStallProbe.onServerTickEnd(new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server));
+            recordTick(server, mob);
+            helper.assertTrue(TickStallProbe.cumulativeTicks() == 1L, "Fixture must finish one tick");
+            helper.assertTrue(TickStallProbe.pendingEntities() > 0, "Fixture must leave entities pending");
+            helper.assertTrue(TickStallProbe.pendingPathRequests() > 0L, "Fixture must leave a path request pending");
+
+            TickStallProbe.onServerStopped(new ServerStoppedEvent(server));
+
+            helper.assertTrue(!TickStallProbe.isEnabled(), "Server stop must disable the probe");
+            helper.assertTrue(TickStallProbe.thresholdMs() == TickStallProbe.DEFAULT_THRESHOLD_MS,
+                    "Server stop must restore the default threshold");
+            helper.assertTrue(TickStallProbe.cumulativeTicks() == 0L, "Server stop must clear the tick count");
+            helper.assertTrue(TickStallProbe.pendingEntities() == 0, "Server stop must clear pending entities");
+            helper.assertTrue(TickStallProbe.pendingPathRequests() == 0L,
+                    "Server stop must clear pending path requests");
+            helper.assertTrue(TickStallProbe.reportLines().equals(
+                    new TickStallProbe.Aggregator(TickStallProbe.DEFAULT_THRESHOLD_MS).reportLines(false)),
+                    "Server stop must leave an empty report");
+
+            // The operator command enables the next session mid-tick; the stopped session's open tick must not end in it.
+            TickStallProbe.enable(TickStallProbe.DEFAULT_THRESHOLD_MS);
+            TickStallProbe.onServerTickEnd(new TickEvent.ServerTickEvent(TickEvent.Phase.END, () -> true, server));
+            helper.assertTrue(TickStallProbe.cumulativeTicks() == 0L,
+                    "The next session must not count the stopped session's open tick");
+            helper.assertTrue(TickStallProbe.reportLines().equals(
+                    new TickStallProbe.Aggregator(TickStallProbe.DEFAULT_THRESHOLD_MS).reportLines(true)),
+                    "The next session must start from an empty report");
+            helper.succeed();
+        } finally {
+            TickStallProbe.disable();
+            TickStallProbe.reset();
+            TickStallProbe.enable(TickStallProbe.DEFAULT_THRESHOLD_MS);
+            TickStallProbe.disable();
+        }
+    }
+
+    private static void recordTick(MinecraftServer server, Mob mob) {
+        TickStallProbe.onServerTickStart(new TickEvent.ServerTickEvent(TickEvent.Phase.START, () -> true, server));
+        TickStallProbe.entityTickEnd(mob, TickStallProbe.entityTickBegin());
+        TickStallProbe.pathRequestEnd(mob, TickStallProbe.pathRequestBegin(), null, true, true, 5);
+        TickStallProbe.followEnd(mob, TickStallProbe.followBegin());
+        TickStallProbe.spatialQueryEnd(mob.getUUID(), TickStallProbe.spatialQueryBegin(), 3);
     }
 
     @GameTest(template = "empty", templateNamespace = "minecraft")

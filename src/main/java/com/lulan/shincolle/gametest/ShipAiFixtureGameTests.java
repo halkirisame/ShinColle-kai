@@ -198,7 +198,7 @@ public final class ShipAiFixtureGameTests {
         ServerPlayer player = null;
         try {
             BasicEntityShipHostile ship = hostile(helper, entities, new Vec3(2.5D, 10D, 2.5D), true);
-            ship.setNoAi(true);
+            GameTestEntities.removeAllGoalsEachTick(helper, ship);
             ship.setNoGravity(true);
             player = entities.add(FakePlayerFactory.get(helper.getLevel(), new GameProfile(
                     UUID.fromString("00000000-0000-0000-0000-000000069001"), "shincolle_elevated_watch")));
